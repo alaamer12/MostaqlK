@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mostaqlk Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<style data-purpose="custom-styles">
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
+        
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #f1f5f9; /* Slate 100 */
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+
+        :root {
+            --accent-primary: #2386C8;   /* Mostaql blue — brand/identity (light) */
+            --accent-positive: #2E9E6B;  /* nature green — state/health (light) */
+        }
+        html.dark {
+            --accent-primary: #5CA8DE;   /* lightened for contrast on dark surfaces */
+            --accent-positive: #4FBF8C;
+        }
+
+        body {
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+        html.dark body {
+            background-color: #0f172a; /* Slate 900 */
+        }
+
+        /* Logical property: this is an inline-start edge, not a fixed "left/right" edge —
+           it should flip automatically with dir="rtl" / dir="ltr", per DESIGN.md § RTL support. */
+        .project-card {
+            border-inline-start: 4px solid transparent;
+        }
+        .project-card.unread {
+            border-inline-start-color: var(--accent-primary);
+        }
+        .project-card.read {
+            border-inline-start-color: #cbd5e1; /* Slate 300 — muted, per ui-ux-design.md */
+        }
+        html.dark .project-card.read {
+            border-inline-start-color: #475569; /* Slate 600 — muted on dark */
+        }
+    </style>
+<script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#64748b',
+                        background: '#f8fafc',
+                        surface: '#ffffff',
+                    }
+                }
+            }
+        }
+    </script>
+<script>
+        // Apply saved/system theme before paint to avoid a flash of the wrong theme.
+        (function () {
+            try {
+                var stored = localStorage.getItem('mostaqlk-theme'); // 'light' | 'dark' | null (= match system)
+                var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                var isDark = stored ? stored === 'dark' : systemDark;
+                if (isDark) document.documentElement.classList.add('dark');
+            } catch (e) { /* localStorage unavailable — fall back to light */ }
+        })();
+    </script>
+</head>
+<body class="h-screen flex overflow-hidden text-slate-800 dark:text-slate-200 dark:bg-slate-950">
+<!-- BEGIN: Sidebar -->
+<aside class="w-64 bg-background dark:bg-slate-900 flex flex-col border-l border-slate-200 dark:border-slate-800" data-purpose="sidebar">
+<!-- Logo Area -->
+<div class="h-20 flex items-center px-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-xl">
+                    M
+                </div>
+<div>
+<h1 class="font-bold text-lg leading-tight dark:text-slate-100">Mostaqlk</h1>
+<span class="text-xs text-slate-500 dark:text-slate-400">v1.0.0</span>
+</div>
+</div>
+</div>
+<!-- Navigation -->
+<nav class="flex-1 px-4 py-4 space-y-2 overflow-y-auto" data-purpose="sidebar-nav">
+<a class="flex items-center gap-3 px-4 py-3 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl font-medium relative" href="#">
+<div class="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-600 rounded-l-full"></div>
+<i class="fa-solid fa-list-check w-5 text-center"></i>
+<span>المشاريع</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="#">
+<i class="fa-solid fa-magnifying-glass w-5 text-center"></i>
+<span>البحث المتقدم</span>
+</a>
+<a class="flex items-center justify-between px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="#">
+<div class="flex items-center gap-3">
+<i class="fa-regular fa-bell w-5 text-center"></i>
+<span>التنبيهات</span>
+</div>
+<span class="bg-blue-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">5</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="#">
+<i class="fa-solid fa-gear w-5 text-center"></i>
+<span>الإعدادات</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="#">
+<i class="fa-solid fa-circle-info w-5 text-center"></i>
+<span>حول التطبيق</span>
+</a>
+</nav>
+<!-- Bottom Stats & Theme -->
+<div class="p-4 border-t border-slate-200 dark:border-slate-800 space-y-4">
+<div class="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 text-center">
+<span class="block text-sm text-slate-500 dark:text-slate-400 mb-1">مشاريع مضافة اليوم</span>
+<span class="block text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">12</span>
+</div>
+<div class="flex items-center justify-between px-2">
+<div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+<i class="fa-regular fa-moon"></i>
+<span>الوضع الداكن</span>
+</div>
+<!-- Toggle Switch -->
+<button id="theme-toggle" class="w-10 h-6 bg-slate-300 dark:bg-blue-600 rounded-full relative cursor-pointer focus:outline-none transition-colors" aria-pressed="false" aria-label="تبديل الوضع الداكن" onclick="toggleTheme()">
+<div id="theme-toggle-knob" class="w-4 h-4 bg-white rounded-full absolute top-1 shadow-sm transition-all" style="right: 0.25rem;"></div>
+</button>
+</div>
+</div>
+</aside>
+<!-- END: Sidebar -->
+<!-- BEGIN: Main Content -->
+<main class="flex-1 flex flex-col min-w-0 bg-slate-100 dark:bg-slate-950" data-purpose="main-content">
+<!-- Header Controls -->
+<div class="p-6 pb-2 space-y-4">
+<!-- Top Bar & Search / Actions Integrated -->
+<div class="bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
+<!-- Search Bar -->
+<div class="flex-1 w-full relative">
+<i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"></i>
+<input class="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 dark:text-slate-100 dark:placeholder-slate-500 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow" placeholder="بحث متقدم في المشاريع (العنوان، الوصف، المهارات، الميزانية...)" type="text"/>
+</div>
+<!-- Live / Status & Scan Controls -->
+<div class="flex items-center gap-4 text-sm shrink-0">
+<div class="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+<span id="poll-interval-text">يتم الفحص كل 30 ثانية</span>
+</div>
+<div class="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+<i class="fa-solid fa-gauge-high text-slate-400 dark:text-slate-500 text-xs"></i>
+<span>12 طلب / دقيقة</span>
+</div>
+<div id="live-indicator" class="flex items-center gap-1.5 text-[color:var(--accent-positive)] bg-green-50 dark:bg-green-500/10 px-2.5 py-1 rounded-md">
+<div id="live-dot" class="w-2 h-2 rounded-full animate-pulse" style="background-color: var(--accent-positive);"></div>
+<span id="live-text" class="font-medium">مباشر</span>
+</div>
+<button id="poll-toggle-btn" onclick="togglePolling()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-white transition-colors" style="background-color: #ef4444;">
+<i id="poll-toggle-icon" class="fa-solid fa-pause text-xs"></i>
+<span id="poll-toggle-label">إيقاف</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-300 transition-colors" title="الإعدادات">
+<i class="fa-solid fa-gear"></i>
+</button>
+</div>
+</div>
+<!-- Active Query Indicator -->
+<div class="bg-white dark:bg-slate-900 px-4 py-2.5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 text-sm">
+<div class="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+<i class="fa-solid fa-filter text-slate-400 dark:text-slate-500 text-xs"></i>
+<span>الاستعلام النشط:</span>
+<span class="font-bold text-slate-800 dark:text-slate-200">كل المشاريع</span>
+</div>
+<button class="flex items-center gap-1.5 text-[color:var(--accent-primary)] hover:underline font-medium">
+<i class="fa-solid fa-pen text-xs"></i>
+<span>تعديل</span>
+</button>
+</div>
+</div>
+<!-- Project List -->
+<div class="flex-1 overflow-y-auto px-6 pb-6">
+<div class="space-y-4">
+<!-- Project Card 1 (Unread) -->
+<article class="project-card unread relative flex flex-col gap-0">
+<div class="w-full bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 relative overflow-hidden">
+<div class="flex items-start justify-between gap-4 mb-3">
+<h2 class="text-xl font-extrabold text-slate-900 dark:text-slate-100 leading-relaxed hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors">تصميم موقع تعليمي تفاعلي</h2>
+<span class="flex items-center gap-1.5 px-3 py-1 bg-green-50 dark:bg-green-500/10 text-[color:var(--accent-positive)] text-xs font-medium rounded-md shrink-0">
+<i class="fa-regular fa-circle-check"></i>
+                                تم الإثراء
+                            </span>
+</div>
+<p class="text-slate-600 dark:text-slate-400 text-sm leading-relaxed mb-4 line-clamp-2">
+                                أحتاج إلى تصميم وتطوير موقع تعليمي تفاعلي للدورات اونلاين مع لوحة تحكم للمدرب والطلاب، يدعم المحتوى المرئي والاختبارات والشهادات.
+                            </p>
+<div class="flex flex-wrap gap-2 mb-4">
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">تصميم واجهات</span>
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">تطوير ويب</span>
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">PHP</span>
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">MySQL</span>
+</div>
+<!-- Client Info -->
+<div class="flex items-center justify-between gap-4 py-4 border-t border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-3">
+<div class="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center font-bold text-base shrink-0">
+                                    أع
+                                </div>
+<div class="flex flex-col gap-0.5">
+<h3 class="font-bold text-base text-slate-900 dark:text-slate-100 flex items-center gap-1.5 leading-tight">
+                                        أحمد العتيبي
+                                        <i class="fa-solid fa-circle-check text-green-500 dark:text-green-400 text-sm"></i>
+</h3>
+<span class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                                        السعودية <span class="w-1 h-1 bg-slate-300 dark:bg-slate-600 rounded-full inline-block"></span> عضو منذ 2021
+                                    </span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 text-xs shrink-0">
+<i class="fa-regular fa-clock"></i>
+                                منذ 3 دقائق
+</div>
+</div>
+<div class="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-6">
+<div class="text-sm">
+<span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">الميزانية</span>
+<span class="font-bold text-green-600 dark:text-green-400">2,500 - 5,500 ر.س</span>
+</div>
+<div class="text-sm">
+<span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">مدة التسليم</span>
+<span class="font-bold text-slate-800 dark:text-slate-200">20 يوم</span>
+</div>
+<div class="text-sm">
+<span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">مدة التنفيذ</span>
+<span class="font-bold text-slate-800 dark:text-slate-200">60 يوما</span>
+</div>
+<div class="text-sm">
+<span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">عدد المقترحات</span>
+<div class="flex items-center gap-1 font-bold text-slate-800 dark:text-slate-200">
+<i class="fa-solid fa-users text-slate-400 dark:text-slate-500 text-xs"></i>
+                                    69 عرض
+                                </div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-1.5 text-xs font-medium" style="color: var(--accent-primary);" title="غير مقروء">
+<div class="w-2 h-2 rounded-full ms-1" style="background-color: var(--accent-primary);"></div>
+                        غير مقروء
+                    </div>
+</div>
+</div>
+</div>
+</article>
+<!-- Project Card 2 (Read) -->
+<article class="project-card read relative flex flex-col gap-0">
+<div class="w-full bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 relative overflow-hidden">
+<div class="flex items-start justify-between gap-4 mb-3">
+<h2 class="text-xl font-medium text-slate-700 dark:text-slate-300 leading-relaxed hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors">كتابة محتوى تسويقي لمتجر إلكتروني</h2>
+<span class="flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-medium rounded-md shrink-0">
+<i class="fa-regular fa-clock"></i>
+                                قيد الإثراء
+                            </span>
+</div>
+<p class="text-slate-600 dark:text-slate-400 text-sm leading-relaxed mb-4 line-clamp-2">
+                                مطلوب كتابة أوصاف منتجات احترافية وجذابة لمتجر إلكتروني متخصص في العناية بالبشرة مع تحسين المحتوى لمحركات البحث.
+                            </p>
+<div class="flex flex-wrap gap-2 mb-4">
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">كتابة محتوى</span>
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">سيو</span>
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">تسويق إلكتروني</span>
+</div>
+<!-- Client Info -->
+<div class="flex items-center justify-between gap-4 py-4 border-t border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-3">
+<div class="w-11 h-11 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 text-white flex items-center justify-center font-bold text-base shrink-0">
+                                    سم
+                                </div>
+<div class="flex flex-col gap-0.5">
+<h3 class="font-bold text-base text-slate-900 dark:text-slate-100 flex items-center gap-1.5 leading-tight">
+                                        سارة المطيري
+                                        <i class="fa-solid fa-circle-check text-green-500 dark:text-green-400 text-sm"></i>
+</h3>
+<span class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                                        السعودية <span class="w-1 h-1 bg-slate-300 dark:bg-slate-600 rounded-full inline-block"></span> عضو منذ 2020
+                                    </span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 text-xs shrink-0">
+<i class="fa-regular fa-clock"></i>
+                                منذ 8 دقائق
+</div>
+</div>
+<div class="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-6">
+<div class="text-sm">
+<span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">الميزانية</span>
+<span class="font-bold text-green-600 dark:text-green-400">500 - 1,000 ر.س</span>
+</div>
+<div class="text-sm">
+<span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">مدة التسليم</span>
+<span class="font-bold text-slate-800 dark:text-slate-200">7 أيام</span>
+</div>
+<div class="text-sm">
+<span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">مدة التنفيذ</span>
+<span class="font-bold text-slate-800 dark:text-slate-200">45 يوما</span>
+</div>
+<div class="text-sm">
+<span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">عدد المقترحات</span>
+<div class="flex items-center gap-1 font-bold text-slate-800 dark:text-slate-200">
+<i class="fa-solid fa-users text-slate-400 dark:text-slate-500 text-xs"></i>
+                                    69 عرض
+                                </div>
+</div>
+</div>
+</div>
+</div>
+</article>
+</div>
+</div>
+<!-- StatusBar -->
+<div class="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-6 py-3 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 shrink-0">
+<div class="flex items-center gap-4">
+<span>147 مشروع متتبَّع</span>
+<span class="w-1 h-1 bg-slate-300 dark:bg-slate-600 rounded-full"></span>
+<span class="font-bold" style="color: var(--accent-primary);">1 غير مقروء</span>
+<button class="hover:underline" style="color: var(--accent-primary);">تحديد الكل كمقروء</button>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-1.5">
+                    الاتصال: متصل
+                    <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+</div>
+<div class="flex items-center gap-2">
+                    <span id="scan-status-text">آخر فحص: منذ 12 ثانية</span>
+                    <i id="retry-btn" class="fa-solid fa-rotate-right cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors" onclick="triggerRetry()"></i>
+</div>
+<script>
+    function triggerRetry() {
+        const btn = document.getElementById('retry-btn');
+        const text = document.getElementById('scan-status-text');
+        if (btn.classList.contains('fa-spin')) return;
+        btn.classList.add('fa-spin');
+        text.textContent = 'جاري الفحص...';
+        setTimeout(() => {
+            btn.classList.remove('fa-spin');
+            text.textContent = 'آخر فحص: منذ لحظات';
+        }, 1200);
+    }
+
+    // Dark theme toggle. Persists explicit choice; falls back to OS-level
+    // preference (prefers-color-scheme) when the user hasn't chosen yet,
+    // per DESIGN.md's "match system" default.
+    function applyTheme(isDark) {
+        document.documentElement.classList.toggle('dark', isDark);
+        const btn = document.getElementById('theme-toggle');
+        const knob = document.getElementById('theme-toggle-knob');
+        if (btn) btn.setAttribute('aria-pressed', String(isDark));
+        if (knob) knob.style.right = isDark ? '1.25rem' : '0.25rem';
+    }
+
+    function toggleTheme() {
+        const isDark = !document.documentElement.classList.contains('dark');
+        applyTheme(isDark);
+        try {
+            localStorage.setItem('mostaqlk-theme', isDark ? 'dark' : 'light');
+        } catch (e) { /* localStorage unavailable — theme just won't persist */ }
+    }
+
+    // Sync the toggle's visual state with whatever the pre-paint script decided.
+    applyTheme(document.documentElement.classList.contains('dark'));
+
+    // If the user hasn't made an explicit choice, keep following the OS setting live.
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        try {
+            if (!localStorage.getItem('mostaqlk-theme')) applyTheme(e.matches);
+        } catch (err) { applyTheme(e.matches); }
+    });
+
+    // Start/stop polling. Mirrors the app's real idle/polling states (see README's
+    // tray-icon states) — the "مباشر" indicator and scan-interval text reflect
+    // whichever state we're actually in, not just the button label.
+    let isPolling = true;
+
+    function togglePolling() {
+        isPolling = !isPolling;
+
+        const btn = document.getElementById('poll-toggle-btn');
+        const icon = document.getElementById('poll-toggle-icon');
+        const label = document.getElementById('poll-toggle-label');
+        const liveDot = document.getElementById('live-dot');
+        const liveText = document.getElementById('live-text');
+        const liveIndicator = document.getElementById('live-indicator');
+        const intervalText = document.getElementById('poll-interval-text');
+
+        if (isPolling) {
+            btn.style.backgroundColor = '#ef4444';
+            icon.className = 'fa-solid fa-pause text-xs';
+            label.textContent = 'إيقاف';
+
+            liveIndicator.classList.remove('bg-slate-100', 'dark:bg-slate-800');
+            liveIndicator.classList.add('bg-green-50', 'dark:bg-green-500/10');
+            liveText.style.color = 'var(--accent-positive)';
+            liveDot.style.backgroundColor = 'var(--accent-positive)';
+            liveDot.classList.add('animate-pulse');
+            liveText.textContent = 'مباشر';
+
+            intervalText.textContent = 'يتم الفحص كل 30 ثانية';
+        } else {
+            btn.style.backgroundColor = 'var(--accent-primary)';
+            icon.className = 'fa-solid fa-play text-xs';
+            label.textContent = 'بدء الفحص';
+
+            liveIndicator.classList.remove('bg-green-50', 'dark:bg-green-500/10');
+            liveIndicator.classList.add('bg-slate-100', 'dark:bg-slate-800');
+            liveText.style.color = '';
+            liveDot.style.backgroundColor = '#94a3b8';
+            liveDot.classList.remove('animate-pulse');
+            liveText.textContent = 'متوقف';
+            liveText.classList.add('text-slate-500', 'dark:text-slate-400');
+
+            intervalText.textContent = 'الفحص متوقف';
+        }
+    }
+</script>
+</div>
+</div>
+</main>
+<!-- END: Main Content -->
+</body></html>

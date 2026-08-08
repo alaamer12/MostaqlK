@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>تفاصيل المشروع — Mostaqlk</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<style data-purpose="custom-styles">
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
+
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #f1f5f9; /* Slate 100 */
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        :root {
+            --accent-primary: #2386C8;   /* Mostaql blue — brand/identity (light) */
+            --accent-positive: #2E9E6B;  /* nature green — state/health (light) */
+        }
+        html.dark {
+            --accent-primary: #5CA8DE;   /* lightened for contrast on dark surfaces */
+            --accent-positive: #4FBF8C;
+        }
+
+        body {
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+        html.dark body {
+            background-color: #0f172a; /* Slate 900 */
+        }
+
+        /* Fluid content: per DESIGN.md § Fluid cards, the detail view's description
+           should expand to fit rather than clip or scroll-box arbitrarily. */
+        #project-description {
+            overflow-wrap: break-word;
+        }
+    </style>
+<script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#64748b',
+                        background: '#f8fafc',
+                        surface: '#ffffff',
+                    }
+                }
+            }
+        }
+    </script>
+<script>
+        // Apply saved/system theme before paint to avoid a flash of the wrong theme.
+        (function () {
+            try {
+                var stored = localStorage.getItem('mostaqlk-theme');
+                var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                var isDark = stored ? stored === 'dark' : systemDark;
+                if (isDark) document.documentElement.classList.add('dark');
+            } catch (e) { /* localStorage unavailable — fall back to light */ }
+        })();
+    </script>
+</head>
+<body class="h-screen flex overflow-hidden text-slate-800 dark:text-slate-200 dark:bg-slate-950">
+<!-- BEGIN: Sidebar -->
+<aside class="w-64 bg-background dark:bg-slate-900 flex flex-col border-l border-slate-200 dark:border-slate-800" data-purpose="sidebar">
+<!-- Logo Area -->
+<div class="h-20 flex items-center px-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-xl">
+                    M
+                </div>
+<div>
+<h1 class="font-bold text-lg leading-tight dark:text-slate-100">Mostaqlk</h1>
+<span class="text-xs text-slate-500 dark:text-slate-400">v1.0.0</span>
+</div>
+</div>
+</div>
+<!-- Navigation -->
+<nav class="flex-1 px-4 py-4 space-y-2 overflow-y-auto" data-purpose="sidebar-nav">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="./dashboard.html">
+<i class="fa-solid fa-list-check w-5 text-center"></i>
+<span>المشاريع</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="#">
+<i class="fa-solid fa-magnifying-glass w-5 text-center"></i>
+<span>البحث المتقدم</span>
+</a>
+<a class="flex items-center justify-between px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="#">
+<div class="flex items-center gap-3">
+<i class="fa-regular fa-bell w-5 text-center"></i>
+<span>التنبيهات</span>
+</div>
+<span class="bg-blue-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">5</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="#">
+<i class="fa-solid fa-gear w-5 text-center"></i>
+<span>الإعدادات</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="#">
+<i class="fa-solid fa-circle-info w-5 text-center"></i>
+<span>حول التطبيق</span>
+</a>
+</nav>
+<!-- Bottom Stats & Theme -->
+<div class="p-4 border-t border-slate-200 dark:border-slate-800 space-y-4">
+<div class="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 text-center">
+<span class="block text-sm text-slate-500 dark:text-slate-400 mb-1">مشاريع مضافة اليوم</span>
+<span class="block text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">12</span>
+</div>
+<div class="flex items-center justify-between px-2">
+<div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+<i class="fa-regular fa-moon"></i>
+<span>الوضع الداكن</span>
+</div>
+<!-- Toggle Switch -->
+<button id="theme-toggle" class="w-10 h-6 bg-slate-300 dark:bg-blue-600 rounded-full relative cursor-pointer focus:outline-none transition-colors" aria-pressed="false" aria-label="تبديل الوضع الداكن" onclick="toggleTheme()">
+<div id="theme-toggle-knob" class="w-4 h-4 bg-white rounded-full absolute top-1 shadow-sm transition-all" style="right: 0.25rem;"></div>
+</button>
+</div>
+</div>
+</aside>
+<!-- END: Sidebar -->
+<!-- BEGIN: Main Content -->
+<main class="flex-1 flex flex-col min-w-0 bg-slate-100 dark:bg-slate-950 overflow-hidden" data-purpose="main-content">
+<!-- Top bar: back nav + breadcrumb -->
+<div class="p-6 pb-2">
+<div class="bg-white dark:bg-slate-900 px-4 py-3 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 flex items-center gap-3 text-sm">
+<a href="./dashboard.html" class="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 hover:text-[color:var(--accent-primary)] transition-colors">
+<i class="fa-solid fa-arrow-right text-xs"></i>
+<span>العودة للمشاريع</span>
+</a>
+<span class="text-slate-300 dark:text-slate-700">/</span>
+<span class="text-slate-800 dark:text-slate-200 font-medium truncate">تصميم وتطوير نظام SaaS لوكالات السياحة</span>
+</div>
+</div>
+
+<!-- Scrollable body: two-column layout, main content + بطاقة المشروع sidebar -->
+<div class="flex-1 overflow-y-auto px-6 pb-6">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+
+<!-- LEFT (visually first in RTL): main content, spans 2 cols -->
+<div class="lg:col-span-2 space-y-6">
+
+<!-- Title block -->
+<div class="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
+<div class="flex items-start justify-between gap-4 mb-2">
+<h1 class="text-2xl font-extrabold text-slate-900 dark:text-slate-100 leading-relaxed">تصميم وتطوير نظام SaaS لوكالات السياحة</h1>
+<span class="flex items-center gap-1.5 px-3 py-1 bg-green-50 dark:bg-green-500/10 text-[color:var(--accent-positive)] text-xs font-medium rounded-md shrink-0">
+<i class="fa-regular fa-circle-check"></i>
+                            تم الإثراء
+                        </span>
+</div>
+<div class="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 text-xs">
+<i class="fa-regular fa-clock"></i>
+<span>نُشر منذ 8 ساعات</span>
+</div>
+</div>
+
+<!-- تفاصيل المشروع -->
+<div class="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
+<h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
+<i class="fa-solid fa-file-lines text-slate-400 dark:text-slate-500 text-sm"></i>
+                        تفاصيل المشروع
+                    </h2>
+<div id="project-description" class="text-slate-600 dark:text-slate-300 text-sm leading-loose space-y-4">
+<p>السلام عليكم</p>
+<p>لدي فكرة نظام SaaS لانشاء مواقع للمشتركين معنا لعرض رحلات السفر الخاص بهم وامكانية حجزها عن طريق الموقع الالكتروني مع تواجد صفحات فرعية يمكن تعديلها لكل مشترك، كل مشترك يستطيع انشاء صب دومين على منصتنا او اختيار رابط خاص لحجزه. طبعا احتاج ادارة لاسعار الباقات والمزايا، وسوف يتم مشاركة واجهات المستخدم مع المبرمج بعد رؤية اعمال مشابهه للتسعير النهائي عبر المنصة.</p>
+
+<div>
+<h3 class="font-bold text-slate-800 dark:text-slate-200 mb-2">1. لوحة تحكم وكالات السياحة (Vendor Dashboard):</h3>
+<ul class="list-disc pr-5 space-y-1.5">
+<li><span class="font-medium text-slate-700 dark:text-slate-300">إدارة العروض:</span> إمكانية إضافة وتعديل البكجات السياحية (مثل: رحلة فرنسا) مع تفاصيل الجدول الزمني والصور والأسعار.</li>
+<li><span class="font-medium text-slate-700 dark:text-slate-300">إدارة الخدمات التكميلية:</span> قسم خاص لإضافة خدمات إصدار التأشيرات، وتأجير السيارات، والتأمين السفر.</li>
+<li><span class="font-medium text-slate-700 dark:text-slate-300">نظام التحليلات (Analytics):</span> لوحة بيانات توضح إحصائيات العروض (عدد المشاهدات، عدد الإضافات للسلة، عدد الحجوزات المؤكدة).</li>
+<li><span class="font-medium text-slate-700 dark:text-slate-300">إدارة الطلبات:</span> نظام لاستقبال طلبات العملاء وتحديث حالتها (قيد المعالجة، مؤكد، ملغي).</li>
+<li><span class="font-medium text-slate-700 dark:text-slate-300">إدارة الصفحات:</span> اضافة صفحات مخصصة وتعديل محتويات الصفحات.</li>
+</ul>
+</div>
+
+<div>
+<h3 class="font-bold text-slate-800 dark:text-slate-200 mb-2">3. لوحة تحكم الإدارة العامة (Admin Panel):</h3>
+<ul class="list-disc pr-5 space-y-1.5">
+<li>إدارة واعتماد الوكالات المسجلة.</li>
+<li>التحكم في العمولات والتحويلات المالية.</li>
+<li>إدارة محتوى المنصة العام.</li>
+</ul>
+</div>
+</div>
+</div>
+
+<!-- المهارات المطلوبة -->
+<div class="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
+<h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
+<i class="fa-solid fa-code text-slate-400 dark:text-slate-500 text-sm"></i>
+                        المهارات المطلوبة
+                    </h2>
+<div class="flex flex-wrap gap-2">
+<span class="px-3 py-1.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">تطوير قاعدة بيانات</span>
+<span class="px-3 py-1.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">تطوير البرمجيات</span>
+<span class="px-3 py-1.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">تطوير الويب</span>
+<span class="px-3 py-1.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">SaaS</span>
+<span class="px-3 py-1.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">خدمات الويب</span>
+<span class="px-3 py-1.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">تطوير الويب الكامل</span>
+<span class="px-3 py-1.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">تصميم مواقع</span>
+<span class="px-3 py-1.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">برمجة مواقع</span>
+</div>
+</div>
+
+<!-- المرفقات (assets) — only rendered when the project has assets, per data-model-schema.md -->
+<div class="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
+<h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
+<i class="fa-solid fa-paperclip text-slate-400 dark:text-slate-500 text-sm"></i>
+                        المرفقات
+                    <span class="text-xs font-normal text-slate-400 dark:text-slate-500">(2)</span>
+</h2>
+<div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+<a href="#" class="group flex flex-col gap-2 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-[color:var(--accent-primary)] transition-colors">
+<div class="w-full aspect-video rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-300 dark:text-slate-600">
+<i class="fa-regular fa-image text-2xl"></i>
+</div>
+<div class="flex items-center justify-between gap-2">
+<span class="text-xs text-slate-600 dark:text-slate-400 truncate">mockup-vendor-dashboard.png</span>
+<i class="fa-solid fa-arrow-down-to-line text-xs text-slate-400 dark:text-slate-500 group-hover:text-[color:var(--accent-primary)] transition-colors shrink-0"></i>
+</div>
+</a>
+<a href="#" class="group flex flex-col gap-2 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-[color:var(--accent-primary)] transition-colors">
+<div class="w-full aspect-video rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-300 dark:text-slate-600">
+<i class="fa-regular fa-file-pdf text-2xl"></i>
+</div>
+<div class="flex items-center justify-between gap-2">
+<span class="text-xs text-slate-600 dark:text-slate-400 truncate">نطاق-العمل.pdf</span>
+<i class="fa-solid fa-arrow-down-to-line text-xs text-slate-400 dark:text-slate-500 group-hover:text-[color:var(--accent-primary)] transition-colors shrink-0"></i>
+</div>
+</a>
+</div>
+</div>
+
+</div>
+<!-- END left column -->
+
+<!-- RIGHT (visually second in RTL): بطاقة المشروع summary card, sticky -->
+<div class="lg:col-span-1">
+<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden lg:sticky lg:top-0">
+
+<div class="px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+<h2 class="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+<i class="fa-regular fa-id-card text-slate-400 dark:text-slate-500 text-sm"></i>
+                        بطاقة المشروع
+                    </h2>
+</div>
+
+<div class="px-5 py-4 space-y-4 border-b border-slate-100 dark:border-slate-800">
+<div class="flex items-center justify-between text-sm">
+<span class="text-slate-500 dark:text-slate-400">حالة المشروع</span>
+<span class="flex items-center gap-1.5 font-bold" style="color: var(--accent-positive);">
+<span class="w-1.5 h-1.5 rounded-full" style="background-color: var(--accent-positive);"></span>
+                            مفتوح
+                        </span>
+</div>
+<div class="flex items-center justify-between text-sm">
+<span class="text-slate-500 dark:text-slate-400">تاريخ النشر</span>
+<span class="font-medium text-slate-800 dark:text-slate-200">منذ 8 ساعات</span>
+</div>
+<div class="flex items-center justify-between text-sm">
+<span class="text-slate-500 dark:text-slate-400">الميزانية</span>
+<span class="font-bold text-green-600 dark:text-green-400">$1000.00 - $2500.00</span>
+</div>
+<div class="flex items-center justify-between text-sm">
+<span class="text-slate-500 dark:text-slate-400">مدة التنفيذ</span>
+<span class="font-bold text-slate-800 dark:text-slate-200">60 يوما</span>
+</div>
+<div class="flex items-center justify-between text-sm">
+<span class="text-slate-500 dark:text-slate-400">عدد المقترحات</span>
+<span class="flex items-center gap-1 font-bold text-slate-800 dark:text-slate-200">
+<i class="fa-solid fa-users text-slate-400 dark:text-slate-500 text-xs"></i>
+                            16 عرض
+                        </span>
+</div>
+</div>
+
+<!-- المهارات (compact, repeated inline per the requested card layout) -->
+<div class="px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+<span class="block text-sm text-slate-500 dark:text-slate-400 mb-2">المهارات</span>
+<div class="flex flex-wrap gap-1.5">
+<span class="px-2.5 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">تطوير قاعدة بيانات</span>
+<span class="px-2.5 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">تطوير البرمجيات</span>
+<span class="px-2.5 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">تطوير الويب</span>
+<span class="px-2.5 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">SaaS</span>
+<span class="px-2.5 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">خدمات الويب</span>
+<span class="px-2.5 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">تطوير الويب الكامل</span>
+<span class="px-2.5 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">تصميم مواقع</span>
+<span class="px-2.5 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">برمجة مواقع</span>
+</div>
+</div>
+
+<!-- صاحب المشروع -->
+<div class="px-5 py-4">
+<span class="block text-sm text-slate-500 dark:text-slate-400 mb-3">صاحب المشروع</span>
+<div class="flex items-center gap-3 mb-4">
+<div class="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center font-bold text-base shrink-0">
+                            م
+                        </div>
+<div class="flex flex-col gap-0.5 min-w-0">
+<h3 class="font-bold text-base text-slate-900 dark:text-slate-100 flex items-center gap-1.5 leading-tight">
+                                مشعل ا.
+                                <i class="fa-solid fa-circle-check text-green-500 dark:text-green-400 text-sm"></i>
+</h3>
+<span class="text-xs text-slate-500 dark:text-slate-400 truncate">برمجة، تطوير المواقع والتطبيقات</span>
+</div>
+</div>
+
+<div class="space-y-2.5 text-sm">
+<div class="flex items-center justify-between">
+<span class="text-slate-500 dark:text-slate-400">تاريخ التسجيل</span>
+<span class="font-medium text-slate-800 dark:text-slate-200">12 سبتمبر 2015</span>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-slate-500 dark:text-slate-400">معدل التوظيف</span>
+<span class="font-medium text-slate-800 dark:text-slate-200">23.91%</span>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-slate-500 dark:text-slate-400">المشاريع المفتوحة</span>
+<span class="font-medium text-slate-800 dark:text-slate-200">1</span>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-slate-500 dark:text-slate-400">مشاريع قيد التنفيذ</span>
+<span class="font-medium text-slate-800 dark:text-slate-200">0</span>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-slate-500 dark:text-slate-400">التواصلات الجارية</span>
+<span class="font-medium text-slate-800 dark:text-slate-200">16</span>
+</div>
+</div>
+</div>
+
+</div>
+</div>
+<!-- END right column -->
+
+</div>
+</div>
+</main>
+<!-- END: Main Content -->
+<script>
+    function applyTheme(isDark) {
+        document.documentElement.classList.toggle('dark', isDark);
+        const btn = document.getElementById('theme-toggle');
+        const knob = document.getElementById('theme-toggle-knob');
+        if (btn) btn.setAttribute('aria-pressed', String(isDark));
+        if (knob) knob.style.right = isDark ? '1.25rem' : '0.25rem';
+    }
+
+    function toggleTheme() {
+        const isDark = !document.documentElement.classList.contains('dark');
+        applyTheme(isDark);
+        try {
+            localStorage.setItem('mostaqlk-theme', isDark ? 'dark' : 'light');
+        } catch (e) { /* localStorage unavailable — theme just won't persist */ }
+    }
+
+    applyTheme(document.documentElement.classList.contains('dark'));
+
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        try {
+            if (!localStorage.getItem('mostaqlk-theme')) applyTheme(e.matches);
+        } catch (err) { applyTheme(e.matches); }
+    });
+</script>
+</body></html>
