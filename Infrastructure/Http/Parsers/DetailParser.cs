@@ -289,7 +289,7 @@ public static class DetailParser
             result.Add(new ProjectSkill
             {
                 Name = name,
-                Url = link?.GetAttributeValue("href", null),
+                Url = link?.Attributes["href"]?.Value,
             });
         }
         return result;

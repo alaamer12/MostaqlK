@@ -35,32 +35,32 @@ public sealed partial class SettingsViewModel : ObservableObject
     private bool _isLoading;
 
     [ObservableProperty]
-    private int _pollIntervalSeconds;
+    public partial int PollIntervalSeconds { get; set; }
 
     [ObservableProperty]
-    private int _requestsPerMinute;
+    public partial int RequestsPerMinute { get; set; }
 
     [ObservableProperty]
-    private NotificationGroupingMode _groupingMode;
+    public partial NotificationGroupingMode GroupingMode { get; set; }
 
     [ObservableProperty]
-    private int _groupingThreshold;
+    public partial int GroupingThreshold { get; set; }
 
     [ObservableProperty]
-    private bool _isDarkMode;
+    public partial bool IsDarkMode { get; set; }
 
     [ObservableProperty]
-    private int _projectsAddedTodayCount;
+    public partial int ProjectsAddedTodayCount { get; set; }
 
     /// <summary>
     /// Validation feedback surfaced to the UI (reusing <c>LabelWithSubText</c>'s
     /// external/fix message shape). Empty when every field is currently valid.
     /// </summary>
     [ObservableProperty]
-    private string _validationMessage = string.Empty;
+    public partial string ValidationMessage { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private bool _hasValidationError;
+    public partial bool HasValidationError { get; set; }
 
     public SettingsViewModel(
         IPollService pollService,

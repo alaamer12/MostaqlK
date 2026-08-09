@@ -15,14 +15,14 @@ public sealed partial class ProjectCardViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsUnread))]
-    private ProjectSummary _project;
+    public partial ProjectSummary Project { get; set; }
 
     /// <summary>Bound by <c>ProjectCard.xaml</c>'s tap gesture; delegates back to the owning feed's select handler.</summary>
     public ICommand SelectCommand { get; }
 
     public ProjectCardViewModel(ProjectSummary project, Action<ProjectCardViewModel>? onSelected = null)
     {
-        _project = project;
+        Project = project;
         _onSelected = onSelected;
         SelectCommand = new RelayCommand(() => _onSelected?.Invoke(this));
     }

@@ -24,22 +24,22 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     public ObservableCollection<ProjectCardViewModel> Projects { get; } = [];
 
     [ObservableProperty]
-    private string _searchQuery = string.Empty;
+    public partial string SearchQuery { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private bool _isLoading;
+    public partial bool IsLoading { get; set; }
 
     [ObservableProperty]
-    private bool _isEmpty;
+    public partial bool IsEmpty { get; set; }
 
     [ObservableProperty]
-    private bool _hasError;
+    public partial bool HasError { get; set; }
 
     [ObservableProperty]
-    private string? _errorMessage;
+    public partial string? ErrorMessage { get; set; }
 
     [ObservableProperty]
-    private int _unreadCount;
+    public partial int UnreadCount { get; set; }
 
     /// <summary>True once loading has finished with no error and at least one result — drives the success-state ScrollView.</summary>
     public bool ShowFeed => !IsLoading && !HasError && !IsEmpty;

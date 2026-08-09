@@ -19,13 +19,13 @@ public sealed partial class AttachmentItemViewModel : ObservableObject
     public string? SizeText => Asset.SizeText;
 
     [ObservableProperty]
-    private AttachmentStatus? _status;
+    public partial AttachmentStatus? Status { get; set; }
 
     [ObservableProperty]
-    private string? _statusMessage;
+    public partial string? StatusMessage { get; set; }
 
     [ObservableProperty]
-    private bool _isResolving;
+    public partial bool IsResolving { get; set; }
 
     public AttachmentItemViewModel(Asset asset, AssetDownloadService assetDownloadService)
     {
@@ -66,16 +66,16 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     public ObservableCollection<AttachmentItemViewModel> Attachments { get; } = [];
 
     [ObservableProperty]
-    private ProjectDetails? _details;
+    public partial ProjectDetails? Details { get; set; }
 
     [ObservableProperty]
-    private bool _isLoading;
+    public partial bool IsLoading { get; set; }
 
     [ObservableProperty]
-    private bool _hasError;
+    public partial bool HasError { get; set; }
 
     [ObservableProperty]
-    private string? _errorMessage;
+    public partial string? ErrorMessage { get; set; }
 
     /// <summary>True once loading has finished with no error — drives the success-state ScrollView.</summary>
     public bool ShowDetails => !IsLoading && !HasError && Details is not null;

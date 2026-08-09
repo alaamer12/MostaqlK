@@ -13,12 +13,12 @@
     <ScrollView>
         <VerticalStackLayout Padding="24" Spacing="16">
 
-            <Frame Padding="16" CornerRadius="8" HasShadow="False">
+            <Border Padding="16" StrokeShape="RoundRectangle 8">
                 <VerticalStackLayout Spacing="4">
                     <Label Text="مشاريع مضافة اليوم" FontSize="14" TextColor="Gray" />
                     <Label Text="{Binding ProjectsAddedTodayCount}" FontSize="28" FontAttributes="Bold" />
                 </VerticalStackLayout>
-            </Frame>
+            </Border>
 
             <Label Text="{Binding ValidationMessage}"
                    TextColor="Red"

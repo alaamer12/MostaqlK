@@ -19,26 +19,26 @@ public sealed partial class StatusBarViewModel : ObservableObject, IDisposable
     private readonly Timer _rateBudgetTimer;
 
     [ObservableProperty]
-    private DateTimeOffset? _lastPolledAt;
+    public partial DateTimeOffset? LastPolledAt { get; set; }
 
     [ObservableProperty]
-    private bool _isPolling;
+    public partial bool IsPolling { get; set; }
 
     [ObservableProperty]
-    private int _unreadCount;
+    public partial int UnreadCount { get; set; }
 
     [ObservableProperty]
-    private double _availableTokens;
+    public partial double AvailableTokens { get; set; }
 
     [ObservableProperty]
-    private int _rateLimitCapacity;
+    public partial int RateLimitCapacity { get; set; }
 
     public StatusBarViewModel(TokenBucketRateLimiter rateLimiter, IPollService pollService)
     {
         _rateLimiter = rateLimiter;
         _pollService = pollService;
-        _rateLimitCapacity = rateLimiter.Capacity;
-        _availableTokens = rateLimiter.AvailableTokens;
+        RateLimitCapacity = rateLimiter.Capacity;
+        AvailableTokens = rateLimiter.AvailableTokens;
 
         _rateBudgetTimer = new Timer(_ => AvailableTokens = _rateLimiter.AvailableTokens, null, PollInterval, PollInterval);
     }

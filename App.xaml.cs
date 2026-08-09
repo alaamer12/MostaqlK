@@ -13,12 +13,18 @@ public partial class App : Application
 		InitializeComponent();
 
 		// Windows-specific style overrides (BasedOn AppButtonBase, etc.) are merged only on the
-		// Windows target framework, per Mechanism 1 in cross-platform-ui-conventions.md.
+		// Windows target framework, per Mechanism 1 in cross-platform-ui-conventions.md. Built in
+		// code (not via a dynamically-loaded XAML file) because `ResourceDictionary.Source` runtime
+		// resolution is not supported under this project's SourceGen XAML inflator and was causing
+		// an unhandled native crash on startup before any window could appear.
 #if WINDOWS
-		Resources.MergedDictionaries.Add(new ResourceDictionary
+		if (Resources.TryGetValue("AppButtonBase", out var baseButtonStyleValue) && baseButtonStyleValue is Style baseButtonStyle)
 		{
-			Source = new Uri("Platforms/Windows/Styles/AppButtonStyle.Windows.xaml", UriKind.Relative)
-		});
+			var windowsButtonStyle = new Style(typeof(Microsoft.Maui.Controls.Button)) { BasedOn = baseButtonStyle };
+			windowsButtonStyle.Setters.Add(new Setter { Property = Microsoft.Maui.Controls.Button.PaddingProperty, Value = new Thickness(16, 10) });
+			windowsButtonStyle.Setters.Add(new Setter { Property = Microsoft.Maui.Controls.Button.FontSizeProperty, Value = 14 });
+			Resources.Add("AppButtonWindows", windowsButtonStyle);
+		}
 #endif
 
 		// TODO(RTL): the Arabic-first FlowDirection switch (dir="rtl" in the mockups) hooks in here,

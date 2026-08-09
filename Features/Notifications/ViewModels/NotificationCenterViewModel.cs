@@ -20,7 +20,7 @@ public sealed partial class NotificationCenterViewModel : ObservableObject
     public ObservableCollection<ProjectSummary> RecentNotifications { get; } = [];
 
     [ObservableProperty]
-    private int _unreadBadgeCount;
+    public partial int UnreadBadgeCount { get; set; }
 
     public NotificationCenterViewModel(INotificationDispatcher notificationDispatcher)
     {

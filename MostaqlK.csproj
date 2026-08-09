@@ -67,17 +67,24 @@
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
 		<PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
 		<PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
+		<!-- Microsoft.Data.Sqlite 10.0.10 transitively pulls in SQLitePCLRaw.bundle_e_sqlite3 2.1.11,
+		     which bundles a pre-3.50.2 SQLite affected by a known high-severity vulnerability
+		     (NU1903, GHSA-2m69-gcr7-jv3q / CVE-2025-6965). Pin a newer bundle directly to override
+		     the transitive version until Microsoft.Data.Sqlite itself upgrades its dependency. -->
+		<PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
 	</ItemGroup>
 
-	<!-- Platforms\Windows\*.xaml is auto-globbed as a native WinUI Page by the WindowsAppSDK build
-	     tooling. Our design-system style override dictionary under Platforms\Windows\Styles is a
-	     MAUI resource dictionary (merged at runtime in App.xaml.cs), not a WinUI page, so it must be
-	     excluded from the WinUI Page item and treated as a MAUI resource instead. -->
+	<!-- Platforms\Windows\*.xaml would otherwise be auto-globbed as a native WinUI Page by the
+	     WindowsAppSDK build tooling. There are currently no MAUI XAML resource files under
+	     Platforms\Windows, but this exclusion is kept in place defensively in case one is added
+	     later (see cross-platform-ui-conventions.md, Mechanism 1) - such a file must be applied via
+	     compiled/merged XAML (e.g. referenced from App.xaml) or built in code, NOT via a
+	     dynamically-loaded `ResourceDictionary.Source` Uri at runtime, since that is not supported
+	     under this project's SourceGen XAML inflator and previously caused a native startup crash. -->
 	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
-		<Page Remove="Platforms\Windows\Styles\AppButtonStyle.Windows.xaml" />
-		<MauiXaml Include="Platforms\Windows\Styles\AppButtonStyle.Windows.xaml" />
+		<Page Remove="Platforms\Windows\Styles\**\*.xaml" />
 	</ItemGroup>
 
 </Project>

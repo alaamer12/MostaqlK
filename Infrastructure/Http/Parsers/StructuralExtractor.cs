@@ -305,15 +305,15 @@ public static class StructuralExtractor
 
     private static AttachmentCandidate? AttachmentFromLink(HtmlNode link)
     {
-        var url = link.GetAttributeValue("href", (string?)null);
-        var titleAttr = link.GetAttributeValue("title", (string?)null);
+        var url = link.Attributes["href"]?.Value;
+        var titleAttr = link.Attributes["title"]?.Value;
         var filename = Normalize(!string.IsNullOrEmpty(titleAttr) ? titleAttr : HtmlEntity.DeEntitize(link.InnerText));
         if (string.IsNullOrEmpty(filename))
         {
             return null;
         }
 
-        var fileType = link.GetAttributeValue("data-file-type", (string?)null);
+        var fileType = link.Attributes["data-file-type"]?.Value;
 
         // The <a> is nested inside an inner <li> (its own list-meta item); the badge/size
         // siblings live in OTHER list-meta items one level up, under the outer attachment
