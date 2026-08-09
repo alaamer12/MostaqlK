@@ -15,9 +15,17 @@ public sealed class SqliteCommittedProvider : IKnownStateProvider
         _projectRepository = projectRepository;
     }
 
-    public Task<IReadOnlySet<long>> GetKnownProjectIdsAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlySet<long>> GetKnownProjectIdsAsync(CancellationToken cancellationToken = default)
     {
-        // TODO: query `_projectRepository` for all committed project IDs.
-        throw new NotImplementedException();
+        var result = await _projectRepository.GetAllKnownProjectIdsAsync(cancellationToken);
+        if (result.IsError)
+        {
+            // Surfaced as an exception so `DiffEngine.DiffAsync` can wrap it via
+            // `DiffErrors.KnownStateUnavailable` and fail the poll cycle gracefully
+            // instead of crashing it - relevant until Step 4's schema/migrations exist.
+            throw new InvalidOperationException(result.Error.InternalMessage, result.Error.Cause);
+        }
+
+        return result.Value;
     }
 }

@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:MostaqlK.Features.Settings.ViewModels"
+             xmlns:platform="clr-namespace:MostaqlK.UI.PlatformComponents"
              x:Class="MostaqlK.Features.Settings.Views.SettingsPanel"
              x:DataType="vm:SettingsViewModel"
              Title="الإعدادات"
@@ -19,14 +20,19 @@
                 </VerticalStackLayout>
             </Frame>
 
+            <Label Text="{Binding ValidationMessage}"
+                   TextColor="Red"
+                   FontSize="13"
+                   IsVisible="{Binding HasValidationError}" />
+
             <Grid ColumnDefinitions="*,Auto">
                 <Label Grid.Column="0" Text="فترة الفحص (ثانية)" VerticalOptions="Center" />
-                <Entry Grid.Column="1" Text="{Binding PollIntervalSeconds}" Keyboard="Numeric" WidthRequest="100" />
+                <platform:AppEntry Grid.Column="1" Text="{Binding PollIntervalSeconds}" Keyboard="Numeric" WidthRequest="100" />
             </Grid>
 
             <Grid ColumnDefinitions="*,Auto">
                 <Label Grid.Column="0" Text="الحد الأقصى للطلبات في الدقيقة" VerticalOptions="Center" />
-                <Entry Grid.Column="1" Text="{Binding RequestsPerMinute}" Keyboard="Numeric" WidthRequest="100" />
+                <platform:AppEntry Grid.Column="1" Text="{Binding RequestsPerMinute}" Keyboard="Numeric" WidthRequest="100" />
             </Grid>
 
             <Grid ColumnDefinitions="*,Auto">
@@ -44,14 +50,12 @@
 
             <Grid ColumnDefinitions="*,Auto">
                 <Label Grid.Column="0" Text="حد التجميع" VerticalOptions="Center" />
-                <Entry Grid.Column="1" Text="{Binding GroupingThreshold}" Keyboard="Numeric" WidthRequest="100" />
+                <platform:AppEntry Grid.Column="1" Text="{Binding GroupingThreshold}" Keyboard="Numeric" WidthRequest="100" />
             </Grid>
 
             <Grid ColumnDefinitions="*,Auto">
                 <Label Grid.Column="0" Text="الوضع الليلي" VerticalOptions="Center" />
-                <!-- AppToggle from UI.PlatformComponents is preferred; falling back to a plain
-                     Switch keeps this file compilable independently of that parallel work. -->
-                <Switch Grid.Column="1" IsToggled="{Binding IsDarkMode}" />
+                <platform:AppToggle Grid.Column="1" IsToggled="{Binding IsDarkMode}" />
             </Grid>
 
             <Button Text="حفظ" Command="{Binding SaveCommand}" HorizontalOptions="End" />

@@ -5,16 +5,25 @@
              Title="حول التطبيق"
              FlowDirection="RightToLeft">
 
-    <!-- Minimal placeholder reflecting about.html: title, version, and placeholder body text.
-         Placed under Features/Projects/Views rather than a new Features/About folder since it
-         is a single static page reachable only from the Projects sidebar nav, not a standalone
-         feature slice of its own. -->
+    <!-- Reflects about.html: app name, version/build (from AppInfo, not hardcoded), a short
+         description, and credits/links. Placed under Features/Projects/Views rather than a new
+         Features/About folder since it is a single static page reachable only from the Projects
+         sidebar nav, not a standalone feature slice of its own. -->
     <ScrollView>
         <VerticalStackLayout Padding="24" Spacing="16">
             <Label Text="MostaqlK" FontSize="24" FontAttributes="Bold" />
-            <Label Text="الإصدار 1.0" FontSize="14" TextColor="Gray" />
+            <Label x:Name="VersionLabel" FontSize="14" TextColor="Gray" />
             <Label Text="تطبيق سطح مكتب يرصد مشاريع مستقل الجديدة ويرسل إشعارات فورية عند ظهورها."
                    FontSize="14" />
+
+            <BoxView HeightRequest="1" BackgroundColor="LightGray" Margin="0,8" />
+
+            <Label Text="روابط" FontSize="16" FontAttributes="Bold" />
+            <Label Text="مستقل" FontSize="14" TextColor="#0EA5E9" TextDecorations="Underline">
+                <Label.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnMostaqlLinkTapped" />
+                </Label.GestureRecognizers>
+            </Label>
         </VerticalStackLayout>
     </ScrollView>
 

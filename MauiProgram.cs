@@ -1,4 +1,6 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Maui.LifecycleEvents;
 using MostaqlK.Features.Notifications.ViewModels;
 using MostaqlK.Features.Projects.ViewModels;
 using MostaqlK.Features.Projects.Views;
@@ -11,6 +13,10 @@ using MostaqlK.Services;
 using MostaqlK.Services.Pipeline;
 using MostaqlK.Services.Pipeline.DiffEngine;
 using MostaqlK.Services.Pipeline.WorkerPool;
+using MostaqlK.UI.TrayIcon;
+#if WINDOWS
+using MostaqlK.Platforms.Windows;
+#endif
 
 namespace MostaqlK;
 
@@ -39,6 +45,8 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IOwnerRepository, OwnerRepository>();
 		builder.Services.AddSingleton<IAssetRepository, AssetRepository>();
 		builder.Services.AddSingleton<WindowsToastSender>();
+		builder.Services.AddSingleton<Infrastructure.Database.SearchIndex.FtsQueryService>();
+		builder.Services.AddSingleton<AssetDownloadService>();
 
 		// Pipeline services
 		builder.Services.AddSingleton<InFlightTracker>();
@@ -55,11 +63,16 @@ public static class MauiProgram
 		builder.Services.AddSingleton<NotificationGrouper>();
 		builder.Services.AddSingleton<INotificationDispatcher, NotificationDispatcher>();
 
+		// Tray icon
+		builder.Services.AddSingleton<TrayIconService>();
+
 		// Features: Projects
 		builder.Services.AddTransient<ProjectFeedViewModel>();
 		builder.Services.AddTransient<StatusBarViewModel>();
+		builder.Services.AddTransient<ProjectDetailsViewModel>();
 		builder.Services.AddTransient<MainWindowPage>();
 		builder.Services.AddTransient<AboutPage>();
+		builder.Services.AddTransient<ProjectDetailsPage>();
 
 		// Features: Notifications
 		builder.Services.AddTransient<NotificationCenterViewModel>();
@@ -68,6 +81,40 @@ public static class MauiProgram
 		builder.Services.AddTransient<SettingsViewModel>();
 		builder.Services.AddTransient<SettingsPanel>();
 
-		return builder.Build();
+#if WINDOWS
+		// Hosts the native Shell_NotifyIcon tray icon once the main WinUI window is created,
+		// and tears it down when it closes. `appRef` is set right after Build() below; by the
+		// time OnWindowCreated actually fires (after the app starts running), it is populated.
+		MauiApp? appRef = null;
+		TrayIconNativeHost? nativeHost = null;
+		builder.ConfigureLifecycleEvents(events =>
+		{
+			events.AddWindows(windows => windows
+				.OnWindowCreated(window =>
+				{
+					if (appRef is null)
+					{
+						return;
+					}
+
+					var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+					var trayIconService = appRef.Services.GetRequiredService<TrayIconService>();
+					nativeHost = new TrayIconNativeHost(trayIconService, hwnd);
+				})
+				.OnClosed((window, args) =>
+				{
+					nativeHost?.Dispose();
+					nativeHost = null;
+				}));
+		});
+#endif
+
+		var app = builder.Build();
+
+#if WINDOWS
+		appRef = app;
+#endif
+
+		return app;
 	}
 }

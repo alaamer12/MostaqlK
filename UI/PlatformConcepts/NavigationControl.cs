@@ -17,11 +17,23 @@ public static class NavigationControl
         windows: CreateSidePanel,
         macCatalyst: null); // TODO: SidePanel-equivalent — added only when V3 mobile work starts.
 
+    /// <summary>
+    /// Composes the real navigation surface for the current platform out of a caller-supplied
+    /// nav-rail view (the actual nav items/commands, wired by the call site — e.g.
+    /// <c>MainWindowPage</c>'s sidebar buttons) and the page's main content. Windows (V1): the
+    /// nav rail occupies a fixed-width column to the side of the content column, matching the
+    /// projects.html sidebar layout.
+    /// </summary>
+    public static View Build(View navRail, View content) => PlatformSelect.For<Func<View, View, View>>(
+        android: null, // TODO: BottomTabs — added only when V3 mobile work starts.
+        ios: null,
+        windows: BuildSidePanel,
+        macCatalyst: null)?.Invoke(navRail, content) ?? content;
+
     private static View CreateSidePanel()
     {
         // Windows "SidePanel" stand-in: a Grid with a fixed-width nav rail column and a content
-        // column. TODO: replace with the real sidebar (see projects.html mockup) once the
-        // Design System / navigation items are wired up.
+        // column.
         return new Grid
         {
             ColumnDefinitions =
@@ -30,5 +42,23 @@ public static class NavigationControl
                 new ColumnDefinition { Width = GridLength.Star }
             }
         };
+    }
+
+    private static View BuildSidePanel(View navRail, View content)
+    {
+        var grid = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition { Width = new GridLength(240) },
+                new ColumnDefinition { Width = GridLength.Star }
+            }
+        };
+
+        Grid.SetColumn(navRail, 0);
+        Grid.SetColumn(content, 1);
+        grid.Children.Add(navRail);
+        grid.Children.Add(content);
+        return grid;
     }
 }

@@ -25,10 +25,12 @@ Location: `UI/PlatformComponents/<Unit>/<Unit>.cs` (+ `<Unit>.Windows.cs`)
 
 | Unit | Base MAUI type | Purpose | Status |
 |---|---|---|---|
-| `AppButton` | `Button` | Shared button used across all features. | Scaffold |
-| `AppCard` | `Border` | Project-feed card surface; carries `IsUnread`/`IsRead` bindable state for the unread accent-border treatment. | Scaffold |
-| `AppEntry` | `Entry` | Shared text input (search box, settings forms). | Scaffold |
-| `AppToggle` | `Switch` | Shared toggle switch (e.g. dark-mode switch, grouping enabled). | Scaffold |
+| `AppButton` | `Button` | Shared button used across all features. | Implemented |
+| `AppCard` | `Border` | Project-feed card surface; carries `IsUnread`/`IsRead` bindable state for the unread accent-border treatment. | Implemented |
+| `AppEntry` | `Entry` | Shared text input (search box, settings forms). Base of the `DebouncedEntry`/`SearchInputField` inheritance chain. | Implemented |
+| `DebouncedEntry` | `AppEntry` | Adds keystroke debouncing (`DebounceMilliseconds`, `DebouncedTextChanged`/`DebouncedCommand`) via a `CancellationTokenSource` restart-on-keystroke pattern. | Implemented |
+| `SearchInputField` | `DebouncedEntry` | Concrete search box (search icon + clear/"x" button via `ClearCommand`) bound to `ProjectFeedViewModel.SearchQuery`. | Implemented |
+| `AppToggle` | `Switch` | Shared toggle switch (e.g. dark-mode switch, grouping enabled). Wired into `SettingsPanel.xaml` for the live dark-mode toggle. | Implemented |
 | `PlatformSelect` | static helper | Not a UI unit itself — the compile-time `#if ANDROID/IOS/WINDOWS/MACCATALYST` selector every other unit above/below is built on. | Implemented |
 
 Only `.Windows.cs` partials exist today (V1 = Windows-only). `.Android.cs` / `.iOS.cs` /
@@ -40,7 +42,7 @@ Location: `UI/PlatformConcepts/<Unit>.cs`
 
 | Unit | Mobile shape (future) | Windows shape (current) | Purpose | Status |
 |---|---|---|---|---|
-| `NavigationControl` | Bottom tabs | `Grid`-based side panel (nav rail + content) | Primary app navigation surface. | Scaffold |
+| `NavigationControl` | Bottom tabs | `Grid`-based side panel (nav rail + content), composed via `NavigationControl.Build(navRail, content)` from real page content/commands (see `MainWindowPage`). | Primary app navigation surface. | Implemented |
 | `ModalPresenter` | Bottom sheet | Dialog (modal `ContentPage` stand-in) | Overlay/modal presentation. | Scaffold |
 | `Drawer` | Swipe drawer | Flyout (`FlyoutPage` stand-in) | Secondary/contextual side panel. | Scaffold |
 | `ActionMenu` | Action sheet | Context menu (`MenuFlyout` stand-in) | Contextual list of actions. | Scaffold |
@@ -55,9 +57,9 @@ Location: `UI/DesignSystem/`
 | Unit | Type | Purpose | Status |
 |---|---|---|---|
 | `DesignTokens` | static class | Brand colors, spacing scale, corner-radius tokens (Mostaql blue, Slate palette, light/dark). | Scaffold |
-| `ShimmerBox` | `ContentView` | Skeleton-loading placeholder; sweeping shimmer animation. | Scaffold |
+| `ShimmerBox` | `ContentView` | Skeleton-loading placeholder; sweeping shimmer animation. | Implemented |
 | `TruncatingLabel` | `Label` | Text truncation with `MaxChars` cap + `…` ellipsis. | Scaffold |
-| `LabelWithSubText` | `ContentView`/`Label` | Canonical error display: `ExternalMessage` + `FixMessage`. | Scaffold |
+| `LabelWithSubText` | `ContentView`/`Label` | Canonical error display: `ExternalMessage` + `FixMessage`. Used for the feed's empty/error states and the details page's error state. | Implemented |
 
 Planned (folder placeholders exist, no units yet): `IconSystem/`, `Letterbox/`, `Stickers/`.
 
@@ -67,7 +69,7 @@ Location: `UI/TrayIcon/`
 
 | Unit | Type | Purpose | Status |
 |---|---|---|---|
-| `TrayIconService` | class | Windows system-tray icon: `TrayIconState` (Idle/Polling/BacklogDraining/Error) + right-click menu (Open, Pause/Resume, Check now, Recent notifications, Settings, Quit). | Scaffold |
+| `TrayIconService` | class | Windows system-tray icon: `TrayIconState` mirrored live from `IPollService.StatusChanged`/`DiscoveryQueue.Count` + right-click menu wired to real commands (Open, Pause/Resume, Check now, Recent notifications, Settings, Quit). Native icon hosting via `Platforms/Windows/TrayIconNativeHost.cs` (`Shell_NotifyIcon`). | Implemented |
 
 ---
 

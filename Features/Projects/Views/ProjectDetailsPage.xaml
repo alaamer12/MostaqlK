@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:components="clr-namespace:MostaqlK.UI.PlatformComponents"
+             xmlns:design="clr-namespace:MostaqlK.UI.DesignSystem"
+             xmlns:vm="clr-namespace:MostaqlK.Features.Projects.ViewModels"
+             xmlns:models="clr-namespace:MostaqlK.Models"
+             x:Class="MostaqlK.Features.Projects.Views.ProjectDetailsPage"
+             x:DataType="vm:ProjectDetailsViewModel"
+             Title="تفاصيل المشروع"
+             FlowDirection="RightToLeft">
+
+    <!-- Mirrors project-details.html: title/description, skills chips, budget/duration/owner
+         stats, and an attachments list with per-item download status/action wired to
+         AssetDownloadService via ProjectDetailsViewModel. Uses Grid/ScrollView so it adapts
+         across window sizes instead of fixed pixel widths. -->
+    <Grid>
+
+        <!-- Loading state -->
+        <VerticalStackLayout Padding="24" Spacing="12" IsVisible="{Binding IsLoading}">
+            <design:ShimmerBox HeightRequest="32" />
+            <design:ShimmerBox HeightRequest="120" />
+            <design:ShimmerBox HeightRequest="60" />
+        </VerticalStackLayout>
+
+        <!-- Error state -->
+        <design:LabelWithSubText IsVisible="{Binding HasError}"
+                                  VerticalOptions="Center"
+                                  Text="{Binding ErrorMessage}"
+                                  SubText="تعذر تحميل تفاصيل المشروع." />
+
+        <!-- Success state -->
+        <ScrollView IsVisible="{Binding ShowDetails}">
+            <VerticalStackLayout Padding="24" Spacing="16" x:DataType="vm:ProjectDetailsViewModel">
+
+                <Label Text="{Binding Details.Title}" FontSize="22" FontAttributes="Bold" />
+                <Label Text="{Binding Details.Description}" FontSize="14" />
+
+                <!-- Budget / duration / owner stats -->
+                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12">
+                    <VerticalStackLayout Grid.Column="0">
+                        <Label Text="الميزانية" FontSize="12" TextColor="Gray" />
+                        <Label Text="{Binding Details.Budget}" FontSize="16" FontAttributes="Bold" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1">
+                        <Label Text="مدة التسليم" FontSize="12" TextColor="Gray" />
+                        <Label Text="{Binding Details.DeliveryDays, StringFormat='{0} يوم'}" FontSize="16" FontAttributes="Bold" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="2">
+                        <Label Text="العميل" FontSize="12" TextColor="Gray" />
+                        <Label Text="{Binding Details.Owner.Name}" FontSize="16" FontAttributes="Bold" />
+                        <Label Text="{Binding Details.Owner.HiringRatePercent, StringFormat='معدل التوظيف: {0}%'}" FontSize="12" TextColor="Gray" />
+                        <Label Text="{Binding Details.Owner.CompletedProjectsCount, StringFormat='{0} مشروع منجز'}" FontSize="12" TextColor="Gray" />
+                    </VerticalStackLayout>
+                </Grid>
+
+                <!-- Skills -->
+                <Label Text="المهارات المطلوبة" FontSize="16" FontAttributes="Bold" />
+                <FlexLayout BindableLayout.ItemsSource="{Binding Skills}" Wrap="Wrap" Direction="Row" JustifyContent="Start">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="models:ProjectSkill">
+                            <Border Padding="8,4" Margin="0,0,8,8" StrokeShape="RoundRectangle 12">
+                                <Label Text="{Binding Name}" FontSize="12" />
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </FlexLayout>
+
+                <!-- Attachments -->
+                <Label Text="المرفقات" FontSize="16" FontAttributes="Bold" />
+                <CollectionView ItemsSource="{Binding Attachments}">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AttachmentItemViewModel">
+                            <Grid ColumnDefinitions="*,Auto" Padding="0,6" RowDefinitions="Auto,Auto">
+                                <Label Grid.Row="0" Grid.Column="0" Text="{Binding FileName}" FontSize="14" />
+                                <Label Grid.Row="1" Grid.Column="0" Text="{Binding StatusMessage}" FontSize="11" TextColor="Gray" LineBreakMode="WordWrap" />
+                                <components:AppButton Grid.Row="0" Grid.RowSpan="2" Grid.Column="1"
+                                                       Text="تحميل"
+                                                       Command="{Binding ResolveCommand}" />
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+    </Grid>
+
+</ContentPage>

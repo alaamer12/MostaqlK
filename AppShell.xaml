@@ -17,6 +17,10 @@
         ContentTemplate="{DataTemplate projectViews:MainWindowPage}"
         Route="MainWindowPage" />
 
+    <!-- ProjectDetailsPage is reached only via Shell.Current.GoToAsync from the feed
+         (SelectProjectCommand); registered as a detail route (not a ShellContent tab) via
+         Routing.RegisterRoute in AppShell.xaml.cs so it never appears in the flyout/tab bar. -->
+
     <ShellContent
         Title="Home"
         ContentTemplate="{DataTemplate local:MainPage}"

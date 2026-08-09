@@ -17,4 +17,10 @@ public interface IProjectRepository
     Task<Result<IReadOnlyList<ProjectSummary>>> GetRecentAsync(int limit, CancellationToken cancellationToken = default);
 
     Task<Result<ProjectDetails?>> GetDetailsAsync(long projectId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Counts projects whose `discovered_at` falls on today's date (UTC). Backs the
+    /// "مشاريع مضافة اليوم" stat card in <c>SettingsPanel</c>.
+    /// </summary>
+    Task<Result<int>> CountAddedTodayAsync(CancellationToken cancellationToken = default);
 }

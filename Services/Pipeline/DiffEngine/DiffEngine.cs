@@ -20,7 +20,36 @@ public sealed class DiffEngine
 
     public async Task<Result<DiffResult>> DiffAsync(IReadOnlyList<ProjectSummary> polledProjects, CancellationToken cancellationToken = default)
     {
-        // TODO: union `_committedProvider` and `_inFlightProvider` known IDs, then partition `polledProjects`.
-        throw new NotImplementedException();
+        IReadOnlySet<long> committedIds;
+        IReadOnlySet<long> inFlightIds;
+
+        try
+        {
+            committedIds = await _committedProvider.GetKnownProjectIdsAsync(cancellationToken);
+            inFlightIds = await _inFlightProvider.GetKnownProjectIdsAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return Result<DiffResult>.Err(DiffErrors.KnownStateUnavailable(ex));
+        }
+
+        var result = new DiffResult();
+        foreach (var project in polledProjects)
+        {
+            if (committedIds.Contains(project.ProjectId) || inFlightIds.Contains(project.ProjectId))
+            {
+                result.AlreadyKnownProjectIds.Add(project.ProjectId);
+            }
+            else
+            {
+                result.NewProjectIds.Add(project.ProjectId);
+            }
+        }
+
+        return Result<DiffResult>.Ok(result);
     }
 }

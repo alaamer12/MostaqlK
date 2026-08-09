@@ -16,9 +16,9 @@ public sealed class EnrichmentService : IEnrichmentService
         _rateLimiter = rateLimiter;
     }
 
-    public Task<Result<ProjectDetails>> EnrichAsync(long projectId, CancellationToken cancellationToken = default)
+    public async Task<Result<ProjectDetails>> EnrichAsync(long projectId, CancellationToken cancellationToken = default)
     {
-        // TODO: await `_rateLimiter`, fetch project detail page via `_scraper`, parse with DetailParser.
-        throw new NotImplementedException();
+        await _rateLimiter.WaitForTokenAsync(cancellationToken);
+        return await _scraper.FetchProjectDetailsAsync(projectId, cancellationToken);
     }
 }

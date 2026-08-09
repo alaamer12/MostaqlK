@@ -7,10 +7,17 @@
              x:DataType="vm:ProjectCardViewModel"
              FlowDirection="RightToLeft">
 
-    <!-- Reflects the unread/read project card from projects.html: highlighted background
-         and bold title while unread, muted style once read. -->
-    <components:AppCard Padding="16" Margin="0,0,0,12">
+    <!-- Reflects the unread/read project card from projects.html: AppCard's real IsUnread
+         accent-border state, bold title while unread, muted style once read. Tapping the card
+         marks it as read and navigates to ProjectDetailsPage via the feed's SelectProjectCommand
+         (BindingContextChanged supplies the feed VM through the CollectionView item, so the
+         command itself is bound from the page-level SelectProjectCommand target). -->
+    <components:AppCard Padding="16" Margin="0,0,0,12" IsUnread="{Binding IsUnread}">
         <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
+
+            <Grid.GestureRecognizers>
+                <TapGestureRecognizer Command="{Binding SelectCommand}" CommandParameter="{Binding .}" />
+            </Grid.GestureRecognizers>
 
             <Label Grid.Row="0"
                     Text="{Binding Title}"

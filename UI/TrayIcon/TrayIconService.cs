@@ -1,3 +1,7 @@
+using MostaqlK.Features.Projects.Views;
+using MostaqlK.Features.Settings.Views;
+using MostaqlK.Services.Pipeline;
+
 namespace MostaqlK.UI.TrayIcon;
 
 /// <summary>
@@ -28,14 +32,22 @@ public enum TrayIconState
 public sealed record TrayMenuItem(string Label, Action Command);
 
 /// <summary>
-/// Stub service for the system tray icon: current state + right-click menu items.
-/// TODO: wire this up to the actual native tray icon (WinUI <c>NotifyIcon</c> /
-/// CommunityToolkit.Maui tray support) once the platform hosting shell is in place.
+/// Windows system-tray icon: current state (mirrored live from <see cref="IPollService"/> +
+/// <see cref="DiscoveryQueue"/>) and right-click menu, wired to real commands. The native
+/// icon hosting itself (Shell_NotifyIcon) lives under <c>Platforms/Windows/TrayIconNativeHost.cs</c>
+/// (kept there since it's Windows-only interop); this class owns the state/business logic that
+/// is genuinely platform-neutral.
 /// </summary>
 public class TrayIconService
 {
+    private readonly IPollService _pollService;
+    private readonly DiscoveryQueue _discoveryQueue;
+
     /// <summary>Current icon state, updated by the Poll Service / Worker Pool.</summary>
     public TrayIconState State { get; private set; } = TrayIconState.Idle;
+
+    /// <summary>Raised whenever <see cref="State"/> changes, so the native host can swap the icon glyph.</summary>
+    public event Action<TrayIconState>? StateChanged;
 
     /// <summary>
     /// The right-click menu, in display order: Open window, Pause/Resume polling, Check now,
@@ -43,14 +55,34 @@ public class TrayIconService
     /// </summary>
     public List<TrayMenuItem> MenuItems { get; } = new();
 
-    public TrayIconService()
+    public TrayIconService(IPollService pollService, DiscoveryQueue discoveryQueue)
     {
+        _pollService = pollService;
+        _discoveryQueue = discoveryQueue;
+
         MenuItems.Add(new TrayMenuItem("Open", OnOpen));
         MenuItems.Add(new TrayMenuItem("Pause / Resume", OnPauseResume));
         MenuItems.Add(new TrayMenuItem("Check now", OnCheckNow));
         MenuItems.Add(new TrayMenuItem("Recent notifications", OnRecentNotifications));
         MenuItems.Add(new TrayMenuItem("Settings", OnSettings));
         MenuItems.Add(new TrayMenuItem("Quit", OnQuit));
+
+        _pollService.StatusChanged += OnPollServiceStatusChanged;
+    }
+
+    private void OnPollServiceStatusChanged(PollServiceStatus status)
+    {
+        // BacklogDraining takes precedence over the raw poll status whenever the discovery
+        // queue still has unenriched work sitting in it, per system-components.md § 13.1.
+        var state = status switch
+        {
+            PollServiceStatus.Error => TrayIconState.Error,
+            PollServiceStatus.Polling => TrayIconState.Polling,
+            PollServiceStatus.BacklogDraining => TrayIconState.BacklogDraining,
+            _ => _discoveryQueue.Count > 0 ? TrayIconState.BacklogDraining : TrayIconState.Idle,
+        };
+
+        SetState(state);
     }
 
     /// <summary>
@@ -59,37 +91,53 @@ public class TrayIconService
     /// </summary>
     public void SetState(TrayIconState state)
     {
+        if (State == state)
+        {
+            return;
+        }
+
         State = state;
-        // TODO: push the new icon glyph to the native tray icon handle.
+        StateChanged?.Invoke(state);
     }
 
-    private static void OnOpen()
+    private void OnOpen()
     {
-        // TODO: show the main window (does not exit the process on close, per spec).
+        // Bring the main window back to the foreground rather than exiting the process on
+        // close, per spec (see system-components.md § 13.1). The actual native
+        // activate/restore-from-tray call lives in TrayIconNativeHost (Windows-only interop);
+        // this just makes sure the app navigates back to the projects feed.
+        MainThread.BeginInvokeOnMainThread(() => Shell.Current?.GoToAsync($"//{nameof(MainWindowPage)}"));
     }
 
-    private static void OnPauseResume()
+    /// <summary>Finds the currently displayed <see cref="MainWindowPage"/> instance, if any.</summary>
+    private static MainWindowPage? FindMainWindowPage() => Shell.Current?.CurrentPage as MainWindowPage;
+
+    private void OnPauseResume()
     {
-        // TODO: toggle the Poll Service's paused state.
+        _pollService.SetPaused(!_pollService.IsPaused);
     }
 
-    private static void OnCheckNow()
+    private void OnCheckNow()
     {
-        // TODO: force an immediate poll cycle, bypassing the timer.
+        _pollService.RequestCheckNow();
     }
 
-    private static void OnRecentNotifications()
+    private void OnRecentNotifications()
     {
-        // TODO: surface the last 5–10 notifications.
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            OnOpen();
+            FindMainWindowPage()?.OpenNotificationsFlyout();
+        });
     }
 
-    private static void OnSettings()
+    private void OnSettings()
     {
-        // TODO: navigate to the Settings panel.
+        MainThread.BeginInvokeOnMainThread(() => Shell.Current?.GoToAsync(nameof(SettingsPanel)));
     }
 
     private static void OnQuit()
     {
-        // TODO: this is the only menu entry that actually terminates the process.
+        MainThread.BeginInvokeOnMainThread(() => Application.Current?.Quit());
     }
 }

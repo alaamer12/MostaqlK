@@ -16,4 +16,24 @@ public interface IPollService
 
     /// <summary>Runs a single poll cycle immediately, outside of the regular interval.</summary>
     Task<Result<int>> PollOnceAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Poll interval in seconds. Settable at runtime (see <c>SettingsViewModel</c>).
+    /// </summary>
+    int PollIntervalSeconds { get; set; }
+
+    /// <summary>Current observable status, mirrored to the tray icon (see <c>TrayIconService</c>).</summary>
+    PollServiceStatus Status { get; }
+
+    /// <summary>Raised whenever <see cref="Status"/> changes, so the tray icon can react live.</summary>
+    event Action<PollServiceStatus>? StatusChanged;
+
+    /// <summary>Whether the periodic loop is currently paused (manually, via the tray icon).</summary>
+    bool IsPaused { get; }
+
+    /// <summary>Toggles the paused flag (wired to the tray icon's "Pause / Resume" menu entry).</summary>
+    void SetPaused(bool paused);
+
+    /// <summary>Forces an immediate poll cycle outside of the regular timer, without waiting for the next tick.</summary>
+    void RequestCheckNow();
 }

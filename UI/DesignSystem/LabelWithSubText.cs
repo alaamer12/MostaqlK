@@ -3,16 +3,18 @@ namespace MostaqlK.UI.DesignSystem;
 /// <summary>
 /// Compound label exposing a SubText slot; the canonical binding target for
 /// DomainError.ExternalMessage (Text) and FixMessage (SubText) (see system-components.md, section 13.3
-/// and 13.4). The sub-text row must be hidden — not just empty — when SubText is null.
-/// TODO: build the internal VerticalStackLayout of two Labels and toggle the sub-text row's IsVisible.
+/// and 13.4). The sub-text row is hidden — not just empty — when SubText is null.
 /// </summary>
 public class LabelWithSubText : ContentView
 {
     public static readonly BindableProperty TextProperty =
-        BindableProperty.Create(nameof(Text), typeof(string), typeof(LabelWithSubText), null);
+        BindableProperty.Create(nameof(Text), typeof(string), typeof(LabelWithSubText), null, propertyChanged: OnTextChanged);
 
     public static readonly BindableProperty SubTextProperty =
-        BindableProperty.Create(nameof(SubText), typeof(string), typeof(LabelWithSubText), null);
+        BindableProperty.Create(nameof(SubText), typeof(string), typeof(LabelWithSubText), null, propertyChanged: OnSubTextChanged);
+
+    private readonly Label _textLabel;
+    private readonly Label _subTextLabel;
 
     /// <summary>Primary message, typically bound to DomainError.ExternalMessage.</summary>
     public string? Text
@@ -30,6 +32,31 @@ public class LabelWithSubText : ContentView
 
     public LabelWithSubText()
     {
-        // TODO: compose the primary Label + sub-text Label, wiring IsVisible to SubText != null.
+        _textLabel = new Label { FontSize = 15, HorizontalTextAlignment = TextAlignment.Center };
+        _subTextLabel = new Label
+        {
+            FontSize = 12,
+            TextColor = Colors.Gray,
+            HorizontalTextAlignment = TextAlignment.Center,
+            IsVisible = false,
+        };
+
+        Content = new VerticalStackLayout
+        {
+            Spacing = 4,
+            Children = { _textLabel, _subTextLabel },
+        };
+    }
+
+    private static void OnTextChanged(BindableObject bindable, object oldValue, object newValue)
+    {
+        ((LabelWithSubText)bindable)._textLabel.Text = (string?)newValue;
+    }
+
+    private static void OnSubTextChanged(BindableObject bindable, object oldValue, object newValue)
+    {
+        var self = (LabelWithSubText)bindable;
+        self._subTextLabel.Text = (string?)newValue;
+        self._subTextLabel.IsVisible = !string.IsNullOrEmpty((string?)newValue);
     }
 }

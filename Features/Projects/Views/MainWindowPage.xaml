@@ -2,37 +2,94 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:components="clr-namespace:MostaqlK.UI.PlatformComponents"
+             xmlns:design="clr-namespace:MostaqlK.UI.DesignSystem"
              xmlns:vm="clr-namespace:MostaqlK.Features.Projects.ViewModels"
              xmlns:views="clr-namespace:MostaqlK.Features.Projects.Views"
+             xmlns:notifViews="clr-namespace:MostaqlK.Features.Notifications.Views"
              x:Class="MostaqlK.Features.Projects.Views.MainWindowPage"
              x:DataType="vm:ProjectFeedViewModel"
              Title="المشاريع"
              FlowDirection="RightToLeft">
 
     <!-- Layout mirrors projects.html: a right-hand sidebar nav (Arabic RTL, so visually on
-         the right) and a scrollable project feed. Sidebar nav items match the mockup:
-         المشاريع، البحث المتقدم، التنبيهات (badge)، الإعدادات، حول التطبيق. -->
-    <Grid ColumnDefinitions="240,*">
+         the right, composed via NavigationControl.Build in the code-behind) and a scrollable
+         project feed covering all four feed states: loading (ShimmerBox), empty/error
+         (LabelWithSubText), and success (CollectionView of ProjectCard). Sidebar nav items
+         match the mockup: المشاريع، البحث المتقدم، التنبيهات (badge)، الإعدادات، حول التطبيق. -->
 
-        <VerticalStackLayout Grid.Column="0" Spacing="4" Padding="12" BackgroundColor="{AppThemeBinding Light=#F5F5F5, Dark=#1E1E1E}">
-            <Label Text="MostaqlK" FontSize="20" FontAttributes="Bold" Margin="0,0,0,16" />
+    <!-- Temporary single root: NavRail + FeedContent are recomposed via NavigationControl.Build
+         in the code-behind constructor (a ContentPage can only declare one root Content
+         element in XAML, so both are parked here and reparented immediately). -->
+    <Grid x:Name="Root">
 
-            <components:AppButton Text="المشاريع" Clicked="OnProjectsNavClicked" />
-            <components:AppButton Text="البحث المتقدم" Clicked="OnAdvancedSearchNavClicked" />
-            <components:AppButton Text="التنبيهات" Clicked="OnNotificationsNavClicked" />
-            <components:AppButton Text="الإعدادات" Clicked="OnSettingsNavClicked" />
-            <components:AppButton Text="حول التطبيق" Clicked="OnAboutNavClicked" />
-        </VerticalStackLayout>
+    <Grid.Resources>
+        <ResourceDictionary />
+    </Grid.Resources>
 
-        <ScrollView Grid.Column="1" Padding="16">
-            <CollectionView ItemsSource="{Binding Projects}">
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="vm:ProjectCardViewModel">
-                        <views:ProjectCard BindingContext="{Binding .}" />
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
-        </ScrollView>
+    <VerticalStackLayout x:Name="NavRail" Spacing="4" Padding="12" BackgroundColor="{AppThemeBinding Light=#F5F5F5, Dark=#1E1E1E}">
+        <Label Text="MostaqlK" FontSize="20" FontAttributes="Bold" Margin="0,0,0,16" />
+
+        <components:AppButton Text="المشاريع" Clicked="OnProjectsNavClicked" />
+        <components:AppButton Text="البحث المتقدم" Clicked="OnAdvancedSearchNavClicked" />
+        <components:AppButton Text="التنبيهات" Clicked="OnNotificationsNavClicked" />
+        <components:AppButton Text="الإعدادات" Clicked="OnSettingsNavClicked" />
+        <components:AppButton Text="حول التطبيق" Clicked="OnAboutNavClicked" />
+    </VerticalStackLayout>
+
+    <Grid x:Name="FeedContent" RowDefinitions="Auto,Auto,*" Padding="16" RowSpacing="12">
+
+        <components:SearchInputField Grid.Row="0"
+                                      Text="{Binding SearchQuery}"
+                                      DebounceMilliseconds="300"
+                                      DebouncedCommand="{Binding SearchCommand}"
+                                      ClearCommand="{Binding ClearSearchCommand}" />
+
+        <Label Grid.Row="1"
+               Text="{Binding UnreadCount, StringFormat='{0} مشروع غير مقروء'}"
+               FontSize="12"
+               TextColor="Gray" />
+
+        <Grid Grid.Row="2">
+
+            <!-- Loading state -->
+            <VerticalStackLayout Spacing="12" IsVisible="{Binding IsLoading}">
+                <design:ShimmerBox HeightRequest="88" />
+                <design:ShimmerBox HeightRequest="88" />
+                <design:ShimmerBox HeightRequest="88" />
+            </VerticalStackLayout>
+
+            <!-- Error state -->
+            <VerticalStackLayout IsVisible="{Binding HasError}" VerticalOptions="Center">
+                <design:LabelWithSubText Text="{Binding ErrorMessage}" SubText="اضغط لإعادة المحاولة." />
+                <components:AppButton Text="إعادة المحاولة" Command="{Binding RefreshCommand}" HorizontalOptions="Center" Margin="0,12,0,0" />
+            </VerticalStackLayout>
+
+            <!-- Empty state -->
+            <design:LabelWithSubText IsVisible="{Binding IsEmpty}"
+                                      VerticalOptions="Center"
+                                      Text="لا توجد مشاريع حالياً"
+                                      SubText="سيتم عرض المشاريع الجديدة هنا فور توفرها." />
+
+            <!-- Success state -->
+            <ScrollView IsVisible="{Binding ShowFeed}">
+                <CollectionView ItemsSource="{Binding Projects}">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ProjectCardViewModel">
+                            <views:ProjectCard BindingContext="{Binding .}" />
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </ScrollView>
+
+        </Grid>
+
+    </Grid>
+
+    <notifViews:RecentNotificationsFlyout x:Name="NotificationsFlyout"
+                                           IsVisible="False"
+                                           HorizontalOptions="End"
+                                           VerticalOptions="Start"
+                                           Margin="0,12,12,0" />
 
     </Grid>
 
