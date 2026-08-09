@@ -1,6 +1,6 @@
 # Configuration reference
 
-[← Back to wiki home](./README.md)
+[← Back to wiki home](../../base/product/README.md)
 
 ## Table of contents
 - [Polling & rate](#polling--rate)

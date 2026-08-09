@@ -1,6 +1,6 @@
 # Worker pool & rate limiter
 
-[← Back to wiki home](./README.md)
+[← Back to wiki home](../../base/tech/README.md)
 
 ## Table of contents
 - [Queue](#queue)

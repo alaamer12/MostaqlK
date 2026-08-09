@@ -94,4 +94,4 @@ Until then the keypair remains completely silent.
 - [diff-engine.md](../../v1/tech/diff-engine.md) — the abstraction that will later consume signed peer manifests
 - [roadmap-future.md](../product/roadmap-future.md) — mobile companion + LAN peer sync
 - [concurrency-model.md](../../v1/tech/concurrency-model.md) — in-flight tracking is independent of identity
-- [MVP.md](./MVP.md) — identity work is outside the MVP cut
+- [MVP.md](../../v1/product/README.md) — identity work is outside the MVP cut

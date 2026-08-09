@@ -1,6 +1,6 @@
 # Concurrency model
 
-[← Back to wiki home](./README.md)
+[← Back to wiki home](../../base/tech/README.md)
 
 ## Table of contents
 - [What needs to be thread-safe](#what-needs-to-be-thread-safe)

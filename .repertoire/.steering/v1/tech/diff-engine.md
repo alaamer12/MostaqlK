@@ -1,6 +1,6 @@
 # Diff engine
 
-[← Back to wiki home](./README.md)
+[← Back to wiki home](../../base/tech/README.md)
 
 ## Table of contents
 - [Why a dedicated engine, not inline comparison logic](#why-a-dedicated-engine-not-inline-comparison-logic)

@@ -8,7 +8,7 @@ This is a wiki-style documentation set. Each concern has one home; other docs li
 
 | Doc | What it answers |
 |---|---|
-| [`MVP.md`](./MVP.md) | **Start here for build.** What actually ships first — parser/pipeline + storage + notifications only |
+| [`MVP.md`](../../v1/product/README.md) | **Start here for build.** What actually ships first — parser/pipeline + storage + notifications only |
 | [`diff-engine.md`](../../v1/tech/diff-engine.md) | The reusable compare abstraction — local scrape-vs-DB today, mobile peer-sync later |
 | [`concurrency-model.md`](../../v1/tech/concurrency-model.md) | Thread-safe in-flight tracking, transaction boundaries, crash/restart behavior |
 | [`worker-pool-and-rate-limiter.md`](../../v1/tech/worker-pool-and-rate-limiter.md) | Queue, worker pool, shared token-bucket rate limiter — with C# implementation |

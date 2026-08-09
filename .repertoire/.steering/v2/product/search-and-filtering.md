@@ -1,6 +1,6 @@
 # Search & filtering
 
-[← Back to wiki home](./README.md)
+[← Back to wiki home](../../base/product/README.md)
 
 ## Table of contents
 - [Query builder UX](#query-builder-ux)

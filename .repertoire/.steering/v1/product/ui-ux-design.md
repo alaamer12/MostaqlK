@@ -1,6 +1,6 @@
 # UI / UX design
 
-[← Back to wiki home](./README.md)
+[← Back to wiki home](../../base/product/README.md)
 
 ## Table of contents
 - [Design philosophy](#design-philosophy)

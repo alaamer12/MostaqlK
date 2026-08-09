@@ -1,6 +1,6 @@
 # Error handling & resilience
 
-[← Back to wiki home](./README.md)
+[← Back to wiki home](../../base/tech/README.md)
 
 ## Table of contents
 - [Failure points in the pipeline](#failure-points-in-the-pipeline)

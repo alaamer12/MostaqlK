@@ -1,6 +1,6 @@
 # Roadmap: future (v3, stretch)
 
-[← Back to wiki home](./README.md)
+[← Back to wiki home](../../base/product/README.md)
 
 Everything in this document is explicitly deferred — it assumes a second full application (mobile) and, for one sub-feature, a small cloud dependency. None of it blocks or is required by v1/v2.
 

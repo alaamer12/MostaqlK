@@ -817,45 +817,9 @@ public async Task<Result<User>> LoginAsync(string email, string password, Cancel
 
 ### 8.5 — `Result<T>` and `DomainError` Implementation
 
-> **See also:** `errors-handling.md §3.0` for the full `DomainError` spec.
+> **Canonical Reference:** See [`errors-handling.md §3.0`](./errors-handling.md) for the full `DomainError` and `Result<T>` implementation, as well as the rules for `Errors.cs` module factories.
 
-`Result<T>` embeds a `DomainError` carrying all four fields. Defined once in `MostaqlK.Core`. **Do not use an external Result library.**
-
-```csharp
-// MostaqlK.Core/DomainError.cs
-public readonly record struct DomainError(
-    ErrorCode  Code,             // machine-readable: "HTTP-001", "ENRICH-002", ...
-    string     InternalMessage,  // technical detail → developer logs ONLY
-    string     ExternalMessage,  // Arabic user message → UI binding
-    string?    FixMessage  = null,  // optional Arabic guidance → UI binding, may be null
-    Exception? Cause       = null)  // original exception — ALWAYS pass when catching
-{
-    public Result<T>.Err ToResult<T>() => new(this);
-    public override string ToString()  => $"[{Code}] {InternalMessage}";
-}
-
-// MostaqlK.Core/Result.cs
-public abstract record Result<T>
-{
-    public sealed record Ok(T Value)            : Result<T>;
-    public sealed record Err(DomainError Error) : Result<T>;
-
-    public bool IsOk  => this is Ok;
-    public bool IsErr => this is Err;
-
-    /// <summary>Creates a failure Result from a <see cref="DomainError"/>.</summary>
-    public static Result<T> Fail(DomainError error) => new Err(error);
-
-    public T GetOrThrow() => this switch
-    {
-        Ok  ok  => ok.Value,
-        Err err => throw new InvalidOperationException(
-                       $"[{err.Error.Code}] {err.Error.InternalMessage}",
-                       err.Error.Cause),
-        _       => throw new UnreachableException()
-    };
-}
-```
+`Result<T>` embeds a `DomainError` carrying all four fields (Code, InternalMessage, ExternalMessage, FixMessage, and Cause). Defined once in `MostaqlK.Core`. **Do not use an external Result library.**
 
 ```csharp
 // Consuming — always switch on the full DomainError; log Internal, surface External
