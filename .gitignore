@@ -11,11 +11,14 @@ cookies.txt
 [Bb]in/
 [Oo]bj/
 [Dd]ebug/
+[Dd]ebugTrae
 [Rr]elease/
 x64/
 x86/
 ARM/
 ARM64/
+**/__pycache__/*
+**/.venv/*
 
 # .NET / NuGet
 project.lock.json
