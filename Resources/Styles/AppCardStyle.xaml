@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!--
+        Shared base style for AppCard (UI/PlatformComponents/AppCard) — the project-feed card.
+        Read cards show a muted slate border (ReadBorderLight/Dark); unread cards are expected to
+        override Stroke/StrokeThickness with AccentPrimary as the "unread accent bar" via a
+        VisualState or a bound trigger (TODO: wire IsRead once ProjectCard view model exists).
+    -->
+    <Style x:Key="AppCardBase" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource AppSurfaceLight}, Dark={StaticResource AppSurfaceDark}}" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource ReadBorderLight}, Dark={StaticResource ReadBorderDark}}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 12" />
+        <Setter Property="Padding" Value="16" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="ReadStates">
+                    <VisualState x:Name="Read" />
+                    <VisualState x:Name="Unread">
+                        <VisualState.Setters>
+                            <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource AccentPrimary}, Dark={StaticResource AccentPrimaryDark}}" />
+                            <Setter Property="StrokeThickness" Value="2" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

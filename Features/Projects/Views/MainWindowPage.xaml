@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:components="clr-namespace:MostaqlK.UI.PlatformComponents"
+             xmlns:vm="clr-namespace:MostaqlK.Features.Projects.ViewModels"
+             xmlns:views="clr-namespace:MostaqlK.Features.Projects.Views"
+             x:Class="MostaqlK.Features.Projects.Views.MainWindowPage"
+             x:DataType="vm:ProjectFeedViewModel"
+             Title="المشاريع"
+             FlowDirection="RightToLeft">
+
+    <!-- Layout mirrors projects.html: a right-hand sidebar nav (Arabic RTL, so visually on
+         the right) and a scrollable project feed. Sidebar nav items match the mockup:
+         المشاريع، البحث المتقدم، التنبيهات (badge)، الإعدادات، حول التطبيق. -->
+    <Grid ColumnDefinitions="240,*">
+
+        <VerticalStackLayout Grid.Column="0" Spacing="4" Padding="12" BackgroundColor="{AppThemeBinding Light=#F5F5F5, Dark=#1E1E1E}">
+            <Label Text="MostaqlK" FontSize="20" FontAttributes="Bold" Margin="0,0,0,16" />
+
+            <components:AppButton Text="المشاريع" Clicked="OnProjectsNavClicked" />
+            <components:AppButton Text="البحث المتقدم" Clicked="OnAdvancedSearchNavClicked" />
+            <components:AppButton Text="التنبيهات" Clicked="OnNotificationsNavClicked" />
+            <components:AppButton Text="الإعدادات" Clicked="OnSettingsNavClicked" />
+            <components:AppButton Text="حول التطبيق" Clicked="OnAboutNavClicked" />
+        </VerticalStackLayout>
+
+        <ScrollView Grid.Column="1" Padding="16">
+            <CollectionView ItemsSource="{Binding Projects}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ProjectCardViewModel">
+                        <views:ProjectCard BindingContext="{Binding .}" />
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </ScrollView>
+
+    </Grid>
+
+</ContentPage>

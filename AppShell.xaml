@@ -4,11 +4,32 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:MostaqlK"
-    Title="MostaqlK">
+    xmlns:projectViews="clr-namespace:MostaqlK.Features.Projects.Views"
+    xmlns:settingsViews="clr-namespace:MostaqlK.Features.Settings.Views"
+    Title="MostaqlK"
+    FlowDirection="RightToLeft">
+
+    <!-- MainWindowPage (projects.html) is the real V1 entry point. The MAUI-template
+         MainPage is kept registered under its own route so it still resolves if referenced
+         elsewhere, but Shell now opens MainWindowPage first (see AppShell.xaml.cs). -->
+    <ShellContent
+        Title="المشاريع"
+        ContentTemplate="{DataTemplate projectViews:MainWindowPage}"
+        Route="MainWindowPage" />
 
     <ShellContent
         Title="Home"
         ContentTemplate="{DataTemplate local:MainPage}"
         Route="MainPage" />
+
+    <ShellContent
+        Title="الإعدادات"
+        ContentTemplate="{DataTemplate settingsViews:SettingsPanel}"
+        Route="SettingsPanel" />
+
+    <ShellContent
+        Title="حول التطبيق"
+        ContentTemplate="{DataTemplate projectViews:AboutPage}"
+        Route="AboutPage" />
 
 </Shell>

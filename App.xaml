@@ -8,6 +8,14 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
                 <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
+
+                <!-- Design system component base styles (Mechanism 1, cross-platform-ui-conventions.md).
+                     Platform-specific overrides (e.g. Platforms/Windows/Styles/AppButtonStyle.Windows.xaml)
+                     are merged at runtime in App.xaml.cs, not here. -->
+                <ResourceDictionary Source="Resources/Styles/AppButtonStyle.xaml" />
+                <ResourceDictionary Source="Resources/Styles/AppCardStyle.xaml" />
+                <ResourceDictionary Source="Resources/Styles/AppEntryStyle.xaml" />
+                <ResourceDictionary Source="Resources/Styles/AppToggleStyle.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

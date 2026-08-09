@@ -1,0 +1,14 @@
+-- Full-text search index for bilingual (Arabic/English) project search.
+-- Placeholder schema — wired up once the advanced search feature (V1 scope) is implemented.
+--
+-- CREATE VIRTUAL TABLE IF NOT EXISTS projects_fts USING fts5(
+--     project_id UNINDEXED,
+--     title,
+--     description,
+--     client_name,
+--     skills,
+--     tokenize = 'unicode61 remove_diacritics 2'
+-- );
+--
+-- Rows are kept in sync with the `projects` table via triggers created in a future
+-- migration (see Migrations/README.md).

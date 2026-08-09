@@ -41,4 +41,34 @@
     <SolidColorBrush x:Key="Gray600Brush" Color="{StaticResource Gray600}"/>
     <SolidColorBrush x:Key="Gray900Brush" Color="{StaticResource Gray900}"/>
     <SolidColorBrush x:Key="Gray950Brush" Color="{StaticResource Gray950}"/>
+
+    <!-- ================================================================
+         MostaqlK brand/design-system palette (see UI/DesignSystem/DesignTokens.cs
+         for the C#-side mirror of these values). Derived from the MVP mockups
+         under .repertoire/design/mvp/*.html.
+         ================================================================ -->
+
+    <!-- Mostaql blue accent -->
+    <Color x:Key="AccentPrimary">#2386C8</Color>
+    <Color x:Key="AccentPrimaryDark">#5CA8DE</Color>
+
+    <!-- Positive/success accent -->
+    <Color x:Key="AccentPositive">#2E9E6B</Color>
+    <Color x:Key="AccentPositiveDark">#4FBF8C</Color>
+
+    <!-- Slate background/surface palette -->
+    <Color x:Key="AppBackgroundLight">#F8FAFC</Color>
+    <Color x:Key="AppBackgroundDark">#0F172A</Color>
+    <Color x:Key="AppSurfaceLight">#FFFFFF</Color>
+    <Color x:Key="AppSurfaceDark">#1E293B</Color>
+
+    <!-- Muted "read" project-card border color (unread state uses AccentPrimary as its accent bar) -->
+    <Color x:Key="ReadBorderLight">#CBD5E1</Color>
+    <Color x:Key="ReadBorderDark">#475569</Color>
+
+    <SolidColorBrush x:Key="AccentPrimaryBrush" Color="{StaticResource AccentPrimary}"/>
+    <SolidColorBrush x:Key="AccentPositiveBrush" Color="{StaticResource AccentPositive}"/>
+    <SolidColorBrush x:Key="AppBackgroundBrush" Color="{AppThemeBinding Light={StaticResource AppBackgroundLight}, Dark={StaticResource AppBackgroundDark}}"/>
+    <SolidColorBrush x:Key="AppSurfaceBrush" Color="{AppThemeBinding Light={StaticResource AppSurfaceLight}, Dark={StaticResource AppSurfaceDark}}"/>
+    <SolidColorBrush x:Key="ReadBorderBrush" Color="{AppThemeBinding Light={StaticResource ReadBorderLight}, Dark={StaticResource ReadBorderDark}}"/>
 </ResourceDictionary>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!--
+        Windows-only tweaks on top of AppButtonBase (Resources/Styles/AppButtonStyle.xaml),
+        per Mechanism 1 in cross-platform-ui-conventions.md. Merged only on
+        net*-windows*.0 target frameworks — see App.xaml.cs.
+    -->
+    <Style x:Key="AppButtonWindows" TargetType="Button" BasedOn="{StaticResource AppButtonBase}">
+        <!-- Windows/WinUI reads a little cramped at the shared padding; open it up slightly. -->
+        <Setter Property="Padding" Value="16,10" />
+        <Setter Property="FontSize" Value="14" />
+    </Style>
+
+</ResourceDictionary>

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:components="clr-namespace:MostaqlK.UI.PlatformComponents"
+             xmlns:vm="clr-namespace:MostaqlK.Features.Projects.ViewModels"
+             x:Class="MostaqlK.Features.Projects.Views.ProjectCard"
+             x:DataType="vm:ProjectCardViewModel"
+             FlowDirection="RightToLeft">
+
+    <!-- Reflects the unread/read project card from projects.html: highlighted background
+         and bold title while unread, muted style once read. -->
+    <components:AppCard Padding="16" Margin="0,0,0,12">
+        <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
+
+            <Label Grid.Row="0"
+                    Text="{Binding Title}"
+                    FontSize="16">
+                <Label.Triggers>
+                    <DataTrigger TargetType="Label" Binding="{Binding IsUnread}" Value="True">
+                        <Setter Property="FontAttributes" Value="Bold" />
+                    </DataTrigger>
+                </Label.Triggers>
+            </Label>
+
+            <Label Grid.Row="1"
+                    Text="{Binding ClientName}"
+                    FontSize="13"
+                    TextColor="Gray" />
+
+            <HorizontalStackLayout Grid.Row="2" Spacing="12">
+                <Label Text="{Binding PostedRelative}" FontSize="12" TextColor="Gray" />
+                <Label Text="{Binding ProposalCount, StringFormat='{0} عرض'}" FontSize="12" TextColor="Gray" />
+            </HorizontalStackLayout>
+
+        </Grid>
+    </components:AppCard>
+
+</ContentView>

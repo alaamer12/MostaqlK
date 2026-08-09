@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:MostaqlK.Features.Settings.ViewModels"
+             x:Class="MostaqlK.Features.Settings.Views.SettingsPanel"
+             x:DataType="vm:SettingsViewModel"
+             Title="الإعدادات"
+             FlowDirection="RightToLeft">
+
+    <!-- Rows mirror settings.html: poll interval, request rate, grouping mode/threshold,
+         dark-mode toggle, and the "مشاريع مضافة اليوم" stat card. -->
+    <ScrollView>
+        <VerticalStackLayout Padding="24" Spacing="16">
+
+            <Frame Padding="16" CornerRadius="8" HasShadow="False">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="مشاريع مضافة اليوم" FontSize="14" TextColor="Gray" />
+                    <Label Text="{Binding ProjectsAddedTodayCount}" FontSize="28" FontAttributes="Bold" />
+                </VerticalStackLayout>
+            </Frame>
+
+            <Grid ColumnDefinitions="*,Auto">
+                <Label Grid.Column="0" Text="فترة الفحص (ثانية)" VerticalOptions="Center" />
+                <Entry Grid.Column="1" Text="{Binding PollIntervalSeconds}" Keyboard="Numeric" WidthRequest="100" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto">
+                <Label Grid.Column="0" Text="الحد الأقصى للطلبات في الدقيقة" VerticalOptions="Center" />
+                <Entry Grid.Column="1" Text="{Binding RequestsPerMinute}" Keyboard="Numeric" WidthRequest="100" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto">
+                <Label Grid.Column="0" Text="طريقة تجميع الإشعارات" VerticalOptions="Center" />
+                <Picker Grid.Column="1" SelectedItem="{Binding GroupingMode}" WidthRequest="160">
+                    <Picker.ItemsSource>
+                        <x:Array Type="{x:Type x:String}">
+                            <x:String>EndOfMinute</x:String>
+                            <x:String>AfterMinutes</x:String>
+                            <x:String>AfterCount</x:String>
+                        </x:Array>
+                    </Picker.ItemsSource>
+                </Picker>
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto">
+                <Label Grid.Column="0" Text="حد التجميع" VerticalOptions="Center" />
+                <Entry Grid.Column="1" Text="{Binding GroupingThreshold}" Keyboard="Numeric" WidthRequest="100" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto">
+                <Label Grid.Column="0" Text="الوضع الليلي" VerticalOptions="Center" />
+                <!-- AppToggle from UI.PlatformComponents is preferred; falling back to a plain
+                     Switch keeps this file compilable independently of that parallel work. -->
+                <Switch Grid.Column="1" IsToggled="{Binding IsDarkMode}" />
+            </Grid>
+
+            <Button Text="حفظ" Command="{Binding SaveCommand}" HorizontalOptions="End" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>
