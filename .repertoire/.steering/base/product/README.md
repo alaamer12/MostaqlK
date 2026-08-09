@@ -8,6 +8,7 @@ This is a wiki-style documentation set. Each concern has one home; other docs li
 
 | Doc | What it answers |
 |---|---|
+| [`system-components.md`](../system-components.md) | **Architecture map.** All major components, their purposes, boundaries, relationships, and implementation locations |
 | [`MVP.md`](../../v1/product/README.md) | **Start here for build.** What actually ships first — parser/pipeline + storage + notifications only |
 | [`diff-engine.md`](../../v1/tech/diff-engine.md) | The reusable compare abstraction — local scrape-vs-DB today, mobile peer-sync later |
 | [`concurrency-model.md`](../../v1/tech/concurrency-model.md) | Thread-safe in-flight tracking, transaction boundaries, crash/restart behavior |

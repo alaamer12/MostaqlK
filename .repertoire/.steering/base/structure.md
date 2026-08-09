@@ -22,6 +22,12 @@ MostaqlK/
 │   ├── Notifications/               # Notification presentation and unread state
 │   └── Settings/                    # User-facing configuration
 │
+├── UI/                              # Cross-feature UI system, not tied to one Features/ slice
+│   ├── PlatformComponents/          # Same-shape widgets with per-OS partial-class tweaks (AppButton, AppCard, ...)
+│   ├── PlatformConcepts/            # Same-concept, different-shape-per-platform mappings (NavigationControl, ModalPresenter, ...)
+│   ├── TrayIcon/                    # Tray icon states and menu
+│   └── DesignSystem/                # Shared visual language and component primitives
+│
 ├── Models/                          # Shared domain and persistence models
 ├── Services/                        # Application use cases and service interfaces
 ├── Infrastructure/                 # External I/O and technical implementations
@@ -49,6 +55,7 @@ The project root remains the home for the MAUI entry points and project file. A 
 - Use dependency injection from `MauiProgram.cs` to connect interfaces to implementations.
 - Keep Arabic-first data handling and bilingual search behavior in shared layers, not in Windows-only code.
 - Treat `Resources/` and `Platforms/` as MAUI convention directories; change their project configuration only when the default conventions are insufficient.
+- Name every `UI/PlatformConcepts/` entry after its conceptual role (e.g. `NavigationControl`, `ModalPresenter`), never after a single platform's native widget name; see [`cross-platform-ui-conventions.md`](../v1/tech/cross-platform-ui-conventions.md) for the full convention and the `PlatformComponents/` vs `PlatformConcepts/` decision guide.
 
 ## Delivery phases
 

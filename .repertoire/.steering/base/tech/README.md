@@ -13,6 +13,7 @@ This is a wiki-style documentation set. Each concern has one home; other docs li
 | [`concurrency-model.md`](../../v1/tech/concurrency-model.md) | Thread-safe in-flight tracking, transaction boundaries, crash/restart behavior |
 | [`worker-pool-and-rate-limiter.md`](../../v1/tech/worker-pool-and-rate-limiter.md) | Queue, worker pool, shared token-bucket rate limiter — with C# implementation |
 | [`error-handling-and-resilience.md`](../../v1/tech/error-handling-and-resilience.md) | Failure handling per pipeline stage, retry/backoff policy |
+| [`cross-platform-ui-conventions.md`](../../v1/tech/cross-platform-ui-conventions.md) | Naming and folder conventions for platform-neutral UI components and cross-platform concept mappings (e.g. navigation, modals) |
 | [`identity-and-auth.md`](../../v2/tech/identity-and-auth.md) | Device identity: Buzz-style lite (dormant secp256k1 keypair in platform SecureStorage) now; full cryptographic peer identity only when LAN sync arrives |
 | [`overview.md`](../product/overview.md) | What is this, why does it exist, what ships in each version (MVP / v2 / v3) |
 | [`architecture-pipeline.md`](../product/architecture-pipeline.md) | How polling, the discovery queue, worker pool, and rate limiting actually work — including the concurrency race condition and its fix |
