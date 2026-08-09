@@ -6,7 +6,7 @@
 *.user
 *.userosscache
 *.sln.docstates
-
+cookies.txt
 # Build results and output
 [Bb]in/
 [Oo]bj/

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>حول التطبيق — Mostaqlk</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<style data-purpose="custom-styles">
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
+
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #f1f5f9;
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        :root {
+            --accent-primary: #2386C8;
+            --accent-positive: #2E9E6B;
+        }
+        html.dark {
+            --accent-primary: #5CA8DE;
+            --accent-positive: #4FBF8C;
+        }
+
+        body { transition: background-color 0.2s ease, color 0.2s ease; }
+        html.dark body { background-color: #0f172a; }
+    </style>
+<script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#64748b',
+                        background: '#f8fafc',
+                        surface: '#ffffff',
+                    }
+                }
+            }
+        }
+    </script>
+<script>
+        (function () {
+            try {
+                var stored = localStorage.getItem('mostaqlk-theme');
+                var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                var isDark = stored ? stored === 'dark' : systemDark;
+                if (isDark) document.documentElement.classList.add('dark');
+            } catch (e) { /* localStorage unavailable — fall back to light */ }
+        })();
+    </script>
+</head>
+<body class="h-screen flex overflow-hidden text-slate-800 dark:text-slate-200 dark:bg-slate-950">
+<!-- BEGIN: Sidebar -->
+<aside class="w-64 bg-background dark:bg-slate-900 flex flex-col border-l border-slate-200 dark:border-slate-800" data-purpose="sidebar">
+<div class="h-20 flex items-center px-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-xl">
+                    M
+                </div>
+<div>
+<h1 class="font-bold text-lg leading-tight dark:text-slate-100">Mostaqlk</h1>
+<span class="text-xs text-slate-500 dark:text-slate-400">v1.0.0</span>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-4 py-4 space-y-2 overflow-y-auto" data-purpose="sidebar-nav">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="./dashboard.html">
+<i class="fa-solid fa-list-check w-5 text-center"></i>
+<span>المشاريع</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="#">
+<i class="fa-solid fa-magnifying-glass w-5 text-center"></i>
+<span>البحث المتقدم</span>
+</a>
+<a class="flex items-center justify-between px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="#">
+<div class="flex items-center gap-3">
+<i class="fa-regular fa-bell w-5 text-center"></i>
+<span>التنبيهات</span>
+</div>
+<span class="bg-blue-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">5</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="./settings.html">
+<i class="fa-solid fa-gear w-5 text-center"></i>
+<span>الإعدادات</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl font-medium relative" href="./about.html">
+<div class="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-600 rounded-l-full"></div>
+<i class="fa-solid fa-circle-info w-5 text-center"></i>
+<span>حول التطبيق</span>
+</a>
+</nav>
+<div class="p-4 border-t border-slate-200 dark:border-slate-800 space-y-4">
+<div class="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 text-center">
+<span class="block text-sm text-slate-500 dark:text-slate-400 mb-1">مشاريع مضافة اليوم</span>
+<span class="block text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">12</span>
+</div>
+<div class="flex items-center justify-between px-2">
+<div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+<i class="fa-regular fa-moon"></i>
+<span>الوضع الداكن</span>
+</div>
+<button id="theme-toggle" class="w-10 h-6 bg-slate-300 dark:bg-blue-600 rounded-full relative cursor-pointer focus:outline-none transition-colors" aria-pressed="false" aria-label="تبديل الوضع الداكن" onclick="toggleTheme()">
+<div id="theme-toggle-knob" class="w-4 h-4 bg-white rounded-full absolute top-1 shadow-sm transition-all" style="right: 0.25rem;"></div>
+</button>
+</div>
+</div>
+</aside>
+<!-- END: Sidebar -->
+<!-- BEGIN: Main Content -->
+<main class="flex-1 flex flex-col min-w-0 bg-slate-100 dark:bg-slate-950 overflow-hidden" data-purpose="main-content">
+<div class="p-6 pb-2">
+<div class="bg-white dark:bg-slate-900 px-4 py-3 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 flex items-center gap-2">
+<i class="fa-solid fa-circle-info text-slate-400 dark:text-slate-500 text-sm"></i>
+<h1 class="font-bold text-slate-900 dark:text-slate-100">حول التطبيق</h1>
+</div>
+</div>
+
+<div class="flex-1 overflow-y-auto px-6 pb-6">
+<div class="w-full space-y-6">
+
+<!-- Identity card -->
+<div class="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 text-center">
+<div class="w-16 h-16 mx-auto bg-blue-500 rounded-2xl flex items-center justify-center text-white font-bold text-3xl mb-4">
+                    M
+                </div>
+<h2 class="text-xl font-bold text-slate-900 dark:text-slate-100 mb-1">Mostaqlk</h2>
+<span class="inline-block text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 rounded-full px-3 py-1 mb-4">الإصدار 1.0.0 — MVP</span>
+<p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed max-w-md mx-auto">
+                    تطبيق سطح مكتب لنظام Windows يراقب صفحة
+                    <a href="https://mostaql.com/projects" target="_blank" class="hover:underline" style="color: var(--accent-primary);">المشاريع المفتوحة في مستقل</a>
+                    وينبّهك خلال دقيقة تقريبًا من نشر مشروع جديد، مع حفظ كامل تفاصيله محليًا للرجوع إليها لاحقًا دون اتصال.
+                </p>
+</div>
+
+<!-- Quick facts -->
+<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+<div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+<h3 class="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+<i class="fa-solid fa-list text-slate-400 dark:text-slate-500 text-sm"></i>
+                        حقائق سريعة
+                    </h3>
+</div>
+<div class="divide-y divide-slate-100 dark:divide-slate-800">
+<div class="flex items-center justify-between px-6 py-3.5 text-sm">
+<span class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+<i class="fa-brands fa-windows w-4 text-center"></i>
+                            المنصة
+                        </span>
+<span class="font-medium text-slate-800 dark:text-slate-200">تطبيق سطح مكتب لنظام Windows (مقيم في شريط المهام)</span>
+</div>
+<div class="flex items-center justify-between px-6 py-3.5 text-sm">
+<span class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+<i class="fa-solid fa-database w-4 text-center"></i>
+                            التخزين
+                        </span>
+<span class="font-medium text-slate-800 dark:text-slate-200">قاعدة بيانات محلية مُضمَّنة — بلا خادم أو سحابة</span>
+</div>
+<div class="flex items-center justify-between px-6 py-3.5 text-sm">
+<span class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+<i class="fa-solid fa-gauge-high w-4 text-center"></i>
+                            حد الطلبات
+                        </span>
+<span class="font-medium text-slate-800 dark:text-slate-200">قابل للتعديل — الافتراضي ~2 طلب/دقيقة</span>
+</div>
+<div class="flex items-center justify-between px-6 py-3.5 text-sm">
+<span class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+<i class="fa-solid fa-box-archive w-4 text-center"></i>
+                            سياسة البيانات
+                        </span>
+<span class="font-medium text-slate-800 dark:text-slate-200">يُجلب المشروع مرة واحدة ولا يُحدَّث لاحقًا</span>
+</div>
+<div class="flex items-center justify-between px-6 py-3.5 text-sm">
+<span class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+<i class="fa-solid fa-language w-4 text-center"></i>
+                            اللغة
+                        </span>
+<span class="font-medium text-slate-800 dark:text-slate-200">العربية أساسًا، مع دعم كامل للإنجليزية في البحث</span>
+</div>
+</div>
+</div>
+
+<!-- Version scope -->
+<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+<div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+<h3 class="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+<i class="fa-solid fa-map text-slate-400 dark:text-slate-500 text-sm"></i>
+                        نطاق الإصدارات
+                    </h3>
+</div>
+<div class="divide-y divide-slate-100 dark:divide-slate-800">
+<div class="px-6 py-4">
+<div class="flex items-center gap-2 mb-1.5">
+<span class="w-2 h-2 rounded-full" style="background-color: var(--accent-positive);"></span>
+<span class="font-bold text-sm text-slate-800 dark:text-slate-200">v1 — الإصدار الحالي (MVP)</span>
+</div>
+<p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed pr-4">فحص ← اكتشاف ← إثراء ← تخزين ← تنبيه، مع نافذة أساسية وشريط مهام. الإعداد الوحيد المتاح حاليًا هو استعلام الفحص (query_params).</p>
+</div>
+<div class="px-6 py-4">
+<div class="flex items-center gap-2 mb-1.5">
+<span class="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+<span class="font-bold text-sm text-slate-500 dark:text-slate-400">v2 — قادم</span>
+</div>
+<p class="text-xs text-slate-400 dark:text-slate-500 leading-relaxed pr-4">تنزيل المرفقات، تجميع التنبيهات، تمييز المقروء/غير المقروء، بحث نصي كامل، ومُنشئ استعلامات متقدم.</p>
+</div>
+<div class="px-6 py-4">
+<div class="flex items-center gap-2 mb-1.5">
+<span class="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+<span class="font-bold text-sm text-slate-500 dark:text-slate-400">v3 — مستقبلي</span>
+</div>
+<p class="text-xs text-slate-400 dark:text-slate-500 leading-relaxed pr-4">تطبيق مرافق للجوال، مزامنة عبر الشبكة المحلية، وتنبيهات push.</p>
+</div>
+</div>
+</div>
+
+<p class="text-center text-xs text-slate-400 dark:text-slate-500">Mostaqlk ليس تابعًا لمنصة Mostaq.com ولا معتمدًا رسميًا منها.</p>
+
+</div>
+</div>
+</main>
+<!-- END: Main Content -->
+<script>
+    function applyTheme(isDark) {
+        document.documentElement.classList.toggle('dark', isDark);
+        const btn = document.getElementById('theme-toggle');
+        const knob = document.getElementById('theme-toggle-knob');
+        if (btn) btn.setAttribute('aria-pressed', String(isDark));
+        if (knob) knob.style.right = isDark ? '1.25rem' : '0.25rem';
+    }
+
+    function toggleTheme() {
+        const isDark = !document.documentElement.classList.contains('dark');
+        applyTheme(isDark);
+        try {
+            localStorage.setItem('mostaqlk-theme', isDark ? 'dark' : 'light');
+        } catch (e) { /* localStorage unavailable — theme just won't persist */ }
+    }
+
+    applyTheme(document.documentElement.classList.contains('dark'));
+
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        try {
+            if (!localStorage.getItem('mostaqlk-theme')) applyTheme(e.matches);
+        } catch (err) { applyTheme(e.matches); }
+    });
+</script>
+</body></html>

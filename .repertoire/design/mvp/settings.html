@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>الإعدادات — Mostaqlk</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<style data-purpose="custom-styles">
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
+
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #f1f5f9;
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        :root {
+            --accent-primary: #2386C8;
+            --accent-positive: #2E9E6B;
+        }
+        html.dark {
+            --accent-primary: #5CA8DE;
+            --accent-positive: #4FBF8C;
+        }
+
+        body { transition: background-color 0.2s ease, color 0.2s ease; }
+        html.dark body { background-color: #0f172a; }
+    </style>
+<script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#64748b',
+                        background: '#f8fafc',
+                        surface: '#ffffff',
+                    }
+                }
+            }
+        }
+    </script>
+<script>
+        (function () {
+            try {
+                var stored = localStorage.getItem('mostaqlk-theme');
+                var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                var isDark = stored ? stored === 'dark' : systemDark;
+                if (isDark) document.documentElement.classList.add('dark');
+            } catch (e) { /* localStorage unavailable — fall back to light */ }
+        })();
+    </script>
+</head>
+<body class="h-screen flex overflow-hidden text-slate-800 dark:text-slate-200 dark:bg-slate-950">
+<!-- BEGIN: Sidebar -->
+<aside class="w-64 bg-background dark:bg-slate-900 flex flex-col border-l border-slate-200 dark:border-slate-800" data-purpose="sidebar">
+<div class="h-20 flex items-center px-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-xl">
+                    M
+                </div>
+<div>
+<h1 class="font-bold text-lg leading-tight dark:text-slate-100">Mostaqlk</h1>
+<span class="text-xs text-slate-500 dark:text-slate-400">v1.0.0</span>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-4 py-4 space-y-2 overflow-y-auto" data-purpose="sidebar-nav">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="./dashboard.html">
+<i class="fa-solid fa-list-check w-5 text-center"></i>
+<span>المشاريع</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="#">
+<i class="fa-solid fa-magnifying-glass w-5 text-center"></i>
+<span>البحث المتقدم</span>
+</a>
+<a class="flex items-center justify-between px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="#">
+<div class="flex items-center gap-3">
+<i class="fa-regular fa-bell w-5 text-center"></i>
+<span>التنبيهات</span>
+</div>
+<span class="bg-blue-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">5</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl font-medium relative" href="./settings.html">
+<div class="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-600 rounded-l-full"></div>
+<i class="fa-solid fa-gear w-5 text-center"></i>
+<span>الإعدادات</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="./about.html">
+<i class="fa-solid fa-circle-info w-5 text-center"></i>
+<span>حول التطبيق</span>
+</a>
+</nav>
+<div class="p-4 border-t border-slate-200 dark:border-slate-800 space-y-4">
+<div class="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 text-center">
+<span class="block text-sm text-slate-500 dark:text-slate-400 mb-1">مشاريع مضافة اليوم</span>
+<span class="block text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">12</span>
+</div>
+<div class="flex items-center justify-between px-2">
+<div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+<i class="fa-regular fa-moon"></i>
+<span>الوضع الداكن</span>
+</div>
+<button id="theme-toggle" class="w-10 h-6 bg-slate-300 dark:bg-blue-600 rounded-full relative cursor-pointer focus:outline-none transition-colors" aria-pressed="false" aria-label="تبديل الوضع الداكن" onclick="toggleTheme()">
+<div id="theme-toggle-knob" class="w-4 h-4 bg-white rounded-full absolute top-1 shadow-sm transition-all" style="right: 0.25rem;"></div>
+</button>
+</div>
+</div>
+</aside>
+<!-- END: Sidebar -->
+<!-- BEGIN: Main Content -->
+<main class="flex-1 flex flex-col min-w-0 bg-slate-100 dark:bg-slate-950 overflow-hidden" data-purpose="main-content">
+<div class="p-6 pb-2">
+<div class="bg-white dark:bg-slate-900 px-4 py-3 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 flex items-center gap-2">
+<i class="fa-solid fa-gear text-slate-400 dark:text-slate-500 text-sm"></i>
+<h1 class="font-bold text-slate-900 dark:text-slate-100">الإعدادات</h1>
+</div>
+</div>
+
+<div class="flex-1 overflow-y-auto px-6 pb-6">
+<div class="w-full space-y-6">
+
+<!-- MVP note -->
+<div class="flex items-start gap-3 bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-xl px-4 py-3 text-sm text-blue-700 dark:text-blue-300">
+<i class="fa-solid fa-circle-info mt-0.5 shrink-0"></i>
+<p>هذا إصدار MVP — الإعداد الوحيد المتاح حاليًا هو استعلام الفحص (<span class="font-mono">query_params</span>). باقي الإعدادات (الفاصل الزمني، تنزيل المرفقات، تجميع التنبيهات...) ستُضاف في إصدارات لاحقة.</p>
+</div>
+
+<!-- query_params card -->
+<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+<div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+<h2 class="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+<i class="fa-solid fa-filter text-slate-400 dark:text-slate-500 text-sm"></i>
+                        استعلام الفحص
+                    </h2>
+<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">وجّه فحص القائمة نحو رابط تصفية محدد في Mostaql (تصنيف، ترتيب، ميزانية...)</p>
+</div>
+
+<div class="px-6 py-5 space-y-4">
+<div>
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2" for="query-params-input">query_params</label>
+<div class="flex items-center rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 overflow-hidden focus-within:border-blue-500 dark:focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-500 transition-shadow" dir="ltr">
+<span class="px-3 py-2.5 text-xs text-slate-400 dark:text-slate-500 border-r border-slate-200 dark:border-slate-700 shrink-0 font-mono select-none">mostaql.com/projects</span>
+<input id="query-params-input" type="text" placeholder="category=development&amp;sort=latest" class="flex-1 min-w-0 bg-transparent px-3 py-2.5 text-sm font-mono text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none" dir="ltr"/>
+</div>
+<p class="text-xs text-slate-400 dark:text-slate-500 mt-2 flex items-start gap-1.5">
+<i class="fa-regular fa-circle-question mt-0.5 shrink-0"></i>
+<span>اتركه فارغًا لفحص كل المشاريع. القيمة الجديدة تُطبَّق على الفحص التالي فقط ولا تُعيد تصنيف أو جلب أي مشروع مخزَّن مسبقًا.</span>
+</p>
+</div>
+
+<div id="query-params-preview" class="hidden items-center gap-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 rounded-md px-3 py-2">
+<i class="fa-solid fa-link text-slate-400 dark:text-slate-500"></i>
+<span id="query-params-preview-text" class="font-mono truncate" dir="ltr"></span>
+</div>
+</div>
+
+<div class="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+<span id="save-status" class="text-xs text-slate-400 dark:text-slate-500"></span>
+<div class="flex items-center gap-2">
+<button onclick="resetQueryParams()" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">إعادة تعيين</button>
+<button onclick="saveQueryParams()" class="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors" style="background-color: var(--accent-primary);">حفظ</button>
+</div>
+</div>
+</div>
+
+</div>
+</div>
+</main>
+<!-- END: Main Content -->
+<script>
+    function applyTheme(isDark) {
+        document.documentElement.classList.toggle('dark', isDark);
+        const btn = document.getElementById('theme-toggle');
+        const knob = document.getElementById('theme-toggle-knob');
+        if (btn) btn.setAttribute('aria-pressed', String(isDark));
+        if (knob) knob.style.right = isDark ? '1.25rem' : '0.25rem';
+    }
+
+    function toggleTheme() {
+        const isDark = !document.documentElement.classList.contains('dark');
+        applyTheme(isDark);
+        try {
+            localStorage.setItem('mostaqlk-theme', isDark ? 'dark' : 'light');
+        } catch (e) { /* localStorage unavailable — theme just won't persist */ }
+    }
+
+    applyTheme(document.documentElement.classList.contains('dark'));
+
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        try {
+            if (!localStorage.getItem('mostaqlk-theme')) applyTheme(e.matches);
+        } catch (err) { applyTheme(e.matches); }
+    });
+
+    // query_params: single optional string, normalized (works with or without a leading "?"),
+    // not retroactive — only affects the next poll cycle. See configuration-reference.md.
+    const input = document.getElementById('query-params-input');
+    const preview = document.getElementById('query-params-preview');
+    const previewText = document.getElementById('query-params-preview-text');
+    const saveStatus = document.getElementById('save-status');
+
+    function normalizeQueryParams(raw) {
+        const trimmed = raw.trim();
+        if (!trimmed) return '';
+        return trimmed.startsWith('?') ? trimmed : '?' + trimmed;
+    }
+
+    function updatePreview() {
+        const normalized = normalizeQueryParams(input.value);
+        if (normalized) {
+            previewText.textContent = 'mostaql.com/projects' + normalized;
+            preview.classList.remove('hidden');
+            preview.classList.add('flex');
+        } else {
+            preview.classList.add('hidden');
+            preview.classList.remove('flex');
+        }
+    }
+
+    function saveQueryParams() {
+        try {
+            localStorage.setItem('mostaqlk-query-params', input.value.trim());
+        } catch (e) { /* localStorage unavailable */ }
+        saveStatus.textContent = 'تم الحفظ — سيُطبَّق من الفحص التالي';
+        setTimeout(() => { saveStatus.textContent = ''; }, 3000);
+    }
+
+    function resetQueryParams() {
+        input.value = '';
+        updatePreview();
+        try {
+            localStorage.removeItem('mostaqlk-query-params');
+        } catch (e) { /* localStorage unavailable */ }
+        saveStatus.textContent = 'تمت إعادة التعيين — سيتم فحص كل المشاريع';
+        setTimeout(() => { saveStatus.textContent = ''; }, 3000);
+    }
+
+    input.addEventListener('input', updatePreview);
+
+    (function loadSaved() {
+        try {
+            const saved = localStorage.getItem('mostaqlk-query-params');
+            if (saved) {
+                input.value = saved;
+                updatePreview();
+            }
+        } catch (e) { /* localStorage unavailable */ }
+    })();
+</script>
+</body></html>
