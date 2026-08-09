@@ -25,7 +25,7 @@ Both desktop and mobile are **independent peers**, not master/mirror:
   - `desktop_missing = mobile_ids − desktop_ids`
   - `mobile_missing = desktop_ids − mobile_ids`
 - Each side requests and inserts the other's missing rows. Result converges to the union: `final_set = desktop_projects ∪ mobile_projects`.
-- This is a merge, not an overwrite — safe because of the [no-update policy](./architecture-pipeline.md#no-update-policy): a project row is immutable once scraped, so there's no last-write-wins conflict to resolve.
+- This is a merge, not an overwrite — safe because of the [no-update policy](../../base/product/architecture-pipeline.md#no-update-policy): a project row is immutable once scraped, so there's no last-write-wins conflict to resolve.
 - After merge, each device only fires notifications for rows that are newly-arrived *to it* via sync — not for rows it already had.
 - Both apps need the same schema (or a compatible export subset) so a missing row from one is directly insertable into the other.
 
@@ -39,7 +39,7 @@ LAN sync only works when both devices are online and reachable on the same netwo
 
 ## Notification collapsing & grouping (mobile)
 
-Distinct from [desktop-side notification grouping](./configuration-reference.md#notification-grouping) — this is about **push delivery** behavior specifically, so duplicate/stacked pushes don't pile up while the phone was offline.
+Distinct from [desktop-side notification grouping](../../v1/product/configuration-reference.md#notification-grouping) — this is about **push delivery** behavior specifically, so duplicate/stacked pushes don't pile up while the phone was offline.
 
 - **FCM:** set `collapse_key` (e.g. `mostaqlk_new_project`) so multiple pending messages collapse to the most recent on delivery. Collapsing affects *delivery*, not *content* — if an aggregate message ("3 new projects") is wanted rather than losing all but the latest, the sender (desktop) must detect the batch and send one summary push itself, not rely on FCM to summarize.
 - **APNs:** equivalent via `apns-collapse-id` (same delivery-only caveat). Pair with `thread-id` to visually group notifications in the notification center without dropping any of them (Android equivalent: `group` key).

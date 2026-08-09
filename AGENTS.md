@@ -10,8 +10,13 @@ Preferences for AI agents working in this repository. Follow these on every task
 
 | File | Purpose |
 |------|---------|
-| [`.repertoire/.steering/product/README.md`](.repertoire/.steering/product/README.md) | Product docs index — what ships in MVP/v2/v3, links to `MVP.md`, `overview.md`, `architecture-pipeline.md`, `data-model-schema.md`, `configuration-reference.md`, `ui-ux-design.md`, `DESIGN.md`, `search-and-filtering.md`, `roadmap-future.md` |
-| [`.repertoire/.steering/tech/README.md`](.repertoire/.steering/tech/README.md) | Tech docs index — stack, storage, identity, concurrency; links to `concurrency-model.md`, `diff-engine.md`, `error-handling-and-resilience.md`, `identity-and-auth.md`, `worker-pool-and-rate-limiter.md` |
+| [`.repertoire/.steering/base/structure.md`](.repertoire/.steering/base/structure.md) | Directory structure and high-level boundaries across the app. |
+| [`.repertoire/.steering/base/product/README.md`](.repertoire/.steering/base/product/README.md) | Base Product docs index — unchanging architecture, data model, and overall design concepts. |
+| [`.repertoire/.steering/base/tech/README.md`](.repertoire/.steering/base/tech/README.md) | Base Tech docs index — unchanging conventions for C#, SQL, errors, and UI components. |
+| [`.repertoire/.steering/v1/product/README.md`](.repertoire/.steering/v1/product/README.md) | V1 Product docs index — current V1 scope, UX, and configuration. |
+| [`.repertoire/.steering/v1/tech/README.md`](.repertoire/.steering/v1/tech/README.md) | V1 Tech docs index — diff-engine, concurrency, workers, and V1-specific tech. |
+
+> **IMPORTANT VERSION CONTEXT:** The current version is **V1**. You MUST read and adhere to `base/` and `v1/` documentation. You MUST IGNORE any documentation inside the `v2/` folder as it is for future features only.
 
 These are the source of truth for project context. Do not contradict them without verifying the codebase first. Each README is a wiki-style index — follow its links to the specific doc that answers your question rather than assuming the README alone is enough.
 
@@ -147,8 +152,9 @@ When spawning a subagent (Task tool or any delegated work), **paste the block be
 === MANDATORY AGENT PREFERENCES (read and follow) ===
 
 1. CONTEXT — Read at conversation start and consider for every decision:
-   - .repertoire/.steering/product/README.md (and the docs it links to)
-   - .repertoire/.steering/tech/README.md (and the docs it links to)
+   - Current version is **V1**. Ignore all `v2/` folder documentation.
+   - .repertoire/.steering/base/product/README.md & .repertoire/.steering/base/tech/README.md
+   - .repertoire/.steering/v1/product/README.md & .repertoire/.steering/v1/tech/README.md
    - Design mockups: .repertoire/design/mvp/ for in-scope MVP UI, .repertoire/design/post-mvp/ for future-scope UI
 
 2. SKILLS — Use at least ONE skill from .cursor/skills/ (read its SKILL.md in full). Unsure? Start with .cursor/skills/using-agent-skills/SKILL.md. Not required for pure questions / Ask mode.

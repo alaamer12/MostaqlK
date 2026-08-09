@@ -14,8 +14,8 @@
 
 Two things run concurrently and touch shared state:
 
-1. The **poll loop** — periodically reads the in-flight set (via the [diff engine](./diff-engine.md)) and adds newly enqueued IDs to it.
-2. The **worker pool** ([worker-pool-and-rate-limiter.md](./worker-pool-and-rate-limiter.md)) — multiple async workers remove IDs from the in-flight set as they finish (success or permanent failure).
+1. The **poll loop** — periodically reads the in-flight set (via the [diff engine](diff-engine.md)) and adds newly enqueued IDs to it.
+2. The **worker pool** ([worker-pool-and-rate-limiter.md](worker-pool-and-rate-limiter.md)) — multiple async workers remove IDs from the in-flight set as they finish (success or permanent failure).
 
 Both can happen at genuinely the same moment — a poll firing while three workers are mid-enrichment. The in-flight set is the one piece of mutable shared state in the whole pipeline, so it's the only thing that needs deliberate concurrency handling; everything else (DB writes, HTTP calls) is either already transactional (DB) or inherently isolated (each HTTP call is independent).
 
@@ -61,7 +61,7 @@ Worker dequeues, fetches detail, parses, commits to DB
 finally { InFlightTracker.MarkComplete(id) }   ← always runs, success or failure
 ```
 
-The `finally` is not optional — a worker that throws mid-enrichment (network error, parse error) must still release the ID, or it becomes permanently invisible to future polls (stuck as "in flight" forever with no worker actually processing it). See [error-handling-and-resilience.md](./error-handling-and-resilience.md) for what happens after release on failure (retry vs. drop).
+The `finally` is not optional — a worker that throws mid-enrichment (network error, parse error) must still release the ID, or it becomes permanently invisible to future polls (stuck as "in flight" forever with no worker actually processing it). See [error-handling-and-resilience.md](error-handling-and-resilience.md) for what happens after release on failure (retry vs. drop).
 
 ## DB-level backstop
 
@@ -77,4 +77,4 @@ A single enrichment's DB writes (the `projects` row insert, plus whatever else v
 
 ## Restart / crash behavior
 
-`InFlightTracker` is in-memory only, by design — it does not need to persist across restarts. On a fresh process start, the set is empty, which is exactly correct: anything that was mid-enrichment but not committed before the previous process ended is, by definition, not in the DB either, so the next poll's diff engine will correctly see it as `unseen` again and reprocess it. This is the same mechanism that makes the [backlog-handling model](./architecture-pipeline.md#backlog-handling-no-special-cold-start) work without a dedicated resume/recovery path — a crash mid-backlog just looks like a large `unseen` set on the next poll, handled identically to any other backlog.
+`InFlightTracker` is in-memory only, by design — it does not need to persist across restarts. On a fresh process start, the set is empty, which is exactly correct: anything that was mid-enrichment but not committed before the previous process ended is, by definition, not in the DB either, so the next poll's diff engine will correctly see it as `unseen` again and reprocess it. This is the same mechanism that makes the [backlog-handling model](../../base/product/architecture-pipeline.md#backlog-handling-no-special-cold-start) work without a dedicated resume/recovery path — a crash mid-backlog just looks like a large `unseen` set on the next poll, handled identically to any other backlog.

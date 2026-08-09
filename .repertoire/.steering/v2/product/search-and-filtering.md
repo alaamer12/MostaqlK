@@ -12,7 +12,7 @@
 
 ## Query builder UX
 
-A chip + dropdown builder over the local archive — **not** a filter on what gets fetched from Mostaql (that's [`query_params`](./configuration-reference.md#query_params), a separate and unrelated concept). Each chip is `{field, operator, value}`; chips AND together. Example:
+A chip + dropdown builder over the local archive — **not** a filter on what gets fetched from Mostaql (that's [`query_params`](../../v1/product/configuration-reference.md#query_params), a separate and unrelated concept). Each chip is `{field, operator, value}`; chips AND together. Example:
 
 ```
 [category = development]  [budget_max ≥ 500]  [unread only]
@@ -22,7 +22,7 @@ Sort is a separate control: any structured field, ascending/descending, plus a `
 
 ## Filterable / sortable fields
 
-All sourced from the [schema](./data-model-schema.md):
+All sourced from the [schema](../../base/product/data-model-schema.md):
 
 - `title`, `category`, `posted_at`, `proposal_count`
 - `budget_min`, `budget_max`, `delivery_days`
@@ -61,8 +61,8 @@ Two respectable approaches were weighed:
 
 **Decision:** FTS5 + app-side fuzzy re-ranking, with a **normalize-at-write-time** step (fold Alef variants, strip diacritics, normalize ة/ي variants) applied to both indexed text and incoming queries. This is the standard, low-risk approach for a distributed desktop app; extension-based approaches remain a documented option if search quality needs later warrant the added deployment complexity.
 
-The storage engine itself does not need to be strictly SQLite — any embedded, single-file, SQLite-API-compatible engine (e.g. libSQL) is an acceptable substitute if a specific future need (native vector search, sync primitives) makes the swap worthwhile. See [data-model-schema.md § storage engine choice](./data-model-schema.md#storage-engine-choice).
+The storage engine itself does not need to be strictly SQLite — any embedded, single-file, SQLite-API-compatible engine (e.g. libSQL) is an acceptable substitute if a specific future need (native vector search, sync primitives) makes the swap worthwhile. See [data-model-schema.md § storage engine choice](../../base/product/data-model-schema.md#storage-engine-choice).
 
 ## Incremental FTS maintenance
 
-Every successful `projects` insert (from the [enrichment pipeline](./architecture-pipeline.md#two-tier-request-flow)) writes to the FTS table in the **same transaction** — no batch reindex job, the search index stays current automatically as the archive grows.
+Every successful `projects` insert (from the [enrichment pipeline](../../base/product/architecture-pipeline.md#two-tier-request-flow)) writes to the FTS table in the **same transaction** — no batch reindex job, the search index stays current automatically as the archive grows.

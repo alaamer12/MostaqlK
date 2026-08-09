@@ -13,7 +13,7 @@
 ## Polling & rate
 
 - `poll_interval_seconds` — how often the listing page is re-fetched. Default: 30.
-- `max_requests_per_minute` — shared budget across listing polls + detail/asset fetches. Default: 2/min, user-adjustable. See [architecture-pipeline.md § rate limiting](./architecture-pipeline.md#rate-limiting).
+- `max_requests_per_minute` — shared budget across listing polls + detail/asset fetches. Default: 2/min, user-adjustable. See [architecture-pipeline.md § rate limiting](../../base/product/architecture-pipeline.md#rate-limiting).
 - `max_concurrent_detail_fetches` — worker pool size for Tier 2 enrichment. Default: 2–3.
 
 ## `query_params`
@@ -29,7 +29,7 @@ A single optional string, e.g. `category=development&sort=latest`, with or witho
 
 Boolean. Default: **false**.
 
-- When true, detail enrichment also identifies and downloads attachment/image URLs on the project page, saving them under `assets/{project_id}/` and recording paths in the [`assets` table](./data-model-schema.md#assets).
+- When true, detail enrichment also identifies and downloads attachment/image URLs on the project page, saving them under `assets/{project_id}/` and recording paths in the [`assets` table](../../base/product/data-model-schema.md#assets).
 - Asset downloads queue *after* the detail page fetch, under the same shared rate budget — not a parallel unthrottled burst.
 - A per-project cap on asset count is recommended to bound worst-case request volume.
 
@@ -44,11 +44,11 @@ Desktop-only. Batches near-simultaneous new-project discoveries into one summary
   - `after_count` — accumulate until `N` pending items are reached, flush immediately.
 - `notification_grouping_param` — the numeric parameter for `after_minutes` or `after_count` (unused for `end_of_minute`).
 - **Single-item rule:** if exactly 1 project is pending when a batch would flush, it falls back to a normal individual detailed toast rather than a "1 new project" grouped message.
-- Clicking a grouped toast opens the window filtered to `is_read = false` — no separate "batch ID" concept is needed. See [ui-ux-design.md](./ui-ux-design.md#unreadread-highlighting).
+- Clicking a grouped toast opens the window filtered to `is_read = false` — no separate "batch ID" concept is needed. See [ui-ux-design.md](ui-ux-design.md#unreadread-highlighting).
 
 ## Push notifications (v3)
 
-Deferred — full detail in [roadmap-future.md](./roadmap-future.md#push-notifications).
+Deferred — full detail in [roadmap-future.md](../../v2/product/roadmap-future.md#push-notifications).
 
 - `push_notifications_enabled` — default: **true**, but inert until a mobile device has been paired at least once.
 

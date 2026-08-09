@@ -8,7 +8,7 @@ This is deliberately **not** a user-account system. There is no login, no email,
 
 - Distinguish one install from another on the same machine (crash reports, optional telemetry tags, local “this device” references).
 - Keep zero user-facing recovery or key-management UI in MVP and v2.
-- Leave a zero-rewrite seam so that the same material can later become a real signing identity for LAN peer sync (see [roadmap-future.md](./roadmap-future.md)).
+- Leave a zero-rewrite seam so that the same material can later become a real signing identity for LAN peer sync (see [roadmap-future.md](../product/roadmap-future.md)).
 
 ## Buzz-style lite (current approach)
 
@@ -66,7 +66,7 @@ The lite approach keeps the cryptographic material in the correct place and form
 
 ## Future: full cryptographic identity (v3 peer sync)
 
-When LAN pairing / multi-device union-merge lands (see [roadmap-future.md](./roadmap-future.md) and the reusable `Resolve(candidates, providers)` shape in [diff-engine.md](./diff-engine.md)), the dormant keypair is activated:
+When LAN pairing / multi-device union-merge lands (see [roadmap-future.md](../product/roadmap-future.md) and the reusable `Resolve(candidates, providers)` shape in [diff-engine.md](../../v1/tech/diff-engine.md)), the dormant keypair is activated:
 
 1. The existing private key begins signing peer manifests.
 2. A minimal pairing flow is added (short-lived QR / pairing secret, or optional encrypted export of the key material).
@@ -91,7 +91,7 @@ Until then the keypair remains completely silent.
 
 ## Related docs
 
-- [diff-engine.md](./diff-engine.md) — the abstraction that will later consume signed peer manifests
-- [roadmap-future.md](./roadmap-future.md) — mobile companion + LAN peer sync
-- [concurrency-model.md](./concurrency-model.md) — in-flight tracking is independent of identity
+- [diff-engine.md](../../v1/tech/diff-engine.md) — the abstraction that will later consume signed peer manifests
+- [roadmap-future.md](../product/roadmap-future.md) — mobile companion + LAN peer sync
+- [concurrency-model.md](../../v1/tech/concurrency-model.md) — in-flight tracking is independent of identity
 - [MVP.md](./MVP.md) — identity work is outside the MVP cut

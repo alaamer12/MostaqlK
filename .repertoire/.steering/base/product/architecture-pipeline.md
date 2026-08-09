@@ -23,11 +23,11 @@ Single Tauri process:
 [Listing poll] --(new IDs)--> [Discovery queue] --> [Worker pool] --(enriched row)--> [DB commit] --> [Notification]
 ```
 
-1. **Listing poll** (Tier 1) — fetch the projects listing (base URL, optionally modified by [`query_params`](./configuration-reference.md#query_params)). Parse each card: `project_id`, `title`, `url`, `client_name`, `posted_relative`, `proposal_count`.
+1. **Listing poll** (Tier 1) — fetch the projects listing (base URL, optionally modified by [`query_params`](../../v1/product/configuration-reference.md#query_params)). Parse each card: `project_id`, `title`, `url`, `client_name`, `posted_relative`, `proposal_count`.
 2. **Diff** — compare parsed IDs against DB + [in-flight set](#in-flight-tracking) (not DB alone — see below). Anything in neither is genuinely new.
 3. **Enqueue** — new IDs are pushed to a FIFO discovery queue.
-4. **Worker pool** (Tier 2) — a fixed number of async workers (configurable concurrency cap) pull from the queue, fetch the detail page, parse the full record, and commit it to the DB in one transaction (including the [search index](./search-and-filtering.md#incremental-fts-maintenance) and, if [`include_assets`](./configuration-reference.md#include_assets) is on, downloaded attachments).
-5. **Notification** — on commit, either an individual toast or a [grouped summary toast](./ui-ux-design.md#notification-grouping) fires, depending on config.
+4. **Worker pool** (Tier 2) — a fixed number of async workers (configurable concurrency cap) pull from the queue, fetch the detail page, parse the full record, and commit it to the DB in one transaction (including the [search index](../../v2/product/search-and-filtering.md#incremental-fts-maintenance) and, if [`include_assets`](../../v1/product/configuration-reference.md#include_assets) is on, downloaded attachments).
+5. **Notification** — on commit, either an individual toast or a [grouped summary toast](../../v1/product/ui-ux-design.md#notification-grouping) fires, depending on config.
 
 Both tiers draw from the same [shared rate budget](#rate-limiting) — a burst of detail fetches never causes the total outbound rate to exceed the configured limit.
 
@@ -39,7 +39,7 @@ This also holds for genuine bursts (e.g. 20 real projects posted within an actua
 
 **Fairness rule:** the queue is FIFO. A later poll's new arrivals are appended after an existing backlog, never jumping ahead of it. New listing polls continue to fire on schedule regardless of queue depth — they just keep diffing and appending; they never block waiting for the queue to drain.
 
-Large backlogs naturally interact well with [notification grouping](./ui-ux-design.md#notification-grouping) — a 20-item backlog draining over several minutes produces grouped summary toasts rather than a special-cased suppression rule.
+Large backlogs naturally interact well with [notification grouping](../../v1/product/ui-ux-design.md#notification-grouping) — a 20-item backlog draining over several minutes produces grouped summary toasts rather than a special-cased suppression rule.
 
 ## In-flight tracking
 
@@ -73,6 +73,6 @@ Once a `project_id` is committed, it is **never re-fetched or mutated**. This is
 - Status transitions (open → closed, etc.) are not tracked and not detectable by this app.
 - `proposal_count` and every other field reflect a snapshot at scrape time, permanently.
 - No polling cycle ever revisits an already-committed ID's detail page.
-- Consequence for schema: no `updated_at`, no status-history table, no revisit queue needed — `scraped_at` is sufficient. See [data-model-schema.md](./data-model-schema.md).
+- Consequence for schema: no `updated_at`, no status-history table, no revisit queue needed — `scraped_at` is sufficient. See [data-model-schema.md](data-model-schema.md).
 
 This keeps the entire rate budget spent on *discovery of new projects* — the actual value of the tool — rather than splitting it with staleness-chasing.

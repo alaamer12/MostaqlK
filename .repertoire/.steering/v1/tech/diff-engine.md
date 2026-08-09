@@ -12,9 +12,9 @@
 
 ## Why a dedicated engine, not inline comparison logic
 
-The naive version — "compare scraped IDs against the DB" — is wrong on its own, as established in [architecture-pipeline.md § in-flight tracking](./architecture-pipeline.md#in-flight-tracking): a project mid-enrichment isn't in the DB yet, so a plain DB diff re-discovers it and causes duplicate work.
+The naive version — "compare scraped IDs against the DB" — is wrong on its own, as established in [architecture-pipeline.md § in-flight tracking](../../base/product/architecture-pipeline.md#in-flight-tracking): a project mid-enrichment isn't in the DB yet, so a plain DB diff re-discovers it and causes duplicate work.
 
-The correct comparison needs **three states**, not two: `unseen` / `in_flight` / `committed`. That three-state comparison is the same shape of problem as the future mobile [peer-sync reconciliation](./roadmap-future.md#two-way-peer-sync) — "what does peer A have that peer B doesn't, accounting for what's already being handled." Rather than writing this logic once inline for local polling and rewriting it again later for sync, it's built as one reusable **diff engine** component with pluggable sources.
+The correct comparison needs **three states**, not two: `unseen` / `in_flight` / `committed`. That three-state comparison is the same shape of problem as the future mobile [peer-sync reconciliation](../../v2/product/roadmap-future.md#two-way-peer-sync) — "what does peer A have that peer B doesn't, accounting for what's already being handled." Rather than writing this logic once inline for local polling and rewriting it again later for sync, it's built as one reusable **diff engine** component with pluggable sources.
 
 ## Core abstraction
 
@@ -34,11 +34,11 @@ The engine itself contains no I/O — it's pure set logic over whatever the prov
 
 ## Local mode (v1)
 
-Used every poll cycle, exactly as described in [architecture-pipeline.md](./architecture-pipeline.md#two-tier-request-flow):
+Used every poll cycle, exactly as described in [architecture-pipeline.md](../../base/product/architecture-pipeline.md#two-tier-request-flow):
 
 - **Candidates:** IDs parsed from the current listing poll.
-- **Provider 1 — committed:** a query against `projects.project_id` (indexed, cheap — see [data-model-schema.md](./data-model-schema.md#projects)).
-- **Provider 2 — in-flight:** the in-memory `HashSet<long>` guarded by the [concurrency model](./concurrency-model.md).
+- **Provider 1 — committed:** a query against `projects.project_id` (indexed, cheap — see [data-model-schema.md](../../base/product/data-model-schema.md#projects)).
+- **Provider 2 — in-flight:** the in-memory `HashSet<long>` guarded by the [concurrency model](concurrency-model.md).
 - **Output used:** only `unseen` — that's what gets enqueued. `in_flight` and `committed` are discarded (nothing to do with them locally beyond confirming they're not re-enqueued).
 
 ## Peer-sync mode (v3, future)
@@ -46,13 +46,13 @@ Used every poll cycle, exactly as described in [architecture-pipeline.md](./arch
 Not implemented in MVP or v2 — documented here only so the v1 abstraction is shaped correctly from the start.
 
 - **Candidates:** the union of both peers' manifests (lightweight `project_id` + hash/version, not full rows).
-- **Providers:** each peer's own committed-ID set, exchanged over the LAN connection described in [roadmap-future.md](./roadmap-future.md#mobile-companion--lan-pairing).
-- **Output used:** both directions matter here — `desktop_missing` and `mobile_missing` (see [roadmap-future.md § two-way peer sync](./roadmap-future.md#two-way-peer-sync)) are just the same `Resolve()` call run once per direction, swapping which side is "candidates" and which is "provider."
-- Because the [no-update policy](./architecture-pipeline.md#no-update-policy) makes every committed row immutable, there is no conflict-resolution step needed beyond presence/absence — which is exactly what this engine already computes.
+- **Providers:** each peer's own committed-ID set, exchanged over the LAN connection described in [roadmap-future.md](../../v2/product/roadmap-future.md#mobile-companion--lan-pairing).
+- **Output used:** both directions matter here — `desktop_missing` and `mobile_missing` (see [roadmap-future.md § two-way peer sync](../../v2/product/roadmap-future.md#two-way-peer-sync)) are just the same `Resolve()` call run once per direction, swapping which side is "candidates" and which is "provider."
+- Because the [no-update policy](../../base/product/architecture-pipeline.md#no-update-policy) makes every committed row immutable, there is no conflict-resolution step needed beyond presence/absence — which is exactly what this engine already computes.
 
 ## Interface sketch (C#)
 
-Stack note: MAUI/C# is the likely target (superseding earlier Tauri/Rust references in [architecture-pipeline.md](./architecture-pipeline.md) — that doc predates this decision and should be read as illustrative of the *concepts*, not the literal runtime).
+Stack note: MAUI/C# is the likely target (superseding earlier Tauri/Rust references in [architecture-pipeline.md](../../base/product/architecture-pipeline.md) — that doc predates this decision and should be read as illustrative of the *concepts*, not the literal runtime).
 
 ```csharp
 public interface IKnownStateProvider
@@ -93,5 +93,5 @@ This is intentionally provider-count-agnostic — local mode wires in two provid
 ## What the diff engine explicitly does not do
 
 - It does not fetch, parse, or enrich anything — it only decides *what's actionable*.
-- It does not write to the DB or the in-flight set — those mutations happen in the [worker pool](./worker-pool-and-rate-limiter.md) and [concurrency model](./concurrency-model.md), triggered by the engine's output.
-- It does not resolve conflicts or merge field-level data — the [no-update policy](./architecture-pipeline.md#no-update-policy) means there's never a "same ID, different content" case to reconcile.
+- It does not write to the DB or the in-flight set — those mutations happen in the [worker pool](worker-pool-and-rate-limiter.md) and [concurrency model](concurrency-model.md), triggered by the engine's output.
+- It does not resolve conflicts or merge field-level data — the [no-update policy](../../base/product/architecture-pipeline.md#no-update-policy) means there's never a "same ID, different content" case to reconcile.

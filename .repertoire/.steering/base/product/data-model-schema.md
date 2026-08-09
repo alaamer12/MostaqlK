@@ -13,11 +13,11 @@
 
 ## Storage engine choice
 
-An **embedded, single-file database** — SQLite is the default choice, but the requirement is "embedded single-file," not strictly SQLite. SQLite-compatible alternatives (e.g. libSQL) are viable drop-in swaps if a specific feature (native vector search, sync primitives) becomes worth the trade later. See [search-and-filtering.md § storage engine tradeoff](./search-and-filtering.md#storage-engine-tradeoff) for the specific decision around fuzzy search support.
+An **embedded, single-file database** — SQLite is the default choice, but the requirement is "embedded single-file," not strictly SQLite. SQLite-compatible alternatives (e.g. libSQL) are viable drop-in swaps if a specific feature (native vector search, sync primitives) becomes worth the trade later. See [search-and-filtering.md § storage engine tradeoff](../../v2/product/search-and-filtering.md#storage-engine-tradeoff) for the specific decision around fuzzy search support.
 
 ## `projects`
 
-The core table. One row per `project_id`, write-once (see [no-update policy](./architecture-pipeline.md#no-update-policy)).
+The core table. One row per `project_id`, write-once (see [no-update policy](architecture-pipeline.md#no-update-policy)).
 
 | Column | Type | Notes |
 |---|---|---|
@@ -33,11 +33,11 @@ The core table. One row per `project_id`, write-once (see [no-update policy](./a
 | `proposal_count` | INTEGER | Snapshot at scrape time only |
 | `posted_at` | DATETIME | Resolved from relative time ("منذ 4 ساعات") to absolute at scrape time |
 | `scraped_at` | DATETIME | When this app fetched it |
-| `is_read` | BOOLEAN | Default `false`. See [ui-ux-design.md § unread highlighting](./ui-ux-design.md#unreadread-highlighting) |
+| `is_read` | BOOLEAN | Default `false`. See [ui-ux-design.md § unread highlighting](../../v1/product/ui-ux-design.md#unreadread-highlighting) |
 | `enrichment_status` | TEXT | `pending` \| `enriched` \| `failed` |
 | `source_query_params` | TEXT | The `query_params` value active on the poll that discovered this row (nullable) |
 
-`project_id` uniqueness is the concurrency backstop described in [architecture-pipeline.md § in-flight tracking](./architecture-pipeline.md#in-flight-tracking).
+`project_id` uniqueness is the concurrency backstop described in [architecture-pipeline.md § in-flight tracking](architecture-pipeline.md#in-flight-tracking).
 
 ## `owners`
 
@@ -66,7 +66,7 @@ Many-to-many join, since a project can list multiple skills.
 
 ## `assets`
 
-Populated only when [`include_assets`](./configuration-reference.md#include_assets) is enabled.
+Populated only when [`include_assets`](../../v1/product/configuration-reference.md#include_assets) is enabled.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -78,7 +78,7 @@ Populated only when [`include_assets`](./configuration-reference.md#include_asse
 
 ## Search index
 
-An FTS5 (or engine-equivalent) virtual table shadowing `title`, `description`, and concatenated `project_skills.skill`, maintained incrementally in the same transaction as each `projects` insert. Full rationale and tokenizer/normalization strategy: [search-and-filtering.md](./search-and-filtering.md).
+An FTS5 (or engine-equivalent) virtual table shadowing `title`, `description`, and concatenated `project_skills.skill`, maintained incrementally in the same transaction as each `projects` insert. Full rationale and tokenizer/normalization strategy: [search-and-filtering.md](../../v2/product/search-and-filtering.md).
 
 ## Field parsing notes
 

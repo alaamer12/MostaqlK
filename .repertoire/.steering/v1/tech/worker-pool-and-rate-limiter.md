@@ -11,7 +11,7 @@
 
 ## Queue
 
-A single FIFO queue holds `project_id`s that the [diff engine](./diff-engine.md) has marked `unseen` and the [in-flight tracker](./concurrency-model.md) has accepted. In .NET, `System.Threading.Channels.Channel<long>` is the natural fit — it's an async-friendly, thread-safe producer/consumer queue built for exactly this pattern (poll loop produces, worker pool consumes), and avoids hand-rolling locking around a plain `Queue<T>`.
+A single FIFO queue holds `project_id`s that the [diff engine](diff-engine.md) has marked `unseen` and the [in-flight tracker](concurrency-model.md) has accepted. In .NET, `System.Threading.Channels.Channel<long>` is the natural fit — it's an async-friendly, thread-safe producer/consumer queue built for exactly this pattern (poll loop produces, worker pool consumes), and avoids hand-rolling locking around a plain `Queue<T>`.
 
 ```csharp
 var channel = Channel.CreateUnbounded<long>();
@@ -26,11 +26,11 @@ await foreach (var id in channel.Reader.ReadAllAsync())
 }
 ```
 
-FIFO ordering here is what gives the [backlog-handling fairness guarantee](./architecture-pipeline.md#backlog-handling-no-special-cold-start) — older discoveries are always processed before newer ones, never starved by a later poll's fresh arrivals.
+FIFO ordering here is what gives the [backlog-handling fairness guarantee](../../base/product/architecture-pipeline.md#backlog-handling-no-special-cold-start) — older discoveries are always processed before newer ones, never starved by a later poll's fresh arrivals.
 
 ## Worker pool
 
-A fixed number of consumer tasks read from the same channel concurrently — this is the `max_concurrent_detail_fetches` setting from [configuration-reference.md](./configuration-reference.md#polling--rate).
+A fixed number of consumer tasks read from the same channel concurrently — this is the `max_concurrent_detail_fetches` setting from [configuration-reference.md](../product/configuration-reference.md#polling--rate).
 
 ```csharp
 var workerCount = config.MaxConcurrentDetailFetches; // default 2–3
@@ -59,7 +59,7 @@ Each worker independently waits on the shared rate limiter before making its HTT
 
 ## Shared rate limiter (token bucket)
 
-One rate limiter instance is shared across **both** tiers — the poll loop and every worker draw from the same bucket, so `max_requests_per_minute` ([configuration-reference.md](./configuration-reference.md#polling--rate)) is a true aggregate ceiling, not a per-tier one.
+One rate limiter instance is shared across **both** tiers — the poll loop and every worker draw from the same bucket, so `max_requests_per_minute` ([configuration-reference.md](../product/configuration-reference.md#polling--rate)) is a true aggregate ceiling, not a per-tier one.
 
 ```csharp
 public sealed class TokenBucketRateLimiter
@@ -133,4 +133,4 @@ The poll loop's own listing fetch also goes through `WaitForTokenAsync()` — it
 
 ## Backpressure
 
-`Channel.CreateUnbounded` is deliberately unbounded rather than capacity-limited — the queue is allowed to grow arbitrarily during a large backlog ([architecture-pipeline.md § backlog handling](./architecture-pipeline.md#backlog-handling-no-special-cold-start)) rather than blocking the poll loop or dropping discoveries. The rate limiter is what provides backpressure on *outbound requests*; the queue itself should never be the thing that causes a discovered project to be lost or a poll cycle to stall.
+`Channel.CreateUnbounded` is deliberately unbounded rather than capacity-limited — the queue is allowed to grow arbitrarily during a large backlog ([architecture-pipeline.md § backlog handling](../../base/product/architecture-pipeline.md#backlog-handling-no-special-cold-start)) rather than blocking the poll loop or dropping discoveries. The rate limiter is what provides backpressure on *outbound requests*; the queue itself should never be the thing that causes a discovered project to be lost or a poll cycle to stall.
