@@ -1,3 +1,4 @@
+using MostaqlK.Services.Diagnostics;
 using MostaqlK.UI.PlatformComponents;
 
 namespace MostaqlK.UI.PlatformComponents.AppSidebar;
@@ -98,15 +99,80 @@ public partial class AppSidebar : ContentView
         label.FontFamily = isActive ? "TajawalMedium" : "Tajawal";
     }
 
-    private void OnProjectsClicked(object? sender, TappedEventArgs e) => ProjectsClicked?.Invoke(this, EventArgs.Empty);
+    [TraceInteraction("Sidebar_ProjectsButton")]
+    private void OnProjectsClicked(object? sender, TappedEventArgs e)
+    {
+        using var _ = TraceScope.Begin("Sidebar_ProjectsButton");
+        try
+        {
+            ProjectsClicked?.Invoke(this, EventArgs.Empty);
+        }
+        catch (Exception ex)
+        {
+            _.MarkFaulted(ex);
+            throw;
+        }
+    }
 
-    private void OnAdvancedSearchClicked(object? sender, TappedEventArgs e) => AdvancedSearchClicked?.Invoke(this, EventArgs.Empty);
+    [TraceInteraction("Sidebar_AdvancedSearchButton")]
+    private void OnAdvancedSearchClicked(object? sender, TappedEventArgs e)
+    {
+        using var _ = TraceScope.Begin("Sidebar_AdvancedSearchButton");
+        try
+        {
+            AdvancedSearchClicked?.Invoke(this, EventArgs.Empty);
+        }
+        catch (Exception ex)
+        {
+            _.MarkFaulted(ex);
+            throw;
+        }
+    }
 
-    private void OnNotificationsClicked(object? sender, TappedEventArgs e) => NotificationsClicked?.Invoke(this, EventArgs.Empty);
+    [TraceInteraction("Sidebar_NotificationsButton")]
+    private void OnNotificationsClicked(object? sender, TappedEventArgs e)
+    {
+        using var _ = TraceScope.Begin("Sidebar_NotificationsButton");
+        try
+        {
+            NotificationsClicked?.Invoke(this, EventArgs.Empty);
+        }
+        catch (Exception ex)
+        {
+            _.MarkFaulted(ex);
+            throw;
+        }
+    }
 
-    private void OnSettingsClicked(object? sender, TappedEventArgs e) => SettingsClicked?.Invoke(this, EventArgs.Empty);
+    [TraceInteraction("Sidebar_SettingsButton")]
+    private void OnSettingsClicked(object? sender, TappedEventArgs e)
+    {
+        using var _ = TraceScope.Begin("Sidebar_SettingsButton");
+        try
+        {
+            SettingsClicked?.Invoke(this, EventArgs.Empty);
+        }
+        catch (Exception ex)
+        {
+            _.MarkFaulted(ex);
+            throw;
+        }
+    }
 
-    private void OnAboutClicked(object? sender, TappedEventArgs e) => AboutClicked?.Invoke(this, EventArgs.Empty);
+    [TraceInteraction("Sidebar_AboutButton")]
+    private void OnAboutClicked(object? sender, TappedEventArgs e)
+    {
+        using var _ = TraceScope.Begin("Sidebar_AboutButton");
+        try
+        {
+            AboutClicked?.Invoke(this, EventArgs.Empty);
+        }
+        catch (Exception ex)
+        {
+            _.MarkFaulted(ex);
+            throw;
+        }
+    }
 }
 
 public enum SidebarPage

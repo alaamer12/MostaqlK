@@ -32,7 +32,7 @@
                 <Label Text="حول التطبيق" FontSize="16" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
             </Border>
 
-            <ScrollView Grid.Row="2">
+            <ScrollView Grid.Row="2" AutomationId="About_ScrollView">
                 <VerticalStackLayout Spacing="16">
 
                     <!-- Identity card -->
@@ -133,7 +133,7 @@
                         </VerticalStackLayout>
                     </Border>
 
-                    <Label Text="Mostaqlk ليس تابعًا لمنصة Mostaq.com ولا معتمدًا رسميًا منها." FontSize="12" TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}" HorizontalOptions="Center" FontFamily="Tajawal">
+                    <Label Text="Mostaqlk ليس تابعًا لمنصة Mostaq.com ولا معتمدًا رسميًا منها." AutomationId="About_MostaqlLink" FontSize="12" TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}" HorizontalOptions="Center" FontFamily="Tajawal">
                         <Label.GestureRecognizers>
                             <TapGestureRecognizer Tapped="OnMostaqlLinkTapped" />
                         </Label.GestureRecognizers>

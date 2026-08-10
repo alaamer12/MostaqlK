@@ -51,7 +51,7 @@
 
         <!-- Navigation: px-4 py-4 space-y-2 -->
         <VerticalStackLayout Grid.Row="1" Spacing="8" Padding="16">
-            <Border x:Name="ProjectsButton" Style="{StaticResource SidebarNavRowStyle}">
+            <Border x:Name="ProjectsButton" AutomationId="Sidebar_ProjectsButton" Style="{StaticResource SidebarNavRowStyle}">
                 <Border.GestureRecognizers>
                     <TapGestureRecognizer Tapped="OnProjectsClicked" />
                 </Border.GestureRecognizers>
@@ -61,7 +61,7 @@
                     <Label Grid.Column="2" x:Name="ProjectsLabel" Text="المشاريع" FontSize="14" FontFamily="TajawalBold" VerticalOptions="Center" />
                 </Grid>
             </Border>
-            <Border x:Name="AdvancedSearchButton" Style="{StaticResource SidebarNavRowStyle}">
+            <Border x:Name="AdvancedSearchButton" AutomationId="Sidebar_AdvancedSearchButton" Style="{StaticResource SidebarNavRowStyle}">
                 <Border.GestureRecognizers>
                     <TapGestureRecognizer Tapped="OnAdvancedSearchClicked" />
                 </Border.GestureRecognizers>
@@ -71,7 +71,7 @@
                     <Label Grid.Column="2" x:Name="AdvancedSearchLabel" Text="البحث المتقدم" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
                 </Grid>
             </Border>
-            <Border x:Name="NotificationsButton" Style="{StaticResource SidebarNavRowStyle}">
+            <Border x:Name="NotificationsButton" AutomationId="Sidebar_NotificationsButton" Style="{StaticResource SidebarNavRowStyle}">
                 <Border.GestureRecognizers>
                     <TapGestureRecognizer Tapped="OnNotificationsClicked" />
                 </Border.GestureRecognizers>
@@ -90,7 +90,7 @@
                     </Border>
                 </Grid>
             </Border>
-            <Border x:Name="SettingsButton" Style="{StaticResource SidebarNavRowStyle}">
+            <Border x:Name="SettingsButton" AutomationId="Sidebar_SettingsButton" Style="{StaticResource SidebarNavRowStyle}">
                 <Border.GestureRecognizers>
                     <TapGestureRecognizer Tapped="OnSettingsClicked" />
                 </Border.GestureRecognizers>
@@ -100,7 +100,7 @@
                     <Label Grid.Column="2" x:Name="SettingsLabel" Text="الإعدادات" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
                 </Grid>
             </Border>
-            <Border x:Name="AboutButton" Style="{StaticResource SidebarNavRowStyle}">
+            <Border x:Name="AboutButton" AutomationId="Sidebar_AboutButton" Style="{StaticResource SidebarNavRowStyle}">
                 <Border.GestureRecognizers>
                     <TapGestureRecognizer Tapped="OnAboutClicked" />
                 </Border.GestureRecognizers>

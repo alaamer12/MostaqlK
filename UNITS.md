@@ -88,6 +88,20 @@ flags: `--default-page=projects|project-details|settings|about`, `--project-id=<
 | `--seed-design-data` | Replaces the local SQLite store with the dataset the MVP mockups are drawn against (`Infrastructure/Database/DesignDataSeeder.cs`), writing through the normal repository layer, and latches the `design_parity_mode` preference so the poll service and worker pool stay offline — otherwise freshly scraped projects would bury the seeded rows between parity captures. Idempotent: each run clears the project tables first. |
 | `--seed-design-data=off` | Clears the latch and restores live polling. The seeded rows stay until the next reseed or a real poll. |
 
+## Diagnostics
+
+Location: `Services/Diagnostics/`
+
+| Unit | Type | Purpose | Status |
+|---|---|---|---|
+| `InteractionLogger` | static class | Structured rolling log sink under `FileSystem.AppDataDirectory/interaction-log.txt`. `Enter`/`Exit`/`Fault` bracket a traced command; `Mark(checkpoint, variant, data)` is the A/B checkpoint helper ("A"=branch taken/enter, "B"=other branch/skip) used to prove which code path actually executed instead of guessing from UI behaviour alone. All writes are best-effort and never throw. | Implemented |
+| `TraceInteractionAttribute` / `TraceScope` | attribute + `IDisposable` scope | `[TraceInteraction("Name")]` documents that a command/handler (`TogglePolling`, `RefreshCommand`, `SaveCommand`, `SelectCommand`, `ResolveCommand`, sidebar nav handlers, ...) is traced; the method body wraps itself in `using var _ = TraceScope.Begin("Name", parameters)` (calling `MarkFaulted` on catch) so entry/exit/exceptions land in `InteractionLogger` for both humans and Appium tests to inspect. No IL weaving — the attribute is documentation, the `TraceScope` call is what actually logs. | Implemented |
+
+Naming convention for AutomationIds (added incrementally as pages are catalogued in
+`docs/ui-test-catalog.md`): `<Page>_<Element>`, e.g. `Sidebar_ProjectsButton`,
+`Projects_SearchInput`, `Settings_SaveButton` — set directly on the exact control that owns the
+`TapGestureRecognizer`/`Command`, never on a wrapping container, so `WindowsDriver.FindElementByAccessibilityId` maps 1:1 to the real hit-test target.
+
 ## Tray Icon
 
 Location: `UI/TrayIcon/`

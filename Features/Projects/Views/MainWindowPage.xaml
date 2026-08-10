@@ -74,6 +74,7 @@
                                                     TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
                                                     VerticalOptions="Center" />
                                 <components:SearchInputField Grid.Column="1"
+                                                              AutomationId="Projects_SearchInput"
                                                               FlowDirection="RightToLeft"
                                                               Text="{Binding SearchQuery}"
                                                               Placeholder="بحث متقدم في المشاريع (العنوان، الوصف، المهارات، الميزانية...)"
@@ -123,6 +124,7 @@
                             </Border>
 
                             <Border StrokeThickness="0"
+                                    AutomationId="Projects_TogglePollingButton"
                                     BackgroundColor="#EF4444"
                                     Padding="12,6"
                                     VerticalOptions="Center">
@@ -147,6 +149,7 @@
                             </Border>
 
                             <Border StrokeThickness="0"
+                                    AutomationId="Projects_SettingsGearButton"
                                     BackgroundColor="Transparent"
                                     WidthRequest="32"
                                     HeightRequest="32"
@@ -207,7 +210,7 @@
 
                 <VerticalStackLayout IsVisible="{Binding HasError}" VerticalOptions="Center">
                     <design:LabelWithSubText Text="{Binding ErrorMessage}" SubText="اضغط لإعادة المحاولة." />
-                    <components:AppButton Text="إعادة المحاولة" Command="{Binding RefreshCommand}" HorizontalOptions="Center" Margin="0,12,0,0" FontFamily="Tajawal" />
+                    <components:AppButton Text="إعادة المحاولة" AutomationId="Projects_RetryButton" Command="{Binding RefreshCommand}" HorizontalOptions="Center" Margin="0,12,0,0" FontFamily="Tajawal" />
                 </VerticalStackLayout>
 
                 <design:LabelWithSubText IsVisible="{Binding IsEmpty}"
@@ -216,6 +219,7 @@
                                           SubText="سيتم عرض المشاريع الجديدة هنا فور توفرها." />
 
                 <CollectionView IsVisible="{Binding ShowFeed}"
+                                AutomationId="Projects_ProjectsCollectionView"
                                 ItemsSource="{Binding Projects}">
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="vm:ProjectCardViewModel">
@@ -241,6 +245,7 @@
                     <BoxView WidthRequest="4" HeightRequest="4" Color="{AppThemeBinding Light=#CBD5E1, Dark=#475569}" CornerRadius="2" VerticalOptions="Center" />
                     <Label Text="{Binding UnreadCountText}" FontSize="11" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#2386C8, Dark=#5CA8DE}" VerticalOptions="Center" />
                     <Label Text="تحديد الكل كمقروء"
+                           AutomationId="Projects_MarkAllReadLabel"
                            FontSize="11"
                            TextColor="{AppThemeBinding Light=#2386C8, Dark=#5CA8DE}"
                            VerticalOptions="Center"
@@ -259,6 +264,7 @@
                     <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
                         <Label Text="{Binding LastScanText}" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" VerticalOptions="Center" FontFamily="Tajawal" />
                         <Label Text="↻"
+                               AutomationId="Projects_RefreshLabel"
                                FontSize="12"
                                TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
                                VerticalOptions="Center"
@@ -274,6 +280,7 @@
         </Grid>
 
         <notifViews:RecentNotificationsFlyout x:Name="NotificationsFlyout"
+                                               AutomationId="Notifications_Flyout"
                                                Grid.Column="1"
                                                IsVisible="False"
                                                HorizontalOptions="End"

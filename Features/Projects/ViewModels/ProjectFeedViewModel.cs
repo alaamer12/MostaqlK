@@ -5,6 +5,7 @@ using Microsoft.Maui.Storage;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Infrastructure.Database.SearchIndex;
 using MostaqlK.Models;
+using MostaqlK.Services.Diagnostics;
 using MostaqlK.Services.Pipeline;
 
 namespace MostaqlK.Features.Projects.ViewModels;
@@ -170,8 +171,21 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         }
     }
 
+    [TraceInteraction("RefreshCommand")]
     [RelayCommand]
-    public async Task RefreshAsync() => await LoadAsync();
+    public async Task RefreshAsync()
+    {
+        using var _ = TraceScope.Begin("RefreshCommand");
+        try
+        {
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _.MarkFaulted(ex);
+            throw;
+        }
+    }
 
     /// <summary>Invoked by <c>SearchInputField.DebouncedCommand</c> once the debounce window elapses.</summary>
     [RelayCommand]
@@ -188,15 +202,25 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         await LoadAsync();
     }
 
+    [TraceInteraction("TogglePolling")]
     [RelayCommand]
     public void TogglePolling()
     {
-        var nextPaused = IsPollingActive;
-        _pollService.SetPaused(nextPaused);
-        IsPollingActive = !_pollService.IsPaused;
-        OnPropertyChanged(nameof(PollIntervalText));
-        OnPropertyChanged(nameof(LiveStatusText));
-        OnPropertyChanged(nameof(PollToggleLabel));
+        using var _ = TraceScope.Begin("TogglePolling", new { IsPollingActive });
+        try
+        {
+            var nextPaused = IsPollingActive;
+            _pollService.SetPaused(nextPaused);
+            IsPollingActive = !_pollService.IsPaused;
+            OnPropertyChanged(nameof(PollIntervalText));
+            OnPropertyChanged(nameof(LiveStatusText));
+            OnPropertyChanged(nameof(PollToggleLabel));
+        }
+        catch (Exception ex)
+        {
+            _.MarkFaulted(ex);
+            throw;
+        }
     }
 
     [RelayCommand]
@@ -210,17 +234,27 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         UnreadCount = Projects.Count(p => p.IsUnread);
     }
 
+    [TraceInteraction("SelectCommand")]
     [RelayCommand]
     public async Task SelectProjectAsync(ProjectCardViewModel? card)
     {
-        if (card is null)
+        using var _ = TraceScope.Begin("SelectCommand", new { ProjectId = card?.Project.ProjectId });
+        try
         {
-            return;
+            if (card is null)
+            {
+                return;
+            }
+
+            card.MarkAsRead();
+            UnreadCount = Projects.Count(p => p.IsUnread);
+
+            await Shell.Current.GoToAsync($"ProjectDetailsPage?projectId={card.Project.ProjectId}");
         }
-
-        card.MarkAsRead();
-        UnreadCount = Projects.Count(p => p.IsUnread);
-
-        await Shell.Current.GoToAsync($"ProjectDetailsPage?projectId={card.Project.ProjectId}");
+        catch (Exception ex)
+        {
+            _.MarkFaulted(ex);
+            throw;
+        }
     }
 }

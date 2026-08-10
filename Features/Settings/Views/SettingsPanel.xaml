@@ -72,6 +72,7 @@
                                 <Border Grid.Column="1" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}" Padding="12,8" WidthRequest="100">
                                     <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
                                     <platform:AppEntry Text="{Binding PollIntervalSeconds}" Keyboard="Numeric"
+                                                       AutomationId="Settings_PollIntervalInput"
                                                        TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
                                                        BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}"
                                                        FontFamily="Tajawal" />
@@ -83,6 +84,7 @@
                                 <Border Grid.Column="1" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}" Padding="12,8" WidthRequest="100">
                                     <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
                                     <platform:AppEntry Text="{Binding RequestsPerMinute}" Keyboard="Numeric"
+                                                       AutomationId="Settings_RequestsPerMinuteInput"
                                                        TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
                                                        BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}"
                                                        FontFamily="Tajawal" />
@@ -94,6 +96,7 @@
                                 <Border Grid.Column="1" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}" Padding="12,4" WidthRequest="160">
                                     <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
                                     <Picker SelectedItem="{Binding GroupingMode}"
+                                            AutomationId="Settings_GroupingModePicker"
                                             TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
                                             TitleColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
                                             BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}"
@@ -114,6 +117,7 @@
                                 <Border Grid.Column="1" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}" Padding="12,8" WidthRequest="100">
                                     <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
                                     <platform:AppEntry Text="{Binding GroupingThreshold}" Keyboard="Numeric"
+                                                       AutomationId="Settings_GroupingThresholdInput"
                                                        TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
                                                        BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}"
                                                        FontFamily="Tajawal" />
@@ -122,10 +126,10 @@
 
                             <Grid ColumnDefinitions="*,Auto">
                                 <Label Grid.Column="0" Text="الوضع الليلي" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" FontFamily="Tajawal" />
-                                <platform:AppToggle Grid.Column="1" IsToggled="{Binding IsDarkMode}" />
+                                <platform:AppToggle Grid.Column="1" AutomationId="Settings_DarkModeToggle" IsToggled="{Binding IsDarkMode}" />
                             </Grid>
 
-                            <Button Text="حفظ" Command="{Binding SaveCommand}" HorizontalOptions="End" BackgroundColor="{AppThemeBinding Light=#2563EB, Dark=#3B82F6}" TextColor="White" FontFamily="Tajawal" />
+                            <Button Text="حفظ" AutomationId="Settings_SaveButton" Command="{Binding SaveCommand}" HorizontalOptions="End" BackgroundColor="{AppThemeBinding Light=#2563EB, Dark=#3B82F6}" TextColor="White" FontFamily="Tajawal" />
 
                         </VerticalStackLayout>
                     </Border>

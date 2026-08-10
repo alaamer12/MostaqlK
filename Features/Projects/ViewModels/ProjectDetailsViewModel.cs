@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Infrastructure.Http;
 using MostaqlK.Models;
+using MostaqlK.Services.Diagnostics;
 
 namespace MostaqlK.Features.Projects.ViewModels;
 
@@ -33,15 +34,22 @@ public sealed partial class AttachmentItemViewModel : ObservableObject
         _assetDownloadService = assetDownloadService;
     }
 
+    [TraceInteraction("ResolveCommand")]
     [RelayCommand]
     public async Task ResolveAsync()
     {
+        using var _ = TraceScope.Begin("ResolveCommand", new { FileName });
         IsResolving = true;
         try
         {
             var resolution = await _assetDownloadService.ResolveAsync(Asset);
             Status = resolution.Status;
             StatusMessage = resolution.Message ?? resolution.LocalPath ?? resolution.Url;
+        }
+        catch (Exception ex)
+        {
+            _.MarkFaulted(ex);
+            throw;
         }
         finally
         {

@@ -17,13 +17,13 @@
         <VerticalStackLayout Spacing="8">
             <Label Text="التنبيهات" FontSize="16" FontFamily="TajawalBold" />
 
-            <CollectionView ItemsSource="{Binding RecentNotifications}" HeightRequest="360">
+            <CollectionView ItemsSource="{Binding RecentNotifications}" AutomationId="Notifications_List" HeightRequest="360">
                 <CollectionView.EmptyView>
                     <Label Text="لا توجد إشعارات حديثة" FontSize="13" TextColor="Gray" HorizontalOptions="Center" FontFamily="Tajawal" />
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="models:ProjectSummary">
-                        <VerticalStackLayout Padding="6" Spacing="2">
+                        <VerticalStackLayout Padding="6" Spacing="2" AutomationId="Notifications_Row">
                             <VerticalStackLayout.GestureRecognizers>
                                 <TapGestureRecognizer
                                     Command="{Binding BindingContext.OpenProjectCommand, Source={x:Reference RootView}}"

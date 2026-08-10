@@ -59,24 +59,43 @@ public partial class App : Application
 		// feed's first `LoadAsync` cannot observe a half-seeded store.
 		var designDataMode = ApplyDesignDataArgument(services, Environment.GetCommandLineArgs());
 
+		// FIX (design_parity_mode persistence trap): the pipeline must NEVER be permanently
+		// disabled just because a *previous* launch happened to pass --seed-design-data. Only the
+		// CURRENT launch's explicit request (this run's argv) is allowed to keep the pipeline
+		// offline; a stale persisted preference from a prior run is informational only (surfaced to
+		// the UI/log) and must not silently strand the shipped app on frozen seed data forever.
+		var explicitlySeededThisLaunch = DesignDataSeeder.ParseArguments(Environment.GetCommandLineArgs()) == true;
+
+		MostaqlK.Services.Diagnostics.InteractionLogger.Mark(
+			"App.Startup.DesignParityMode",
+			explicitlySeededThisLaunch ? "A" : "B",
+			new { designDataMode, explicitlySeededThisLaunch });
+
 		// MAUI has no ASP.NET-style `IHostedService`, so the pipeline subsystem (Poll Service +
 		// Worker Pool) is started here as fire-and-forget background loops off the app's own
 		// lifetime token. Both are registered as singletons in `MauiProgram`, so this simply
 		// kicks off their already-implemented `StartAsync` loops once, at process startup.
-		// While design-parity data is loaded the pipeline stays offline, so freshly scraped
-		// projects cannot bury the seeded rows between capture runs.
-		if (!designDataMode)
+		// Only THIS launch's explicit --seed-design-data argument keeps the pipeline offline —
+		// a persisted preference from a previous run can no longer do so (see fix note above).
+		if (!explicitlySeededThisLaunch)
 		{
 			var pollService = services.GetRequiredService<IPollService>();
 			var workerPool = services.GetRequiredService<WorkerPool>();
 			_ = pollService.StartAsync(_pipelineCts.Token);
 			_ = workerPool.StartAsync(_pipelineCts.Token);
+			MostaqlK.Services.Diagnostics.InteractionLogger.Mark("App.Startup.PipelineStarted", "A");
+		}
+		else
+		{
+			MostaqlK.Services.Diagnostics.InteractionLogger.Mark("App.Startup.PipelineSkipped", "B");
 		}
 	}
 
 	/// <summary>
 	/// Handles the <c>--seed-design-data[=off]</c> startup argument and returns whether the app is
-	/// currently running against seeded design-parity data.
+	/// currently running against seeded design-parity data (this launch's request if provided,
+	/// otherwise the persisted preference — for display/logging purposes only; see the
+	/// <c>explicitlySeededThisLaunch</c> check in the constructor for the actual pipeline gate).
 	/// </summary>
 	private static bool ApplyDesignDataArgument(IServiceProvider services, string[] args)
 	{

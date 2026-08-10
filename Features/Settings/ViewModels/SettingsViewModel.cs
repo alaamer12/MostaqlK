@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Services;
+using MostaqlK.Services.Diagnostics;
 using MostaqlK.Services.Pipeline;
 using Microsoft.Maui.Storage;
 using Microsoft.Maui.ApplicationModel;
@@ -242,11 +243,21 @@ public sealed partial class SettingsViewModel : ObservableObject
         HasValidationError = false;
     }
 
+    [TraceInteraction("SaveCommand")]
     [RelayCommand]
     public Task SaveAsync()
     {
-        // Every field already persists+applies live on change (see the OnXChanged partials
-        // above), so Save is a convenience no-op that simply confirms nothing is pending.
-        return Task.CompletedTask;
+        using var _ = TraceScope.Begin("SaveCommand");
+        try
+        {
+            // Every field already persists+applies live on change (see the OnXChanged partials
+            // above), so Save is a convenience no-op that simply confirms nothing is pending.
+            return Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            _.MarkFaulted(ex);
+            throw;
+        }
     }
 }
