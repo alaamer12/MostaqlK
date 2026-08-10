@@ -99,7 +99,11 @@ public class ProjectsPageTests
         try
         {
             var collectionView = UiDebugger.WaitAndFind(Driver, "Projects_ProjectsCollectionView", TimeSpan.FromSeconds(5));
-            return collectionView.FindElementsByClassName("ListItem").Count;
+            // WinAppDriver's ClassName lookup matches the native UIA ClassName property, which for
+            // a MAUI CollectionView's realized rows on Windows is "ListViewItem" (confirmed via a
+            // UiDebugger dump: <ListItem ... ClassName="ListViewItem" ...>), not the XML tag name
+            // "ListItem" itself (that's the UIA ControlType, not the ClassName).
+            return collectionView.FindElementsByClassName("ListViewItem").Count;
         }
         catch (OpenQA.Selenium.NoSuchElementException)
         {
@@ -208,5 +212,32 @@ public class ProjectsPageTests
         // Return to Projects for any subsequent tests.
         UiDebugger.WaitAndClick(Driver, "Details_BackButton");
         UiDebugger.WaitAndFind(Driver, "Projects_SearchInput");
+    }
+
+    // Regression test for the fabricated execution-duration bug: ProjectCardViewModel.Execution
+    // used to synthesize "{Project.DeliveryDays * 3} يوما" instead of surfacing the real scraped
+    // "duration" field. Now it must be either the genuine "{days} يوما" value or the "—"
+    // placeholder for cards not yet enriched — never a value implied to be 3x the delivery days.
+    [Test]
+    public void ProjectCard_ExecutionLabel_ShowsRealDurationOrPlaceholder_NeverFabricated()
+    {
+        var collectionView = UiDebugger.WaitAndFind(Driver, "Projects_ProjectsCollectionView");
+        var executionLabels = collectionView.FindElementsByAccessibilityId("ProjectCard_ExecutionLabel");
+
+        Assert.That(executionLabels.Count, Is.GreaterThan(0),
+            "At least one project card should expose the execution-duration label.");
+
+        foreach (var label in executionLabels)
+        {
+            var text = label.Text?.Trim() ?? string.Empty;
+
+            Assert.That(text, Is.Not.Empty, "Execution label must never render blank.");
+
+            var isPlaceholder = text == "—";
+            var isRealDuration = System.Text.RegularExpressions.Regex.IsMatch(text, @"^\d+\s*يوما$");
+
+            Assert.That(isPlaceholder || isRealDuration, Is.True,
+                $"Execution label text '{text}' must be either the placeholder '—' or a real '<days> يوما' value, never a fabricated number.");
+        }
     }
 }

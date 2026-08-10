@@ -161,7 +161,7 @@
 
                 <VerticalStackLayout Grid.Column="2" Spacing="4">
                     <Label Text="مدة التنفيذ" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
-                    <Label Text="{Binding Execution}" FontSize="13" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                    <Label Text="{Binding Execution}" AutomationId="ProjectCard_ExecutionLabel" FontSize="13" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
                 </VerticalStackLayout>
 
                 <VerticalStackLayout Grid.Column="3" Spacing="4">

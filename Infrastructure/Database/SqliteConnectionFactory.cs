@@ -35,6 +35,20 @@ public sealed class SqliteConnectionFactory
         var connection = new SqliteConnection(_connectionString);
         connection.Open();
 
+        // WAL mode lets readers (e.g. the search/feed queries) proceed concurrently with
+        // writers (PollService/EnrichmentWorker/AssetDownloadService), instead of the default
+        // rollback-journal mode where a writer's exclusive lock blocks readers entirely. The
+        // busy_timeout is a second line of defense: if a writer is still mid-transaction when a
+        // read starts, SQLite will retry internally for up to 5s instead of failing immediately
+        // with SQLITE_BUSY (which previously surfaced as an intermittent, hard-to-reproduce
+        // "search returns 0 results with no visible error" bug caused by a lock momentarily
+        // held by a concurrent background write).
+        using (var pragmaCommand = connection.CreateCommand())
+        {
+            pragmaCommand.CommandText = "PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;";
+            pragmaCommand.ExecuteNonQuery();
+        }
+
         EnsureSchema(connection);
 
         return connection;
@@ -61,10 +75,10 @@ public sealed class SqliteConnectionFactory
                 throw DatabaseErrors.SchemaVersionMismatch(currentVersion, CurrentSchemaVersion);
             }
 
-            // One-time-per-process backfill: older builds only wrote to `projects_fts` from the
-            // enrichment path (`ProjectRepository.UpsertDetailsAsync`), so any row inserted via
-            // `InsertSummaryAsync` while still "Pending" was never searchable until enriched.
-            // Idempotent - only touches rows that don't have an FTS row yet.
+            // One-time-per-process backfill: covers rows written by older builds, where
+            // `InsertSummaryAsync` did not yet write to `projects_fts`, so any row inserted
+            // while still "Pending" was never searchable until enriched. Idempotent - only
+            // touches rows that don't have an FTS row yet.
             BackfillMissingFtsRows(connection);
 
             _schemaVerified = true;

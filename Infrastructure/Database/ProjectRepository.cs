@@ -20,27 +20,52 @@ public sealed class ProjectRepository : IProjectRepository
         try
         {
             using var connection = _connectionFactory.CreateConnection();
-            using var command = connection.CreateCommand();
-            // Write-once: a project row is never overwritten once it exists (no-update policy).
-            command.CommandText = """
-                INSERT OR IGNORE INTO projects
-                    (project_id, title, url, client_name, posted_relative, proposal_count,
-                     is_unread, enrichment_status, discovered_at)
-                VALUES
-                    (@project_id, @title, @url, @client_name, @posted_relative, @proposal_count,
-                     @is_unread, @enrichment_status, @discovered_at);
-                """;
-            command.Parameters.AddWithValue("@project_id", project.ProjectId);
-            command.Parameters.AddWithValue("@title", project.Title);
-            command.Parameters.AddWithValue("@url", project.Url);
-            command.Parameters.AddWithValue("@client_name", project.ClientName);
-            command.Parameters.AddWithValue("@posted_relative", project.PostedRelative);
-            command.Parameters.AddWithValue("@proposal_count", project.ProposalCount);
-            command.Parameters.AddWithValue("@is_unread", project.IsUnread ? 1 : 0);
-            command.Parameters.AddWithValue("@enrichment_status", project.EnrichmentStatus.ToString());
-            command.Parameters.AddWithValue("@discovered_at", project.DiscoveredAt.ToString("O"));
+            using var transaction = connection.BeginTransaction();
 
-            var rowsAffected = await command.ExecuteNonQueryAsync(cancellationToken);
+            int rowsAffected;
+            using (var command = connection.CreateCommand())
+            {
+                command.Transaction = transaction;
+                // Write-once: a project row is never overwritten once it exists (no-update policy).
+                command.CommandText = """
+                    INSERT OR IGNORE INTO projects
+                        (project_id, title, url, client_name, posted_relative, proposal_count,
+                         is_unread, enrichment_status, discovered_at)
+                    VALUES
+                        (@project_id, @title, @url, @client_name, @posted_relative, @proposal_count,
+                         @is_unread, @enrichment_status, @discovered_at);
+                    """;
+                command.Parameters.AddWithValue("@project_id", project.ProjectId);
+                command.Parameters.AddWithValue("@title", project.Title);
+                command.Parameters.AddWithValue("@url", project.Url);
+                command.Parameters.AddWithValue("@client_name", project.ClientName);
+                command.Parameters.AddWithValue("@posted_relative", project.PostedRelative);
+                command.Parameters.AddWithValue("@proposal_count", project.ProposalCount);
+                command.Parameters.AddWithValue("@is_unread", project.IsUnread ? 1 : 0);
+                command.Parameters.AddWithValue("@enrichment_status", project.EnrichmentStatus.ToString());
+                command.Parameters.AddWithValue("@discovered_at", project.DiscoveredAt.ToString("O"));
+
+                rowsAffected = await command.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            if (rowsAffected > 0)
+            {
+                // Keep `projects_fts` live: without this, a newly discovered "Pending" project
+                // is invisible to search until it gets enriched (`UpsertDetailsAsync` re-syncs
+                // the fts row) or the process restarts (one-time backfill in
+                // `SqliteConnectionFactory`). Description/skills are filled in on enrichment.
+                using var insertFtsCommand = connection.CreateCommand();
+                insertFtsCommand.Transaction = transaction;
+                insertFtsCommand.CommandText = """
+                    INSERT INTO projects_fts (project_id, title, description, skills)
+                    VALUES (@project_id, @title, '', '');
+                    """;
+                insertFtsCommand.Parameters.AddWithValue("@project_id", project.ProjectId);
+                insertFtsCommand.Parameters.AddWithValue("@title", project.Title);
+                await insertFtsCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            transaction.Commit();
             return Result<bool>.Ok(rowsAffected > 0);
         }
         catch (SqliteException ex)

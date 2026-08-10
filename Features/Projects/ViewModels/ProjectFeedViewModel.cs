@@ -28,6 +28,16 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     private readonly IPollService _pollService;
     private readonly TokenBucketRateLimiter _rateLimiter;
 
+    // Guards against overlapping LoadAsync calls racing each other: if the search box's
+    // debounce fires more than once in quick succession (e.g. WinAppDriver/remote SendKeys
+    // delivering keystrokes slower than the 300ms debounce window, or a user typing right as a
+    // background RefreshAsync/PollService-triggered reload is still in flight), a slower/older
+    // query's DB round-trip could finish AFTER a newer one and overwrite the feed with stale
+    // (or empty, for a shorter/no-match prefix like "C"/"CS") results even though the visible
+    // search box already shows the final term "CSS". Each LoadAsync call is stamped with a
+    // monotonically increasing token; only the most recent call is allowed to apply its results.
+    private int _loadRequestToken;
+
     public ObservableCollection<ProjectCardViewModel> Projects { get; } = [];
 
     [ObservableProperty]
@@ -134,6 +144,9 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     [RelayCommand]
     public async Task LoadAsync()
     {
+        var requestToken = ++_loadRequestToken;
+        var searchQueryAtRequestTime = SearchQuery;
+
         IsLoading = true;
         HasError = false;
         ErrorMessage = null;
@@ -141,14 +154,27 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         try
         {
             var today = await _projectRepository.CountAddedTodayAsync();
+            if (requestToken != _loadRequestToken)
+            {
+                // A newer LoadAsync call has already started (and will apply its own results
+                // below) - abandon this stale one so it can never overwrite fresher data.
+                return;
+            }
             if (today.IsOk)
             {
                 ProjectsAddedTodayCount = today.Value;
             }
 
-            var result = string.IsNullOrWhiteSpace(SearchQuery)
+            var result = string.IsNullOrWhiteSpace(searchQueryAtRequestTime)
                 ? await _projectRepository.GetRecentAsync(RecentLimit)
-                : await _ftsQueryService.SearchAsync(SearchQuery.Trim());
+                : await _ftsQueryService.SearchAsync(searchQueryAtRequestTime.Trim());
+
+            if (requestToken != _loadRequestToken)
+            {
+                // Superseded while awaiting the DB query - discard these results, whatever they
+                // are, rather than letting an older/slower query clobber a newer one's output.
+                return;
+            }
 
             if (!result.IsOk)
             {
@@ -176,6 +202,10 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
                 // No filter active: status-bar totals count the whole store, not just the
                 // page of rows loaded above.
                 var tracked = await _projectRepository.CountTrackedAsync();
+                if (requestToken != _loadRequestToken)
+                {
+                    return;
+                }
                 if (tracked.IsOk)
                 {
                     TrackedCount = tracked.Value.Tracked;
@@ -193,8 +223,11 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         }
         finally
         {
-            IsLoading = false;
-            OnPropertyChanged(nameof(ShowFeed));
+            if (requestToken == _loadRequestToken)
+            {
+                IsLoading = false;
+                OnPropertyChanged(nameof(ShowFeed));
+            }
         }
     }
 

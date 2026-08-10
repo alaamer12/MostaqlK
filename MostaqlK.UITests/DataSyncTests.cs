@@ -73,7 +73,13 @@ public class DataSyncTests
         try
         {
             var collectionView = UiDebugger.WaitAndFind(Driver, "Projects_ProjectsCollectionView", TimeSpan.FromSeconds(5));
-            return collectionView.FindElementsByClassName("ListItem").Count;
+            // WinAppDriver's ClassName lookup matches the native UIA ClassName property, which
+            // for a MAUI CollectionView's realized rows on Windows is "ListViewItem" (visible in a
+            // UiDebugger dump as <ListItem ... ClassName="ListViewItem" ...>) - not the XML tag
+            // name "ListItem" itself, which is the UIA ControlType/LocalizedControlType, not the
+            // ClassName. Using the wrong string here previously made a correctly-rendered,
+            // correctly-populated feed look like "0 visible cards" to this test helper only.
+            return collectionView.FindElementsByClassName("ListViewItem").Count;
         }
         catch (OpenQA.Selenium.NoSuchElementException)
         {
