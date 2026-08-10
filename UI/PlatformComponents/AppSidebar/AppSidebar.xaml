@@ -17,6 +17,18 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- Invisible full-size Button overlaid on each nav row's Border: a plain
+             Border+TapGestureRecognizer never surfaces an AutomationId to the Windows UI
+             Automation tree (dotnet/maui#4715), so the actual hit target/AutomationId now lives
+             on this transparent Button instead, leaving the Border purely for visuals. -->
+        <Style x:Key="SidebarNavRowHitTargetStyle" TargetType="Button">
+            <Setter Property="BackgroundColor" Value="Transparent" />
+            <Setter Property="BorderWidth" Value="0" />
+            <Setter Property="Text" Value="" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+        </Style>
     </ContentView.Resources>
 
     <!-- Shared sidebar nav rail reused across MainWindowPage/SettingsPanel/AboutPage/
@@ -51,65 +63,69 @@
 
         <!-- Navigation: px-4 py-4 space-y-2 -->
         <VerticalStackLayout Grid.Row="1" Spacing="8" Padding="16">
-            <Border x:Name="ProjectsButton" AutomationId="Sidebar_ProjectsButton" Style="{StaticResource SidebarNavRowStyle}">
-                <Border.GestureRecognizers>
-                    <TapGestureRecognizer Tapped="OnProjectsClicked" />
-                </Border.GestureRecognizers>
-                <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
-                    <BoxView x:Name="ProjectsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
-                    <components:AppIcon Grid.Column="1" x:Name="ProjectsIcon" Icon="ProjectsList" FontSize="16" WidthRequest="20" />
-                    <Label Grid.Column="2" x:Name="ProjectsLabel" Text="المشاريع" FontSize="14" FontFamily="TajawalBold" VerticalOptions="Center" />
-                </Grid>
-            </Border>
-            <Border x:Name="AdvancedSearchButton" AutomationId="Sidebar_AdvancedSearchButton" Style="{StaticResource SidebarNavRowStyle}">
-                <Border.GestureRecognizers>
-                    <TapGestureRecognizer Tapped="OnAdvancedSearchClicked" />
-                </Border.GestureRecognizers>
-                <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
-                    <BoxView x:Name="AdvancedSearchActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
-                    <components:AppIcon Grid.Column="1" x:Name="AdvancedSearchIcon" Icon="Search" FontSize="16" WidthRequest="20" />
-                    <Label Grid.Column="2" x:Name="AdvancedSearchLabel" Text="البحث المتقدم" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
-                </Grid>
-            </Border>
-            <Border x:Name="NotificationsButton" AutomationId="Sidebar_NotificationsButton" Style="{StaticResource SidebarNavRowStyle}">
-                <Border.GestureRecognizers>
-                    <TapGestureRecognizer Tapped="OnNotificationsClicked" />
-                </Border.GestureRecognizers>
-                <Grid ColumnDefinitions="4,Auto,*,Auto" ColumnSpacing="12">
-                    <BoxView x:Name="NotificationsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
-                    <components:AppIcon Grid.Column="1" x:Name="NotificationsIcon" Icon="Bell" FontSize="16" WidthRequest="20" />
-                    <Label Grid.Column="2" x:Name="NotificationsLabel" Text="التنبيهات" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
-                    <!-- `<span class="bg-blue-500 text-white text-xs font-bold w-5 h-5 rounded-full">` -->
-                    <Border Grid.Column="3" x:Name="NotificationsBadge" WidthRequest="20" HeightRequest="20"
-                            StrokeThickness="0" BackgroundColor="#3B82F6" VerticalOptions="Center">
-                        <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="10" />
-                        </Border.StrokeShape>
-                        <Label Text="{Binding NotificationCount, Source={x:Reference Root}}" FontSize="12" FontFamily="TajawalBold"
-                               TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
-                    </Border>
-                </Grid>
-            </Border>
-            <Border x:Name="SettingsButton" AutomationId="Sidebar_SettingsButton" Style="{StaticResource SidebarNavRowStyle}">
-                <Border.GestureRecognizers>
-                    <TapGestureRecognizer Tapped="OnSettingsClicked" />
-                </Border.GestureRecognizers>
-                <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
-                    <BoxView x:Name="SettingsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
-                    <components:AppIcon Grid.Column="1" x:Name="SettingsIcon" Icon="Gear" FontSize="16" WidthRequest="20" />
-                    <Label Grid.Column="2" x:Name="SettingsLabel" Text="الإعدادات" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
-                </Grid>
-            </Border>
-            <Border x:Name="AboutButton" AutomationId="Sidebar_AboutButton" Style="{StaticResource SidebarNavRowStyle}">
-                <Border.GestureRecognizers>
-                    <TapGestureRecognizer Tapped="OnAboutClicked" />
-                </Border.GestureRecognizers>
-                <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
-                    <BoxView x:Name="AboutActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
-                    <components:AppIcon Grid.Column="1" x:Name="AboutIcon" Icon="Info" FontSize="16" WidthRequest="20" />
-                    <Label Grid.Column="2" x:Name="AboutLabel" Text="حول التطبيق" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
-                </Grid>
-            </Border>
+            <!-- The Border itself keeps the mockup's visuals only; a transparent Button
+                 overlay carries the AutomationId/click, because plain Border+TapGestureRecognizer
+                 rows never surface an AutomationId to the Windows UI Automation tree
+                 (dotnet/maui#4715), which made every sidebar row unreachable to Appium/WinAppDriver. -->
+            <Grid>
+                <Border x:Name="ProjectsButton" Style="{StaticResource SidebarNavRowStyle}">
+                    <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
+                        <BoxView x:Name="ProjectsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
+                        <components:AppIcon Grid.Column="1" x:Name="ProjectsIcon" Icon="ProjectsList" FontSize="16" WidthRequest="20" />
+                        <Label Grid.Column="2" x:Name="ProjectsLabel" Text="المشاريع" FontSize="14" FontFamily="TajawalBold" VerticalOptions="Center" />
+                    </Grid>
+                </Border>
+                <Button AutomationId="Sidebar_ProjectsButton" Style="{StaticResource SidebarNavRowHitTargetStyle}" Clicked="OnProjectsClicked" />
+            </Grid>
+            <Grid>
+                <Border x:Name="AdvancedSearchButton" Style="{StaticResource SidebarNavRowStyle}">
+                    <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
+                        <BoxView x:Name="AdvancedSearchActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
+                        <components:AppIcon Grid.Column="1" x:Name="AdvancedSearchIcon" Icon="Search" FontSize="16" WidthRequest="20" />
+                        <Label Grid.Column="2" x:Name="AdvancedSearchLabel" Text="البحث المتقدم" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
+                    </Grid>
+                </Border>
+                <Button AutomationId="Sidebar_AdvancedSearchButton" Style="{StaticResource SidebarNavRowHitTargetStyle}" Clicked="OnAdvancedSearchClicked" />
+            </Grid>
+            <Grid>
+                <Border x:Name="NotificationsButton" Style="{StaticResource SidebarNavRowStyle}">
+                    <Grid ColumnDefinitions="4,Auto,*,Auto" ColumnSpacing="12">
+                        <BoxView x:Name="NotificationsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
+                        <components:AppIcon Grid.Column="1" x:Name="NotificationsIcon" Icon="Bell" FontSize="16" WidthRequest="20" />
+                        <Label Grid.Column="2" x:Name="NotificationsLabel" Text="التنبيهات" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
+                        <!-- `<span class="bg-blue-500 text-white text-xs font-bold w-5 h-5 rounded-full">` -->
+                        <Border Grid.Column="3" x:Name="NotificationsBadge" WidthRequest="20" HeightRequest="20"
+                                StrokeThickness="0" BackgroundColor="#3B82F6" VerticalOptions="Center">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="10" />
+                            </Border.StrokeShape>
+                            <Label Text="{Binding NotificationCount, Source={x:Reference Root}}" FontSize="12" FontFamily="TajawalBold"
+                                   TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
+                        </Border>
+                    </Grid>
+                </Border>
+                <Button AutomationId="Sidebar_NotificationsButton" Style="{StaticResource SidebarNavRowHitTargetStyle}" Clicked="OnNotificationsClicked" />
+            </Grid>
+            <Grid>
+                <Border x:Name="SettingsButton" Style="{StaticResource SidebarNavRowStyle}">
+                    <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
+                        <BoxView x:Name="SettingsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
+                        <components:AppIcon Grid.Column="1" x:Name="SettingsIcon" Icon="Gear" FontSize="16" WidthRequest="20" />
+                        <Label Grid.Column="2" x:Name="SettingsLabel" Text="الإعدادات" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
+                    </Grid>
+                </Border>
+                <Button AutomationId="Sidebar_SettingsButton" Style="{StaticResource SidebarNavRowHitTargetStyle}" Clicked="OnSettingsClicked" />
+            </Grid>
+            <Grid>
+                <Border x:Name="AboutButton" Style="{StaticResource SidebarNavRowStyle}">
+                    <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
+                        <BoxView x:Name="AboutActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
+                        <components:AppIcon Grid.Column="1" x:Name="AboutIcon" Icon="Info" FontSize="16" WidthRequest="20" />
+                        <Label Grid.Column="2" x:Name="AboutLabel" Text="حول التطبيق" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
+                    </Grid>
+                </Border>
+                <Button AutomationId="Sidebar_AboutButton" Style="{StaticResource SidebarNavRowHitTargetStyle}" Clicked="OnAboutClicked" />
+            </Grid>
         </VerticalStackLayout>
 
         <!-- Bottom stats & theme: `<div class="p-4 border-t border-slate-200 space-y-4">` -->

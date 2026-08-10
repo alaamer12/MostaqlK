@@ -125,6 +125,7 @@
 
                             <Border StrokeThickness="0"
                                     AutomationId="Projects_TogglePollingButton"
+                                    SemanticProperties.Description="إيقاف/بدء الفحص"
                                     BackgroundColor="#EF4444"
                                     Padding="12,6"
                                     VerticalOptions="Center">
@@ -150,6 +151,7 @@
 
                             <Border StrokeThickness="0"
                                     AutomationId="Projects_SettingsGearButton"
+                                    SemanticProperties.Description="إعدادات"
                                     BackgroundColor="Transparent"
                                     WidthRequest="32"
                                     HeightRequest="32"

@@ -4,6 +4,7 @@
              xmlns:vm="clr-namespace:MostaqlK.Features.Settings.ViewModels"
              xmlns:platform="clr-namespace:MostaqlK.UI.PlatformComponents"
              xmlns:sidebar="clr-namespace:MostaqlK.UI.PlatformComponents.AppSidebar"
+             xmlns:services="clr-namespace:MostaqlK.Services"
              x:Class="MostaqlK.Features.Settings.Views.SettingsPanel"
              x:DataType="vm:SettingsViewModel"
              Title="الإعدادات"
@@ -102,10 +103,10 @@
                                             BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}"
                                             FontFamily="Tajawal">
                                         <Picker.ItemsSource>
-                                            <x:Array Type="{x:Type x:String}">
-                                                <x:String>EndOfMinute</x:String>
-                                                <x:String>AfterMinutes</x:String>
-                                                <x:String>AfterCount</x:String>
+                                            <x:Array Type="{x:Type services:NotificationGroupingMode}">
+                                                <services:NotificationGroupingMode>EndOfMinute</services:NotificationGroupingMode>
+                                                <services:NotificationGroupingMode>AfterMinutes</services:NotificationGroupingMode>
+                                                <services:NotificationGroupingMode>AfterCount</services:NotificationGroupingMode>
                                             </x:Array>
                                         </Picker.ItemsSource>
                                     </Picker>

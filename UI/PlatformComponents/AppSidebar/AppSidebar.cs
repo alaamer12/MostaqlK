@@ -100,7 +100,7 @@ public partial class AppSidebar : ContentView
     }
 
     [TraceInteraction("Sidebar_ProjectsButton")]
-    private void OnProjectsClicked(object? sender, TappedEventArgs e)
+    private void OnProjectsClicked(object? sender, EventArgs e)
     {
         using var _ = TraceScope.Begin("Sidebar_ProjectsButton");
         try
@@ -115,7 +115,7 @@ public partial class AppSidebar : ContentView
     }
 
     [TraceInteraction("Sidebar_AdvancedSearchButton")]
-    private void OnAdvancedSearchClicked(object? sender, TappedEventArgs e)
+    private void OnAdvancedSearchClicked(object? sender, EventArgs e)
     {
         using var _ = TraceScope.Begin("Sidebar_AdvancedSearchButton");
         try
@@ -130,7 +130,7 @@ public partial class AppSidebar : ContentView
     }
 
     [TraceInteraction("Sidebar_NotificationsButton")]
-    private void OnNotificationsClicked(object? sender, TappedEventArgs e)
+    private void OnNotificationsClicked(object? sender, EventArgs e)
     {
         using var _ = TraceScope.Begin("Sidebar_NotificationsButton");
         try
@@ -145,7 +145,7 @@ public partial class AppSidebar : ContentView
     }
 
     [TraceInteraction("Sidebar_SettingsButton")]
-    private void OnSettingsClicked(object? sender, TappedEventArgs e)
+    private void OnSettingsClicked(object? sender, EventArgs e)
     {
         using var _ = TraceScope.Begin("Sidebar_SettingsButton");
         try
@@ -160,7 +160,7 @@ public partial class AppSidebar : ContentView
     }
 
     [TraceInteraction("Sidebar_AboutButton")]
-    private void OnAboutClicked(object? sender, TappedEventArgs e)
+    private void OnAboutClicked(object? sender, EventArgs e)
     {
         using var _ = TraceScope.Begin("Sidebar_AboutButton");
         try
