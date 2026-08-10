@@ -61,6 +61,7 @@ public sealed class EnrichmentWorker
         }
     }
 
+    [ErrorOutcome(ErrorOutcome.Ignored, Label = "Expected NotImplementedException integration gaps (Step 4/5 not yet landed) tolerated silently")]
     private async Task ProcessAsync(long projectId, CancellationToken cancellationToken)
     {
         DomainError? lastError = null;

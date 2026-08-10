@@ -72,6 +72,7 @@ public sealed class PollService : IPollService
         }
     }
 
+    [ErrorOutcome(ErrorOutcome.Ignored, Label = "Expected OperationCanceledException on StopAsync ends the loop silently")]
     private async Task RunLoopAsync(CancellationToken cancellationToken)
     {
         // Run an immediate first poll rather than waiting a full interval on startup.
@@ -105,6 +106,8 @@ public sealed class PollService : IPollService
         }
     }
 
+    [ErrorOutcome(ErrorOutcome.Rethrown, Label = "Caller-initiated cancellation rethrown, not swallowed")]
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Listing/diff failures and unexpected exceptions surfaced as Result<int>.Err")]
     public async Task<Result<int>> PollOnceAsync(CancellationToken cancellationToken = default)
     {
         try

@@ -35,6 +35,7 @@ public sealed partial class AttachmentItemViewModel : ObservableObject
     }
 
     [TraceInteraction("ResolveCommand")]
+    [MostaqlK.Core.ErrorOutcome(MostaqlK.Core.ErrorOutcome.Rethrown, Label = "ResolveCommand")]
     [RelayCommand]
     public async Task ResolveAsync()
     {

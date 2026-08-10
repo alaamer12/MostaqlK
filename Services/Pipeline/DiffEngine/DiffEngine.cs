@@ -18,6 +18,8 @@ public sealed class DiffEngine
         _inFlightProvider = inFlightProvider;
     }
 
+    [ErrorOutcome(ErrorOutcome.Rethrown, Label = "Caller-initiated cancellation rethrown, not swallowed")]
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Provider failure wrapped as Result<DiffResult>.Err via DiffErrors.KnownStateUnavailable")]
     public async Task<Result<DiffResult>> DiffAsync(IReadOnlyList<ProjectSummary> polledProjects, CancellationToken cancellationToken = default)
     {
         IReadOnlySet<long> committedIds;

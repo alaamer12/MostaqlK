@@ -244,6 +244,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     }
 
     [TraceInteraction("SaveCommand")]
+    [MostaqlK.Core.ErrorOutcome(MostaqlK.Core.ErrorOutcome.Rethrown, Label = "SaveCommand")]
     [RelayCommand]
     public Task SaveAsync()
     {

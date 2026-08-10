@@ -100,6 +100,7 @@ public partial class AppSidebar : ContentView
     }
 
     [TraceInteraction("Sidebar_ProjectsButton")]
+    [MostaqlK.Core.ErrorOutcome(MostaqlK.Core.ErrorOutcome.Rethrown, Label = "Sidebar_ProjectsButton")]
     private void OnProjectsClicked(object? sender, EventArgs e)
     {
         using var _ = TraceScope.Begin("Sidebar_ProjectsButton");
@@ -115,6 +116,7 @@ public partial class AppSidebar : ContentView
     }
 
     [TraceInteraction("Sidebar_AdvancedSearchButton")]
+    [MostaqlK.Core.ErrorOutcome(MostaqlK.Core.ErrorOutcome.Rethrown, Label = "Sidebar_AdvancedSearchButton")]
     private void OnAdvancedSearchClicked(object? sender, EventArgs e)
     {
         using var _ = TraceScope.Begin("Sidebar_AdvancedSearchButton");
@@ -130,6 +132,7 @@ public partial class AppSidebar : ContentView
     }
 
     [TraceInteraction("Sidebar_NotificationsButton")]
+    [MostaqlK.Core.ErrorOutcome(MostaqlK.Core.ErrorOutcome.Rethrown, Label = "Sidebar_NotificationsButton")]
     private void OnNotificationsClicked(object? sender, EventArgs e)
     {
         using var _ = TraceScope.Begin("Sidebar_NotificationsButton");
@@ -145,6 +148,7 @@ public partial class AppSidebar : ContentView
     }
 
     [TraceInteraction("Sidebar_SettingsButton")]
+    [MostaqlK.Core.ErrorOutcome(MostaqlK.Core.ErrorOutcome.Rethrown, Label = "Sidebar_SettingsButton")]
     private void OnSettingsClicked(object? sender, EventArgs e)
     {
         using var _ = TraceScope.Begin("Sidebar_SettingsButton");
@@ -160,6 +164,7 @@ public partial class AppSidebar : ContentView
     }
 
     [TraceInteraction("Sidebar_AboutButton")]
+    [MostaqlK.Core.ErrorOutcome(MostaqlK.Core.ErrorOutcome.Rethrown, Label = "Sidebar_AboutButton")]
     private void OnAboutClicked(object? sender, EventArgs e)
     {
         using var _ = TraceScope.Begin("Sidebar_AboutButton");

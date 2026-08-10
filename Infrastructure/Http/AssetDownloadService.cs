@@ -1,3 +1,4 @@
+using MostaqlK.Core;
 using MostaqlK.Models;
 
 namespace MostaqlK.Infrastructure.Http;
@@ -57,6 +58,7 @@ public sealed class AssetDownloadService
         _httpClient = httpClient;
     }
 
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Auth/network failure downloading the asset surfaced as AttachmentStatus.AuthFailed")]
     public async Task<AttachmentResolution> ResolveAsync(Asset asset, CancellationToken cancellationToken = default)
     {
         if (!asset.RequiresAuth)

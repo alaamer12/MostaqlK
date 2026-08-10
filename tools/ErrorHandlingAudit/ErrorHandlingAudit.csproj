@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<RootNamespace>ErrorHandlingAudit</RootNamespace>
+		<AssemblyName>ErrorHandlingAudit</AssemblyName>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<!-- Fixtures are analyzed as plain text via CSharpSyntaxTree.ParseText, never compiled
+		     into this project — they reference MostaqlK.Core types the tool itself does not. -->
+		<Compile Remove="Fixtures\**\*.cs" />
+		<None Include="Fixtures\**\*.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" />
+	</ItemGroup>
+
+</Project>

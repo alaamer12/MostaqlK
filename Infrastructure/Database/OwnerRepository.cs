@@ -14,6 +14,7 @@ public sealed class OwnerRepository : IOwnerRepository
         _connectionFactory = connectionFactory;
     }
 
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result<bool>.Err")]
     public async Task<Result<bool>> UpsertAsync(Owner owner, CancellationToken cancellationToken = default)
     {
         try
@@ -54,6 +55,7 @@ public sealed class OwnerRepository : IOwnerRepository
         }
     }
 
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result.Err")]
     public async Task<Result<Owner?>> GetByIdAsync(long ownerId, CancellationToken cancellationToken = default)
     {
         try
@@ -89,6 +91,26 @@ public sealed class OwnerRepository : IOwnerRepository
         catch (SqliteException ex)
         {
             return Result<Owner?>.Err(DatabaseErrors.QueryFailed(nameof(GetByIdAsync), ex));
+        }
+    }
+
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result<int>.Err")]
+    public async Task<Result<int>> DeleteByIdRangeAsync(long minOwnerId, long maxOwnerId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "DELETE FROM owners WHERE owner_id BETWEEN @min_id AND @max_id;";
+            command.Parameters.AddWithValue("@min_id", minOwnerId);
+            command.Parameters.AddWithValue("@max_id", maxOwnerId);
+
+            var rowsAffected = await command.ExecuteNonQueryAsync(cancellationToken);
+            return Result<int>.Ok(rowsAffected);
+        }
+        catch (SqliteException ex)
+        {
+            return Result<int>.Err(DatabaseErrors.QueryFailed(nameof(DeleteByIdRangeAsync), ex));
         }
     }
 }

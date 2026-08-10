@@ -24,4 +24,8 @@ public static class DatabaseErrors
         Code: "DB-003",
         InternalMessage: $"Database schema is invalid or out of date: {details}",
         ExternalMessage: "قاعدة البيانات غير متوافقة مع هذا الإصدار من التطبيق.");
+
+    internal static DatabaseSchemaException SchemaVersionMismatch(long currentVersion, int expectedVersion) =>
+        new($"Database schema version {currentVersion} does not match the version expected " +
+            $"by this build ({expectedVersion}) and no migration path exists yet.");
 }

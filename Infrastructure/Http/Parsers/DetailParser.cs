@@ -50,7 +50,7 @@ public static class DetailParser
     {
         if (string.IsNullOrWhiteSpace(html))
         {
-            throw new ParseException("DetailParser.Parse received empty HTML.");
+            throw ParseErrors.EmptyHtml(nameof(DetailParser));
         }
 
         var doc = new HtmlDocument();
@@ -60,7 +60,7 @@ public static class DetailParser
         var titleNode = root.SelectSingleNode("//h1");
         if (titleNode is null)
         {
-            throw new ParseException($"DetailParser.Parse could not locate a title (h1) for project {projectId}.");
+            throw ParseErrors.MissingTitle(projectId);
         }
         var title = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(titleNode.InnerText));
 

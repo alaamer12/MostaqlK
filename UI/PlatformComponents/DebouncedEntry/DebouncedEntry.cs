@@ -57,6 +57,7 @@ public partial class DebouncedEntry : AppEntry
         _ = DebounceAndFireAsync(e, cts.Token);
     }
 
+    [MostaqlK.Core.ErrorOutcome(MostaqlK.Core.ErrorOutcome.Ignored, Label = "DebouncedEntry_RestartOnKeystroke")]
     private async Task DebounceAndFireAsync(TextChangedEventArgs e, CancellationToken cancellationToken)
     {
         try
@@ -65,6 +66,7 @@ public partial class DebouncedEntry : AppEntry
         }
         catch (TaskCanceledException)
         {
+            // Expected: a newer keystroke restarted the debounce window and cancelled this one.
             return;
         }
 

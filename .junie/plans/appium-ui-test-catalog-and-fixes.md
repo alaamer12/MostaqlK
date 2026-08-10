@@ -166,7 +166,7 @@ Slaves and the master proceed autonomously through all normal failures (test fai
 - Master re-runs a fresh launch independently, confirms the log shows the real pipeline starting, and only then ticks the corresponding checklist items.
 - Update `UNITS.md` with the new `TraceInteraction`/`InteractionLogger`/`Mark` diagnostic mechanism.
 
-### * Step 2: Dispatch a slave to build the UI interaction catalog and add AutomationIds
+### ✓ Step 2: Dispatch a slave to build the UI interaction catalog and add AutomationIds
 docs/ui-test-catalog.md exists and every interactive/dynamic element across the 4 MVP pages has a stable AutomationId in XAML, cross-referenced to its backend.
 - Walk `.repertoire/design/mvp/{projects,project-details,settings,about}.html` against their corresponding XAML views and enumerate every element that is dynamic-data-bound, clickable, inputtable, pannable, animated, draggable, keyboard/Enter-triggered, or focusable, including commonsense counterpart states (pause/resume, save/reload, open/close) not explicitly named in the mockups.
 - Write `docs/ui-test-catalog.md` with one section per page and a table of Element | AutomationId | Interaction Kind(s) | Backend it calls | Source file:line | planned test name.
@@ -174,32 +174,32 @@ docs/ui-test-catalog.md exists and every interactive/dynamic element across the 
 - Apply `[TraceInteraction]`/the logging helper from Step 1 to `TogglePolling`, `RefreshCommand`, `SaveCommand`, `SelectCommand`, `ResolveCommand`, and the sidebar nav handlers.
 - Update `UNITS.md` with the AutomationId naming convention; slave reports completion, master reviews the catalog and diffs before ticking the checklist.
 
-### * Step 3: Dispatch a slave to extend the Appium/WinAppDriver harness with debug tooling
+### ✓ Step 3: Dispatch a slave to extend the Appium/WinAppDriver harness with debug tooling
 MostaqlK.UITests can dump the live UI Automation tree and retry-with-diagnostics on any failed find/click.
 - Add `MostaqlK.UITests/Utils/UiDebugger.cs` with `DumpPageSource`, `WaitAndFind`, and `WaitAndClick` helpers that log `driver.PageSource` and element state to `TestContext`/a file on failure.
 - Wire `AppiumSetup.cs` to expose the shared `Driver` to the new helper class without duplicating session setup.
 - Verify the helper works against the current build by pointing it at one known-good element (e.g. the app window) and one currently-suspect element (e.g. a sidebar row), confirming it produces actionable output either way.
 
-###   Step 4: Dispatch a slave to write and run sidebar navigation tests, fix broken navigation
+### ✓ Step 4: Dispatch a slave to write and run sidebar navigation tests, fix broken navigation
 SidebarNavigationTests.cs covers all 5 nav rows from all 4 pages, and sidebar navigation actually works in the built .exe.
 - Add `MostaqlK.UITests/SidebarNavigationTests.cs` clicking each `AppSidebar` row (`Sidebar_ProjectsButton`, `Sidebar_AdvancedSearchButton`, `Sidebar_NotificationsButton`, `Sidebar_SettingsButton`, `Sidebar_AboutButton`) from each page and asserting the target page's marker `AutomationId` appears.
 - Run the suite against the current build, capture `UiDebugger` dumps for any row that fails to navigate.
 - Fix the root cause in `AppSidebar.cs`/`AppSidebar.xaml` (or the page-level `On*NavClicked` handlers) for each failing row until all navigation tests pass.
 
-###   Step 5: Dispatch a slave to write and run Projects page interaction tests, fix broken controls
+### ✓ Step 5: Dispatch a slave to write and run Projects page interaction tests, fix broken controls
 ProjectsPageTests.cs exercises search input, pause/resume, refresh, and card tap/scroll, and each fixed control works in the .exe.
 - Add `MostaqlK.UITests/ProjectsPageTests.cs` covering: typing + Enter in `Projects_SearchInput`, tapping the pause/resume pill, tapping the refresh `↻` element, scrolling the `CollectionView`, and tapping a `ProjectCard` to navigate to details.
 - Run against the build, use `UiDebugger` dumps to diagnose any control that doesn't respond (e.g. `Border+TapGestureRecognizer` not exposing as invokable to UI Automation).
 - Apply the minimal fix per failing control (e.g. swap to an `AppButton`-based hit target, adjust `InputTransparent`/hit-test size) until all Projects-page tests pass.
 
-###   Step 6: Dispatch parallel slaves to write and run Settings, Project Details, and About page tests, fix remaining controls (each slave owns one page's files only)
+### ✓ Step 6: Dispatch parallel slaves to write and run Settings, Project Details, and About page tests, fix remaining controls (each slave owns one page's files only)
 Remaining three pages have full Appium coverage and their inputs/buttons/scroll views work correctly.
 - Add `MostaqlK.UITests/SettingsPageTests.cs` covering the three `AppEntry` inputs, the `Picker`, the `AppToggle`, and the Save `Button`.
 - Add `MostaqlK.UITests/ProjectDetailsPageTests.cs` covering the back button, an attachment's download `AppButton`, and scrolling.
 - Add `MostaqlK.UITests/AboutPageTests.cs` covering the footer link tap and roadmap-list scrolling.
 - Diagnose and fix any remaining broken control found via `UiDebugger` output, iterating until the full `docs/ui-test-catalog.md` set of tests passes.
 
-###   Step 7: Dispatch a slave to build the error-handling compliance checker, fix every flagged violation, and master closes out the checklist
+### ✓ Step 7: Dispatch a slave to build the error-handling compliance checker, fix every flagged violation, and master closes out the checklist
 tools/ErrorHandlingAudit exists, docs/error-handling-audit.md lists every non-compliant error path, and every listed violation is fixed.
 - Add `Core/ErrorOutcomeAttribute.cs` extending the existing `Core/ErrorAttributes.cs` (`[ErrorCode]`/`[ErrorCategory]`/`[NeitherContract]`) convention with `[ErrorOutcome(ErrorOutcome.Handled|Ignored|Rethrown, Label)]`, applied at call sites that catch/consume a `DomainError`.
 - Build `tools/ErrorHandlingAudit/Program.cs` as a Roslyn-based console tool that loads the solution, walks each module's `Errors.cs` factories, and flags: raise sites bypassing the module factory, caught-and-swallowed exceptions with no `ExternalMessage` propagation, `Result<T>.Err` arms whose `ExternalMessage`/`FixMessage` is never read by any binding/logger, and raise/catch sites missing `[ErrorCode]`/`[ErrorOutcome]` tagging.
@@ -208,4 +208,25 @@ tools/ErrorHandlingAudit exists, docs/error-handling-audit.md lists every non-co
 - Run the tool against the real codebase, generate `docs/error-handling-audit.md`, and manually classify every flagged line as true/false positive, plus manually sample known-compliant call sites to check for false negatives; repeat tuning and re-running until a full pass yields zero known false positives and zero known false negatives.
 - Fix each confirmed real violation: add missing `[ErrorOutcome]` tags, wire dropped `ExternalMessage`/`FixMessage` values into `LabelWithSubText`/`ValidationMessage` bindings or the `InteractionLogger`, and route any exception that bypassed a module's `Errors.cs` factory through it instead — reusing `tools/snip_tool.py` to capture a visual before/after of any UI surface that now shows a previously-dropped message, if useful for the master's review.
 - Re-run the checker until `docs/error-handling-audit.md` reports zero unresolved violations, and update `UNITS.md` with the `ErrorOutcomeAttribute` addition.
-- Master performs a final full-file review of `docs/master-plan-checklist.md`, independently re-verifying each slave's claimed fix, and only then ticks every remaining checkbox — work is not complete until every box is checked and reviewed.d.
+- Master performs a final full-file review of `docs/master-plan-checklist.md`, independently re-verifying each slave's claimed fix, and only then ticks every remaining checkbox — work is not complete until every box is checked and reviewed.
+
+### ✓ Step 8: Dispatch a slave to verify search/filter data-sync consistency and DB-backed dynamic counts
+Filtering (search box, unread/notification counts, "X new projects today" stat, live scan-status text) actually reflects the real underlying DB/pipeline state end-to-end, not a frozen/mocked snapshot.
+- Add Appium coverage (extend `ProjectsPageTests.cs` or add `DataSyncTests.cs`) asserting: typing a search term updates the visible `CollectionView` count to match a direct `IProjectRepository` query for the same term (UI count == DB count, not just "changed"); the sidebar's unread/notification badge count matches the DB's actual unread row count; the "مشاريع مضافة اليوم"/today stat card matches a DB query for today's rows; the live scan-status text (e.g. "يتم الفحص كل 30 ثانية"/requests-per-minute shown in the mockups) reflects `IPollService`'s actual configured interval/rate, not a hardcoded string.
+- Cross-reference against the two attached screenshots (`a.PNG`, `z.PNG`) showing a live "مباشر"/scan-interval indicator and a project card's read/unread + stats row — these are the concrete UI surfaces that must be proven DB/pipeline-backed, not just visually present.
+- Fix any surface found to be reading a stale/cached/hardcoded value instead of the live DB/service state.
+
+### ✓ Step 9: Dispatch a DB-engineer slave to verify the database layer is genuinely functional and free of leftover fake/seeded data
+A dedicated `scratch/`-based DB smoke test proves `IProjectRepository`/SQLite reads and writes real rows end-to-end, and the production store is confirmed free of stale `DesignDataSeeder` rows.
+- Write a throwaway `scratch/db_smoke_test` (console script or xunit-style test, per repo convention) that opens the same SQLite file the app uses, inserts a uniquely-tagged row through the real repository layer (not raw SQL) that the app should read via `IProjectRepository`, and confirms the app-facing query returns it — proving the DB service is not a mock/no-op.
+- Inspect the actual production store at `C:\Users\<user>\AppData\Local\User Name\com.companyname.mostaqlk\Data` (path confirmed by the user) via `sqlite3` CLI: check for rows whose shape matches `DesignDataSeeder`'s known seed dataset (fixed IDs/titles/timestamps) still present after real polling should have superseded them, and check the `Preferences`/`design_parity_mode` flag's current on-disk value.
+- If fake/seeded rows are still present in what should be a live store, clear them (respecting the `--seed-design-data=off` path already fixed in Step 1) and document the finding.
+- Delete the scratch test file when done per repo cleanup policy; report findings (DB genuinely functional: yes/no, fake data found: yes/no + evidence) to the master checklist.
+
+### Step 10 (Master-only): Full-repo final review — all test paths, clean build, no warnings, real (non-mocked) production code
+The master personally re-verifies the entire body of work end-to-end before any remaining checkbox is ticked — this step is never delegated to a slave.
+- Re-run `dotnet build MostaqlK.csproj -c Debug -f net10.0-windows10.0.19041.0` AND the Release configuration, confirming zero errors and zero warnings (not just "build succeeded") across the whole solution, including `MostaqlK.UITests` and any `tools/` projects added.
+- Enumerate every test file added across Steps 3-9 (`MostaqlK.UITests/*.cs`) and confirm each one actually ran against the real built `.exe` at least once in this session (not merely compiled) — re-run the full Appium suite end-to-end and record the final pass/fail tally.
+- Use `git diff`/`git status` to review every production file touched across all steps (`App.xaml.cs`, all XAML views, view-models, `Services/Diagnostics/*`, `Infrastructure/Database/*`, etc.) line-by-line, confirming each change is genuinely wired to real backend logic (DB/`IPollService`/`WorkerPool`/`Preferences`) and not a stub, hardcoded value, or leftover mock/seed shortcut.
+- Cross-check `docs/master-plan-checklist.md` against this review: only the master ticks a box, and only for items independently re-verified here — unresolved or unverifiable items must stay unchecked with an explicit note of why.
+- Produce a final short findings note appended to `docs/master-plan-checklist.md` summarizing overall completion status honestly (including anything still not done).

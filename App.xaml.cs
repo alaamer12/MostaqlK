@@ -96,6 +96,10 @@ public partial class App : Application
 	/// currently running against seeded design-parity data (this launch's request if provided,
 	/// otherwise the persisted preference — for display/logging purposes only; see the
 	/// <c>explicitlySeededThisLaunch</c> check in the constructor for the actual pipeline gate).
+	/// <c>--seed-design-data=off</c> now also purges any leftover seed-shaped rows through
+	/// <see cref="DesignDataSeeder.PurgeSeededRowsAsync"/>, so turning the flag off on a store that
+	/// was previously mixed with seed data actually leaves it clean instead of merely flipping the
+	/// preference back off.
 	/// </summary>
 	private static bool ApplyDesignDataArgument(IServiceProvider services, string[] args)
 	{
@@ -105,9 +109,18 @@ public partial class App : Application
 			return Microsoft.Maui.Storage.Preferences.Get(DesignDataSeeder.PreferenceKey, false);
 		}
 
+		var seeder = services.GetRequiredService<DesignDataSeeder>();
 		if (requested.Value)
 		{
-			services.GetRequiredService<DesignDataSeeder>().SeedAsync().GetAwaiter().GetResult();
+			seeder.SeedAsync().GetAwaiter().GetResult();
+		}
+		else
+		{
+			var purgeResult = seeder.PurgeSeededRowsAsync().GetAwaiter().GetResult();
+			MostaqlK.Services.Diagnostics.InteractionLogger.Mark(
+				"App.Startup.DesignDataPurge",
+				purgeResult.IsOk ? "A" : "B",
+				purgeResult.IsOk ? new { purgedProjectRows = purgeResult.Value } : null);
 		}
 
 		Microsoft.Maui.Storage.Preferences.Set(DesignDataSeeder.PreferenceKey, requested.Value);

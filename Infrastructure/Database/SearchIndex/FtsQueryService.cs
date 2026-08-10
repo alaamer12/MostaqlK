@@ -17,6 +17,7 @@ public sealed class FtsQueryService
         _connectionFactory = connectionFactory;
     }
 
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result.Err")]
     public async Task<Result<IReadOnlyList<ProjectSummary>>> SearchAsync(string query, CancellationToken cancellationToken = default)
     {
         try

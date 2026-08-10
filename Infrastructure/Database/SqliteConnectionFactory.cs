@@ -58,9 +58,7 @@ public sealed class SqliteConnectionFactory
             }
             else if (currentVersion != CurrentSchemaVersion)
             {
-                throw new DatabaseSchemaException(
-                    $"Database schema version {currentVersion} does not match the version expected " +
-                    $"by this build ({CurrentSchemaVersion}) and no migration path exists yet.");
+                throw DatabaseErrors.SchemaVersionMismatch(currentVersion, CurrentSchemaVersion);
             }
 
             _schemaVerified = true;

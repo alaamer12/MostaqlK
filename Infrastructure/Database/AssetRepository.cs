@@ -14,6 +14,7 @@ public sealed class AssetRepository : IAssetRepository
         _connectionFactory = connectionFactory;
     }
 
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result<bool>.Err")]
     public async Task<Result<bool>> InsertAsync(Asset asset, CancellationToken cancellationToken = default)
     {
         try
@@ -47,6 +48,7 @@ public sealed class AssetRepository : IAssetRepository
         }
     }
 
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result.Err")]
     public async Task<Result<IReadOnlyList<Asset>>> GetByProjectIdAsync(long projectId, CancellationToken cancellationToken = default)
     {
         try

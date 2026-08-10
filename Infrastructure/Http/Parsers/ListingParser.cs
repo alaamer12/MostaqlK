@@ -14,7 +14,7 @@ public static class ListingParser
     {
         if (string.IsNullOrWhiteSpace(html))
         {
-            throw new ParseException("ListingParser.Parse received empty HTML.");
+            throw ParseErrors.EmptyHtml(nameof(ListingParser));
         }
 
         var doc = new HtmlDocument();
@@ -56,7 +56,7 @@ public static class ListingParser
         if (summaries.Count == 0 && rows is null)
         {
             // Neither shape found at all - likely not a listing page / structure changed drastically.
-            throw new ParseException("ListingParser.Parse could not locate any project rows (tr.project-row or div.project-item).");
+            throw ParseErrors.NoProjectRows();
         }
 
         return summaries;

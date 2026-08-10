@@ -172,6 +172,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     }
 
     [TraceInteraction("RefreshCommand")]
+    [MostaqlK.Core.ErrorOutcome(MostaqlK.Core.ErrorOutcome.Rethrown, Label = "RefreshCommand")]
     [RelayCommand]
     public async Task RefreshAsync()
     {
@@ -203,6 +204,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     }
 
     [TraceInteraction("TogglePolling")]
+    [MostaqlK.Core.ErrorOutcome(MostaqlK.Core.ErrorOutcome.Rethrown, Label = "TogglePolling")]
     [RelayCommand]
     public void TogglePolling()
     {
@@ -235,6 +237,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     }
 
     [TraceInteraction("SelectCommand")]
+    [MostaqlK.Core.ErrorOutcome(MostaqlK.Core.ErrorOutcome.Rethrown, Label = "SelectCommand")]
     [RelayCommand]
     public async Task SelectProjectAsync(ProjectCardViewModel? card)
     {

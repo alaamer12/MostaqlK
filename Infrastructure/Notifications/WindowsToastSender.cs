@@ -17,6 +17,7 @@ public sealed class WindowsToastSender
     private static readonly object RegisterLock = new();
     private static bool _registered;
 
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Toast delivery failure surfaced as Result<bool>.Err")]
     public Task<Result<bool>> SendAsync(IReadOnlyList<ProjectSummary> projects, CancellationToken cancellationToken = default)
     {
         if (projects.Count == 0)

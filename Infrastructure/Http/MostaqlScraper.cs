@@ -19,6 +19,8 @@ public sealed class MostaqlScraper : IProjectScraper
         _httpClient = httpClient;
     }
 
+    [ErrorOutcome(ErrorOutcome.Rethrown, Label = "Propagates GetStringAsync failure via htmlResult.Error")]
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Parse failure wrapped as HttpErrors.ParseFailed")]
     public async Task<Result<IReadOnlyList<ProjectSummary>>> FetchListingAsync(CancellationToken cancellationToken = default)
     {
         var htmlResult = await GetStringAsync(ListingUrl, cancellationToken);
@@ -38,6 +40,8 @@ public sealed class MostaqlScraper : IProjectScraper
         }
     }
 
+    [ErrorOutcome(ErrorOutcome.Rethrown, Label = "Propagates GetStringAsync failure via htmlResult.Error")]
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Parse failure wrapped as HttpErrors.ParseFailed")]
     public async Task<Result<ProjectDetails>> FetchProjectDetailsAsync(long projectId, CancellationToken cancellationToken = default)
     {
         var url = string.Format(DetailUrlFormat, projectId);
@@ -58,6 +62,8 @@ public sealed class MostaqlScraper : IProjectScraper
         }
     }
 
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Non-success/timeout/exception responses returned as Result<string>.Err")]
+    [ErrorOutcome(ErrorOutcome.Rethrown, Label = "Caller-initiated cancellation rethrown, not swallowed")]
     private async Task<Result<string>> GetStringAsync(string url, CancellationToken cancellationToken)
     {
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);

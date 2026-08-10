@@ -92,6 +92,17 @@
 		<None Remove="MostaqlK.UITests\**" />
 	</ItemGroup>
 
+	<!-- tools\* holds standalone dev-utility console projects (each with its own .csproj, e.g.
+	     tools\ErrorHandlingAudit\ErrorHandlingAudit.csproj) that are built independently, not as
+	     part of the app. Without this exclusion their source files get swept into this project's
+	     default Compile glob and fail to build here (they reference packages, like
+	     Microsoft.CodeAnalysis.CSharp, that this app project does not and should not depend on). -->
+	<ItemGroup>
+		<Compile Remove="tools\**" />
+		<EmbeddedResource Remove="tools\**" />
+		<None Remove="tools\**" />
+	</ItemGroup>
+
 	<ItemGroup>
 	</ItemGroup>
 

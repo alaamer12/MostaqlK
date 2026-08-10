@@ -1,5 +1,6 @@
 using MostaqlK.Core;
 using MostaqlK.Models;
+using MostaqlK.Services.Diagnostics;
 
 namespace MostaqlK.Infrastructure.Database;
 
@@ -131,6 +132,57 @@ public sealed class DesignDataSeeder
         }
 
         return Result<int>.Ok(seeded);
+    }
+
+    /// <summary>
+    /// Deletes only the rows this seeder itself would have written — the archived
+    /// <c>"مشروع سابق"</c> range (<see cref="ArchivedIdBase"/>..<c>ArchivedIdBase + ArchivedCount - 1</c>),
+    /// the three design-card projects (<c>1300000</c>-<c>1300002</c>) and their matching seed
+    /// owners (<c>9300000</c>-<c>9300002</c>) — through the real repository layer, leaving any
+    /// other (real, scraped) rows untouched. Invoked from <c>App</c> when the process is started
+    /// with <c>--seed-design-data=off</c>, so turning the flag off on a mixed store actually
+    /// cleans it up instead of merely disabling the preference.
+    /// </summary>
+    [TraceInteraction("DesignDataSeeder.PurgeSeededRows")]
+    public async Task<Result<int>> PurgeSeededRowsAsync(CancellationToken cancellationToken = default)
+    {
+        using var scope = TraceScope.Begin("DesignDataSeeder.PurgeSeededRows");
+
+        var archivedMinId = ArchivedIdBase;
+        var archivedMaxId = ArchivedIdBase + ArchivedCount - 1;
+        const long DesignCardMinId = 1300000;
+        const long DesignCardMaxId = 1300000 + DesignCardCount - 1;
+        const long SeedOwnerMinId = 9300000;
+        const long SeedOwnerMaxId = 9300000 + DesignCardCount - 1;
+
+        var archivedResult = await _projectRepository.DeleteByProjectIdRangeAsync(archivedMinId, archivedMaxId, cancellationToken);
+        if (!archivedResult.IsOk)
+        {
+            scope.MarkFaulted(new InvalidOperationException(archivedResult.Error.ToString()));
+            return Result<int>.Err(archivedResult.Error);
+        }
+
+        var designCardsResult = await _projectRepository.DeleteByProjectIdRangeAsync(DesignCardMinId, DesignCardMaxId, cancellationToken);
+        if (!designCardsResult.IsOk)
+        {
+            scope.MarkFaulted(new InvalidOperationException(designCardsResult.Error.ToString()));
+            return Result<int>.Err(designCardsResult.Error);
+        }
+
+        var ownersResult = await _ownerRepository.DeleteByIdRangeAsync(SeedOwnerMinId, SeedOwnerMaxId, cancellationToken);
+        if (!ownersResult.IsOk)
+        {
+            scope.MarkFaulted(new InvalidOperationException(ownersResult.Error.ToString()));
+            return Result<int>.Err(ownersResult.Error);
+        }
+
+        var purgedProjectRows = archivedResult.Value + designCardsResult.Value;
+        InteractionLogger.Mark(
+            "DesignDataSeeder.PurgeSeededRows.Completed",
+            "A",
+            new { purgedProjectRows, purgedOwnerRows = ownersResult.Value });
+
+        return Result<int>.Ok(purgedProjectRows);
     }
 
     /// <summary>

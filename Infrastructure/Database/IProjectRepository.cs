@@ -39,4 +39,12 @@ public interface IProjectRepository
     /// pipeline itself never deletes, per the no-update policy.
     /// </summary>
     Task<Result<bool>> ClearAllAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes only the project rows (and their skills/assets/search-index entries) whose
+    /// <c>project_id</c> falls within <paramref name="minProjectId"/>..<paramref name="maxProjectId"/>
+    /// (inclusive). Used by <c>DesignDataSeeder.PurgeSeededRowsAsync</c> to strip leftover seed
+    /// rows out of an otherwise-live store without touching real scraped rows outside the range.
+    /// </summary>
+    Task<Result<int>> DeleteByProjectIdRangeAsync(long minProjectId, long maxProjectId, CancellationToken cancellationToken = default);
 }

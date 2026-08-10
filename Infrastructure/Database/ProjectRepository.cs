@@ -14,6 +14,7 @@ public sealed class ProjectRepository : IProjectRepository
         _connectionFactory = connectionFactory;
     }
 
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result<bool>.Err")]
     public async Task<Result<bool>> InsertSummaryAsync(ProjectSummary project, CancellationToken cancellationToken = default)
     {
         try
@@ -48,6 +49,7 @@ public sealed class ProjectRepository : IProjectRepository
         }
     }
 
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result<bool>.Err")]
     public async Task<Result<bool>> UpsertDetailsAsync(ProjectDetails details, CancellationToken cancellationToken = default)
     {
         try
@@ -179,6 +181,7 @@ public sealed class ProjectRepository : IProjectRepository
         }
     }
 
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result.Err")]
     public async Task<Result<IReadOnlySet<long>>> GetAllKnownProjectIdsAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -202,6 +205,7 @@ public sealed class ProjectRepository : IProjectRepository
         }
     }
 
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result.Err")]
     public async Task<Result<IReadOnlyList<ProjectSummary>>> GetRecentAsync(int limit, CancellationToken cancellationToken = default)
     {
         try
@@ -234,6 +238,7 @@ public sealed class ProjectRepository : IProjectRepository
         }
     }
 
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result.Err")]
     public async Task<Result<long?>> GetNewestProjectIdAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -259,6 +264,7 @@ public sealed class ProjectRepository : IProjectRepository
         }
     }
 
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result.Err")]
     public async Task<Result<ProjectDetails?>> GetDetailsAsync(long projectId, CancellationToken cancellationToken = default)
     {
         try
@@ -352,6 +358,7 @@ public sealed class ProjectRepository : IProjectRepository
         }
     }
 
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result<int>.Err")]
     public async Task<Result<int>> CountAddedTodayAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -370,6 +377,7 @@ public sealed class ProjectRepository : IProjectRepository
         }
     }
 
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result.Err")]
     public async Task<Result<(int Tracked, int Unread)>> CountTrackedAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -392,6 +400,7 @@ public sealed class ProjectRepository : IProjectRepository
         }
     }
 
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result<bool>.Err")]
     public async Task<Result<bool>> ClearAllAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -416,6 +425,66 @@ public sealed class ProjectRepository : IProjectRepository
         catch (SqliteException ex)
         {
             return Result<bool>.Err(DatabaseErrors.QueryFailed(nameof(ClearAllAsync), ex));
+        }
+    }
+
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result<int>.Err")]
+    public async Task<Result<int>> DeleteByProjectIdRangeAsync(long minProjectId, long maxProjectId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            using var transaction = connection.BeginTransaction();
+
+            int rowsAffected;
+            using (var deleteAssetsCommand = connection.CreateCommand())
+            {
+                deleteAssetsCommand.Transaction = transaction;
+                deleteAssetsCommand.CommandText = """
+                    DELETE FROM assets
+                    WHERE project_id IN (SELECT project_id FROM projects WHERE project_id BETWEEN @min_id AND @max_id);
+                    """;
+                deleteAssetsCommand.Parameters.AddWithValue("@min_id", minProjectId);
+                deleteAssetsCommand.Parameters.AddWithValue("@max_id", maxProjectId);
+                await deleteAssetsCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            using (var deleteSkillsCommand = connection.CreateCommand())
+            {
+                deleteSkillsCommand.Transaction = transaction;
+                deleteSkillsCommand.CommandText = """
+                    DELETE FROM project_skills
+                    WHERE project_id IN (SELECT project_id FROM projects WHERE project_id BETWEEN @min_id AND @max_id);
+                    """;
+                deleteSkillsCommand.Parameters.AddWithValue("@min_id", minProjectId);
+                deleteSkillsCommand.Parameters.AddWithValue("@max_id", maxProjectId);
+                await deleteSkillsCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            using (var deleteFtsCommand = connection.CreateCommand())
+            {
+                deleteFtsCommand.Transaction = transaction;
+                deleteFtsCommand.CommandText = "DELETE FROM projects_fts WHERE project_id BETWEEN @min_id AND @max_id;";
+                deleteFtsCommand.Parameters.AddWithValue("@min_id", minProjectId);
+                deleteFtsCommand.Parameters.AddWithValue("@max_id", maxProjectId);
+                await deleteFtsCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            using (var deleteProjectsCommand = connection.CreateCommand())
+            {
+                deleteProjectsCommand.Transaction = transaction;
+                deleteProjectsCommand.CommandText = "DELETE FROM projects WHERE project_id BETWEEN @min_id AND @max_id;";
+                deleteProjectsCommand.Parameters.AddWithValue("@min_id", minProjectId);
+                deleteProjectsCommand.Parameters.AddWithValue("@max_id", maxProjectId);
+                rowsAffected = await deleteProjectsCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+            return Result<int>.Ok(rowsAffected);
+        }
+        catch (SqliteException ex)
+        {
+            return Result<int>.Err(DatabaseErrors.QueryFailed(nameof(DeleteByProjectIdRangeAsync), ex));
         }
     }
 
