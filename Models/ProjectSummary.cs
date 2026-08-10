@@ -18,6 +18,14 @@ public sealed class ProjectSummary
 
     public int ProposalCount { get; set; }
 
+    public string? Budget { get; set; }
+
+    public int? DeliveryDays { get; set; }
+
+    public string SkillsText { get; set; } = string.Empty;
+
+    public string Description { get; set; } = string.Empty;
+
     public bool IsUnread { get; set; } = true;
 
     public EnrichmentStatus EnrichmentStatus { get; set; } = EnrichmentStatus.Pending;

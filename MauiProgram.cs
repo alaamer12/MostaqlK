@@ -16,6 +16,10 @@ using MostaqlK.Services.Pipeline.WorkerPool;
 using MostaqlK.UI.TrayIcon;
 #if WINDOWS
 using MostaqlK.Platforms.Windows;
+using Microsoft.UI;
+using Microsoft.UI.Windowing;
+using WinRT.Interop;
+using System.Runtime.InteropServices;
 #endif
 
 namespace MostaqlK;
@@ -98,6 +102,7 @@ public static class MauiProgram
 					}
 
 					var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+					ConfigureWindowsChrome(hwnd);
 					var trayIconService = appRef.Services.GetRequiredService<TrayIconService>();
 					nativeHost = new TrayIconNativeHost(trayIconService, hwnd);
 				})
@@ -117,4 +122,57 @@ public static class MauiProgram
 
 		return app;
 	}
+
+#if WINDOWS
+	private static void ConfigureWindowsChrome(nint hwnd)
+	{
+		var windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
+		var appWindow = AppWindow.GetFromWindowId(windowId);
+		if (appWindow?.TitleBar is not AppWindowTitleBar titleBar)
+		{
+			return;
+		}
+
+		// Extend content into the title bar so we own the FULL strip (not just the caption
+		// button cluster). Without this, the leftmost portion of the title-bar row (system
+		// icon/menu area) is drawn by the OS with its own (often black/dark) background,
+		// leaving a visible black remnant next to the light caption buttons.
+		appWindow.TitleBar.ExtendsContentIntoTitleBar = true;
+
+		titleBar.BackgroundColor = Windows.UI.Color.FromArgb(255, 255, 255, 255);
+		titleBar.ForegroundColor = Windows.UI.Color.FromArgb(255, 15, 23, 42);
+		titleBar.InactiveBackgroundColor = Windows.UI.Color.FromArgb(255, 255, 255, 255);
+		titleBar.InactiveForegroundColor = Windows.UI.Color.FromArgb(255, 100, 116, 139);
+		titleBar.ButtonBackgroundColor = Windows.UI.Color.FromArgb(255, 255, 255, 255);
+		titleBar.ButtonForegroundColor = Windows.UI.Color.FromArgb(255, 15, 23, 42);
+		titleBar.ButtonInactiveBackgroundColor = Windows.UI.Color.FromArgb(255, 255, 255, 255);
+		titleBar.ButtonInactiveForegroundColor = Windows.UI.Color.FromArgb(255, 100, 116, 139);
+		titleBar.ButtonHoverBackgroundColor = Windows.UI.Color.FromArgb(255, 241, 245, 249);
+		titleBar.ButtonHoverForegroundColor = Windows.UI.Color.FromArgb(255, 15, 23, 42);
+		titleBar.ButtonPressedBackgroundColor = Windows.UI.Color.FromArgb(255, 226, 232, 240);
+		titleBar.ButtonPressedForegroundColor = Windows.UI.Color.FromArgb(255, 15, 23, 42);
+
+		// AppWindowTitleBar customization above only recolors the caption *buttons*, not the
+		// non-client caption strip drawn by DWM itself. When the OS is in dark mode, DWM still
+		// paints that strip black regardless of the AppWindowTitleBar colors, producing the
+		// black remnant reported by the user. Force DWM's own caption/text colors to match our
+		// light title bar (Windows 11 22H2+, DWMWA_CAPTION_COLOR / DWMWA_TEXT_COLOR / DWMWA_USE_IMMERSIVE_DARK_MODE).
+		const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+		const int DWMWA_CAPTION_COLOR = 35;
+		const int DWMWA_TEXT_COLOR = 36;
+
+		int useLightMode = 0; // 0 = disable dark mode -> light caption
+		_ = DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref useLightMode, sizeof(int));
+
+		// COLORREF is 0x00BBGGRR.
+		int captionColor = 0x00FFFFFF; // white
+		_ = DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, ref captionColor, sizeof(int));
+
+		int textColor = 0x002A170F; // ARGB(15,23,42) -> BGR 0x2A170F
+		_ = DwmSetWindowAttribute(hwnd, DWMWA_TEXT_COLOR, ref textColor, sizeof(int));
+	}
+
+	[DllImport("dwmapi.dll", PreserveSig = true)]
+	private static extern int DwmSetWindowAttribute(nint hwnd, int attribute, ref int value, int size);
+#endif
 }

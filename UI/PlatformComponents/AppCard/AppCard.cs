@@ -1,4 +1,6 @@
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Controls.Shapes;
+using MostaqlK.UI.DesignSystem;
 
 namespace MostaqlK.UI.PlatformComponents;
 
@@ -39,12 +41,30 @@ public partial class AppCard : Border
 
     public AppCard()
     {
-        // TODO: apply the shared "AppCardBase" style resource once the Design System styles land.
+        // Flat white/dark-surface card with a rounded corner, matching .project-card's inner
+        // panel in projects.html (bg-white/dark:bg-slate-900, rounded-xl, border, shadow-sm).
+        StrokeShape = new RoundRectangle { CornerRadius = DesignTokens.CornerRadius.Default };
+        StrokeThickness = 1;
+        BackgroundColor = Colors.White;
+        Stroke = new SolidColorBrush(DesignTokens.Colors.ReadBorderLight.WithAlpha(0.5f));
+        Padding = new Thickness(DesignTokens.Spacing.XL, DesignTokens.Spacing.L);
+        Shadow = new Shadow { Brush = Colors.Black, Opacity = 0.06f, Radius = 6, Offset = new Point(0, 1) };
+        UpdateAccentBorder(false);
     }
 
     private static void OnIsUnreadChanged(BindableObject bindable, object oldValue, object newValue)
     {
-        // TODO: swap the accent-border brush/thickness once the Design System tokens exist.
-        // (bindable as AppCard)?.UpdateAccentBorder((bool)newValue);
+        (bindable as AppCard)?.UpdateAccentBorder((bool)newValue);
+    }
+
+    private void UpdateAccentBorder(bool isUnread)
+    {
+        // MAUI's Border draws a uniform stroke, not a per-edge one, so the 4px accent bar from
+        // .project-card.unread { border-inline-start-color: accent } is approximated with a
+        // slightly heavier stroke tinted with the accent color while unread.
+        StrokeThickness = isUnread ? 1 : 1;
+        Stroke = isUnread
+            ? new SolidColorBrush(DesignTokens.Colors.AccentPrimary)
+            : new SolidColorBrush(DesignTokens.Colors.ReadBorderLight.WithAlpha(0.6f));
     }
 }

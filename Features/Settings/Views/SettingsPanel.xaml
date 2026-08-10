@@ -3,64 +3,110 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:MostaqlK.Features.Settings.ViewModels"
              xmlns:platform="clr-namespace:MostaqlK.UI.PlatformComponents"
+             xmlns:sidebar="clr-namespace:MostaqlK.UI.PlatformComponents.AppSidebar"
              x:Class="MostaqlK.Features.Settings.Views.SettingsPanel"
              x:DataType="vm:SettingsViewModel"
              Title="الإعدادات"
              FlowDirection="RightToLeft">
 
-    <!-- Rows mirror settings.html: poll interval, request rate, grouping mode/threshold,
-         dark-mode toggle, and the "مشاريع مضافة اليوم" stat card. -->
-    <ScrollView>
-        <VerticalStackLayout Padding="24" Spacing="16">
+    <!-- Layout mirrors settings.html: shared sidebar (AppSidebar) + a header bar + a single
+         settings card. Rows mirror the app's actual configurable settings (poll interval,
+         request rate, grouping mode/threshold, dark-mode toggle, and the "مشاريع مضافة اليوم"
+         stat card, which also appears in the sidebar per the mockup). -->
+    <Grid BackgroundColor="#F1F5F9" ColumnDefinitions="Auto,*">
 
-            <Border Padding="16" StrokeShape="RoundRectangle 8">
-                <VerticalStackLayout Spacing="4">
-                    <Label Text="مشاريع مضافة اليوم" FontSize="14" TextColor="Gray" />
-                    <Label Text="{Binding ProjectsAddedTodayCount}" FontSize="28" FontAttributes="Bold" />
-                </VerticalStackLayout>
+        <sidebar:AppSidebar Grid.Column="0"
+                             ActivePage="Settings"
+                             StatValue="{Binding ProjectsAddedTodayCount}"
+                             ProjectsClicked="OnProjectsNavClicked"
+                             AdvancedSearchClicked="OnAdvancedSearchNavClicked"
+                             NotificationsClicked="OnNotificationsNavClicked"
+                             SettingsClicked="OnSettingsNavClicked"
+                             AboutClicked="OnAboutNavClicked" />
+
+        <Grid Grid.Column="1" RowDefinitions="32,Auto,*" Padding="24,20,24,24" RowSpacing="16">
+            <BoxView Grid.Row="0" BackgroundColor="Transparent" InputTransparent="True" />
+
+            <Border Grid.Row="1" StrokeThickness="1" Stroke="#E2E8F0" BackgroundColor="White" Padding="16,12">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="12" />
+                </Border.StrokeShape>
+                <Label Text="الإعدادات" FontSize="16" FontAttributes="Bold" TextColor="#0F172A" />
             </Border>
 
-            <Label Text="{Binding ValidationMessage}"
-                   TextColor="Red"
-                   FontSize="13"
-                   IsVisible="{Binding HasValidationError}" />
+            <ScrollView Grid.Row="2">
+                <VerticalStackLayout Spacing="16">
 
-            <Grid ColumnDefinitions="*,Auto">
-                <Label Grid.Column="0" Text="فترة الفحص (ثانية)" VerticalOptions="Center" />
-                <platform:AppEntry Grid.Column="1" Text="{Binding PollIntervalSeconds}" Keyboard="Numeric" WidthRequest="100" />
-            </Grid>
+                    <Border Padding="16" StrokeThickness="1" Stroke="#E2E8F0" BackgroundColor="White">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="مشاريع مضافة اليوم" FontSize="14" TextColor="#64748B" />
+                            <Label Text="{Binding ProjectsAddedTodayCount}" FontSize="28" FontAttributes="Bold" TextColor="#0F172A" />
+                        </VerticalStackLayout>
+                    </Border>
 
-            <Grid ColumnDefinitions="*,Auto">
-                <Label Grid.Column="0" Text="الحد الأقصى للطلبات في الدقيقة" VerticalOptions="Center" />
-                <platform:AppEntry Grid.Column="1" Text="{Binding RequestsPerMinute}" Keyboard="Numeric" WidthRequest="100" />
-            </Grid>
+                    <Label Text="{Binding ValidationMessage}"
+                           TextColor="Red"
+                           FontSize="13"
+                           IsVisible="{Binding HasValidationError}" />
 
-            <Grid ColumnDefinitions="*,Auto">
-                <Label Grid.Column="0" Text="طريقة تجميع الإشعارات" VerticalOptions="Center" />
-                <Picker Grid.Column="1" SelectedItem="{Binding GroupingMode}" WidthRequest="160">
-                    <Picker.ItemsSource>
-                        <x:Array Type="{x:Type x:String}">
-                            <x:String>EndOfMinute</x:String>
-                            <x:String>AfterMinutes</x:String>
-                            <x:String>AfterCount</x:String>
-                        </x:Array>
-                    </Picker.ItemsSource>
-                </Picker>
-            </Grid>
+                    <Border Padding="16" StrokeThickness="1" Stroke="#E2E8F0" BackgroundColor="White">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                        <VerticalStackLayout Spacing="16">
 
-            <Grid ColumnDefinitions="*,Auto">
-                <Label Grid.Column="0" Text="حد التجميع" VerticalOptions="Center" />
-                <platform:AppEntry Grid.Column="1" Text="{Binding GroupingThreshold}" Keyboard="Numeric" WidthRequest="100" />
-            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Grid.Column="0" Text="فترة الفحص (ثانية)" VerticalOptions="Center" TextColor="#0F172A" />
+                                <Border Grid.Column="1" StrokeThickness="1" Stroke="#E2E8F0" BackgroundColor="White" Padding="12,8" WidthRequest="100">
+                                    <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                                    <platform:AppEntry Text="{Binding PollIntervalSeconds}" Keyboard="Numeric" />
+                                </Border>
+                            </Grid>
 
-            <Grid ColumnDefinitions="*,Auto">
-                <Label Grid.Column="0" Text="الوضع الليلي" VerticalOptions="Center" />
-                <platform:AppToggle Grid.Column="1" IsToggled="{Binding IsDarkMode}" />
-            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Grid.Column="0" Text="الحد الأقصى للطلبات في الدقيقة" VerticalOptions="Center" TextColor="#0F172A" />
+                                <Border Grid.Column="1" StrokeThickness="1" Stroke="#E2E8F0" BackgroundColor="White" Padding="12,8" WidthRequest="100">
+                                    <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                                    <platform:AppEntry Text="{Binding RequestsPerMinute}" Keyboard="Numeric" />
+                                </Border>
+                            </Grid>
 
-            <Button Text="حفظ" Command="{Binding SaveCommand}" HorizontalOptions="End" />
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Grid.Column="0" Text="طريقة تجميع الإشعارات" VerticalOptions="Center" TextColor="#0F172A" />
+                                <Border Grid.Column="1" StrokeThickness="1" Stroke="#E2E8F0" BackgroundColor="White" Padding="12,4" WidthRequest="160">
+                                    <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                                    <Picker SelectedItem="{Binding GroupingMode}">
+                                        <Picker.ItemsSource>
+                                            <x:Array Type="{x:Type x:String}">
+                                                <x:String>EndOfMinute</x:String>
+                                                <x:String>AfterMinutes</x:String>
+                                                <x:String>AfterCount</x:String>
+                                            </x:Array>
+                                        </Picker.ItemsSource>
+                                    </Picker>
+                                </Border>
+                            </Grid>
 
-        </VerticalStackLayout>
-    </ScrollView>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Grid.Column="0" Text="حد التجميع" VerticalOptions="Center" TextColor="#0F172A" />
+                                <Border Grid.Column="1" StrokeThickness="1" Stroke="#E2E8F0" BackgroundColor="White" Padding="12,8" WidthRequest="100">
+                                    <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                                    <platform:AppEntry Text="{Binding GroupingThreshold}" Keyboard="Numeric" />
+                                </Border>
+                            </Grid>
+
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Grid.Column="0" Text="الوضع الليلي" VerticalOptions="Center" TextColor="#0F172A" />
+                                <platform:AppToggle Grid.Column="1" IsToggled="{Binding IsDarkMode}" />
+                            </Grid>
+
+                            <Button Text="حفظ" Command="{Binding SaveCommand}" HorizontalOptions="End" BackgroundColor="#2563EB" TextColor="White" />
+
+                        </VerticalStackLayout>
+                    </Border>
+
+                </VerticalStackLayout>
+            </ScrollView>
+        </Grid>
+    </Grid>
 
 </ContentPage>

@@ -24,4 +24,31 @@ public partial class ProjectDetailsPage : ContentPage
             await _viewModel.LoadAsync(projectId);
         }
     }
+
+    private async void OnProjectsNavClicked(object? sender, EventArgs e)
+    {
+        await Shell.Current.GoToAsync("//MainWindowPage");
+    }
+
+    private async void OnAdvancedSearchNavClicked(object? sender, EventArgs e)
+    {
+        // TODO: navigate to the advanced search route once implemented.
+        await Task.CompletedTask;
+    }
+
+    private async void OnNotificationsNavClicked(object? sender, EventArgs e)
+    {
+        // Notifications flyout is owned by MainWindowPage; navigate back to it first.
+        await Shell.Current.GoToAsync("//MainWindowPage");
+    }
+
+    private async void OnSettingsNavClicked(object? sender, EventArgs e)
+    {
+        await Shell.Current.GoToAsync("SettingsPanel");
+    }
+
+    private async void OnAboutNavClicked(object? sender, EventArgs e)
+    {
+        await Shell.Current.GoToAsync("AboutPage");
+    }
 }

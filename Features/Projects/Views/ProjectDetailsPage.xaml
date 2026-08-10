@@ -5,19 +5,30 @@
              xmlns:design="clr-namespace:MostaqlK.UI.DesignSystem"
              xmlns:vm="clr-namespace:MostaqlK.Features.Projects.ViewModels"
              xmlns:models="clr-namespace:MostaqlK.Models"
+             xmlns:sidebar="clr-namespace:MostaqlK.UI.PlatformComponents.AppSidebar"
              x:Class="MostaqlK.Features.Projects.Views.ProjectDetailsPage"
              x:DataType="vm:ProjectDetailsViewModel"
              Title="تفاصيل المشروع"
              FlowDirection="RightToLeft">
 
-    <!-- Mirrors project-details.html: title/description, skills chips, budget/duration/owner
-         stats, and an attachments list with per-item download status/action wired to
-         AssetDownloadService via ProjectDetailsViewModel. Uses Grid/ScrollView so it adapts
-         across window sizes instead of fixed pixel widths. -->
-    <Grid>
+    <!-- Mirrors project-details.html: shared sidebar (AppSidebar) + title/description, skills
+         chips, budget/duration/owner stats, and an attachments list with per-item download
+         status/action wired to AssetDownloadService via ProjectDetailsViewModel. Uses
+         Grid/ScrollView so it adapts across window sizes instead of fixed pixel widths. -->
+    <Grid ColumnDefinitions="Auto,*" BackgroundColor="#F1F5F9">
+
+        <sidebar:AppSidebar Grid.Column="0"
+                             ActivePage="Projects"
+                             ProjectsClicked="OnProjectsNavClicked"
+                             AdvancedSearchClicked="OnAdvancedSearchNavClicked"
+                             NotificationsClicked="OnNotificationsNavClicked"
+                             SettingsClicked="OnSettingsNavClicked"
+                             AboutClicked="OnAboutNavClicked" />
+
+        <Grid Grid.Column="1">
 
         <!-- Loading state -->
-        <VerticalStackLayout Padding="24" Spacing="12" IsVisible="{Binding IsLoading}">
+        <VerticalStackLayout Padding="24,56,24,24" Spacing="12" IsVisible="{Binding IsLoading}">
             <design:ShimmerBox HeightRequest="32" />
             <design:ShimmerBox HeightRequest="120" />
             <design:ShimmerBox HeightRequest="60" />
@@ -31,7 +42,7 @@
 
         <!-- Success state -->
         <ScrollView IsVisible="{Binding ShowDetails}">
-            <VerticalStackLayout Padding="24" Spacing="16" x:DataType="vm:ProjectDetailsViewModel">
+            <VerticalStackLayout Padding="24,56,24,24" Spacing="16" x:DataType="vm:ProjectDetailsViewModel">
 
                 <Label Text="{Binding Details.Title}" FontSize="22" FontAttributes="Bold" />
                 <Label Text="{Binding Details.Description}" FontSize="14" />
@@ -85,6 +96,7 @@
             </VerticalStackLayout>
         </ScrollView>
 
+        </Grid>
     </Grid>
 
 </ContentPage>

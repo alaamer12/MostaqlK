@@ -37,6 +37,14 @@ public sealed partial class ProjectCardViewModel : ObservableObject
 
     public int ProposalCount => Project.ProposalCount;
 
+    public string Budget => Project.Budget ?? "—";
+
+    public string Delivery => Project.DeliveryDays is int days ? $"{days} يوم" : "—";
+
+    public string Skills => Project.SkillsText;
+
+    public string Description => Project.Description;
+
     public void MarkAsRead()
     {
         // TODO: persist the read state via IProjectRepository once an UpdateReadStateAsync

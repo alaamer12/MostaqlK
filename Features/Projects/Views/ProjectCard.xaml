@@ -8,36 +8,61 @@
              FlowDirection="RightToLeft">
 
     <!-- Reflects the unread/read project card from projects.html: AppCard's real IsUnread
-         accent-border state, bold title while unread, muted style once read. Tapping the card
-         marks it as read and navigates to ProjectDetailsPage via the feed's SelectProjectCommand
-         (BindingContextChanged supplies the feed VM through the CollectionView item, so the
-         command itself is bound from the page-level SelectProjectCommand target). -->
-    <components:AppCard Padding="16" Margin="0,0,0,12" IsUnread="{Binding IsUnread}">
-        <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
+         accent-border state, bold title while unread, muted style once read, plus the
+         enrichment-status badge and a client/meta footer row. Budget/skills/owner-avatar are
+         detail-only fields (ProjectDetails, not ProjectSummary) and are intentionally omitted
+         from the feed card until the listing query is extended to surface them. -->
+    <components:AppCard IsUnread="{Binding IsUnread}" Margin="0,0,0,16">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="10">
 
             <Grid.GestureRecognizers>
                 <TapGestureRecognizer Command="{Binding SelectCommand}" CommandParameter="{Binding .}" />
             </Grid.GestureRecognizers>
 
-            <Label Grid.Row="0"
-                    Text="{Binding Title}"
-                    FontSize="16">
-                <Label.Triggers>
-                    <DataTrigger TargetType="Label" Binding="{Binding IsUnread}" Value="True">
-                        <Setter Property="FontAttributes" Value="Bold" />
-                    </DataTrigger>
-                </Label.Triggers>
-            </Label>
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <Label Grid.Column="0"
+                       Text="{Binding Title}"
+                       FontSize="17"
+                       TextColor="#0F172A"
+                       LineBreakMode="TailTruncation">
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label" Binding="{Binding IsUnread}" Value="True">
+                            <Setter Property="FontAttributes" Value="Bold" />
+                        </DataTrigger>
+                        <DataTrigger TargetType="Label" Binding="{Binding IsUnread}" Value="False">
+                            <Setter Property="TextColor" Value="#334155" />
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
 
-            <Label Grid.Row="1"
-                    Text="{Binding ClientName}"
-                    FontSize="13"
-                    TextColor="Gray" />
+                <Border Grid.Column="1"
+                        StrokeThickness="0"
+                        Padding="10,4"
+                        VerticalOptions="Start"
+                        BackgroundColor="#ECFDF5">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="6" />
+                    </Border.StrokeShape>
+                    <Label Text="تم الإثراء" FontSize="11" TextColor="#2E9E6B" FontAttributes="Bold" />
+                </Border>
+            </Grid>
 
-            <HorizontalStackLayout Grid.Row="2" Spacing="12">
-                <Label Text="{Binding PostedRelative}" FontSize="12" TextColor="Gray" />
-                <Label Text="{Binding ProposalCount, StringFormat='{0} عرض'}" FontSize="12" TextColor="Gray" />
-            </HorizontalStackLayout>
+            <BoxView Grid.Row="1" HeightRequest="1" Color="#F1F5F9" />
+
+            <Label Grid.Row="2" Text="{Binding Description}" FontSize="13" TextColor="#475569" MaxLines="2" LineBreakMode="TailTruncation" />
+
+            <Label Grid.Row="3" Text="{Binding Skills}" FontSize="12" TextColor="#2563EB" LineBreakMode="TailTruncation" />
+
+            <Grid Grid.Row="4" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="18">
+                <Label Grid.Column="0" Text="{Binding ClientName}" FontSize="13" TextColor="#64748B" VerticalOptions="Center" />
+                <Label Grid.Column="1" Text="{Binding Delivery}" FontSize="12" TextColor="#475569" />
+                <Label Grid.Column="2" Text="{Binding Budget}" FontSize="12" TextColor="#159669" FontAttributes="Bold" />
+            </Grid>
+
+            <Grid Grid.Row="5" ColumnDefinitions="*,Auto">
+                <Label Text="{Binding PostedRelative}" FontSize="12" TextColor="#94A3B8" />
+                <Label Grid.Column="1" Text="{Binding ProposalCount, StringFormat='{0} عرض'}" FontSize="12" TextColor="#94A3B8" />
+            </Grid>
 
         </Grid>
     </components:AppCard>

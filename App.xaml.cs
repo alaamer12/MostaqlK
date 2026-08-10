@@ -30,6 +30,14 @@ public partial class App : Application
 		// TODO(RTL): the Arabic-first FlowDirection switch (dir="rtl" in the mockups) hooks in here,
 		// e.g. `MainPage.FlowDirection = FlowDirection.RightToLeft;` once the window/root view exists.
 
+		// Apply the persisted dark-mode preference eagerly at startup. SettingsViewModel is
+		// registered Transient and only constructed when the Settings page is opened, so without
+		// this, UserAppTheme stays Unspecified and the app silently follows the OS theme instead
+		// of the mockups' light-theme default (per projects.html, dark mode starts OFF).
+		UserAppTheme = Microsoft.Maui.Storage.Preferences.Get("settings_is_dark_mode", false)
+			? AppTheme.Dark
+			: AppTheme.Light;
+
 		// MAUI has no ASP.NET-style `IHostedService`, so the pipeline subsystem (Poll Service +
 		// Worker Pool) is started here as fire-and-forget background loops off the app's own
 		// lifetime token. Both are registered as singletons in `MauiProgram`, so this simply

@@ -209,10 +209,12 @@ public sealed class ProjectRepository : IProjectRepository
             using var connection = _connectionFactory.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = """
-                SELECT project_id, title, url, client_name, posted_relative, proposal_count,
-                       is_unread, enrichment_status, discovered_at
-                FROM projects
-                ORDER BY discovered_at DESC
+                SELECT p.project_id, p.title, p.url, p.client_name, p.posted_relative, p.proposal_count,
+                       p.description, p.budget, p.delivery_days,
+                       p.is_unread, p.enrichment_status, p.discovered_at,
+                       COALESCE((SELECT group_concat(name, ', ') FROM project_skills s WHERE s.project_id = p.project_id), '')
+                FROM projects p
+                ORDER BY p.discovered_at DESC
                 LIMIT @limit;
                 """;
             command.Parameters.AddWithValue("@limit", limit);
@@ -351,9 +353,13 @@ public sealed class ProjectRepository : IProjectRepository
         ClientName = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
         PostedRelative = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
         ProposalCount = reader.IsDBNull(5) ? 0 : reader.GetInt32(5),
-        IsUnread = !reader.IsDBNull(6) && reader.GetInt64(6) != 0,
-        EnrichmentStatus = Enum.Parse<EnrichmentStatus>(reader.GetString(7)),
-        DiscoveredAt = DateTimeOffset.Parse(reader.GetString(8)),
+        Description = reader.IsDBNull(6) ? string.Empty : reader.GetString(6),
+        Budget = reader.IsDBNull(7) ? null : reader.GetString(7),
+        DeliveryDays = reader.IsDBNull(8) ? null : reader.GetInt32(8),
+        IsUnread = !reader.IsDBNull(9) && reader.GetInt64(9) != 0,
+        EnrichmentStatus = Enum.Parse<EnrichmentStatus>(reader.GetString(10)),
+        DiscoveredAt = DateTimeOffset.Parse(reader.GetString(11)),
+        SkillsText = reader.IsDBNull(12) ? string.Empty : reader.GetString(12),
     };
 
     private static Asset ReadAsset(SqliteDataReader reader) => new()

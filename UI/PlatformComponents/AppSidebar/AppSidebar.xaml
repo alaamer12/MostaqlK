@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:components="clr-namespace:MostaqlK.UI.PlatformComponents"
+             x:Class="MostaqlK.UI.PlatformComponents.AppSidebar.AppSidebar"
+             x:Name="Root">
+
+    <ContentView.Resources>
+        <Style x:Key="SidebarNavRowStyle" TargetType="Border">
+            <Setter Property="StrokeThickness" Value="0" />
+            <Setter Property="BackgroundColor" Value="Transparent" />
+            <Setter Property="Padding" Value="16,12" />
+            <Setter Property="StrokeShape">
+                <Setter.Value>
+                    <RoundRectangle CornerRadius="12" />
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </ContentView.Resources>
+
+    <!-- Shared sidebar nav rail reused across MainWindowPage/SettingsPanel/AboutPage/
+         ProjectDetailsPage, matching the sidebar markup common to all 4 design mockups
+         (projects.html, settings.html, about.html, project-details.html): logo, 5 nav
+         items (المشاريع، البحث المتقدم، التنبيهات، الإعدادات، حول التطبيق) with an
+         active-item highlight, the "مشاريع مضافة اليوم" stat card, and the dark-mode row. -->
+    <VerticalStackLayout Spacing="6" Padding="16" WidthRequest="256" BackgroundColor="#F8FAFC">
+        <BoxView HeightRequest="32" BackgroundColor="Transparent" InputTransparent="True" />
+        <HorizontalStackLayout Spacing="12" Margin="0,4,0,20">
+            <Border WidthRequest="40" HeightRequest="40" StrokeThickness="0" BackgroundColor="#3B82F6">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="10" />
+                </Border.StrokeShape>
+                <Label Text="M" TextColor="White" FontAttributes="Bold" FontSize="18" HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+            <VerticalStackLayout Spacing="0" VerticalOptions="Center">
+                <Label Text="Mostaqlk" FontSize="16" FontAttributes="Bold" TextColor="#0F172A" />
+                <Label Text="v1.0.0" FontSize="11" TextColor="#64748B" />
+            </VerticalStackLayout>
+        </HorizontalStackLayout>
+
+        <Border x:Name="ProjectsButton" Style="{StaticResource SidebarNavRowStyle}">
+            <Border.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnProjectsClicked" />
+            </Border.GestureRecognizers>
+            <HorizontalStackLayout Spacing="12">
+                <components:AppIcon x:Name="ProjectsIcon" Icon="ProjectsList" FontSize="16" WidthRequest="20" />
+                <Label x:Name="ProjectsLabel" Text="المشاريع" FontSize="14" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+        </Border>
+        <Border x:Name="AdvancedSearchButton" Style="{StaticResource SidebarNavRowStyle}">
+            <Border.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnAdvancedSearchClicked" />
+            </Border.GestureRecognizers>
+            <HorizontalStackLayout Spacing="12">
+                <components:AppIcon x:Name="AdvancedSearchIcon" Icon="Search" FontSize="16" WidthRequest="20" />
+                <Label x:Name="AdvancedSearchLabel" Text="البحث المتقدم" FontSize="14" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+        </Border>
+        <Border x:Name="NotificationsButton" Style="{StaticResource SidebarNavRowStyle}">
+            <Border.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnNotificationsClicked" />
+            </Border.GestureRecognizers>
+            <HorizontalStackLayout Spacing="12">
+                <components:AppIcon x:Name="NotificationsIcon" Icon="Bell" FontSize="16" WidthRequest="20" />
+                <Label x:Name="NotificationsLabel" Text="التنبيهات" FontSize="14" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+        </Border>
+        <Border x:Name="SettingsButton" Style="{StaticResource SidebarNavRowStyle}">
+            <Border.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnSettingsClicked" />
+            </Border.GestureRecognizers>
+            <HorizontalStackLayout Spacing="12">
+                <components:AppIcon x:Name="SettingsIcon" Icon="Gear" FontSize="16" WidthRequest="20" />
+                <Label x:Name="SettingsLabel" Text="الإعدادات" FontSize="14" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+        </Border>
+        <Border x:Name="AboutButton" Style="{StaticResource SidebarNavRowStyle}">
+            <Border.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnAboutClicked" />
+            </Border.GestureRecognizers>
+            <HorizontalStackLayout Spacing="12">
+                <components:AppIcon x:Name="AboutIcon" Icon="Info" FontSize="16" WidthRequest="20" />
+                <Label x:Name="AboutLabel" Text="حول التطبيق" FontSize="14" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+        </Border>
+
+        <BoxView VerticalOptions="Fill" />
+        <Border Padding="16,14" BackgroundColor="#F1F5F9" StrokeThickness="0">
+            <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+            <VerticalStackLayout Spacing="3">
+                <Label Text="مشاريع مضافة اليوم" FontSize="12" TextColor="#64748B" HorizontalTextAlignment="Center" />
+                <Label Text="{Binding StatValue, Source={x:Reference Root}}" FontSize="26" FontAttributes="Bold" TextColor="#2563EB" HorizontalTextAlignment="Center" />
+            </VerticalStackLayout>
+        </Border>
+        <HorizontalStackLayout Spacing="8" HorizontalOptions="Center" Margin="0,4,0,0">
+            <components:AppIcon Icon="Moon" FontSize="13" TextColor="#475569" VerticalOptions="Center" />
+            <Label Text="الوضع الداكن" FontSize="12" TextColor="#475569" VerticalOptions="Center" />
+            <Switch IsToggled="False" IsEnabled="False" Scale="0.8" />
+        </HorizontalStackLayout>
+    </VerticalStackLayout>
+
+</ContentView>

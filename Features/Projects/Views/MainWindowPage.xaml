@@ -6,50 +6,55 @@
              xmlns:vm="clr-namespace:MostaqlK.Features.Projects.ViewModels"
              xmlns:views="clr-namespace:MostaqlK.Features.Projects.Views"
              xmlns:notifViews="clr-namespace:MostaqlK.Features.Notifications.Views"
+             xmlns:sidebar="clr-namespace:MostaqlK.UI.PlatformComponents.AppSidebar"
              x:Class="MostaqlK.Features.Projects.Views.MainWindowPage"
              x:DataType="vm:ProjectFeedViewModel"
              Title="المشاريع"
              FlowDirection="RightToLeft">
 
-    <!-- Layout mirrors projects.html: a right-hand sidebar nav (Arabic RTL, so visually on
-         the right, composed via NavigationControl.Build in the code-behind) and a scrollable
+    <!-- Layout mirrors projects.html: a shared sidebar nav (AppSidebar unit) and a scrollable
          project feed covering all four feed states: loading (ShimmerBox), empty/error
          (LabelWithSubText), and success (CollectionView of ProjectCard). Sidebar nav items
          match the mockup: المشاريع، البحث المتقدم، التنبيهات (badge)، الإعدادات، حول التطبيق. -->
+    <Grid x:Name="Root" BackgroundColor="#F1F5F9" ColumnDefinitions="Auto,*">
 
-    <!-- Temporary single root: NavRail + FeedContent are recomposed via NavigationControl.Build
-         in the code-behind constructor (a ContentPage can only declare one root Content
-         element in XAML, so both are parked here and reparented immediately). -->
-    <Grid x:Name="Root">
+    <sidebar:AppSidebar Grid.Column="0"
+                         ActivePage="Projects"
+                         StatValue="{Binding UnreadCount}"
+                         ProjectsClicked="OnProjectsNavClicked"
+                         AdvancedSearchClicked="OnAdvancedSearchNavClicked"
+                         NotificationsClicked="OnNotificationsNavClicked"
+                         SettingsClicked="OnSettingsNavClicked"
+                         AboutClicked="OnAboutNavClicked" />
 
-    <Grid.Resources>
-        <ResourceDictionary />
-    </Grid.Resources>
+    <Grid x:Name="FeedContent" Grid.Column="1" RowDefinitions="32,Auto,Auto,Auto,*,Auto" Padding="24,20,24,0" RowSpacing="12" BackgroundColor="#F1F5F9">
 
-    <VerticalStackLayout x:Name="NavRail" Spacing="4" Padding="12" BackgroundColor="{AppThemeBinding Light=#F5F5F5, Dark=#1E1E1E}">
-        <Label Text="MostaqlK" FontSize="20" FontAttributes="Bold" Margin="0,0,0,16" />
+        <BoxView Grid.Row="0" BackgroundColor="Transparent" InputTransparent="True" />
 
-        <components:AppButton Text="المشاريع" Clicked="OnProjectsNavClicked" />
-        <components:AppButton Text="البحث المتقدم" Clicked="OnAdvancedSearchNavClicked" />
-        <components:AppButton Text="التنبيهات" Clicked="OnNotificationsNavClicked" />
-        <components:AppButton Text="الإعدادات" Clicked="OnSettingsNavClicked" />
-        <components:AppButton Text="حول التطبيق" Clicked="OnAboutNavClicked" />
-    </VerticalStackLayout>
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" FlowDirection="RightToLeft">
+            <Label Text="المشاريع" FontSize="26" FontAttributes="Bold" TextColor="#0F172A" VerticalOptions="Center" />
+            <Label Grid.Column="1" Text="MostaqlK" FontSize="11" TextColor="#64748B" VerticalOptions="Center" />
+        </Grid>
 
-    <Grid x:Name="FeedContent" RowDefinitions="Auto,Auto,*" Padding="16" RowSpacing="12">
+        <Border Grid.Row="2" StrokeThickness="1" Stroke="#E2E8F0" BackgroundColor="White" Padding="16,10">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="12" />
+            </Border.StrokeShape>
+            <components:SearchInputField Text="{Binding SearchQuery}"
+                                          Placeholder="بحث متقدم في المشاريع (العنوان، الوصف، المهارات...)"
+                                          PlaceholderColor="#64748B"
+                                          TextColor="#0F172A"
+                                          DebounceMilliseconds="300"
+                                          DebouncedCommand="{Binding SearchCommand}"
+                                          ClearCommand="{Binding ClearSearchCommand}" />
+        </Border>
 
-        <components:SearchInputField Grid.Row="0"
-                                      Text="{Binding SearchQuery}"
-                                      DebounceMilliseconds="300"
-                                      DebouncedCommand="{Binding SearchCommand}"
-                                      ClearCommand="{Binding ClearSearchCommand}" />
+        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Padding="4,0" FlowDirection="RightToLeft">
+            <Label Text="الاستعلام النشط: كل المشاريع" FontSize="12" TextColor="#475569" />
+            <Label Grid.Column="1" Text="تعديل ✎" FontSize="12" TextColor="#2563EB" />
+        </Grid>
 
-        <Label Grid.Row="1"
-               Text="{Binding UnreadCount, StringFormat='{0} مشروع غير مقروء'}"
-               FontSize="12"
-               TextColor="Gray" />
-
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="4" Margin="0,28,0,0">
 
             <!-- Loading state -->
             <VerticalStackLayout Spacing="12" IsVisible="{Binding IsLoading}">
@@ -83,9 +88,15 @@
 
         </Grid>
 
+        <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Padding="4,10" BackgroundColor="White" FlowDirection="RightToLeft">
+            <Label Text="●  الاتصال: متصل" TextColor="#2E9E6B" FontSize="12" />
+            <Label Grid.Column="1" Text="آخر فحص: منذ 12 ثانية   ↻" TextColor="#64748B" FontSize="12" />
+        </Grid>
+
     </Grid>
 
     <notifViews:RecentNotificationsFlyout x:Name="NotificationsFlyout"
+                                           Grid.Column="1"
                                            IsVisible="False"
                                            HorizontalOptions="End"
                                            VerticalOptions="Start"

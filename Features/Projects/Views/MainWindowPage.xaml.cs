@@ -1,6 +1,5 @@
 using MostaqlK.Features.Notifications.ViewModels;
 using MostaqlK.Features.Projects.ViewModels;
-using MostaqlK.UI.PlatformConcepts;
 
 namespace MostaqlK.Features.Projects.Views;
 
@@ -14,16 +13,6 @@ public partial class MainWindowPage : ContentPage
         _viewModel = viewModel;
         BindingContext = _viewModel;
         NotificationsFlyout.BindingContext = notificationCenterViewModel;
-
-        // NavRail + FeedContent are declared in XAML but parked under the temporary "Root"
-        // grid (a ContentPage can only have one XAML root); recompose them here via the real
-        // NavigationControl side-panel layout. The notifications flyout overlay sits above
-        // both, toggled by the sidebar's "التنبيهات" entry.
-        var navigationContent = NavigationControl.Build(NavRail, FeedContent);
-        Root.Children.Clear();
-        Root.Children.Add(navigationContent);
-        Root.Children.Add(NotificationsFlyout);
-        Content = Root;
     }
 
     /// <summary>Shows the recent-notifications flyout overlay, used both by the sidebar entry and the tray icon's "Recent notifications" menu action.</summary>
