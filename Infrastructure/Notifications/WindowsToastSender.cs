@@ -2,6 +2,7 @@ using Microsoft.Windows.AppNotifications;
 using Microsoft.Windows.AppNotifications.Builder;
 using MostaqlK.Core;
 using MostaqlK.Models;
+using MostaqlK.Services.Diagnostics;
 
 namespace MostaqlK.Infrastructure.Notifications;
 
@@ -35,10 +36,16 @@ public sealed class WindowsToastSender
 
             AppNotificationManager.Default.Show(builder.BuildNotification());
 
+            InteractionLogger.Mark("WindowsToastSender.SendAsync", "A", new { Count = projects.Count });
+
             return Task.FromResult(Result<bool>.Ok(true));
         }
         catch (Exception ex)
         {
+            // Surfaced clearly per the "no silently swallowed toast failures" requirement — the
+            // caller (NotificationDispatcher.HandleFlush) fires this off without awaiting, so this
+            // Fault log is the only place a failed toast delivery becomes visible.
+            InteractionLogger.Fault("WindowsToastSender.SendAsync", ex, new { Count = projects.Count });
             return Task.FromResult(Result<bool>.Err(NotificationErrors.ToastDeliveryFailed(ex)));
         }
     }
@@ -57,6 +64,11 @@ public sealed class WindowsToastSender
                 return;
             }
 
+            // Unpackaged (WindowsPackageType=None) apps have no package identity, so
+            // AppNotificationManager.Register() alone registers only the COM activation server —
+            // without an explicit AUMID + a Start Menu shortcut carrying it, Windows silently
+            // drops the toast instead of showing it. See ToastAumidRegistrar for details.
+            ToastAumidRegistrar.EnsureRegistered();
             AppNotificationManager.Default.Register();
             _registered = true;
         }

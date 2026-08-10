@@ -93,8 +93,13 @@ Opened from `Sidebar_NotificationsButton` on `MainWindowPage` (see `Notification
 ## Counts
 
 - Shared Sidebar: 5 clickable rows carrying an `AutomationId` (+ 2 dynamic-data-only labels noted).
-- Projects: 9 catalogued interactive/dynamic elements carrying an `AutomationId` (+ 2 dynamic-data-only labels noted).
+- Projects: 10 catalogued interactive/dynamic elements carrying an `AutomationId` (+ 2 dynamic-data-only labels noted).
 - Project Card: 1 (`ProjectCard_Root`, template — one instance per feed row).
+- Project Details: 4 catalogued elements carrying an `AutomationId`.
+- Settings: 6 catalogued elements carrying an `AutomationId` (+ 1 dynamic-data-only label noted).
+- About: 2 catalogued elements carrying an `AutomationId`.
+- Notifications Flyout: 2 catalogued elements carrying an `AutomationId` (row is a template — one instance per notification).
+ard_Root`, template — one instance per feed row).
 - Project Details: 4 catalogued elements carrying an `AutomationId`.
 - Settings: 6 catalogued elements carrying an `AutomationId` (+ 1 dynamic-data-only label noted).
 - About: 2 catalogued elements carrying an `AutomationId`.

@@ -217,9 +217,10 @@
                 </VerticalStackLayout>
 
                 <design:LabelWithSubText IsVisible="{Binding IsEmpty}"
+                                          AutomationId="Projects_EmptyStateLabel"
                                           VerticalOptions="Center"
-                                          Text="لا توجد مشاريع حالياً"
-                                          SubText="سيتم عرض المشاريع الجديدة هنا فور توفرها." />
+                                          Text="{Binding EmptyStateTitle}"
+                                          SubText="{Binding EmptyStateSubtitle}" />
 
                 <CollectionView IsVisible="{Binding ShowFeed}"
                                 AutomationId="Projects_ProjectsCollectionView"

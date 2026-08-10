@@ -61,6 +61,12 @@ public sealed class SqliteConnectionFactory
                 throw DatabaseErrors.SchemaVersionMismatch(currentVersion, CurrentSchemaVersion);
             }
 
+            // One-time-per-process backfill: older builds only wrote to `projects_fts` from the
+            // enrichment path (`ProjectRepository.UpsertDetailsAsync`), so any row inserted via
+            // `InsertSummaryAsync` while still "Pending" was never searchable until enriched.
+            // Idempotent - only touches rows that don't have an FTS row yet.
+            BackfillMissingFtsRows(connection);
+
             _schemaVerified = true;
         }
     }
@@ -87,6 +93,19 @@ public sealed class SqliteConnectionFactory
         command.CommandText = InitialSchemaSql;
         command.ExecuteNonQuery();
         transaction.Commit();
+    }
+
+    private static void BackfillMissingFtsRows(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO projects_fts (project_id, title, description, skills)
+            SELECT p.project_id, p.title, COALESCE(p.description, ''),
+                   COALESCE((SELECT group_concat(name, ' ') FROM project_skills s WHERE s.project_id = p.project_id), '')
+            FROM projects p
+            WHERE p.project_id NOT IN (SELECT project_id FROM projects_fts);
+            """;
+        command.ExecuteNonQuery();
     }
 
     /// <summary>

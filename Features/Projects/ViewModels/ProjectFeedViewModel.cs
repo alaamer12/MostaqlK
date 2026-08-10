@@ -31,6 +31,9 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     public ObservableCollection<ProjectCardViewModel> Projects { get; } = [];
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsSearchActive))]
+    [NotifyPropertyChangedFor(nameof(EmptyStateTitle))]
+    [NotifyPropertyChangedFor(nameof(EmptyStateSubtitle))]
     public partial string SearchQuery { get; set; } = string.Empty;
 
     [ObservableProperty]
@@ -89,9 +92,22 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
 
     public string PollToggleLabel => IsPollingActive ? "إيقاف" : "بدء الفحص";
 
-    public string TrackedCountText => $"{TrackedCount} مشروع متتبَّع";
+    public string TrackedCountText => IsSearchActive
+        ? $"{TrackedCount} نتيجة مطابقة"
+        : $"{TrackedCount} مشروع متتبَّع";
 
     public string UnreadCountText => $"{UnreadCount} غير مقروء";
+
+    /// <summary>True while a search term is active — drives filtered footer counts and the empty-state copy.</summary>
+    public bool IsSearchActive => !string.IsNullOrWhiteSpace(SearchQuery);
+
+    public string EmptyStateTitle => IsSearchActive
+        ? $"لا توجد نتائج لـ \"{SearchQuery.Trim()}\""
+        : "لا توجد مشاريع حالياً";
+
+    public string EmptyStateSubtitle => IsSearchActive
+        ? "جرّب كلمات بحث مختلفة أو تحقّق من الإملاء."
+        : "سيتم عرض المشاريع الجديدة هنا فور توفرها.";
 
     public ProjectFeedViewModel(
         IProjectRepository projectRepository,
@@ -148,17 +164,28 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
                 Projects.Add(new ProjectCardViewModel(project, card => _ = SelectProjectAsync(card)));
             }
 
-            // Status-bar totals count the whole store, not just the page of rows loaded above.
-            var tracked = await _projectRepository.CountTrackedAsync();
-            if (tracked.IsOk)
+            if (IsSearchActive)
             {
-                TrackedCount = tracked.Value.Tracked;
-                UnreadCount = tracked.Value.Unread;
+                // While a search filter is active, the footer should reflect the filtered
+                // (visible) results rather than the whole store's totals.
+                TrackedCount = Projects.Count;
+                UnreadCount = Projects.Count(p => p.IsUnread);
             }
             else
             {
-                TrackedCount = Projects.Count;
-                UnreadCount = Projects.Count(p => p.IsUnread);
+                // No filter active: status-bar totals count the whole store, not just the
+                // page of rows loaded above.
+                var tracked = await _projectRepository.CountTrackedAsync();
+                if (tracked.IsOk)
+                {
+                    TrackedCount = tracked.Value.Tracked;
+                    UnreadCount = tracked.Value.Unread;
+                }
+                else
+                {
+                    TrackedCount = Projects.Count;
+                    UnreadCount = Projects.Count(p => p.IsUnread);
+                }
             }
 
             IsEmpty = Projects.Count == 0;

@@ -1,6 +1,7 @@
 using MostaqlK.Core;
 using MostaqlK.Infrastructure.Notifications;
 using MostaqlK.Models;
+using MostaqlK.Services.Diagnostics;
 
 namespace MostaqlK.Services;
 
@@ -58,6 +59,8 @@ public sealed class NotificationDispatcher : INotificationDispatcher
 
     private void HandleFlush(IReadOnlyList<ProjectSummary> batch)
     {
+        InteractionLogger.Mark("NotificationDispatcher.HandleFlush", "A", new { Count = batch.Count });
+
         lock (_historyGate)
         {
             // Newest first, capped at MaxHistory.
@@ -72,6 +75,19 @@ public sealed class NotificationDispatcher : INotificationDispatcher
 
         // Fire-and-forget: the flush originates from either a background timer callback or the
         // synchronous Add() call above, neither of which can usefully await the toast delivery.
-        _ = _toastSender.SendAsync(batch);
+        // WindowsToastSender already logs both success and (crucially) failure via
+        // InteractionLogger, but the outcome is checked here too so a failed send is never
+        // silently invisible even if that internal logging were ever bypassed.
+        _ = _toastSender.SendAsync(batch).ContinueWith(task =>
+        {
+            if (task.IsCompletedSuccessfully && task.Result.IsError)
+            {
+                InteractionLogger.Mark("NotificationDispatcher.HandleFlush", "B", new { Reason = "toast-send-failed", Error = task.Result.Error?.ToString() });
+            }
+            else if (task.IsFaulted)
+            {
+                InteractionLogger.Fault("NotificationDispatcher.HandleFlush", task.Exception ?? new Exception("Unknown toast send failure"));
+            }
+        }, TaskScheduler.Default);
     }
 }

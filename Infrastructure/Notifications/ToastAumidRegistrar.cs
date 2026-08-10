@@ -1,0 +1,194 @@
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
+using System.Text;
+using MostaqlK.Services.Diagnostics;
+
+namespace MostaqlK.Infrastructure.Notifications;
+
+/// <summary>
+/// Registers the process-wide AppUserModelID (AUMID) and a matching Start Menu shortcut that
+/// carries the same AUMID, which is what actually lets Windows display a toast for an unpackaged
+/// (<c>WindowsPackageType=None</c>) app. <see cref="Microsoft.Windows.AppNotifications.AppNotificationManager.Register"/>
+/// alone only registers the COM activation server — it does not give the process an identity, and
+/// without one Windows silently drops the toast instead of showing it or throwing. This is the
+/// well-documented "unpackaged Win32/WinUI toast" quirk (see Microsoft's "Send a local toast
+/// notification from unpackaged apps" guidance and the classic
+/// <c>DesktopNotificationManagerCompat</c> shortcut+AUMID pattern it is based on).
+/// </summary>
+public static class ToastAumidRegistrar
+{
+    /// <summary>Stable AUMID for this app; must match the shortcut's AppUserModel.ID property.</summary>
+    public const string Aumid = "MostaqlK.App";
+
+    private static readonly object Gate = new();
+    private static bool _done;
+
+    /// <summary>
+    /// Idempotently: (1) sets the current process's explicit AUMID, and (2) ensures a Start Menu
+    /// shortcut exists for this executable with the same AUMID stamped on it via its property
+    /// store. Must run before <c>AppNotificationManager.Default.Register()</c>. Best-effort —
+    /// failures are logged via <see cref="InteractionLogger"/> but never thrown, so a toast
+    /// delivery attempt can still proceed (and fail informatively) rather than crash the caller.
+    /// </summary>
+    public static void EnsureRegistered()
+    {
+        if (_done)
+        {
+            return;
+        }
+
+        lock (Gate)
+        {
+            if (_done)
+            {
+                return;
+            }
+
+            try
+            {
+                var hr = SetCurrentProcessExplicitAppUserModelID(Aumid);
+                if (hr != 0)
+                {
+                    InteractionLogger.Mark("ToastAumidRegistrar.SetAumid", "B", new { hr });
+                }
+                else
+                {
+                    InteractionLogger.Mark("ToastAumidRegistrar.SetAumid", "A", new { Aumid });
+                }
+
+                EnsureShortcut();
+            }
+            catch (Exception ex)
+            {
+                InteractionLogger.Fault("ToastAumidRegistrar.EnsureRegistered", ex);
+            }
+            finally
+            {
+                _done = true;
+            }
+        }
+    }
+
+    private static void EnsureShortcut()
+    {
+        var shortcutPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "Microsoft", "Windows", "Start Menu", "Programs", "MostaqlK.lnk");
+
+        var exePath = Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName;
+        if (string.IsNullOrWhiteSpace(exePath))
+        {
+            InteractionLogger.Mark("ToastAumidRegistrar.EnsureShortcut", "B", "no-exe-path");
+            return;
+        }
+
+        if (File.Exists(shortcutPath) && ShortcutHasAumid(shortcutPath))
+        {
+            InteractionLogger.Mark("ToastAumidRegistrar.EnsureShortcut", "A", "already-present");
+            return;
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(shortcutPath)!);
+        CreateShortcutWithAumid(shortcutPath, exePath, Aumid);
+        InteractionLogger.Mark("ToastAumidRegistrar.EnsureShortcut", "A", new { shortcutPath });
+    }
+
+    private static bool ShortcutHasAumid(string shortcutPath)
+    {
+        try
+        {
+            var link = (IShellLinkW)new CShellLink();
+            ((IPersistFile)link).Load(shortcutPath, 0);
+            var store = (IPropertyStore)link;
+            store.GetValue(ref PKEY_AppUserModelID, out var value);
+            var existingAumid = value.pwszVal != IntPtr.Zero ? Marshal.PtrToStringUni(value.pwszVal) : null;
+            return string.Equals(existingAumid, Aumid, StringComparison.Ordinal);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static void CreateShortcutWithAumid(string shortcutPath, string targetExe, string aumid)
+    {
+        var link = (IShellLinkW)new CShellLink();
+        link.SetPath(targetExe);
+        link.SetWorkingDirectory(Path.GetDirectoryName(targetExe) ?? string.Empty);
+
+        var store = (IPropertyStore)link;
+        var propVariant = new PropVariant { vt = VT_LPWSTR, pwszVal = Marshal.StringToCoTaskMemUni(aumid) };
+        store.SetValue(ref PKEY_AppUserModelID, ref propVariant);
+        store.Commit();
+        Marshal.FreeCoTaskMem(propVariant.pwszVal);
+
+        ((IPersistFile)link).Save(shortcutPath, true);
+    }
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    private static extern int SetCurrentProcessExplicitAppUserModelID(string appId);
+
+    private const short VT_LPWSTR = 31;
+
+    private static PropertyKey PKEY_AppUserModelID = new(
+        new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3"), 5);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PropertyKey
+    {
+        public Guid fmtid;
+        public int pid;
+
+        public PropertyKey(Guid fmtid, int pid)
+        {
+            this.fmtid = fmtid;
+            this.pid = pid;
+        }
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    private struct PropVariant
+    {
+        [FieldOffset(0)] public short vt;
+        [FieldOffset(8)] public IntPtr pwszVal;
+    }
+
+    [ComImport, Guid("00021401-0000-0000-C000-000000000046")]
+    private class CShellLink
+    {
+    }
+
+    [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("000214F9-0000-0000-C000-000000000046")]
+    private interface IShellLinkW
+    {
+        void GetPath(StringBuilder pszFile, int cchMaxPath, IntPtr pfd, uint fFlags);
+        void GetIDList(out IntPtr ppidl);
+        void SetIDList(IntPtr pidl);
+        void GetDescription(StringBuilder pszName, int cchMaxName);
+        void SetDescription(string pszName);
+        void GetWorkingDirectory(StringBuilder pszDir, int cchMaxPath);
+        void SetWorkingDirectory(string pszDir);
+        void SetArguments(string pszArgs);
+        void GetArguments(StringBuilder pszArgs, int cchMaxPath);
+        void GetHotkey(out short pwHotkey);
+        void SetHotkey(short wHotkey);
+        void GetShowCmd(out int piShowCmd);
+        void SetShowCmd(int iShowCmd);
+        void GetIconLocation(StringBuilder pszIconPath, int cchIconPath, out int piIcon);
+        void SetIconLocation(string pszIconPath, int iIcon);
+        void SetRelativePath(string pszPathRel, uint dwReserved);
+        void Resolve(IntPtr hwnd, uint fFlags);
+        void SetPath(string pszFile);
+    }
+
+    [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("886d8eeb-8cf2-4446-8d02-cdba1dbdcf99")]
+    private interface IPropertyStore
+    {
+        void GetCount(out uint cProps);
+        void GetAt(uint iProp, out PropertyKey pkey);
+        void GetValue(ref PropertyKey key, out PropVariant pv);
+        void SetValue(ref PropertyKey key, ref PropVariant pv);
+        void Commit();
+    }
+}

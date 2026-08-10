@@ -124,11 +124,13 @@ public sealed partial class ProjectCardViewModel : ObservableObject
     public string Delivery => Project.DeliveryDays is int days ? ArabicRelativeTime.Days(days) : "—";
 
     /// <summary>
-    /// Listing summary has no execution-duration column; approximate from delivery when present
-    /// so the 4-column stats grid keeps mockup density (design shows مدة التنفيذ).
+    /// Real execution-duration ("مدة التنفيذ") persisted from the detail page's scraped
+    /// "duration" field via <see cref="MostaqlK.Infrastructure.Http.Parsers.DetailParser"/> and
+    /// stored in the projects table's <c>delivery_days</c> column. No value is fabricated: cards
+    /// discovered but not yet enriched show the placeholder until enrichment fills it in.
     /// </summary>
     public string Execution => Project.DeliveryDays is int days
-        ? $"{Math.Max(days, days * 3)} يوما"
+        ? $"{days} يوما"
         : "—";
 
     public string Skills => Project.SkillsText;

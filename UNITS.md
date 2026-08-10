@@ -103,6 +103,16 @@ Naming convention for AutomationIds (added incrementally as pages are catalogued
 `Projects_SearchInput`, `Settings_SaveButton` — set directly on the exact control that owns the
 `TapGestureRecognizer`/`Command`, never on a wrapping container, so `WindowsDriver.FindElementByAccessibilityId` maps 1:1 to the real hit-test target.
 
+## Notifications
+
+Location: `Infrastructure/Notifications/`, `Services/NotificationDispatcher.cs`, `Services/NotificationGrouper.cs`
+
+| Unit | Type | Purpose | Status |
+|---|---|---|---|
+| `ToastAumidRegistrar` | static class | Fixes real toasts never appearing on this unpackaged (`WindowsPackageType=None`) build: `AppNotificationManager.Register()` alone only registers the COM activation server, it does not give the process an identity, so without an explicit AUMID + a Start Menu shortcut carrying that AUMID, Windows silently drops the toast instead of showing it. Idempotently calls `SetCurrentProcessExplicitAppUserModelID` and creates/repairs `%AppData%\Microsoft\Windows\Start Menu\Programs\MostaqlK.lnk` with the `System.AppUserModel.ID` property set to the constant `Aumid` ("MostaqlK.App"), via raw `IShellLinkW`/`IPropertyStore` COM interop. Called once from `WindowsToastSender.EnsureRegistered()` before `AppNotificationManager.Default.Register()`. Best-effort/never throws — logged via `InteractionLogger`. | Implemented |
+| `WindowsToastSender` | class | Sends the actual Windows toast via `Microsoft.Windows.AppNotifications.AppNotificationManager` (individual vs grouped builder per project batch size). Toast failures are never silently swallowed: every send outcome (success or exception) is logged via `InteractionLogger.Mark`/`Fault`, and `NotificationDispatcher.HandleFlush` double-checks the returned `Result<bool>` on top of that. | Implemented |
+| `NotificationGrouper` | class | Buffers newly discovered projects and decides when to flush a batch to `WindowsToastSender` (immediate single-item bypass, end-of-minute, after-N-minutes, or after-N-count), instrumented with `InteractionLogger.Mark` checkpoints on every timer schedule/flush so a real run can be traced to confirm flushing actually happens. Verified live: `NotificationGrouper.Flush` → `NotificationDispatcher.HandleFlush` → `WindowsToastSender.SendAsync` all fired for real newly-discovered projects with no `FAULT` entries, and Windows' own notification-sources settings list registered `MostaqlK` as a toast sender, confirming the AUMID fix took effect. | Implemented |
+
 ## Tray Icon
 
 Location: `UI/TrayIcon/`

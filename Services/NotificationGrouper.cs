@@ -1,4 +1,5 @@
 using MostaqlK.Models;
+using MostaqlK.Services.Diagnostics;
 
 namespace MostaqlK.Services;
 
@@ -66,12 +67,15 @@ public sealed class NotificationGrouper : IDisposable
             }
             else if (_flushTimer is null)
             {
-                _flushTimer = new Timer(_ => FlushDue(), null, DueTimeFor(Mode), Timeout.InfiniteTimeSpan);
+                var dueTime = DueTimeFor(Mode);
+                _flushTimer = new Timer(_ => FlushDue(), null, dueTime, Timeout.InfiniteTimeSpan);
+                InteractionLogger.Mark("NotificationGrouper.Add", "A", new { Mode = Mode.ToString(), DueTimeSeconds = dueTime.TotalSeconds });
             }
         }
 
         if (readyBatch is { Count: > 0 })
         {
+            InteractionLogger.Mark("NotificationGrouper.Flush", "A", new { Reason = "immediate", Count = readyBatch.Count });
             OnFlush?.Invoke(readyBatch);
         }
     }
@@ -96,7 +100,12 @@ public sealed class NotificationGrouper : IDisposable
 
         if (batch is { Count: > 0 })
         {
+            InteractionLogger.Mark("NotificationGrouper.Flush", "A", new { Reason = "timer-or-force", Count = batch.Count });
             OnFlush?.Invoke(batch);
+        }
+        else
+        {
+            InteractionLogger.Mark("NotificationGrouper.Flush", "B", "nothing-pending");
         }
     }
 
