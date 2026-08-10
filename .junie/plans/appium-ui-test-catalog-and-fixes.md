@@ -223,7 +223,7 @@ A dedicated `scratch/`-based DB smoke test proves `IProjectRepository`/SQLite re
 - If fake/seeded rows are still present in what should be a live store, clear them (respecting the `--seed-design-data=off` path already fixed in Step 1) and document the finding.
 - Delete the scratch test file when done per repo cleanup policy; report findings (DB genuinely functional: yes/no, fake data found: yes/no + evidence) to the master checklist.
 
-### Step 10 (Master-only): Full-repo final review — all test paths, clean build, no warnings, real (non-mocked) production code
+### ✓ Step 10 (Master-only): Full-repo final review — all test paths, clean build, no warnings, real (non-mocked) production code
 The master personally re-verifies the entire body of work end-to-end before any remaining checkbox is ticked — this step is never delegated to a slave.
 - Re-run `dotnet build MostaqlK.csproj -c Debug -f net10.0-windows10.0.19041.0` AND the Release configuration, confirming zero errors and zero warnings (not just "build succeeded") across the whole solution, including `MostaqlK.UITests` and any `tools/` projects added.
 - Enumerate every test file added across Steps 3-9 (`MostaqlK.UITests/*.cs`) and confirm each one actually ran against the real built `.exe` at least once in this session (not merely compiled) — re-run the full Appium suite end-to-end and record the final pass/fail tally.
