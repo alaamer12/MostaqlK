@@ -8,7 +8,8 @@
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Black}, Dark={StaticResource White}}" />
         <Setter Property="PlaceholderColor" Value="{AppThemeBinding Light={StaticResource ReadBorderLight}, Dark={StaticResource ReadBorderDark}}" />
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource AppSurfaceLight}, Dark={StaticResource AppSurfaceDark}}" />
-        <Setter Property="FontFamily" Value="OpenSansRegular" />
+        <!-- Tajawal is the mockups' typeface (font-family: 'Tajawal' in every design/mvp/*.html). -->
+        <Setter Property="FontFamily" Value="Tajawal" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="MinimumHeightRequest" Value="44" />
         <Setter Property="MinimumWidthRequest" Value="44" />

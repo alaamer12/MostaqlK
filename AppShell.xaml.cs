@@ -59,4 +59,29 @@ public sealed record StartupNavigation(StartupPage DefaultPage, long? ProjectId)
 		}
 		return new StartupNavigation(page, projectId);
 	}
+
+	/// <summary>
+	/// Resolves the startup <see cref="AppTheme"/>. A `--theme=light` / `--theme=dark` argument wins;
+	/// otherwise the persisted dark-mode preference decides (light by default, per the mockups).
+	/// </summary>
+	public static AppTheme ResolveTheme(string[] args, bool storedIsDarkMode)
+	{
+		foreach (var arg in args)
+		{
+			if (!arg.StartsWith("--theme=", StringComparison.OrdinalIgnoreCase))
+			{
+				continue;
+			}
+
+			switch (arg[8..].ToLowerInvariant())
+			{
+				case "dark":
+					return AppTheme.Dark;
+				case "light":
+					return AppTheme.Light;
+			}
+		}
+
+		return storedIsDarkMode ? AppTheme.Dark : AppTheme.Light;
+	}
 }

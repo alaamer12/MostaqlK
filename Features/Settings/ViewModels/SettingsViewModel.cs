@@ -84,7 +84,16 @@ public sealed partial class SettingsViewModel : ObservableObject
         PollIntervalSeconds = Preferences.Get(KeyPollIntervalSeconds, DefaultPollIntervalSeconds);
         RequestsPerMinute = Preferences.Get(KeyMaxRequestsPerMinute, DefaultMaxRequestsPerMinute);
         GroupingThreshold = Preferences.Get(KeyGroupingThreshold, 5);
-        IsDarkMode = Preferences.Get(KeyIsDarkMode, false);
+        // Seed from the theme the app already resolved at startup (App.xaml.cs, which honours a
+        // `--theme=light|dark` argument over the stored preference) and only fall back to the
+        // preference when no explicit theme was applied. Reading the preference unconditionally
+        // here would silently undo that startup override the moment this page is constructed.
+        IsDarkMode = Application.Current?.UserAppTheme switch
+        {
+            AppTheme.Dark => true,
+            AppTheme.Light => false,
+            _ => Preferences.Get(KeyIsDarkMode, false),
+        };
 
         var storedMode = Preferences.Get(KeyGroupingMode, nameof(NotificationGroupingMode.EndOfMinute));
         GroupingMode = Enum.TryParse<NotificationGroupingMode>(storedMode, out var parsedMode)
@@ -97,7 +106,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         // instances always reflect whatever was last persisted (e.g. after an app restart).
         ApplyPollSettings();
         ApplyGroupingSettings();
-        ApplyTheme();
     }
 
     private async Task LoadProjectsAddedTodayAsync()

@@ -11,7 +11,8 @@
     <Style x:Key="AppButtonBase" TargetType="Button">
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource AppBackgroundDark}}" />
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource AccentPrimary}, Dark={StaticResource AccentPrimaryDark}}" />
-        <Setter Property="FontFamily" Value="OpenSansRegular" />
+        <!-- The mockups' buttons are `font-medium` in Tajawal (design/mvp/*.html). -->
+        <Setter Property="FontFamily" Value="TajawalMedium" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="BorderWidth" Value="0" />
         <Setter Property="CornerRadius" Value="12" />

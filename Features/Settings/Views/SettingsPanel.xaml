@@ -7,13 +7,16 @@
              x:Class="MostaqlK.Features.Settings.Views.SettingsPanel"
              x:DataType="vm:SettingsViewModel"
              Title="الإعدادات"
-             FlowDirection="RightToLeft">
+             FlowDirection="RightToLeft"
+             BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
 
     <!-- Layout mirrors settings.html: shared sidebar (AppSidebar) + a header bar + a single
          settings card. Rows mirror the app's actual configurable settings (poll interval,
          request rate, grouping mode/threshold, dark-mode toggle, and the "مشاريع مضافة اليوم"
          stat card, which also appears in the sidebar per the mockup). -->
-    <Grid BackgroundColor="#F1F5F9" ColumnDefinitions="Auto,*">
+    <!-- Colours follow the mockup's light/dark class pairs (bg-slate-100 dark:bg-slate-950 for the
+         page, bg-white dark:bg-slate-900 for panels, border-slate-200 dark:border-slate-800). -->
+    <Grid BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}" ColumnDefinitions="Auto,*">
 
         <sidebar:AppSidebar Grid.Column="0"
                              ActivePage="Settings"
@@ -24,63 +27,77 @@
                              SettingsClicked="OnSettingsNavClicked"
                              AboutClicked="OnAboutNavClicked" />
 
-        <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*" Padding="28,24,28,28" RowSpacing="18">
+        <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*" Padding="28,24,28,28" RowSpacing="18"
+              BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
             <Grid Grid.Row="0" ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                <Label Text="⚙" FontSize="24" TextColor="#2563EB" />
+                <Label Text="⚙" FontSize="24" TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" FontFamily="Tajawal" />
                 <VerticalStackLayout Grid.Column="1" Spacing="2">
-                    <Label Text="الإعدادات" FontSize="24" FontAttributes="Bold" TextColor="#0F172A" />
-                    <Label Text="إدارة إعدادات التطبيق وسلوك المراقبة" FontSize="13" TextColor="#64748B" />
+                    <Label Text="الإعدادات" FontSize="24" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                    <Label Text="إدارة إعدادات التطبيق وسلوك المراقبة" FontSize="13" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
                 </VerticalStackLayout>
             </Grid>
-            <Border Grid.Row="1" BackgroundColor="#EFF6FF" StrokeThickness="0" Padding="16,12">
+            <!-- MVP note: bg-blue-50 dark:bg-blue-500/10 with text-blue-700 dark:text-blue-300. -->
+            <Border Grid.Row="1" BackgroundColor="{AppThemeBinding Light=#EFF6FF, Dark=#132239}" StrokeThickness="0" Padding="16,12">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="12" />
                 </Border.StrokeShape>
-                <Label Text="ملاحظة MVP: بعض الإعدادات المتقدمة ستُضاف في إصدارات لاحقة." FontSize="13" TextColor="#1D4ED8" />
+                <Label Text="ملاحظة MVP: بعض الإعدادات المتقدمة ستُضاف في إصدارات لاحقة." FontSize="13" TextColor="{AppThemeBinding Light=#1D4ED8, Dark=#93C5FD}" FontFamily="Tajawal" />
             </Border>
 
             <ScrollView Grid.Row="2">
                 <VerticalStackLayout Spacing="16">
 
-                    <Border Padding="20" StrokeThickness="1" Stroke="#E2E8F0" BackgroundColor="White">
+                    <Border Padding="20" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
                         <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                         <VerticalStackLayout Spacing="4">
-                            <Label Text="مشاريع مضافة اليوم" FontSize="14" TextColor="#64748B" />
-                            <Label Text="{Binding ProjectsAddedTodayCount}" FontSize="28" FontAttributes="Bold" TextColor="#0F172A" />
+                            <Label Text="مشاريع مضافة اليوم" FontSize="14" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
+                            <Label Text="{Binding ProjectsAddedTodayCount}" FontSize="28" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
                         </VerticalStackLayout>
                     </Border>
 
                     <Label Text="{Binding ValidationMessage}"
-                           TextColor="Red"
+                           TextColor="{AppThemeBinding Light=#DC2626, Dark=#F87171}"
                            FontSize="13"
-                           IsVisible="{Binding HasValidationError}" />
+                           IsVisible="{Binding HasValidationError}"
+                           FontFamily="Tajawal" />
 
-                    <Border Padding="16" StrokeThickness="1" Stroke="#E2E8F0" BackgroundColor="White">
+                    <Border Padding="16" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
                         <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                         <VerticalStackLayout Spacing="16">
 
-                            <Label Text="إعدادات المراقبة" FontSize="18" FontAttributes="Bold" TextColor="#0F172A" />
+                            <Label Text="إعدادات المراقبة" FontSize="18" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                            <!-- Input rows: border-slate-200 dark:border-slate-700 over bg-slate-50 dark:bg-slate-800. -->
                             <Grid ColumnDefinitions="*,Auto">
-                                <Label Grid.Column="0" Text="فترة الفحص (ثانية)" VerticalOptions="Center" TextColor="#0F172A" />
-                                <Border Grid.Column="1" StrokeThickness="1" Stroke="#E2E8F0" BackgroundColor="White" Padding="12,8" WidthRequest="100">
+                                <Label Grid.Column="0" Text="فترة الفحص (ثانية)" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" FontFamily="Tajawal" />
+                                <Border Grid.Column="1" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}" Padding="12,8" WidthRequest="100">
                                     <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
-                                    <platform:AppEntry Text="{Binding PollIntervalSeconds}" Keyboard="Numeric" />
+                                    <platform:AppEntry Text="{Binding PollIntervalSeconds}" Keyboard="Numeric"
+                                                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
+                                                       BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}"
+                                                       FontFamily="Tajawal" />
                                 </Border>
                             </Grid>
 
                             <Grid ColumnDefinitions="*,Auto">
-                                <Label Grid.Column="0" Text="الحد الأقصى للطلبات في الدقيقة" VerticalOptions="Center" TextColor="#0F172A" />
-                                <Border Grid.Column="1" StrokeThickness="1" Stroke="#E2E8F0" BackgroundColor="White" Padding="12,8" WidthRequest="100">
+                                <Label Grid.Column="0" Text="الحد الأقصى للطلبات في الدقيقة" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" FontFamily="Tajawal" />
+                                <Border Grid.Column="1" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}" Padding="12,8" WidthRequest="100">
                                     <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
-                                    <platform:AppEntry Text="{Binding RequestsPerMinute}" Keyboard="Numeric" />
+                                    <platform:AppEntry Text="{Binding RequestsPerMinute}" Keyboard="Numeric"
+                                                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
+                                                       BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}"
+                                                       FontFamily="Tajawal" />
                                 </Border>
                             </Grid>
 
                             <Grid ColumnDefinitions="*,Auto">
-                                <Label Grid.Column="0" Text="طريقة تجميع الإشعارات" VerticalOptions="Center" TextColor="#0F172A" />
-                                <Border Grid.Column="1" StrokeThickness="1" Stroke="#E2E8F0" BackgroundColor="White" Padding="12,4" WidthRequest="160">
+                                <Label Grid.Column="0" Text="طريقة تجميع الإشعارات" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" FontFamily="Tajawal" />
+                                <Border Grid.Column="1" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}" Padding="12,4" WidthRequest="160">
                                     <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
-                                    <Picker SelectedItem="{Binding GroupingMode}">
+                                    <Picker SelectedItem="{Binding GroupingMode}"
+                                            TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
+                                            TitleColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
+                                            BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}"
+                                            FontFamily="Tajawal">
                                         <Picker.ItemsSource>
                                             <x:Array Type="{x:Type x:String}">
                                                 <x:String>EndOfMinute</x:String>
@@ -93,19 +110,22 @@
                             </Grid>
 
                             <Grid ColumnDefinitions="*,Auto">
-                                <Label Grid.Column="0" Text="حد التجميع" VerticalOptions="Center" TextColor="#0F172A" />
-                                <Border Grid.Column="1" StrokeThickness="1" Stroke="#E2E8F0" BackgroundColor="White" Padding="12,8" WidthRequest="100">
+                                <Label Grid.Column="0" Text="حد التجميع" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" FontFamily="Tajawal" />
+                                <Border Grid.Column="1" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}" Padding="12,8" WidthRequest="100">
                                     <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
-                                    <platform:AppEntry Text="{Binding GroupingThreshold}" Keyboard="Numeric" />
+                                    <platform:AppEntry Text="{Binding GroupingThreshold}" Keyboard="Numeric"
+                                                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
+                                                       BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}"
+                                                       FontFamily="Tajawal" />
                                 </Border>
                             </Grid>
 
                             <Grid ColumnDefinitions="*,Auto">
-                                <Label Grid.Column="0" Text="الوضع الليلي" VerticalOptions="Center" TextColor="#0F172A" />
+                                <Label Grid.Column="0" Text="الوضع الليلي" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" FontFamily="Tajawal" />
                                 <platform:AppToggle Grid.Column="1" IsToggled="{Binding IsDarkMode}" />
                             </Grid>
 
-                            <Button Text="حفظ" Command="{Binding SaveCommand}" HorizontalOptions="End" BackgroundColor="#2563EB" TextColor="White" />
+                            <Button Text="حفظ" Command="{Binding SaveCommand}" HorizontalOptions="End" BackgroundColor="{AppThemeBinding Light=#2563EB, Dark=#3B82F6}" TextColor="White" FontFamily="Tajawal" />
 
                         </VerticalStackLayout>
                     </Border>

@@ -25,4 +25,18 @@ public interface IProjectRepository
     /// "مشاريع مضافة اليوم" stat card in <c>SettingsPanel</c>.
     /// </summary>
     Task<Result<int>> CountAddedTodayAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Total number of tracked projects and, of those, how many are still unread. Backs the status
+    /// bar's "N مشروع متتبَّع • N غير مقروء" pair, which counts the whole store rather than
+    /// just the page of rows currently loaded into the feed.
+    /// </summary>
+    Task<Result<(int Tracked, int Unread)>> CountTrackedAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes every project row (and its skills, assets and search-index entries). Only used by
+    /// the design-parity seeder (<c>--seed-design-data</c>) to keep seeding idempotent — the
+    /// pipeline itself never deletes, per the no-update policy.
+    /// </summary>
+    Task<Result<bool>> ClearAllAsync(CancellationToken cancellationToken = default);
 }

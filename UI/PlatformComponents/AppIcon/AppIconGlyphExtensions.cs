@@ -14,13 +14,22 @@ public static class AppIconGlyphExtensions
 {
     private const string ActiveTextHex = "#2563EB"; // matches AppSidebar.ActiveText
 
+    /// <summary>Owner "verified" badge green in projects.html (<c>text-green-500</c>).</summary>
+    private const string VerifiedGreenHex = "#22C55E";
+
+    /// <summary>"قيد الإثراء" badge amber in projects.html (<c>text-amber-600</c>).</summary>
+    private const string PendingAmberHex = "#D97706";
+
+    /// <summary>"فشل الإثراء" badge red — no mockup counterpart, matches the app's own badge colour.</summary>
+    private const string FailedRedHex = "#DC2626";
+
     /// <summary>
     /// Maps an icon to its base (inactive/default) image resource name, and — for the 5
     /// sidebar nav icons that need an active-state color swap — an "_active" (<c>#2563EB</c>)
     /// blue variant baked as a separate pre-colored SVG (see <see cref="ToImageSource"/>).
     /// Icons with no dedicated SVG yet fall back to <see cref="AppIconGlyph.Info"/>'s image
-    /// (documented gap: only the 6 icons actually used by <c>AppSidebar</c> today have real
-    /// artwork; the rest of the enum is reserved for future pages).
+    /// (documented gap: only the icons actually rendered by <c>AppSidebar</c> and the projects
+    /// feed today have real artwork; the rest of the enum is reserved for future pages).
     /// </summary>
     private static string ToImageBaseName(this AppIconGlyph icon) => icon switch
     {
@@ -30,15 +39,56 @@ public static class AppIconGlyphExtensions
         AppIconGlyph.Gear => "icon_gear",
         AppIconGlyph.Info => "icon_circle_info",
         AppIconGlyph.Moon => "icon_moon",
+        AppIconGlyph.Filter => "icon_filter",
+        AppIconGlyph.Pause => "icon_pause",
+        AppIconGlyph.Users => "icon_users",
+        AppIconGlyph.CircleCheck => "icon_circle_check",
+        AppIconGlyph.Clock => "icon_clock",
         _ => "icon_circle_info",
+    };
+
+    /// <summary>
+    /// The nav icons that ship an "_active" blue variant. Only these may take the active swap —
+    /// asking for e.g. <c>icon_filter_active</c> would resolve to a file that does not exist and
+    /// render nothing at all.
+    /// </summary>
+    private static readonly string[] ActiveVariantIcons =
+    [
+        "icon_list_check",
+        "icon_magnifying_glass",
+        "icon_bell",
+        "icon_gear",
+        "icon_circle_info",
+    ];
+
+    /// <summary>
+    /// Pre-baked colour variants beyond the nav icons' inactive/active pair. A rasterized PNG
+    /// cannot be tinted at runtime (see <see cref="ToImageSource"/>), so every colour an icon is
+    /// drawn in by the mockups needs its own file. Returns <c>null</c> when the requested colour
+    /// has no dedicated variant, in which case the base file is used.
+    /// </summary>
+    private static string? ToColourVariant(string baseName, Color textColor) => (baseName, textColor) switch
+    {
+        // The owner row's verification badge is the *solid* circle-check in a lighter green than
+        // the "تم الإثراء" badge's regular-weight one.
+        ("icon_circle_check", _) when textColor.Equals(Color.FromArgb(VerifiedGreenHex)) => "_verified",
+
+        // The "قيد الإثراء" badge reuses the clock in the badge's own amber.
+        ("icon_clock", _) when textColor.Equals(Color.FromArgb(PendingAmberHex)) => "_amber",
+
+        // The failure badge has no mockup counterpart; it reuses the clock in the badge's red.
+        ("icon_clock", _) when textColor.Equals(Color.FromArgb(FailedRedHex)) => "_red",
+
+        _ => null,
     };
 
     /// <summary>
     /// Resolves the actual rasterized icon image to load, swapping in the pre-baked "_active"
     /// blue variant when <paramref name="textColor"/> matches the app's active-nav-item color
-    /// (<c>#2563EB</c>); any other color (including the default inactive <c>#475569</c>, or no
-    /// color at all) uses the base/inactive-colored PNG. <c>icon_moon</c> has no active variant
-    /// (it's never shown in an active state), so it always uses its base file.
+    /// (<c>#2563EB</c>), or one of the <see cref="ToColourVariant"/> colours; any other color
+    /// (including the default inactive <c>#475569</c>, or no color at all) uses the
+    /// base/inactive-colored PNG. <c>icon_moon</c> has no active variant (it's never shown in an
+    /// active state), so it always uses its base file.
     ///
     /// NOTE: loads via <see cref="ImageSource.FromFile"/> against an absolute path under
     /// <see cref="AppContext.BaseDirectory"/> rather than the plain resource-name string form
@@ -52,8 +102,11 @@ public static class AppIconGlyphExtensions
     public static ImageSource ToImageSource(this AppIconGlyph icon, Color? textColor)
     {
         var baseName = icon.ToImageBaseName();
-        var isActive = baseName != "icon_moon" && textColor is not null && textColor.Equals(Color.FromArgb(ActiveTextHex));
-        var fileName = isActive ? $"{baseName}_active.scale-200.png" : $"{baseName}.scale-200.png";
+        var isActive = Array.IndexOf(ActiveVariantIcons, baseName) >= 0
+            && textColor is not null
+            && textColor.Equals(Color.FromArgb(ActiveTextHex));
+        var variant = isActive ? "_active" : (textColor is null ? null : ToColourVariant(baseName, textColor));
+        var fileName = $"{baseName}{variant}.scale-200.png";
         var fullPath = Path.Combine(AppContext.BaseDirectory, fileName);
         return ImageSource.FromFile(fullPath);
     }

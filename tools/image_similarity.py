@@ -56,6 +56,8 @@ class SimilarityReport:
     region_breakdown: Optional[list] = None
     region_report_text: Optional[str] = None
     heatmap_path: Optional[str] = None
+    regional_score_grid: Optional[dict] = None
+    palette_report: Optional[dict] = None
 
     def to_dict(self) -> dict:
         return {
@@ -66,6 +68,8 @@ class SimilarityReport:
             "region_breakdown": self.region_breakdown,
             "region_report": self.region_report_text,
             "heatmap_image": self.heatmap_path,
+            "regional_score": self.regional_score_grid,
+            "palette": self.palette_report,
         }
 
     def pretty_print(self) -> None:
@@ -86,6 +90,12 @@ class SimilarityReport:
         if self.overall_score is not None:
             verdict = _verdict(self.overall_score)
             print(f" OVERALL SCORE     : {self.overall_score:.4f}  ({verdict})")
+        if self.regional_score_grid:
+            print("-" * 56)
+            print(_format_regional_score(self.regional_score_grid))
+        if self.palette_report:
+            print("-" * 56)
+            print(_format_palette(self.palette_report))
         if self.region_report_text:
             print("-" * 56)
             print(self.region_report_text)
@@ -333,6 +343,122 @@ def regional_breakdown(diff_map: np.ndarray, grid_rows: int = 3, grid_cols: int 
     return regions
 
 
+def regional_score_grid(diff_map: np.ndarray, grid: int = 4) -> dict:
+    """Numeric per-cell similarity on an arbitrary NxN grid.
+
+    The named 3x3 breakdown is too coarse to separate "this component is styled wrong" from
+    "this component is a few pixels off": a finer grid localizes the offending band/column
+    precisely, which is what makes a targeted crop comparison possible.
+    """
+    cells = []
+    for r_idx, row_block in enumerate(np.array_split(diff_map, grid, axis=0)):
+        row = []
+        for c_idx, cell in enumerate(np.array_split(row_block, grid, axis=1)):
+            row.append(1.0 - float(np.mean(cell)))
+        cells.append(row)
+
+    height, width = diff_map.shape
+    flat = [
+        {
+            "row": r,
+            "col": c,
+            "similarity": cells[r][c],
+            "box": [
+                int(width * c / grid), int(height * r / grid),
+                int(width * (c + 1) / grid), int(height * (r + 1) / grid),
+            ],
+        }
+        for r in range(grid) for c in range(grid)
+    ]
+    return {"grid": grid, "cells": cells, "worst": sorted(flat, key=lambda x: x["similarity"])[:5]}
+
+
+def _format_regional_score(data: dict) -> str:
+    grid = data["grid"]
+    lines = [f"Regional score grid ({grid}x{grid}, 1.00 = identical):"]
+    for r, row in enumerate(data["cells"]):
+        lines.append("  " + "  ".join(f"{v:.2f}" for v in row))
+    lines.append("")
+    lines.append("Worst cells (crop these from both images to compare them in isolation):")
+    for cell in data["worst"]:
+        x1, y1, x2, y2 = cell["box"]
+        lines.append(
+            f"  r{cell['row']}c{cell['col']} similarity {cell['similarity']:.2f} "
+            f"box=({x1},{y1})-({x2},{y2})"
+        )
+    return "\n".join(lines)
+
+
+def compare_palettes(a: np.ndarray, b: np.ndarray, colors: int = 8) -> dict:
+    """Dominant-colour palette comparison via k-means quantization.
+
+    Answers "is this page using the wrong surface/accent/background colours?" directly, which
+    neither SSIM nor MSE separates from geometry problems. Each palette entry is matched to its
+    nearest counterpart in the other image; a large distance or a large coverage delta means a
+    real colour/theme mismatch rather than a layout one.
+    """
+    def palette(img):
+        pixels = img.reshape(-1, 3).astype(np.float32)
+        # Subsample for speed; palettes are stable well below full resolution.
+        if len(pixels) > 60_000:
+            pixels = pixels[:: len(pixels) // 60_000]
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 20, 1.0)
+        _, labels, centers = cv2.kmeans(pixels, colors, None, criteria, 3,
+                                        cv2.KMEANS_PP_CENTERS)
+        counts = np.bincount(labels.flatten(), minlength=colors).astype(np.float64)
+        shares = counts / counts.sum()
+        order = np.argsort(-shares)
+        return [(tuple(int(v) for v in centers[i]), float(shares[i])) for i in order]
+
+    pal_a, pal_b = palette(a), palette(b)
+    entries = []
+    total_distance = 0.0
+    for color, share in pal_a:
+        nearest, distance = None, None
+        for other_color, other_share in pal_b:
+            d = float(np.linalg.norm(np.array(color, float) - np.array(other_color, float)))
+            if distance is None or d < distance:
+                nearest, distance = (other_color, other_share), d
+        total_distance += distance * share
+        entries.append({
+            "design": {"rgb": color, "hex": "#%02X%02X%02X" % color, "share": share},
+            "nearest": {"rgb": nearest[0], "hex": "#%02X%02X%02X" % nearest[0],
+                         "share": nearest[1]},
+            "distance": distance,
+            "share_delta": share - nearest[1],
+        })
+
+    # 441.7 = max RGB distance (black to white); invert into a 0..1 similarity.
+    return {
+        "colors": colors,
+        "weighted_distance": total_distance,
+        "palette_similarity": float(max(0.0, 1.0 - total_distance / 441.673)),
+        "entries": entries,
+    }
+
+
+def _format_palette(data: dict) -> str:
+    lines = [
+        f"Dominant colour palette ({data['colors']} colours, "
+        f"palette_similarity: {data['palette_similarity']:.4f}):",
+        "  image A colour  share   nearest in B    dist   share delta",
+    ]
+    for e in data["entries"]:
+        lines.append(
+            f"  {e['design']['hex']}        {e['design']['share']:.3f}  "
+            f"{e['nearest']['hex']}       {e['distance']:6.1f}  {e['share_delta']:+.3f}"
+        )
+    worst = max(data["entries"], key=lambda e: e["distance"] * e["design"]["share"])
+    if worst["distance"] > 12:
+        lines.append("")
+        lines.append(
+            f"Biggest colour mismatch: {worst['design']['hex']} "
+            f"({worst['design']['share']:.1%} of image A) has no close counterpart "
+            f"in image B (nearest {worst['nearest']['hex']}, distance {worst['distance']:.1f})."
+        )
+    return "\n".join(lines)
+
+
 def _describe_region(dissim: float) -> str:
     if dissim >= 0.5:
         return "severely different"
@@ -440,6 +566,8 @@ def run_comparison(
     region_report: bool = True,
     heatmap_out: Optional[str] = None,
     heatmap_alpha: float = 0.55,
+    regional_score: Optional[int] = None,
+    palette: Optional[int] = None,
 ) -> SimilarityReport:
     methods = methods or list(METHOD_WEIGHTS.keys())
 
@@ -482,8 +610,14 @@ def run_comparison(
 
     # Where are the differences actually located? (needed for both the
     # region report and the heatmap image, so compute it once)
-    if region_report or heatmap_out:
+    if palette:
+        report.palette_report = compare_palettes(a_r, b_r, colors=palette)
+
+    if region_report or heatmap_out or regional_score:
         diff_map = compute_diff_map(a_r, b_r, kernel_size=ssim_kernel)
+
+        if regional_score:
+            report.regional_score_grid = regional_score_grid(diff_map, grid=regional_score)
 
         if region_report:
             regions = regional_breakdown(diff_map)
@@ -533,6 +667,16 @@ def main():
         "--heatmap-alpha", type=float, default=0.55,
         help="Heatmap overlay opacity, 0=only base image, 1=only heatmap (default: 0.55)"
     )
+    parser.add_argument(
+        "--regional-score", nargs="?", type=int, const=4, default=None, metavar="GRID",
+        help="Print a numeric NxN grid of per-region similarity plus the worst cells' pixel "
+             "boxes (default grid 4). Works alongside --no-region-report."
+    )
+    parser.add_argument(
+        "--palette", nargs="?", type=int, const=8, default=None, metavar="COLORS",
+        help="Compare dominant colour palettes (default 8 colours) to separate colour/theme "
+             "mismatches from layout mismatches."
+    )
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     args = parser.parse_args()
 
@@ -550,6 +694,8 @@ def main():
             region_report=not args.no_region_report,
             heatmap_out=args.heatmap_out,
             heatmap_alpha=args.heatmap_alpha,
+            regional_score=args.regional_score,
+            palette=args.palette,
         )
     except FileNotFoundError as e:
         print(f"Error: {e}", file=sys.stderr)

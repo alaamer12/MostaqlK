@@ -35,6 +35,13 @@ public static class MauiProgram
 			{
 				fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
 				fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
+				// Tajawal is the mockups' typeface (`font-family: 'Tajawal'` in every page in
+				// .repertoire/design/mvp/). OpenSans has no Arabic coverage, so without these the
+				// Arabic-first UI silently fell back to a system face and rendered noticeably
+				// differently from the design.
+				fonts.AddFont("Tajawal-Regular.ttf", "Tajawal");
+				fonts.AddFont("Tajawal-Medium.ttf", "TajawalMedium");
+				fonts.AddFont("Tajawal-Bold.ttf", "TajawalBold");
 			});
 
 #if DEBUG
@@ -51,6 +58,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<WindowsToastSender>();
 		builder.Services.AddSingleton<Infrastructure.Database.SearchIndex.FtsQueryService>();
 		builder.Services.AddSingleton<AssetDownloadService>();
+		builder.Services.AddSingleton<DesignDataSeeder>();
 
 		// Pipeline services
 		builder.Services.AddSingleton<InFlightTracker>();

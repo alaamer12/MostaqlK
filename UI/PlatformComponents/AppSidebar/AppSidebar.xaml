@@ -6,6 +6,7 @@
              x:Name="Root">
 
     <ContentView.Resources>
+        <!-- px-4 py-3 + rounded-xl on every nav <a> in the mockups' sidebar. -->
         <Style x:Key="SidebarNavRowStyle" TargetType="Border">
             <Setter Property="StrokeThickness" Value="0" />
             <Setter Property="BackgroundColor" Value="Transparent" />
@@ -19,88 +20,143 @@
     </ContentView.Resources>
 
     <!-- Shared sidebar nav rail reused across MainWindowPage/SettingsPanel/AboutPage/
-         ProjectDetailsPage, matching the sidebar markup common to all 4 design mockups
-         (projects.html, settings.html, about.html, project-details.html): logo, 5 nav
-         items (المشاريع، البحث المتقدم، التنبيهات، الإعدادات، حول التطبيق) with an
-         active-item highlight, the "مشاريع مضافة اليوم" stat card, and the dark-mode row. -->
-    <VerticalStackLayout Spacing="8" Padding="24,24,16,16" WidthRequest="256" BackgroundColor="#FFFFFF">
-        <HorizontalStackLayout Spacing="12" Margin="0,0,0,16">
+         ProjectDetailsPage, matching the `<aside class="w-64 bg-background dark:bg-slate-900
+         flex flex-col border-l ...">` markup common to all 4 design mockups (projects.html,
+         settings.html, about.html, project-details.html).
+
+         Structured as a 3-row Grid, NOT a VerticalStackLayout: the mockup's `<nav class="flex-1">`
+         absorbs the leftover height so the stat card + dark-mode row stay pinned to the bottom of
+         the column. A VerticalStackLayout cannot express that (a `VerticalOptions="Fill"` spacer
+         inside one is ignored), which is why those two used to float up under the nav items. -->
+    <Grid RowDefinitions="80,*,Auto" WidthRequest="256"
+          BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#0F172A}">
+
+        <!-- Logo area: h-20 px-6 -->
+        <HorizontalStackLayout Grid.Row="0" Spacing="12" Padding="24,0" VerticalOptions="Center">
             <Border WidthRequest="40" HeightRequest="40" StrokeThickness="0" BackgroundColor="#3B82F6">
                 <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="10" />
+                    <RoundRectangle CornerRadius="8" />
                 </Border.StrokeShape>
-                <Label Text="M" TextColor="White" FontAttributes="Bold" FontSize="18" HorizontalOptions="Center" VerticalOptions="Center" />
+                <Label Text="M" TextColor="White" FontFamily="TajawalBold" FontSize="20"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
             </Border>
             <VerticalStackLayout Spacing="0" VerticalOptions="Center">
-                <Label Text="Mostaqlk" FontSize="16" FontAttributes="Bold" TextColor="#0F172A" />
-                <Label Text="v1.0.0" FontSize="11" TextColor="#64748B" />
+                <Label Text="Mostaqlk" FontSize="18" FontFamily="TajawalBold"
+                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                <Label Text="v1.0.0" FontSize="12"
+                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                       FontFamily="Tajawal" />
             </VerticalStackLayout>
         </HorizontalStackLayout>
 
-        <Border x:Name="ProjectsButton" Style="{StaticResource SidebarNavRowStyle}">
-            <Border.GestureRecognizers>
-                <TapGestureRecognizer Tapped="OnProjectsClicked" />
-            </Border.GestureRecognizers>
-            <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
-                <BoxView x:Name="ProjectsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
-                <components:AppIcon Grid.Column="1" x:Name="ProjectsIcon" Icon="ProjectsList" FontSize="16" WidthRequest="20" />
-                <Label Grid.Column="2" x:Name="ProjectsLabel" Text="المشاريع" FontSize="14" FontAttributes="Bold" VerticalOptions="Center" />
-            </Grid>
-        </Border>
-        <Border x:Name="AdvancedSearchButton" Style="{StaticResource SidebarNavRowStyle}">
-            <Border.GestureRecognizers>
-                <TapGestureRecognizer Tapped="OnAdvancedSearchClicked" />
-            </Border.GestureRecognizers>
-            <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
-                <BoxView x:Name="AdvancedSearchActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
-                <components:AppIcon Grid.Column="1" x:Name="AdvancedSearchIcon" Icon="Search" FontSize="16" WidthRequest="20" />
-                <Label Grid.Column="2" x:Name="AdvancedSearchLabel" Text="البحث المتقدم" FontSize="14" VerticalOptions="Center" />
-            </Grid>
-        </Border>
-        <Border x:Name="NotificationsButton" Style="{StaticResource SidebarNavRowStyle}">
-            <Border.GestureRecognizers>
-                <TapGestureRecognizer Tapped="OnNotificationsClicked" />
-            </Border.GestureRecognizers>
-            <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
-                <BoxView x:Name="NotificationsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
-                <components:AppIcon Grid.Column="1" x:Name="NotificationsIcon" Icon="Bell" FontSize="16" WidthRequest="20" />
-                <Label Grid.Column="2" x:Name="NotificationsLabel" Text="التنبيهات" FontSize="14" VerticalOptions="Center" />
-            </Grid>
-        </Border>
-        <Border x:Name="SettingsButton" Style="{StaticResource SidebarNavRowStyle}">
-            <Border.GestureRecognizers>
-                <TapGestureRecognizer Tapped="OnSettingsClicked" />
-            </Border.GestureRecognizers>
-            <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
-                <BoxView x:Name="SettingsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
-                <components:AppIcon Grid.Column="1" x:Name="SettingsIcon" Icon="Gear" FontSize="16" WidthRequest="20" />
-                <Label Grid.Column="2" x:Name="SettingsLabel" Text="الإعدادات" FontSize="14" VerticalOptions="Center" />
-            </Grid>
-        </Border>
-        <Border x:Name="AboutButton" Style="{StaticResource SidebarNavRowStyle}">
-            <Border.GestureRecognizers>
-                <TapGestureRecognizer Tapped="OnAboutClicked" />
-            </Border.GestureRecognizers>
-            <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
-                <BoxView x:Name="AboutActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
-                <components:AppIcon Grid.Column="1" x:Name="AboutIcon" Icon="Info" FontSize="16" WidthRequest="20" />
-                <Label Grid.Column="2" x:Name="AboutLabel" Text="حول التطبيق" FontSize="14" VerticalOptions="Center" />
-            </Grid>
-        </Border>
+        <!-- Navigation: px-4 py-4 space-y-2 -->
+        <VerticalStackLayout Grid.Row="1" Spacing="8" Padding="16">
+            <Border x:Name="ProjectsButton" Style="{StaticResource SidebarNavRowStyle}">
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnProjectsClicked" />
+                </Border.GestureRecognizers>
+                <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
+                    <BoxView x:Name="ProjectsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
+                    <components:AppIcon Grid.Column="1" x:Name="ProjectsIcon" Icon="ProjectsList" FontSize="16" WidthRequest="20" />
+                    <Label Grid.Column="2" x:Name="ProjectsLabel" Text="المشاريع" FontSize="14" FontFamily="TajawalBold" VerticalOptions="Center" />
+                </Grid>
+            </Border>
+            <Border x:Name="AdvancedSearchButton" Style="{StaticResource SidebarNavRowStyle}">
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnAdvancedSearchClicked" />
+                </Border.GestureRecognizers>
+                <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
+                    <BoxView x:Name="AdvancedSearchActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
+                    <components:AppIcon Grid.Column="1" x:Name="AdvancedSearchIcon" Icon="Search" FontSize="16" WidthRequest="20" />
+                    <Label Grid.Column="2" x:Name="AdvancedSearchLabel" Text="البحث المتقدم" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
+                </Grid>
+            </Border>
+            <Border x:Name="NotificationsButton" Style="{StaticResource SidebarNavRowStyle}">
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnNotificationsClicked" />
+                </Border.GestureRecognizers>
+                <Grid ColumnDefinitions="4,Auto,*,Auto" ColumnSpacing="12">
+                    <BoxView x:Name="NotificationsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
+                    <components:AppIcon Grid.Column="1" x:Name="NotificationsIcon" Icon="Bell" FontSize="16" WidthRequest="20" />
+                    <Label Grid.Column="2" x:Name="NotificationsLabel" Text="التنبيهات" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
+                    <!-- `<span class="bg-blue-500 text-white text-xs font-bold w-5 h-5 rounded-full">` -->
+                    <Border Grid.Column="3" x:Name="NotificationsBadge" WidthRequest="20" HeightRequest="20"
+                            StrokeThickness="0" BackgroundColor="#3B82F6" VerticalOptions="Center">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="10" />
+                        </Border.StrokeShape>
+                        <Label Text="{Binding NotificationCount, Source={x:Reference Root}}" FontSize="12" FontFamily="TajawalBold"
+                               TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Border>
+                </Grid>
+            </Border>
+            <Border x:Name="SettingsButton" Style="{StaticResource SidebarNavRowStyle}">
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnSettingsClicked" />
+                </Border.GestureRecognizers>
+                <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
+                    <BoxView x:Name="SettingsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
+                    <components:AppIcon Grid.Column="1" x:Name="SettingsIcon" Icon="Gear" FontSize="16" WidthRequest="20" />
+                    <Label Grid.Column="2" x:Name="SettingsLabel" Text="الإعدادات" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
+                </Grid>
+            </Border>
+            <Border x:Name="AboutButton" Style="{StaticResource SidebarNavRowStyle}">
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnAboutClicked" />
+                </Border.GestureRecognizers>
+                <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
+                    <BoxView x:Name="AboutActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
+                    <components:AppIcon Grid.Column="1" x:Name="AboutIcon" Icon="Info" FontSize="16" WidthRequest="20" />
+                    <Label Grid.Column="2" x:Name="AboutLabel" Text="حول التطبيق" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
+                </Grid>
+            </Border>
+        </VerticalStackLayout>
 
-        <BoxView VerticalOptions="Fill" />
-        <Border Padding="16,14" BackgroundColor="#F1F5F9" StrokeThickness="0">
-            <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-            <VerticalStackLayout Spacing="3">
-                <Label Text="مشاريع مضافة اليوم" FontSize="12" TextColor="#64748B" HorizontalTextAlignment="Center" />
-                <Label Text="{Binding StatValue, Source={x:Reference Root}}" FontSize="26" FontAttributes="Bold" TextColor="#2563EB" HorizontalTextAlignment="Center" />
-            </VerticalStackLayout>
-        </Border>
-        <HorizontalStackLayout Spacing="8" HorizontalOptions="Center" Margin="0,4,0,0">
-            <components:AppIcon Icon="Moon" FontSize="13" TextColor="#475569" VerticalOptions="Center" />
-            <Label Text="الوضع الداكن" FontSize="12" TextColor="#475569" VerticalOptions="Center" />
-            <Switch IsToggled="False" IsEnabled="False" Scale="0.8" />
-        </HorizontalStackLayout>
-    </VerticalStackLayout>
+        <!-- Bottom stats & theme: `<div class="p-4 border-t border-slate-200 space-y-4">` -->
+        <VerticalStackLayout Grid.Row="2" Spacing="16" Padding="16">
+            <BoxView HeightRequest="1" Margin="-16,-16,-16,0"
+                     Color="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" />
+            <Border Padding="16" StrokeThickness="0"
+                    BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="12" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="مشاريع مضافة اليوم" FontSize="14" HorizontalTextAlignment="Center"
+                           TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                           FontFamily="Tajawal" />
+                    <Label Text="{Binding StatValue, Source={x:Reference Root}}" FontSize="30" FontFamily="TajawalBold"
+                           HorizontalTextAlignment="Center"
+                           TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" />
+                </VerticalStackLayout>
+            </Border>
+            <Grid ColumnDefinitions="Auto,*,Auto" Padding="8,0">
+                <HorizontalStackLayout Grid.Column="0" Spacing="8" VerticalOptions="Center">
+                    <components:AppIcon Icon="Moon" FontSize="14" VerticalOptions="Center"
+                                        TextColor="{AppThemeBinding Light=#475569, Dark=#94A3B8}" />
+                    <Label Text="الوضع الداكن" FontSize="14" VerticalOptions="Center"
+                           TextColor="{AppThemeBinding Light=#475569, Dark=#94A3B8}"
+                           FontFamily="Tajawal" />
+                </HorizontalStackLayout>
+                <!-- The mockup's toggle is a plain 40x24 pill with a 16x16 white knob
+                     (`w-10 h-6 bg-slate-300 dark:bg-blue-600 rounded-full`), not an OS switch;
+                     a native Switch renders nothing like it at any scale. -->
+                <Border Grid.Column="2" x:Name="DarkModePill" WidthRequest="40" HeightRequest="24"
+                        StrokeThickness="0" VerticalOptions="Center" Padding="4,0"
+                        BackgroundColor="{AppThemeBinding Light=#CBD5E1, Dark=#2563EB}">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <Border x:Name="DarkModeKnob" WidthRequest="16" HeightRequest="16" StrokeThickness="0"
+                            BackgroundColor="White" VerticalOptions="Center"
+                            HorizontalOptions="End">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="8" />
+                        </Border.StrokeShape>
+                    </Border>
+                </Border>
+            </Grid>
+        </VerticalStackLayout>
+    </Grid>
 
 </ContentView>

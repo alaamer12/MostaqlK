@@ -13,6 +13,10 @@ public partial class AppSidebar : ContentView
     public static readonly BindableProperty StatValueProperty = BindableProperty.Create(
         nameof(StatValue), typeof(string), typeof(AppSidebar), "0");
 
+    /// <summary>Unread-notification count shown in the blue pill on the التنبيهات row.</summary>
+    public static readonly BindableProperty NotificationCountProperty = BindableProperty.Create(
+        nameof(NotificationCount), typeof(string), typeof(AppSidebar), "0");
+
     public static readonly BindableProperty ActivePageProperty = BindableProperty.Create(
         nameof(ActivePage), typeof(SidebarPage), typeof(AppSidebar), SidebarPage.None,
         propertyChanged: OnActivePageChanged);
@@ -21,6 +25,12 @@ public partial class AppSidebar : ContentView
     {
         get => (string)GetValue(StatValueProperty);
         set => SetValue(StatValueProperty, value);
+    }
+
+    public string NotificationCount
+    {
+        get => (string)GetValue(NotificationCountProperty);
+        set => SetValue(NotificationCountProperty, value);
     }
 
     public SidebarPage ActivePage
@@ -35,14 +45,23 @@ public partial class AppSidebar : ContentView
     public event EventHandler? SettingsClicked;
     public event EventHandler? AboutClicked;
 
-    private const string ActiveBackground = "#EFF6FF";
-    private const string ActiveText = "#2563EB";
-    private const string InactiveText = "#475569";
+    // Active row: `bg-blue-50 text-blue-600` / `dark:bg-blue-500/10 dark:text-blue-400`.
+    // Inactive row: `text-slate-600` / `dark:text-slate-400`.
+    private const string ActiveBackgroundLight = "#EFF6FF";
+    private const string ActiveBackgroundDark = "#1A2A44";
+    private const string ActiveTextLight = "#2563EB";
+    private const string ActiveTextDark = "#60A5FA";
+    private const string InactiveTextLight = "#475569";
+    private const string InactiveTextDark = "#94A3B8";
 
     public AppSidebar()
     {
         InitializeComponent();
         ApplyActiveState();
+        if (Application.Current is { } app)
+        {
+            app.RequestedThemeChanged += (_, _) => ApplyActiveState();
+        }
     }
 
     private static void OnActivePageChanged(BindableObject bindable, object oldValue, object newValue)
@@ -52,11 +71,12 @@ public partial class AppSidebar : ContentView
 
     private void ApplyActiveState()
     {
-        SetRowState(ProjectsButton, ProjectsIcon, ProjectsLabel, ActivePage == SidebarPage.Projects);
-        SetRowState(AdvancedSearchButton, AdvancedSearchIcon, AdvancedSearchLabel, ActivePage == SidebarPage.AdvancedSearch);
-        SetRowState(NotificationsButton, NotificationsIcon, NotificationsLabel, ActivePage == SidebarPage.Notifications);
-        SetRowState(SettingsButton, SettingsIcon, SettingsLabel, ActivePage == SidebarPage.Settings);
-        SetRowState(AboutButton, AboutIcon, AboutLabel, ActivePage == SidebarPage.About);
+        var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
+        SetRowState(ProjectsButton, ProjectsIcon, ProjectsLabel, ActivePage == SidebarPage.Projects, isDark);
+        SetRowState(AdvancedSearchButton, AdvancedSearchIcon, AdvancedSearchLabel, ActivePage == SidebarPage.AdvancedSearch, isDark);
+        SetRowState(NotificationsButton, NotificationsIcon, NotificationsLabel, ActivePage == SidebarPage.Notifications, isDark);
+        SetRowState(SettingsButton, SettingsIcon, SettingsLabel, ActivePage == SidebarPage.Settings, isDark);
+        SetRowState(AboutButton, AboutIcon, AboutLabel, ActivePage == SidebarPage.About, isDark);
         ProjectsActiveBar.IsVisible = ActivePage == SidebarPage.Projects;
         AdvancedSearchActiveBar.IsVisible = ActivePage == SidebarPage.AdvancedSearch;
         NotificationsActiveBar.IsVisible = ActivePage == SidebarPage.Notifications;
@@ -64,12 +84,18 @@ public partial class AppSidebar : ContentView
         AboutActiveBar.IsVisible = ActivePage == SidebarPage.About;
     }
 
-    private static void SetRowState(Border row, AppIcon icon, Label label, bool isActive)
+    private static void SetRowState(Border row, AppIcon icon, Label label, bool isActive, bool isDark)
     {
-        row.BackgroundColor = isActive ? Color.FromArgb(ActiveBackground) : Colors.Transparent;
-        var textColor = isActive ? Color.FromArgb(ActiveText) : Color.FromArgb(InactiveText);
+        row.BackgroundColor = isActive
+            ? Color.FromArgb(isDark ? ActiveBackgroundDark : ActiveBackgroundLight)
+            : Colors.Transparent;
+        var textColor = isActive
+            ? Color.FromArgb(isDark ? ActiveTextDark : ActiveTextLight)
+            : Color.FromArgb(isDark ? InactiveTextDark : InactiveTextLight);
         icon.TextColor = textColor;
         label.TextColor = textColor;
+        // The mockups' active nav <a> carries `font-medium`; inactive rows use the regular weight.
+        label.FontFamily = isActive ? "TajawalMedium" : "Tajawal";
     }
 
     private void OnProjectsClicked(object? sender, TappedEventArgs e) => ProjectsClicked?.Invoke(this, EventArgs.Empty);

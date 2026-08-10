@@ -8,87 +8,100 @@
              FlowDirection="RightToLeft">
 
     <!-- Dense project card matching projects.html structure. -->
-    <components:AppCard IsUnread="{Binding IsUnread}" Margin="0,0,0,16" Padding="24">
+    <!-- Surface follows the mockup's bg-white dark:bg-slate-900 card panel. -->
+    <components:AppCard IsUnread="{Binding IsUnread}"
+                        Margin="0,0,0,16"
+                        Padding="24"
+                        BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
         <VerticalStackLayout Spacing="0">
 
             <VerticalStackLayout.GestureRecognizers>
                 <TapGestureRecognizer Command="{Binding SelectCommand}" />
             </VerticalStackLayout.GestureRecognizers>
 
-            <!-- Title + enrichment badge -->
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,0,0,11">
+            <!-- Title + enrichment badge — projects.html: row is `mb-3` (12px), h2 is `leading-relaxed` (1.625). -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,0,0,12">
                 <Label Grid.Column="0"
                        Text="{Binding Title}"
                        FontSize="20"
-                       LineHeight="1.6"
-                       FontAttributes="Bold"
-                       TextColor="#0F172A"
+                       LineHeight="1.625"
+                       FontFamily="TajawalBold"
+                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
                        LineBreakMode="WordWrap" />
 
+                <!-- Enrichment badge — `px-3 py-1` (12/4) with a `gap-1.5` (6px) leading icon. -->
                 <Border Grid.Column="1"
                         StrokeThickness="0"
-                        Padding="10,4"
+                        Padding="12,4"
                         VerticalOptions="Start"
                         BackgroundColor="{Binding EnrichmentBadgeBackground}">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="6" />
                     </Border.StrokeShape>
-                    <Label Text="{Binding EnrichmentBadgeText}"
-                           FontSize="11"
-                           FontAttributes="Bold"
-                           TextColor="{Binding EnrichmentBadgeForeground}" />
+                    <HorizontalStackLayout Spacing="6">
+                        <components:AppIcon Icon="{Binding EnrichmentBadgeIcon}"
+                                            FontSize="12"
+                                            TextColor="{Binding EnrichmentBadgeForeground}"
+                                            VerticalOptions="Center" />
+                        <Label Text="{Binding EnrichmentBadgeText}"
+                               FontSize="11"
+                               FontFamily="TajawalBold"
+                               VerticalOptions="Center"
+                               TextColor="{Binding EnrichmentBadgeForeground}" />
+                    </HorizontalStackLayout>
                 </Border>
             </Grid>
 
-            <!-- Description (2 lines) -->
+            <!-- Description (2 lines) — projects.html: `text-sm leading-relaxed mb-4 line-clamp-2`. -->
             <Label Text="{Binding Description}"
                    FontSize="14"
-                   LineHeight="1.45"
-                   TextColor="#475569"
+                   LineHeight="1.625"
+                   TextColor="{AppThemeBinding Light=#475569, Dark=#94A3B8}"
                    MaxLines="2"
                    LineBreakMode="TailTruncation"
-                   Margin="0,0,0,13" />
+                   Margin="0,0,0,16"
+                   FontFamily="Tajawal" />
 
-            <!-- Skill pills -->
+            <!-- Skill pills — projects.html: `flex flex-wrap gap-2 mb-4` (8px gap, 16px below). -->
             <HorizontalStackLayout BindableLayout.ItemsSource="{Binding SkillItems}"
                                    Spacing="0"
-                                   Margin="0,0,0,13">
+                                   Margin="0,0,0,16">
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="vm:SkillTagItem">
                         <Border StrokeThickness="0"
-                                BackgroundColor="#EFF6FF"
-                                Padding="10,4"
+                                BackgroundColor="{AppThemeBinding Light=#EFF6FF, Dark=#132237}"
+                                Padding="12,4"
                                 Margin="0,0,8,0">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="6" />
                             </Border.StrokeShape>
                             <Label Text="{Binding Name}"
                                    FontSize="11"
-                                   FontAttributes="Bold"
-                                   TextColor="#2563EB" />
+                                   FontFamily="TajawalBold"
+                                   TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" />
                         </Border>
                     </DataTemplate>
                 </BindableLayout.ItemTemplate>
             </HorizontalStackLayout>
 
-            <!-- Divider -->
-            <BoxView HeightRequest="1" Color="#F1F5F9" Margin="0,0,0,13" />
+            <!-- Divider — the client block's `border-t` (its `py-4` supplies the 16px below it). -->
+            <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" Margin="0,0,0,16" />
 
-            <!-- Client info row -->
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Margin="0,0,0,13">
+            <!-- Client info row — projects.html: `py-4`, avatar `w-11 h-11` (44px), `gap-3` (12px). -->
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Margin="0,0,0,16">
                 <Border Grid.Column="0"
-                        WidthRequest="40"
-                        HeightRequest="40"
+                        WidthRequest="44"
+                        HeightRequest="44"
                         StrokeThickness="0"
                         BackgroundColor="#3B82F6"
                         VerticalOptions="Center">
                     <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="20" />
+                        <RoundRectangle CornerRadius="22" />
                     </Border.StrokeShape>
                     <Label Text="{Binding ClientInitials}"
                            TextColor="White"
-                           FontAttributes="Bold"
-                           FontSize="13"
+                           FontFamily="TajawalBold"
+                           FontSize="16"
                            HorizontalOptions="Center"
                            VerticalOptions="Center"
                            HorizontalTextAlignment="Center"
@@ -96,57 +109,81 @@
                 </Border>
 
                 <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-                    <Label Text="{Binding ClientName}"
-                           FontSize="13"
-                           FontAttributes="Bold"
-                           TextColor="#0F172A" />
+                    <!-- Owner name + `fa-solid fa-circle-check text-green-500` verification badge, `gap-1.5`. -->
+                    <HorizontalStackLayout Spacing="6">
+                        <Label Text="{Binding ClientName}"
+                               FontSize="13"
+                               FontFamily="TajawalBold"
+                               VerticalOptions="Center"
+                               TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                        <components:AppIcon Icon="CircleCheck"
+                                            FontSize="14"
+                                            TextColor="#22C55E"
+                                            VerticalOptions="Center" />
+                    </HorizontalStackLayout>
                     <Label Text="{Binding ClientMeta}"
                            FontSize="11"
-                           TextColor="#64748B" />
+                           TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                           FontFamily="Tajawal" />
                 </VerticalStackLayout>
 
-                <Label Grid.Column="2"
-                       Text="{Binding PostedRelative}"
-                       FontSize="11"
-                       TextColor="#94A3B8"
-                       VerticalOptions="Center" />
+                <!-- Relative timestamp — `fa-regular fa-clock` then the text, `gap-1.5`. -->
+                <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
+                    <components:AppIcon Icon="Clock"
+                                        FontSize="12"
+                                        VerticalOptions="Center" />
+                    <Label Text="{Binding PostedRelative}"
+                           FontSize="11"
+                           TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
+                           VerticalOptions="Center"
+                           FontFamily="Tajawal" />
+                </HorizontalStackLayout>
             </Grid>
 
-            <!-- Divider -->
-            <BoxView HeightRequest="1" Color="#F1F5F9" Margin="0,0,0,13" />
+            <!-- Divider — the stats block's `border-t` followed by its `pt-4` (16px). -->
+            <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" Margin="0,0,0,16" />
 
-            <!-- Stats grid: 4 columns + unread -->
-            <Grid ColumnDefinitions="*,*,*,*,Auto" ColumnSpacing="10">
-                <VerticalStackLayout Grid.Column="0" Spacing="2">
-                    <Label Text="الميزانية" FontSize="11" TextColor="#64748B" />
-                    <Label Text="{Binding Budget}" FontSize="13" FontAttributes="Bold" TextColor="#16A34A" />
+            <!-- Stats row. projects.html packs the four stats into one `flex items-center gap-6`
+                 group at the start of the row (24px between them, each sized to its own content)
+                 and pushes the unread marker to the far end via `justify-between` — not four equal
+                 columns, which spread the labels ~200px apart from the mockup. Each label is
+                 `mb-1` (4px) above its value. -->
+            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*" ColumnSpacing="24">
+                <VerticalStackLayout Grid.Column="0" Spacing="4">
+                    <Label Text="الميزانية" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
+                    <Label Text="{Binding Budget}" FontSize="13" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#16A34A, Dark=#4ADE80}" />
                 </VerticalStackLayout>
 
-                <VerticalStackLayout Grid.Column="1" Spacing="2">
-                    <Label Text="مدة التسليم" FontSize="11" TextColor="#64748B" />
-                    <Label Text="{Binding Delivery}" FontSize="13" FontAttributes="Bold" TextColor="#0F172A" />
+                <VerticalStackLayout Grid.Column="1" Spacing="4">
+                    <Label Text="مدة التسليم" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
+                    <Label Text="{Binding Delivery}" FontSize="13" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
                 </VerticalStackLayout>
 
-                <VerticalStackLayout Grid.Column="2" Spacing="2">
-                    <Label Text="مدة التنفيذ" FontSize="11" TextColor="#64748B" />
-                    <Label Text="{Binding Execution}" FontSize="13" FontAttributes="Bold" TextColor="#0F172A" />
+                <VerticalStackLayout Grid.Column="2" Spacing="4">
+                    <Label Text="مدة التنفيذ" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
+                    <Label Text="{Binding Execution}" FontSize="13" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
                 </VerticalStackLayout>
 
-                <VerticalStackLayout Grid.Column="3" Spacing="2">
-                    <Label Text="عدد المقترحات" FontSize="11" TextColor="#64748B" />
-                    <Label Text="{Binding ProposalCountText}" FontSize="13" FontAttributes="Bold" TextColor="#0F172A" />
+                <VerticalStackLayout Grid.Column="3" Spacing="4">
+                    <Label Text="عدد المقترحات" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
+                    <!-- The proposals value is the only stat with a leading icon (`fa-users`, `gap-1`). -->
+                    <HorizontalStackLayout Spacing="4">
+                        <components:AppIcon Icon="Users" FontSize="12" VerticalOptions="Center" />
+                        <Label Text="{Binding ProposalCountText}" FontSize="13" FontFamily="TajawalBold" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                    </HorizontalStackLayout>
                 </VerticalStackLayout>
 
                 <HorizontalStackLayout Grid.Column="4"
                                        Spacing="6"
+                                       HorizontalOptions="End"
                                        VerticalOptions="End"
                                        IsVisible="{Binding IsUnread}">
                     <BoxView WidthRequest="8"
                              HeightRequest="8"
-                             Color="#2386C8"
+                             Color="{AppThemeBinding Light=#2386C8, Dark=#5CA8DE}"
                              CornerRadius="4"
                              VerticalOptions="Center" />
-                    <Label Text="غير مقروء" FontSize="11" FontAttributes="Bold" TextColor="#2386C8" VerticalOptions="Center" />
+                    <Label Text="غير مقروء" FontSize="11" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#2386C8, Dark=#5CA8DE}" VerticalOptions="Center" />
                 </HorizontalStackLayout>
             </Grid>
 

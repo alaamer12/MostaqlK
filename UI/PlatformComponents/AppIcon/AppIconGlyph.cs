@@ -4,7 +4,7 @@ namespace MostaqlK.UI.PlatformComponents;
 /// Every icon actually used across the 4 design mockups (projects.html, project-details.html,
 /// settings.html, about.html), named after its semantic use in the app rather than the raw
 /// FontAwesome icon name it originated from (kept in each doc comment below for traceability).
-/// Only 6 values currently have real rasterized artwork under <c>Resources/Images/</c> — see
+/// Only some values have real rasterized artwork under <c>Resources/Images/</c> — see
 /// <see cref="AppIconGlyphExtensions"/> for the resolution mechanism; the rest fall back to the
 /// "info" icon until dedicated artwork is added.
 /// </summary>
@@ -75,8 +75,11 @@ public enum AppIconGlyph
     /// </summary>
     Download,
 
-    /// <summary>Settings page "استعلام الفحص" section header icon. Solid <c>fa-filter</c> (f0b0).</summary>
+    /// <summary>Settings page "استعلام الفحص" section header icon, and the projects.html active-query bar icon. Solid <c>fa-filter</c> (f0b0).</summary>
     Filter,
+
+    /// <summary>Projects feed "عدد المقترحات" stat icon. Solid <c>fa-users</c> (f0c0).</summary>
+    Users,
 
     /// <summary>Settings page query-params-preview icon. Solid <c>fa-link</c> (f0c1).</summary>
     Link,

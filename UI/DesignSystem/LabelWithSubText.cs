@@ -32,9 +32,11 @@ public class LabelWithSubText : ContentView
 
     public LabelWithSubText()
     {
-        _textLabel = new Label { FontSize = 15, HorizontalTextAlignment = TextAlignment.Center };
+        // Tajawal is the mockups' typeface (font-family: 'Tajawal' in every design/mvp/*.html).
+        _textLabel = new Label { FontFamily = "TajawalMedium", FontSize = 15, HorizontalTextAlignment = TextAlignment.Center };
         _subTextLabel = new Label
         {
+            FontFamily = "Tajawal",
             FontSize = 12,
             TextColor = Colors.Gray,
             HorizontalTextAlignment = TextAlignment.Center,

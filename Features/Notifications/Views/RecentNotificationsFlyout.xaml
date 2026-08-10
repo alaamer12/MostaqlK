@@ -15,11 +15,11 @@
             <Shadow Brush="Black" Opacity="0.15" Radius="8" Offset="0,2" />
         </Border.Shadow>
         <VerticalStackLayout Spacing="8">
-            <Label Text="التنبيهات" FontSize="16" FontAttributes="Bold" />
+            <Label Text="التنبيهات" FontSize="16" FontFamily="TajawalBold" />
 
             <CollectionView ItemsSource="{Binding RecentNotifications}" HeightRequest="360">
                 <CollectionView.EmptyView>
-                    <Label Text="لا توجد إشعارات حديثة" FontSize="13" TextColor="Gray" HorizontalOptions="Center" />
+                    <Label Text="لا توجد إشعارات حديثة" FontSize="13" TextColor="Gray" HorizontalOptions="Center" FontFamily="Tajawal" />
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="models:ProjectSummary">
@@ -29,8 +29,8 @@
                                     Command="{Binding BindingContext.OpenProjectCommand, Source={x:Reference RootView}}"
                                     CommandParameter="{Binding .}" />
                             </VerticalStackLayout.GestureRecognizers>
-                            <Label Text="{Binding Title}" FontSize="14" />
-                            <Label Text="{Binding PostedRelative}" FontSize="12" TextColor="Gray" />
+                            <Label Text="{Binding Title}" FontSize="14" FontFamily="Tajawal" />
+                            <Label Text="{Binding PostedRelative}" FontSize="12" TextColor="Gray" FontFamily="Tajawal" />
                         </VerticalStackLayout>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>

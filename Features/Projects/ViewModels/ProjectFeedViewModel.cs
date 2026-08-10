@@ -147,8 +147,19 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
                 Projects.Add(new ProjectCardViewModel(project, card => _ = SelectProjectAsync(card)));
             }
 
-            TrackedCount = Projects.Count;
-            UnreadCount = Projects.Count(p => p.IsUnread);
+            // Status-bar totals count the whole store, not just the page of rows loaded above.
+            var tracked = await _projectRepository.CountTrackedAsync();
+            if (tracked.IsOk)
+            {
+                TrackedCount = tracked.Value.Tracked;
+                UnreadCount = tracked.Value.Unread;
+            }
+            else
+            {
+                TrackedCount = Projects.Count;
+                UnreadCount = Projects.Count(p => p.IsUnread);
+            }
+
             IsEmpty = Projects.Count == 0;
             LastScanText = "آخر فحص: منذ لحظات";
         }

@@ -240,7 +240,16 @@ public sealed class ProjectRepository : IProjectRepository
         {
             using var connection = _connectionFactory.CreateConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "SELECT project_id FROM projects ORDER BY discovered_at DESC LIMIT 1;";
+            // The details page is the only caller: it needs a row that actually has a description,
+            // budget, skills and attachments, so enriched rows win over a newer-but-bare discovery,
+            // and among those the most recently enriched one is shown.
+            command.CommandText = """
+                SELECT project_id
+                FROM projects
+                ORDER BY (enrichment_status = 'Enriched') DESC,
+                         COALESCE(enriched_at, discovered_at) DESC
+                LIMIT 1;
+                """;
             var value = await command.ExecuteScalarAsync(cancellationToken);
             return Result<long?>.Ok(value is null || value is DBNull ? null : Convert.ToInt64(value));
         }
@@ -358,6 +367,55 @@ public sealed class ProjectRepository : IProjectRepository
         catch (SqliteException ex)
         {
             return Result<int>.Err(DatabaseErrors.QueryFailed(nameof(CountAddedTodayAsync), ex));
+        }
+    }
+
+    public async Task<Result<(int Tracked, int Unread)>> CountTrackedAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT COUNT(*), COALESCE(SUM(is_unread), 0) FROM projects;";
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                return Result<(int, int)>.Ok((0, 0));
+            }
+
+            return Result<(int, int)>.Ok((reader.GetInt32(0), reader.GetInt32(1)));
+        }
+        catch (SqliteException ex)
+        {
+            return Result<(int, int)>.Err(DatabaseErrors.QueryFailed(nameof(CountTrackedAsync), ex));
+        }
+    }
+
+    public async Task<Result<bool>> ClearAllAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            using var transaction = connection.BeginTransaction();
+            using (var command = connection.CreateCommand())
+            {
+                command.Transaction = transaction;
+                command.CommandText = """
+                    DELETE FROM assets;
+                    DELETE FROM project_skills;
+                    DELETE FROM projects_fts;
+                    DELETE FROM projects;
+                    """;
+                await command.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+            return Result<bool>.Ok(true);
+        }
+        catch (SqliteException ex)
+        {
+            return Result<bool>.Err(DatabaseErrors.QueryFailed(nameof(ClearAllAsync), ex));
         }
     }
 

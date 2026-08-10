@@ -3,6 +3,12 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
 
+    <!-- NOTE: do NOT add an implicit `<Style TargetType="Label">` here. Verified experimentally:
+         any implicit Label style (even one that only sets an already-used FontFamily) makes this
+         unpackaged WinUI build die during startup before a window appears - the same class of
+         limitation documented for runtime-loaded custom fonts in UNITS.md. Set FontFamily on the
+         individual label/unit instead. -->
+
     <Style TargetType="ActivityIndicator">
         <Setter Property="Color" Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}" />
     </Style>
