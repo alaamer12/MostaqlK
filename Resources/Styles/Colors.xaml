@@ -57,10 +57,10 @@
     <Color x:Key="AccentPositiveDark">#4FBF8C</Color>
 
     <!-- Slate background/surface palette -->
-    <Color x:Key="AppBackgroundLight">#F8FAFC</Color>
+    <Color x:Key="AppBackgroundLight">#F1F5F9</Color>
     <Color x:Key="AppBackgroundDark">#0F172A</Color>
     <Color x:Key="AppSurfaceLight">#FFFFFF</Color>
-    <Color x:Key="AppSurfaceDark">#1E293B</Color>
+    <Color x:Key="AppSurfaceDark">#0F172A</Color>
 
     <!-- Muted "read" project-card border color (unread state uses AccentPrimary as its accent bar) -->
     <Color x:Key="ReadBorderLight">#CBD5E1</Color>

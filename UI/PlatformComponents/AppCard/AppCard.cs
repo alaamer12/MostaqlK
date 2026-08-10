@@ -46,9 +46,9 @@ public partial class AppCard : Border
         StrokeShape = new RoundRectangle { CornerRadius = DesignTokens.CornerRadius.Default };
         StrokeThickness = 1;
         BackgroundColor = Colors.White;
-        Stroke = new SolidColorBrush(DesignTokens.Colors.ReadBorderLight.WithAlpha(0.5f));
-        Padding = new Thickness(DesignTokens.Spacing.XL, DesignTokens.Spacing.L);
-        Shadow = new Shadow { Brush = Colors.Black, Opacity = 0.06f, Radius = 6, Offset = new Point(0, 1) };
+        Stroke = new SolidColorBrush(Color.FromArgb("#E2E8F0"));
+        Padding = new Thickness(24);
+        Shadow = new Shadow { Brush = Colors.Black, Opacity = 0.05f, Radius = 4, Offset = new Point(0, 1) };
         UpdateAccentBorder(false);
     }
 
@@ -59,12 +59,11 @@ public partial class AppCard : Border
 
     private void UpdateAccentBorder(bool isUnread)
     {
-        // MAUI's Border draws a uniform stroke, not a per-edge one, so the 4px accent bar from
-        // .project-card.unread { border-inline-start-color: accent } is approximated with a
-        // slightly heavier stroke tinted with the accent color while unread.
-        StrokeThickness = isUnread ? 1 : 1;
+        // Unread cards use the mockup's blue edge treatment (border-inline-start accent).
+        // MAUI Border can't do per-edge strokes, so use a stronger blue outline for unread.
+        StrokeThickness = isUnread ? 2 : 1;
         Stroke = isUnread
-            ? new SolidColorBrush(DesignTokens.Colors.AccentPrimary)
-            : new SolidColorBrush(DesignTokens.Colors.ReadBorderLight.WithAlpha(0.6f));
+            ? new SolidColorBrush(Color.FromArgb("#2386C8"))
+            : new SolidColorBrush(Color.FromArgb("#E2E8F0"));
     }
 }

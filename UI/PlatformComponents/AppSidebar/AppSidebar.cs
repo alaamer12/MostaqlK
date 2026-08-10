@@ -57,6 +57,11 @@ public partial class AppSidebar : ContentView
         SetRowState(NotificationsButton, NotificationsIcon, NotificationsLabel, ActivePage == SidebarPage.Notifications);
         SetRowState(SettingsButton, SettingsIcon, SettingsLabel, ActivePage == SidebarPage.Settings);
         SetRowState(AboutButton, AboutIcon, AboutLabel, ActivePage == SidebarPage.About);
+        ProjectsActiveBar.IsVisible = ActivePage == SidebarPage.Projects;
+        AdvancedSearchActiveBar.IsVisible = ActivePage == SidebarPage.AdvancedSearch;
+        NotificationsActiveBar.IsVisible = ActivePage == SidebarPage.Notifications;
+        SettingsActiveBar.IsVisible = ActivePage == SidebarPage.Settings;
+        AboutActiveBar.IsVisible = ActivePage == SidebarPage.About;
     }
 
     private static void SetRowState(Border row, AppIcon icon, Label label, bool isActive)

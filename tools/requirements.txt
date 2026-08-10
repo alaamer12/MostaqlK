@@ -1,3 +1,9 @@
 pywin32
 pillow
 psutil
+
+# Used by tools/image_similarity.py
+numpy
+opencv-python-headless
+scikit-image
+ImageHash

@@ -24,20 +24,25 @@
                              SettingsClicked="OnSettingsNavClicked"
                              AboutClicked="OnAboutNavClicked" />
 
-        <Grid Grid.Column="1" RowDefinitions="32,Auto,*" Padding="24,20,24,24" RowSpacing="16">
-            <BoxView Grid.Row="0" BackgroundColor="Transparent" InputTransparent="True" />
-
-            <Border Grid.Row="1" StrokeThickness="1" Stroke="#E2E8F0" BackgroundColor="White" Padding="16,12">
+        <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*" Padding="28,24,28,28" RowSpacing="18">
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <Label Text="⚙" FontSize="24" TextColor="#2563EB" />
+                <VerticalStackLayout Grid.Column="1" Spacing="2">
+                    <Label Text="الإعدادات" FontSize="24" FontAttributes="Bold" TextColor="#0F172A" />
+                    <Label Text="إدارة إعدادات التطبيق وسلوك المراقبة" FontSize="13" TextColor="#64748B" />
+                </VerticalStackLayout>
+            </Grid>
+            <Border Grid.Row="1" BackgroundColor="#EFF6FF" StrokeThickness="0" Padding="16,12">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="12" />
                 </Border.StrokeShape>
-                <Label Text="الإعدادات" FontSize="16" FontAttributes="Bold" TextColor="#0F172A" />
+                <Label Text="ملاحظة MVP: بعض الإعدادات المتقدمة ستُضاف في إصدارات لاحقة." FontSize="13" TextColor="#1D4ED8" />
             </Border>
 
             <ScrollView Grid.Row="2">
                 <VerticalStackLayout Spacing="16">
 
-                    <Border Padding="16" StrokeThickness="1" Stroke="#E2E8F0" BackgroundColor="White">
+                    <Border Padding="20" StrokeThickness="1" Stroke="#E2E8F0" BackgroundColor="White">
                         <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                         <VerticalStackLayout Spacing="4">
                             <Label Text="مشاريع مضافة اليوم" FontSize="14" TextColor="#64748B" />
@@ -54,6 +59,7 @@
                         <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                         <VerticalStackLayout Spacing="16">
 
+                            <Label Text="إعدادات المراقبة" FontSize="18" FontAttributes="Bold" TextColor="#0F172A" />
                             <Grid ColumnDefinitions="*,Auto">
                                 <Label Grid.Column="0" Text="فترة الفحص (ثانية)" VerticalOptions="Center" TextColor="#0F172A" />
                                 <Border Grid.Column="1" StrokeThickness="1" Stroke="#E2E8F0" BackgroundColor="White" Padding="12,8" WidthRequest="100">

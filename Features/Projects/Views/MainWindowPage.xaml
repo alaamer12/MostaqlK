@@ -9,98 +9,226 @@
              xmlns:sidebar="clr-namespace:MostaqlK.UI.PlatformComponents.AppSidebar"
              x:Class="MostaqlK.Features.Projects.Views.MainWindowPage"
              x:DataType="vm:ProjectFeedViewModel"
-             Title="المشاريع"
-             FlowDirection="RightToLeft">
+             Title=""
+             Shell.NavBarIsVisible="False"
+             FlowDirection="RightToLeft"
+             BackgroundColor="#F1F5F9">
 
-    <!-- Layout mirrors projects.html: a shared sidebar nav (AppSidebar unit) and a scrollable
-         project feed covering all four feed states: loading (ShimmerBox), empty/error
-         (LabelWithSubText), and success (CollectionView of ProjectCard). Sidebar nav items
-         match the mockup: المشاريع، البحث المتقدم، التنبيهات (badge)، الإعدادات، حول التطبيق. -->
+    <!-- Layout mirrors projects.html: sidebar + header controls + active-query + dense cards + footer. -->
     <Grid x:Name="Root" BackgroundColor="#F1F5F9" ColumnDefinitions="Auto,*">
 
-    <sidebar:AppSidebar Grid.Column="0"
-                         ActivePage="Projects"
-                         StatValue="{Binding UnreadCount}"
-                         ProjectsClicked="OnProjectsNavClicked"
-                         AdvancedSearchClicked="OnAdvancedSearchNavClicked"
-                         NotificationsClicked="OnNotificationsNavClicked"
-                         SettingsClicked="OnSettingsNavClicked"
-                         AboutClicked="OnAboutNavClicked" />
+        <BoxView Grid.Column="0" Color="White" />
+        <sidebar:AppSidebar Grid.Column="0"
+                            ActivePage="Projects"
+                            StatValue="{Binding ProjectsAddedTodayText}"
+                            ProjectsClicked="OnProjectsNavClicked"
+                            AdvancedSearchClicked="OnAdvancedSearchNavClicked"
+                            NotificationsClicked="OnNotificationsNavClicked"
+                            SettingsClicked="OnSettingsNavClicked"
+                            AboutClicked="OnAboutNavClicked"
+                            VerticalOptions="Fill" />
 
-    <Grid x:Name="FeedContent" Grid.Column="1" RowDefinitions="32,Auto,Auto,Auto,*,Auto" Padding="24,20,24,0" RowSpacing="12" BackgroundColor="#F1F5F9">
+        <Grid x:Name="FeedContent"
+              Grid.Column="1"
+              RowDefinitions="Auto,*,Auto"
+              Padding="24,24,24,0"
+              BackgroundColor="#F1F5F9">
 
-        <BoxView Grid.Row="0" BackgroundColor="Transparent" InputTransparent="True" />
+            <!-- Header controls + active query -->
+            <VerticalStackLayout Grid.Row="0" Spacing="16" Padding="0,0,0,8">
 
-        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" FlowDirection="RightToLeft">
-            <Label Text="المشاريع" FontSize="26" FontAttributes="Bold" TextColor="#0F172A" VerticalOptions="Center" />
-            <Label Grid.Column="1" Text="MostaqlK" FontSize="11" TextColor="#64748B" VerticalOptions="Center" />
-        </Grid>
+                <Border StrokeThickness="1" Stroke="#E2E8F0" BackgroundColor="White" Padding="16">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <components:SearchInputField Grid.Column="0"
+                                                      Text="{Binding SearchQuery}"
+                                                      Placeholder="بحث متقدم في المشاريع (العنوان، الوصف، المهارات، الميزانية...)"
+                                                      PlaceholderColor="#94A3B8"
+                                                      TextColor="#0F172A"
+                                                      BackgroundColor="#F8FAFC"
+                                                      DebounceMilliseconds="300"
+                                                      DebouncedCommand="{Binding SearchCommand}"
+                                                      ClearCommand="{Binding ClearSearchCommand}"
+                                                      HeightRequest="40"
+                                                      VerticalOptions="Center" />
 
-        <Border Grid.Row="2" StrokeThickness="1" Stroke="#E2E8F0" BackgroundColor="White" Padding="16,10">
-            <Border.StrokeShape>
-                <RoundRectangle CornerRadius="12" />
-            </Border.StrokeShape>
-            <components:SearchInputField Text="{Binding SearchQuery}"
-                                          Placeholder="بحث متقدم في المشاريع (العنوان، الوصف، المهارات...)"
-                                          PlaceholderColor="#64748B"
-                                          TextColor="#0F172A"
-                                          DebounceMilliseconds="300"
-                                          DebouncedCommand="{Binding SearchCommand}"
-                                          ClearCommand="{Binding ClearSearchCommand}" />
-        </Border>
+                        <HorizontalStackLayout Grid.Column="1" Spacing="10" VerticalOptions="Center">
+                            <Label Text="{Binding PollIntervalText}"
+                                   FontSize="12"
+                                   TextColor="#64748B"
+                                   VerticalOptions="Center" />
 
-        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Padding="4,0" FlowDirection="RightToLeft">
-            <Label Text="الاستعلام النشط: كل المشاريع" FontSize="12" TextColor="#475569" />
-            <Label Grid.Column="1" Text="تعديل ✎" FontSize="12" TextColor="#2563EB" />
-        </Grid>
+                            <HorizontalStackLayout Spacing="4" VerticalOptions="Center">
+                                <components:AppIcon Icon="Gauge" FontSize="11" TextColor="#94A3B8" VerticalOptions="Center" />
+                                <Label Text="{Binding RateLimitText}"
+                                       FontSize="12"
+                                       TextColor="#64748B"
+                                       VerticalOptions="Center" />
+                            </HorizontalStackLayout>
 
-        <Grid Grid.Row="4" Margin="0,28,0,0">
+                            <Border StrokeThickness="0"
+                                    BackgroundColor="#ECFDF5"
+                                    Padding="10,4"
+                                    VerticalOptions="Center">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="6" />
+                                </Border.StrokeShape>
+                                <HorizontalStackLayout Spacing="6">
+                                    <BoxView WidthRequest="8" HeightRequest="8" Color="#2E9E6B" CornerRadius="4" VerticalOptions="Center" />
+                                    <Label Text="{Binding LiveStatusText}"
+                                           FontSize="12"
+                                           FontAttributes="Bold"
+                                           TextColor="#2E9E6B"
+                                           VerticalOptions="Center" />
+                                </HorizontalStackLayout>
+                            </Border>
 
-            <!-- Loading state -->
-            <VerticalStackLayout Spacing="12" IsVisible="{Binding IsLoading}">
-                <design:ShimmerBox HeightRequest="88" />
-                <design:ShimmerBox HeightRequest="88" />
-                <design:ShimmerBox HeightRequest="88" />
+                            <Border StrokeThickness="0"
+                                    BackgroundColor="#EF4444"
+                                    Padding="12,6"
+                                    VerticalOptions="Center">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="6" />
+                                </Border.StrokeShape>
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding TogglePollingCommand}" />
+                                </Border.GestureRecognizers>
+                                <Label Text="{Binding PollToggleLabel}"
+                                       FontSize="12"
+                                       FontAttributes="Bold"
+                                       TextColor="White"
+                                       VerticalOptions="Center" />
+                            </Border>
+
+                            <Border StrokeThickness="0"
+                                    BackgroundColor="Transparent"
+                                    WidthRequest="32"
+                                    HeightRequest="32"
+                                    VerticalOptions="Center">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="8" />
+                                </Border.StrokeShape>
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnGearTapped" />
+                                </Border.GestureRecognizers>
+                                <components:AppIcon Icon="Gear"
+                                                     FontSize="14"
+                                                     TextColor="#94A3B8"
+                                                     HorizontalOptions="Center"
+                                                     VerticalOptions="Center" />
+                            </Border>
+                        </HorizontalStackLayout>
+                    </Grid>
+                </Border>
+
+                <Border StrokeThickness="1" Stroke="#E2E8F0" BackgroundColor="White" Padding="16,10">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                            <components:AppIcon Icon="Filter" FontSize="11" TextColor="#94A3B8" VerticalOptions="Center" />
+                            <Label Text="الاستعلام النشط:"
+                                   FontSize="13"
+                                   TextColor="#64748B"
+                                   VerticalOptions="Center" />
+                            <Label Text="كل المشاريع"
+                                   FontSize="13"
+                                   FontAttributes="Bold"
+                                   TextColor="#0F172A"
+                                   VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                        <Label Grid.Column="1"
+                               Text="✎  تعديل"
+                               FontSize="13"
+                               FontAttributes="Bold"
+                               TextColor="#2386C8"
+                               VerticalOptions="Center" />
+                    </Grid>
+                </Border>
             </VerticalStackLayout>
 
-            <!-- Error state -->
-            <VerticalStackLayout IsVisible="{Binding HasError}" VerticalOptions="Center">
-                <design:LabelWithSubText Text="{Binding ErrorMessage}" SubText="اضغط لإعادة المحاولة." />
-                <components:AppButton Text="إعادة المحاولة" Command="{Binding RefreshCommand}" HorizontalOptions="Center" Margin="0,12,0,0" />
-            </VerticalStackLayout>
+            <Grid Grid.Row="1">
 
-            <!-- Empty state -->
-            <design:LabelWithSubText IsVisible="{Binding IsEmpty}"
-                                      VerticalOptions="Center"
-                                      Text="لا توجد مشاريع حالياً"
-                                      SubText="سيتم عرض المشاريع الجديدة هنا فور توفرها." />
+                <VerticalStackLayout Spacing="12" IsVisible="{Binding IsLoading}">
+                    <design:ShimmerBox HeightRequest="160" />
+                    <design:ShimmerBox HeightRequest="160" />
+                </VerticalStackLayout>
 
-            <!-- Success state -->
-            <ScrollView IsVisible="{Binding ShowFeed}">
-                <CollectionView ItemsSource="{Binding Projects}">
+                <VerticalStackLayout IsVisible="{Binding HasError}" VerticalOptions="Center">
+                    <design:LabelWithSubText Text="{Binding ErrorMessage}" SubText="اضغط لإعادة المحاولة." />
+                    <components:AppButton Text="إعادة المحاولة" Command="{Binding RefreshCommand}" HorizontalOptions="Center" Margin="0,12,0,0" />
+                </VerticalStackLayout>
+
+                <design:LabelWithSubText IsVisible="{Binding IsEmpty}"
+                                          VerticalOptions="Center"
+                                          Text="لا توجد مشاريع حالياً"
+                                          SubText="سيتم عرض المشاريع الجديدة هنا فور توفرها." />
+
+                <CollectionView IsVisible="{Binding ShowFeed}"
+                                ItemsSource="{Binding Projects}">
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="vm:ProjectCardViewModel">
                             <views:ProjectCard BindingContext="{Binding .}" />
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>
-            </ScrollView>
+
+            </Grid>
+
+            <!-- Footer status bar -->
+            <Grid Grid.Row="2"
+                  ColumnDefinitions="*,Auto"
+                  Padding="0,12"
+                  BackgroundColor="White">
+                <BoxView HeightRequest="1"
+                         Color="#E2E8F0"
+                         VerticalOptions="Start"
+                         Grid.ColumnSpan="2" />
+
+                <HorizontalStackLayout Spacing="10" VerticalOptions="Center" Margin="0,4,0,0">
+                    <Label Text="{Binding TrackedCountText}" FontSize="11" TextColor="#64748B" VerticalOptions="Center" />
+                    <BoxView WidthRequest="4" HeightRequest="4" Color="#CBD5E1" CornerRadius="2" VerticalOptions="Center" />
+                    <Label Text="{Binding UnreadCountText}" FontSize="11" FontAttributes="Bold" TextColor="#2386C8" VerticalOptions="Center" />
+                    <Label Text="تحديد الكل كمقروء"
+                           FontSize="11"
+                           TextColor="#2386C8"
+                           VerticalOptions="Center">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding MarkAllReadCommand}" />
+                        </Label.GestureRecognizers>
+                    </Label>
+                </HorizontalStackLayout>
+
+                <HorizontalStackLayout Grid.Column="1" Spacing="16" VerticalOptions="Center" Margin="0,4,0,0">
+                    <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
+                        <Label Text="الاتصال: متصل" FontSize="11" TextColor="#64748B" VerticalOptions="Center" />
+                        <BoxView WidthRequest="8" HeightRequest="8" Color="#22C55E" CornerRadius="4" VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                    <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
+                        <Label Text="{Binding LastScanText}" FontSize="11" TextColor="#64748B" VerticalOptions="Center" />
+                        <Label Text="↻"
+                               FontSize="12"
+                               TextColor="#64748B"
+                               VerticalOptions="Center">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding RefreshCommand}" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </HorizontalStackLayout>
+                </HorizontalStackLayout>
+            </Grid>
 
         </Grid>
 
-        <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Padding="4,10" BackgroundColor="White" FlowDirection="RightToLeft">
-            <Label Text="●  الاتصال: متصل" TextColor="#2E9E6B" FontSize="12" />
-            <Label Grid.Column="1" Text="آخر فحص: منذ 12 ثانية   ↻" TextColor="#64748B" FontSize="12" />
-        </Grid>
-
-    </Grid>
-
-    <notifViews:RecentNotificationsFlyout x:Name="NotificationsFlyout"
-                                           Grid.Column="1"
-                                           IsVisible="False"
-                                           HorizontalOptions="End"
-                                           VerticalOptions="Start"
-                                           Margin="0,12,12,0" />
+        <notifViews:RecentNotificationsFlyout x:Name="NotificationsFlyout"
+                                               Grid.Column="1"
+                                               IsVisible="False"
+                                               HorizontalOptions="End"
+                                               VerticalOptions="Start"
+                                               Margin="0,12,12,0" />
 
     </Grid>
 

@@ -1,4 +1,5 @@
 using MostaqlK.Features.Projects.ViewModels;
+using MostaqlK.Infrastructure.Database;
 
 namespace MostaqlK.Features.Projects.Views;
 
@@ -6,22 +7,44 @@ namespace MostaqlK.Features.Projects.Views;
 public partial class ProjectDetailsPage : ContentPage
 {
     private readonly ProjectDetailsViewModel _viewModel;
+    private readonly IProjectRepository _projectRepository;
 
     public string? ProjectId { get; set; }
 
-    public ProjectDetailsPage(ProjectDetailsViewModel viewModel)
+    public ProjectDetailsPage(ProjectDetailsViewModel viewModel, IProjectRepository projectRepository)
     {
         InitializeComponent();
         _viewModel = viewModel;
+        _projectRepository = projectRepository;
         BindingContext = _viewModel;
     }
 
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        if (long.TryParse(ProjectId, out var projectId))
+        if (string.IsNullOrWhiteSpace(ProjectId))
+        {
+            var newest = await _projectRepository.GetNewestProjectIdAsync();
+            if (!newest.IsOk)
+            {
+                _viewModel.SetError(newest.Error.ExternalMessage);
+            }
+            else if (newest.Value is long newestId)
+            {
+                await _viewModel.LoadAsync(newestId);
+            }
+            else
+            {
+                _viewModel.SetError("لا توجد مشاريع محفوظة لعرضها.");
+            }
+        }
+        else if (long.TryParse(ProjectId, out var projectId) && projectId > 0)
         {
             await _viewModel.LoadAsync(projectId);
+        }
+        else
+        {
+            _viewModel.SetError("معرّف المشروع غير صالح.");
         }
     }
 

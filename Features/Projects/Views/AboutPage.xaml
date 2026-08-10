@@ -126,7 +126,7 @@
                         </VerticalStackLayout>
                     </Border>
 
-                    <Label Text="مستقل" FontSize="13" TextColor="#2386C8" TextDecorations="Underline" HorizontalOptions="Center">
+                    <Label Text="Mostaqlk ليس تابعًا لمنصة Mostaq.com ولا معتمدًا رسميًا منها." FontSize="12" TextColor="#94A3B8" HorizontalOptions="Center">
                         <Label.GestureRecognizers>
                             <TapGestureRecognizer Tapped="OnMostaqlLinkTapped" />
                         </Label.GestureRecognizers>

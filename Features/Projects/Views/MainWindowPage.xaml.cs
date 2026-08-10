@@ -45,11 +45,16 @@ public partial class MainWindowPage : ContentPage
 
     private async void OnSettingsNavClicked(object? sender, EventArgs e)
     {
-        await Shell.Current.GoToAsync("SettingsPanel");
+        await Shell.Current.GoToAsync("//SettingsPanel");
+    }
+
+    private async void OnGearTapped(object? sender, TappedEventArgs e)
+    {
+        await Shell.Current.GoToAsync("//SettingsPanel");
     }
 
     private async void OnAboutNavClicked(object? sender, EventArgs e)
     {
-        await Shell.Current.GoToAsync("AboutPage");
+        await Shell.Current.GoToAsync("//AboutPage");
     }
 }

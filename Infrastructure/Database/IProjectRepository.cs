@@ -16,6 +16,8 @@ public interface IProjectRepository
 
     Task<Result<IReadOnlyList<ProjectSummary>>> GetRecentAsync(int limit, CancellationToken cancellationToken = default);
 
+    Task<Result<long?>> GetNewestProjectIdAsync(CancellationToken cancellationToken = default);
+
     Task<Result<ProjectDetails?>> GetDetailsAsync(long projectId, CancellationToken cancellationToken = default);
 
     /// <summary>

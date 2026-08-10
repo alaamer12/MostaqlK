@@ -234,6 +234,22 @@ public sealed class ProjectRepository : IProjectRepository
         }
     }
 
+    public async Task<Result<long?>> GetNewestProjectIdAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT project_id FROM projects ORDER BY discovered_at DESC LIMIT 1;";
+            var value = await command.ExecuteScalarAsync(cancellationToken);
+            return Result<long?>.Ok(value is null || value is DBNull ? null : Convert.ToInt64(value));
+        }
+        catch (SqliteException ex)
+        {
+            return Result<long?>.Err(DatabaseErrors.QueryFailed(nameof(GetNewestProjectIdAsync), ex));
+        }
+    }
+
     public async Task<Result<ProjectDetails?>> GetDetailsAsync(long projectId, CancellationToken cancellationToken = default)
     {
         try

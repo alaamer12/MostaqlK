@@ -23,9 +23,8 @@
          (projects.html, settings.html, about.html, project-details.html): logo, 5 nav
          items (المشاريع، البحث المتقدم، التنبيهات، الإعدادات، حول التطبيق) with an
          active-item highlight, the "مشاريع مضافة اليوم" stat card, and the dark-mode row. -->
-    <VerticalStackLayout Spacing="6" Padding="16" WidthRequest="256" BackgroundColor="#F8FAFC">
-        <BoxView HeightRequest="32" BackgroundColor="Transparent" InputTransparent="True" />
-        <HorizontalStackLayout Spacing="12" Margin="0,4,0,20">
+    <VerticalStackLayout Spacing="8" Padding="24,24,16,16" WidthRequest="256" BackgroundColor="#FFFFFF">
+        <HorizontalStackLayout Spacing="12" Margin="0,0,0,16">
             <Border WidthRequest="40" HeightRequest="40" StrokeThickness="0" BackgroundColor="#3B82F6">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="10" />
@@ -42,46 +41,51 @@
             <Border.GestureRecognizers>
                 <TapGestureRecognizer Tapped="OnProjectsClicked" />
             </Border.GestureRecognizers>
-            <HorizontalStackLayout Spacing="12">
-                <components:AppIcon x:Name="ProjectsIcon" Icon="ProjectsList" FontSize="16" WidthRequest="20" />
-                <Label x:Name="ProjectsLabel" Text="المشاريع" FontSize="14" VerticalOptions="Center" />
-            </HorizontalStackLayout>
+            <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
+                <BoxView x:Name="ProjectsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
+                <components:AppIcon Grid.Column="1" x:Name="ProjectsIcon" Icon="ProjectsList" FontSize="16" WidthRequest="20" />
+                <Label Grid.Column="2" x:Name="ProjectsLabel" Text="المشاريع" FontSize="14" FontAttributes="Bold" VerticalOptions="Center" />
+            </Grid>
         </Border>
         <Border x:Name="AdvancedSearchButton" Style="{StaticResource SidebarNavRowStyle}">
             <Border.GestureRecognizers>
                 <TapGestureRecognizer Tapped="OnAdvancedSearchClicked" />
             </Border.GestureRecognizers>
-            <HorizontalStackLayout Spacing="12">
-                <components:AppIcon x:Name="AdvancedSearchIcon" Icon="Search" FontSize="16" WidthRequest="20" />
-                <Label x:Name="AdvancedSearchLabel" Text="البحث المتقدم" FontSize="14" VerticalOptions="Center" />
-            </HorizontalStackLayout>
+            <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
+                <BoxView x:Name="AdvancedSearchActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
+                <components:AppIcon Grid.Column="1" x:Name="AdvancedSearchIcon" Icon="Search" FontSize="16" WidthRequest="20" />
+                <Label Grid.Column="2" x:Name="AdvancedSearchLabel" Text="البحث المتقدم" FontSize="14" VerticalOptions="Center" />
+            </Grid>
         </Border>
         <Border x:Name="NotificationsButton" Style="{StaticResource SidebarNavRowStyle}">
             <Border.GestureRecognizers>
                 <TapGestureRecognizer Tapped="OnNotificationsClicked" />
             </Border.GestureRecognizers>
-            <HorizontalStackLayout Spacing="12">
-                <components:AppIcon x:Name="NotificationsIcon" Icon="Bell" FontSize="16" WidthRequest="20" />
-                <Label x:Name="NotificationsLabel" Text="التنبيهات" FontSize="14" VerticalOptions="Center" />
-            </HorizontalStackLayout>
+            <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
+                <BoxView x:Name="NotificationsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
+                <components:AppIcon Grid.Column="1" x:Name="NotificationsIcon" Icon="Bell" FontSize="16" WidthRequest="20" />
+                <Label Grid.Column="2" x:Name="NotificationsLabel" Text="التنبيهات" FontSize="14" VerticalOptions="Center" />
+            </Grid>
         </Border>
         <Border x:Name="SettingsButton" Style="{StaticResource SidebarNavRowStyle}">
             <Border.GestureRecognizers>
                 <TapGestureRecognizer Tapped="OnSettingsClicked" />
             </Border.GestureRecognizers>
-            <HorizontalStackLayout Spacing="12">
-                <components:AppIcon x:Name="SettingsIcon" Icon="Gear" FontSize="16" WidthRequest="20" />
-                <Label x:Name="SettingsLabel" Text="الإعدادات" FontSize="14" VerticalOptions="Center" />
-            </HorizontalStackLayout>
+            <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
+                <BoxView x:Name="SettingsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
+                <components:AppIcon Grid.Column="1" x:Name="SettingsIcon" Icon="Gear" FontSize="16" WidthRequest="20" />
+                <Label Grid.Column="2" x:Name="SettingsLabel" Text="الإعدادات" FontSize="14" VerticalOptions="Center" />
+            </Grid>
         </Border>
         <Border x:Name="AboutButton" Style="{StaticResource SidebarNavRowStyle}">
             <Border.GestureRecognizers>
                 <TapGestureRecognizer Tapped="OnAboutClicked" />
             </Border.GestureRecognizers>
-            <HorizontalStackLayout Spacing="12">
-                <components:AppIcon x:Name="AboutIcon" Icon="Info" FontSize="16" WidthRequest="20" />
-                <Label x:Name="AboutLabel" Text="حول التطبيق" FontSize="14" VerticalOptions="Center" />
-            </HorizontalStackLayout>
+            <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
+                <BoxView x:Name="AboutActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
+                <components:AppIcon Grid.Column="1" x:Name="AboutIcon" Icon="Info" FontSize="16" WidthRequest="20" />
+                <Label Grid.Column="2" x:Name="AboutLabel" Text="حول التطبيق" FontSize="14" VerticalOptions="Center" />
+            </Grid>
         </Border>
 
         <BoxView VerticalOptions="Fill" />

@@ -129,4 +129,15 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
             OnPropertyChanged(nameof(ShowDetails));
         }
     }
+
+    public void SetError(string message)
+    {
+        Details = null;
+        Skills.Clear();
+        Attachments.Clear();
+        HasError = true;
+        ErrorMessage = message;
+        IsLoading = false;
+        OnPropertyChanged(nameof(ShowDetails));
+    }
 }

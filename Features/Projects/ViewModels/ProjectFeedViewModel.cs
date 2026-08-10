@@ -1,9 +1,11 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Maui.Storage;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Infrastructure.Database.SearchIndex;
 using MostaqlK.Models;
+using MostaqlK.Services.Pipeline;
 
 namespace MostaqlK.Features.Projects.ViewModels;
 
@@ -17,9 +19,13 @@ namespace MostaqlK.Features.Projects.ViewModels;
 public sealed partial class ProjectFeedViewModel : ObservableObject
 {
     private const int RecentLimit = 100;
+    private const string KeyPollIntervalSeconds = "settings_poll_interval_seconds";
+    private const string KeyMaxRequestsPerMinute = "settings_max_requests_per_minute";
 
     private readonly IProjectRepository _projectRepository;
     private readonly FtsQueryService _ftsQueryService;
+    private readonly IPollService _pollService;
+    private readonly TokenBucketRateLimiter _rateLimiter;
 
     public ObservableCollection<ProjectCardViewModel> Projects { get; } = [];
 
@@ -39,15 +45,73 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     public partial string? ErrorMessage { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(UnreadCountText))]
     public partial int UnreadCount { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TrackedCountText))]
+    public partial int TrackedCount { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProjectsAddedTodayText))]
+    public partial int ProjectsAddedTodayCount { get; set; }
+
+    public string ProjectsAddedTodayText => ProjectsAddedTodayCount.ToString();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PollIntervalText))]
+    [NotifyPropertyChangedFor(nameof(LiveStatusText))]
+    [NotifyPropertyChangedFor(nameof(PollToggleLabel))]
+    public partial bool IsPollingActive { get; set; } = true;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PollIntervalText))]
+    public partial int PollIntervalSeconds { get; set; } = 30;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RateLimitText))]
+    public partial int RequestsPerMinute { get; set; } = 12;
+
+    [ObservableProperty]
+    public partial string LastScanText { get; set; } = "آخر فحص: منذ لحظات";
 
     /// <summary>True once loading has finished with no error and at least one result — drives the success-state ScrollView.</summary>
     public bool ShowFeed => !IsLoading && !HasError && !IsEmpty;
 
-    public ProjectFeedViewModel(IProjectRepository projectRepository, FtsQueryService ftsQueryService)
+    public string PollIntervalText => IsPollingActive
+        ? $"يتم الفحص كل {PollIntervalSeconds} ثانية"
+        : "الفحص متوقف";
+
+    public string RateLimitText => $"{RequestsPerMinute} طلب / دقيقة";
+
+    public string LiveStatusText => IsPollingActive ? "مباشر" : "متوقف";
+
+    public string PollToggleLabel => IsPollingActive ? "إيقاف" : "بدء الفحص";
+
+    public string TrackedCountText => $"{TrackedCount} مشروع متتبَّع";
+
+    public string UnreadCountText => $"{UnreadCount} غير مقروء";
+
+    public ProjectFeedViewModel(
+        IProjectRepository projectRepository,
+        FtsQueryService ftsQueryService,
+        IPollService pollService,
+        TokenBucketRateLimiter rateLimiter)
     {
         _projectRepository = projectRepository;
         _ftsQueryService = ftsQueryService;
+        _pollService = pollService;
+        _rateLimiter = rateLimiter;
+
+        RefreshHeaderStatus();
+    }
+
+    public void RefreshHeaderStatus()
+    {
+        PollIntervalSeconds = Preferences.Get(KeyPollIntervalSeconds, _pollService.PollIntervalSeconds);
+        RequestsPerMinute = Preferences.Get(KeyMaxRequestsPerMinute, Math.Max(1, _rateLimiter.Capacity));
+        IsPollingActive = !_pollService.IsPaused;
+        LastScanText = "آخر فحص: منذ لحظات";
     }
 
     [RelayCommand]
@@ -56,8 +120,15 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         IsLoading = true;
         HasError = false;
         ErrorMessage = null;
+        RefreshHeaderStatus();
         try
         {
+            var today = await _projectRepository.CountAddedTodayAsync();
+            if (today.IsOk)
+            {
+                ProjectsAddedTodayCount = today.Value;
+            }
+
             var result = string.IsNullOrWhiteSpace(SearchQuery)
                 ? await _projectRepository.GetRecentAsync(RecentLimit)
                 : await _ftsQueryService.SearchAsync(SearchQuery.Trim());
@@ -76,8 +147,10 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
                 Projects.Add(new ProjectCardViewModel(project, card => _ = SelectProjectAsync(card)));
             }
 
+            TrackedCount = Projects.Count;
             UnreadCount = Projects.Count(p => p.IsUnread);
             IsEmpty = Projects.Count == 0;
+            LastScanText = "آخر فحص: منذ لحظات";
         }
         finally
         {
@@ -102,6 +175,28 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     {
         SearchQuery = string.Empty;
         await LoadAsync();
+    }
+
+    [RelayCommand]
+    public void TogglePolling()
+    {
+        var nextPaused = IsPollingActive;
+        _pollService.SetPaused(nextPaused);
+        IsPollingActive = !_pollService.IsPaused;
+        OnPropertyChanged(nameof(PollIntervalText));
+        OnPropertyChanged(nameof(LiveStatusText));
+        OnPropertyChanged(nameof(PollToggleLabel));
+    }
+
+    [RelayCommand]
+    public void MarkAllRead()
+    {
+        foreach (var project in Projects)
+        {
+            project.MarkAsRead();
+        }
+
+        UnreadCount = Projects.Count(p => p.IsUnread);
     }
 
     [RelayCommand]

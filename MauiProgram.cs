@@ -138,6 +138,15 @@ public static class MauiProgram
 		// icon/menu area) is drawn by the OS with its own (often black/dark) background,
 		// leaving a visible black remnant next to the light caption buttons.
 		appWindow.TitleBar.ExtendsContentIntoTitleBar = true;
+		// Prefer the compact title bar so mockup captures lose less vertical space to chrome.
+		try
+		{
+			titleBar.PreferredHeightOption = TitleBarHeightOption.Collapsed;
+		}
+		catch
+		{
+			// Older Windows App SDK builds may not expose PreferredHeightOption.
+		}
 
 		titleBar.BackgroundColor = Windows.UI.Color.FromArgb(255, 255, 255, 255);
 		titleBar.ForegroundColor = Windows.UI.Color.FromArgb(255, 15, 23, 42);
