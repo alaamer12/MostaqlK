@@ -34,6 +34,6 @@ public partial class SettingsPanel : ContentPage
 
     private async void OnAboutNavClicked(object? sender, EventArgs e)
     {
-        await Shell.Current.GoToAsync("AboutPage");
+        await Shell.Current.GoToAsync("//AboutPage");
     }
 }

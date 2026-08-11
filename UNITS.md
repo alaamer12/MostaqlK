@@ -63,7 +63,13 @@ Location: `UI/DesignSystem/`
 | `TruncatingLabel` | `Label` | Text truncation with `MaxChars` cap + `…` ellipsis. | Scaffold |
 | `LabelWithSubText` | `ContentView`/`Label` | Canonical error display: `ExternalMessage` + `FixMessage`. Used for the feed's empty/error states and the details page's error state. | Implemented |
 
-Planned (folder placeholders exist, no units yet): `IconSystem/`, `Letterbox/`, `Stickers/`.
+Planned (folder placeholders exist, no C# units yet): `IconSystem/`, `Letterbox/`, `Stickers/`. The
+`Letterbox` visual language (dark navy canvas, centered icon scene, sparkle accents, feature pill,
+white bold headline with one green-accented phrase) has been designed and validated in HTML at
+`.repertoire/design/mvp/onboarding.html` (5-step first-run onboarding carousel: background polling,
+notifications, local archive, search, final CTA) — no auth/login screens exist or are planned, per
+`.repertoire/.steering/v2/tech/identity-and-auth.md`. The MAUI `Letterbox` unit itself is still not
+implemented in `UI/DesignSystem/`.
 
 ## Display formatters
 
@@ -145,9 +151,9 @@ Location: `UI/TrayIcon/`
 ## Typography convention (Tajawal)
 
 Every mockup (`.repertoire/design/mvp/projects.html`, `project-details.html`, `settings.html`,
-`about.html`) sets `font-family: 'Tajawal'` on `body`, so **every text-rendering element in the app
-uses a Tajawal face**. The registered alias is picked from the matching element's Tailwind weight
-class in the mockup:
+`about.html`, `onboarding.html`) sets `font-family: 'Tajawal'` on `body`, so **every text-rendering
+element in the app uses a Tajawal face**. The registered alias is picked from the matching
+element's Tailwind weight class in the mockup:
 
 | Mockup weight class | `FontFamily` | Typical use |
 |---|---|---|

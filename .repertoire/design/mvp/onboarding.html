@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mostaqlk — أول تشغيل</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<style data-purpose="custom-styles">
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');
+
+    body {
+        font-family: 'Tajawal', sans-serif;
+    }
+
+    :root {
+        --accent-primary: #2386C8;   /* Mostaql blue — brand/identity */
+        --accent-positive: #2E9E6B;  /* nature green — state/health */
+    }
+
+    /* Onboarding is a fixed, branded surface — dark navy canvas regardless of the
+       app's active light/dark theme (DESIGN.md § Onboarding illustrations). */
+    .letterbox {
+        background: radial-gradient(circle at 30% 20%, #163a63 0%, #0b1e35 55%, #081526 100%);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .sparkle {
+        position: absolute;
+        opacity: 0.85;
+    }
+
+    .feature-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.35rem 0.9rem;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+    }
+
+    .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background-color: #cbd5e1;
+        transition: all 0.25s ease;
+    }
+    .dot.active {
+        width: 22px;
+        background-color: var(--accent-primary);
+    }
+
+    .step-panel {
+        display: none;
+    }
+    .step-panel.active {
+        display: flex;
+    }
+</style>
+</head>
+<body class="h-screen w-screen flex items-center justify-center bg-slate-100 overflow-hidden">
+<!-- BEGIN: Onboarding window -->
+<div class="w-full h-full max-w-3xl max-h-[720px] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden" data-purpose="onboarding-window">
+
+    <!-- Skip -->
+    <div class="flex justify-start p-4 shrink-0">
+        <button class="text-slate-400 hover:text-slate-600 text-sm font-medium transition-colors" onclick="goToStep(TOTAL_STEPS - 1)">
+            تخطي
+        </button>
+    </div>
+
+    <!-- Steps -->
+    <div class="flex-1 flex flex-col min-h-0" data-purpose="steps-container">
+
+        <!-- STEP 1 — Background polling -->
+        <div class="step-panel active flex-1 flex-col" data-step="0">
+            <div class="letterbox flex-1 flex items-center justify-center relative">
+                <i class="fa-solid fa-plus sparkle text-blue-400 text-lg" style="top: 18%; left: 20%;"></i>
+                <i class="fa-solid fa-plus sparkle text-green-400 text-sm" style="top: 65%; left: 15%;"></i>
+                <i class="fa-solid fa-star sparkle text-blue-300 text-xs" style="top: 30%; left: 78%;"></i>
+                <i class="fa-solid fa-plus sparkle text-green-400 text-lg" style="top: 70%; left: 80%;"></i>
+                <i class="fa-solid fa-star sparkle text-blue-300 text-sm" style="top: 15%; left: 65%;"></i>
+
+                <div class="relative z-10 w-32 h-32 rounded-3xl bg-white/10 backdrop-blur flex items-center justify-center">
+                    <i class="fa-solid fa-satellite-dish text-white text-5xl"></i>
+                    <div class="absolute -top-2 -end-2 w-8 h-8 rounded-full flex items-center justify-center" style="background-color: var(--accent-positive);">
+                        <div class="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="p-8 text-center shrink-0">
+                <span class="feature-pill bg-blue-500/10 text-blue-600 mb-3">
+                    <i class="fa-solid fa-bolt text-[10px]"></i>
+                    فحص مستمر
+                </span>
+                <h2 class="text-2xl font-black text-slate-900 leading-relaxed mb-2">
+                    نرصد مشاريع مستقل <span style="color: var(--accent-positive);">لحظة نشرها</span>
+                </h2>
+                <p class="text-slate-500 text-sm leading-relaxed">
+                    التطبيق يعمل في الخلفية ويفحص المشاريع الجديدة بشكل دوري دون أي تدخل منك.
+                </p>
+            </div>
+        </div>
+
+        <!-- STEP 2 — Notifications -->
+        <div class="step-panel flex-col" data-step="1">
+            <div class="letterbox flex-1 flex items-center justify-center relative">
+                <i class="fa-solid fa-plus sparkle text-blue-400 text-lg" style="top: 20%; left: 75%;"></i>
+                <i class="fa-solid fa-star sparkle text-green-400 text-sm" style="top: 68%; left: 22%;"></i>
+                <i class="fa-solid fa-plus sparkle text-blue-300 text-xs" style="top: 75%; left: 70%;"></i>
+                <i class="fa-solid fa-star sparkle text-green-300 text-sm" style="top: 18%; left: 18%;"></i>
+
+                <div class="relative z-10 w-32 h-32 rounded-3xl bg-white/10 backdrop-blur flex items-center justify-center">
+                    <i class="fa-regular fa-bell text-white text-5xl"></i>
+                    <div class="absolute -top-2 -end-2 w-8 h-8 rounded-full flex items-center justify-center bg-red-500 text-white text-xs font-bold">
+                        3
+                    </div>
+                </div>
+            </div>
+            <div class="p-8 text-center shrink-0">
+                <span class="feature-pill bg-green-500/10 text-green-600 mb-3">
+                    <i class="fa-solid fa-bell text-[10px]"></i>
+                    تنبيهات فورية
+                </span>
+                <h2 class="text-2xl font-black text-slate-900 leading-relaxed mb-2">
+                    إشعار فوري <span style="color: var(--accent-positive);">بمجرد الإثراء</span>
+                </h2>
+                <p class="text-slate-500 text-sm leading-relaxed">
+                    استقبل تنبيهًا سطحيًا بمجرد اكتمال بيانات المشروع، فتحه ينقلك مباشرة إلى تفاصيله.
+                </p>
+            </div>
+        </div>
+
+        <!-- STEP 3 — Local archive -->
+        <div class="step-panel flex-col" data-step="2">
+            <div class="letterbox flex-1 flex items-center justify-center relative">
+                <i class="fa-solid fa-plus sparkle text-blue-400 text-lg" style="top: 22%; left: 22%;"></i>
+                <i class="fa-solid fa-star sparkle text-green-400 text-sm" style="top: 72%; left: 78%;"></i>
+                <i class="fa-solid fa-plus sparkle text-blue-300 text-xs" style="top: 68%; left: 18%;"></i>
+                <i class="fa-solid fa-star sparkle text-green-300 text-sm" style="top: 16%; left: 72%;"></i>
+
+                <div class="relative z-10 w-32 h-32 rounded-3xl bg-white/10 backdrop-blur flex items-center justify-center">
+                    <i class="fa-solid fa-box-archive text-white text-5xl"></i>
+                </div>
+            </div>
+            <div class="p-8 text-center shrink-0">
+                <span class="feature-pill bg-blue-500/10 text-blue-600 mb-3">
+                    <i class="fa-solid fa-database text-[10px]"></i>
+                    أرشفة محلية
+                </span>
+                <h2 class="text-2xl font-black text-slate-900 leading-relaxed mb-2">
+                    كل مشروع <span style="color: var(--accent-positive);">محفوظ عندك</span>
+                </h2>
+                <p class="text-slate-500 text-sm leading-relaxed">
+                    تُحفظ جميع المشاريع محليًا على جهازك — بلا حساب وبلا اعتماد على أي خادم سحابي.
+                </p>
+            </div>
+        </div>
+
+        <!-- STEP 4 — Search -->
+        <div class="step-panel flex-col" data-step="3">
+            <div class="letterbox flex-1 flex items-center justify-center relative">
+                <i class="fa-solid fa-plus sparkle text-blue-400 text-lg" style="top: 20%; left: 76%;"></i>
+                <i class="fa-solid fa-star sparkle text-green-400 text-sm" style="top: 70%; left: 20%;"></i>
+                <i class="fa-solid fa-plus sparkle text-blue-300 text-xs" style="top: 72%; left: 76%;"></i>
+                <i class="fa-solid fa-star sparkle text-green-300 text-sm" style="top: 18%; left: 20%;"></i>
+
+                <div class="relative z-10 w-32 h-32 rounded-3xl bg-white/10 backdrop-blur flex items-center justify-center">
+                    <i class="fa-solid fa-magnifying-glass text-white text-5xl"></i>
+                </div>
+            </div>
+            <div class="p-8 text-center shrink-0">
+                <span class="feature-pill bg-green-500/10 text-green-600 mb-3">
+                    <i class="fa-solid fa-magnifying-glass text-[10px]"></i>
+                    بحث متقدم
+                </span>
+                <h2 class="text-2xl font-black text-slate-900 leading-relaxed mb-2">
+                    اعثر على أي مشروع <span style="color: var(--accent-positive);">في ثوانٍ</span>
+                </h2>
+                <p class="text-slate-500 text-sm leading-relaxed">
+                    بحث متقدم في العنوان والوصف والمهارات والميزانية ضمن كل ما رصدته من قبل.
+                </p>
+            </div>
+        </div>
+
+        <!-- STEP 5 — Get started (no illustration, final CTA) -->
+        <div class="step-panel flex-col" data-step="4">
+            <div class="letterbox flex-1 flex items-center justify-center relative">
+                <i class="fa-solid fa-plus sparkle text-blue-400 text-lg" style="top: 22%; left: 24%;"></i>
+                <i class="fa-solid fa-star sparkle text-green-400 text-sm" style="top: 66%; left: 74%;"></i>
+                <i class="fa-solid fa-plus sparkle text-green-300 text-xs" style="top: 70%; left: 22%;"></i>
+                <i class="fa-solid fa-star sparkle text-blue-300 text-sm" style="top: 18%; left: 70%;"></i>
+
+                <div class="relative z-10 w-32 h-32 rounded-3xl flex items-center justify-center text-white font-black text-5xl" style="background-color: var(--accent-primary);">
+                    M
+                </div>
+            </div>
+            <div class="p-8 text-center shrink-0">
+                <h2 class="text-2xl font-black text-slate-900 leading-relaxed mb-2">
+                    جاهز؟ <span style="color: var(--accent-positive);">لنبدأ الرصد</span>
+                </h2>
+                <p class="text-slate-500 text-sm leading-relaxed">
+                    يمكنك تعديل استعلام البحث وفترة الفحص لاحقًا من الإعدادات في أي وقت.
+                </p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Footer: dots + next -->
+    <div class="flex items-center justify-between p-6 pt-2 shrink-0" data-purpose="onboarding-footer">
+        <div class="flex items-center gap-2" data-purpose="dots">
+            <div class="dot active" data-dot="0"></div>
+            <div class="dot" data-dot="1"></div>
+            <div class="dot" data-dot="2"></div>
+            <div class="dot" data-dot="3"></div>
+            <div class="dot" data-dot="4"></div>
+        </div>
+        <button id="next-btn" class="flex items-center gap-2 px-6 py-2.5 rounded-lg text-white font-bold text-sm transition-colors" style="background-color: var(--accent-primary);" onclick="nextStep()">
+            <span id="next-label">التالي</span>
+            <i class="fa-solid fa-arrow-left text-xs"></i>
+        </button>
+    </div>
+
+</div>
+<!-- END: Onboarding window -->
+
+<script>
+    const TOTAL_STEPS = 5;
+    let currentStep = 0;
+
+    function render() {
+        document.querySelectorAll('.step-panel').forEach(el => {
+            el.classList.toggle('active', Number(el.dataset.step) === currentStep);
+        });
+        document.querySelectorAll('.dot').forEach(el => {
+            el.classList.toggle('active', Number(el.dataset.dot) === currentStep);
+        });
+        const label = document.getElementById('next-label');
+        const icon = document.getElementById('next-btn').querySelector('i');
+        if (currentStep === TOTAL_STEPS - 1) {
+            label.textContent = 'ابدأ الاستخدام';
+            icon.className = 'fa-solid fa-check text-xs';
+        } else {
+            label.textContent = 'التالي';
+            icon.className = 'fa-solid fa-arrow-left text-xs';
+        }
+    }
+
+    function nextStep() {
+        if (currentStep === TOTAL_STEPS - 1) {
+            // Final step — proceed into the app (no-op in this static mockup).
+            return;
+        }
+        currentStep = Math.min(currentStep + 1, TOTAL_STEPS - 1);
+        render();
+    }
+
+    function goToStep(step) {
+        currentStep = Math.max(0, Math.min(step, TOTAL_STEPS - 1));
+        render();
+    }
+
+    render();
+</script>
+</body>
+</html>
