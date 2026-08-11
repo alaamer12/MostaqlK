@@ -40,6 +40,7 @@ copied to the clipboard, and opened in a preview window with a Save As option.
 
 import argparse
 import ctypes
+import ctypes.wintypes
 import logging
 import os
 import re
@@ -206,6 +207,56 @@ def capture_window(hwnd, flip_override=None) -> Image.Image:
         log.debug("capture_window: flipping image horizontally to correct RTL mirroring")
         image = image.transpose(Image.FLIP_LEFT_RIGHT)
 
+    return image
+
+
+def capture_window_with_frame(hwnd) -> Image.Image:
+    """Capture a specific window INCLUDING its native OS-drawn frame (title
+    bar, caption buttons, drop shadow / rounded corners).
+
+    `capture_window()` uses PrintWindow, which only renders the window's own
+    client-area content - it never includes the non-client chrome that
+    Windows/DWM composites on top (the title bar and its caption buttons in
+    particular). To see what the *real* window frame looks like (e.g. to
+    check whether native vs. custom title-bar buttons are being drawn), grab
+    the actual composited pixels straight off the screen instead.
+
+    This only works correctly if the window isn't occluded by other windows,
+    since it reads real screen pixels rather than the window's own bitmap.
+    """
+    log.debug("capture_window_with_frame: hwnd=%s title=%r", hwnd, win32gui.GetWindowText(hwnd))
+
+    # DWMWA_EXTENDED_FRAME_BOUNDS (9) gives the true visible outer bounds of
+    # the window (including the border DWM draws), which is more accurate
+    # than GetWindowRect for modern (DWM-composited) windows - GetWindowRect
+    # can include several extra pixels of invisible resize-border padding.
+    rect = ctypes.wintypes.RECT()
+    hresult = ctypes.windll.dwmapi.DwmGetWindowAttribute(
+        ctypes.wintypes.HWND(hwnd),
+        ctypes.wintypes.DWORD(9),  # DWMWA_EXTENDED_FRAME_BOUNDS
+        ctypes.byref(rect),
+        ctypes.sizeof(rect),
+    )
+    if hresult == 0:
+        left, top, right, bottom = rect.left, rect.top, rect.right, rect.bottom
+        log.debug("capture_window_with_frame: DwmGetWindowAttribute bounds=(%s,%s,%s,%s)",
+                  left, top, right, bottom)
+    else:
+        left, top, right, bottom = win32gui.GetWindowRect(hwnd)
+        log.debug("capture_window_with_frame: DWM call failed (hresult=%s), "
+                  "falling back to GetWindowRect=(%s,%s,%s,%s)",
+                  hresult, left, top, right, bottom)
+
+    # Bring the window to the foreground so it isn't occluded by whatever we
+    # are capturing from (e.g. this very terminal window).
+    try:
+        win32gui.SetForegroundWindow(hwnd)
+        time.sleep(0.2)
+    except Exception as e:
+        log.debug("capture_window_with_frame: SetForegroundWindow failed: %s", e)
+
+    image = ImageGrab.grab(bbox=(left, top, right, bottom), all_screens=True)
+    log.debug("capture_window_with_frame: produced image size=%s", image.size)
     return image
 
 
@@ -608,6 +659,13 @@ def build_arg_parser():
                           help="drag-to-select rectangle picker (ignores target options)")
     actions.add_argument("--gui", action="store_true",
                           help="launch the full button-based GUI app")
+    actions.add_argument("--include-frame", action="store_true",
+                          help="capture the real, on-screen window INCLUDING its native "
+                               "OS-drawn frame/title bar/caption buttons, instead of just the "
+                               "window's own client-area content (PrintWindow never renders "
+                               "the non-client chrome, so this is the only way to see what the "
+                               "actual title bar looks like). The window is brought to the "
+                               "foreground so it isn't occluded.")
 
     out = parser.add_argument_group("output")
     out.add_argument("-o", "--output",
@@ -654,11 +712,15 @@ def print_candidates(candidates):
 
 
 def capture_and_save(hwnd, pid, output=None, copy_clip=True, preview=False, tk_root=None,
-                      flip_override=None):
+                      flip_override=None, include_frame=False):
     log.debug("capture_and_save: hwnd=%s pid=%s output=%r copy_clip=%s preview=%s "
-              "flip_override=%s", hwnd, pid, output, copy_clip, preview, flip_override)
+              "flip_override=%s include_frame=%s", hwnd, pid, output, copy_clip, preview,
+              flip_override, include_frame)
     try:
-        img = capture_window(hwnd, flip_override=flip_override)
+        if include_frame:
+            img = capture_window_with_frame(hwnd)
+        else:
+            img = capture_window(hwnd, flip_override=flip_override)
     except Exception:
         log.debug("capture_and_save: capture_window raised:\n%s", traceback.format_exc())
         raise
@@ -789,7 +851,8 @@ def run_cli(args):
             capture_and_save(hwnd, pid, output=args.output,
                               copy_clip=not args.no_clipboard,
                               preview=args.preview, tk_root=root,
-                              flip_override=resolve_flip_override(args))
+                              flip_override=resolve_flip_override(args),
+                              include_frame=args.include_frame)
             if not args.preview:
                 root.destroy()
 
@@ -851,6 +914,7 @@ def run_cli(args):
             preview=args.preview,
             tk_root=root,
             flip_override=resolve_flip_override(args),
+            include_frame=args.include_frame,
         )
         if root and not args.preview:
             root.destroy()

@@ -222,9 +222,10 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private void ApplyTheme()
     {
-        // No other theming mechanism exists yet in the app (no UserAppTheme usage anywhere),
-        // so this is the single, canonical place dark-mode gets applied via MAUI's built-in
-        // per-app theme switch.
+        // Dark-mode gets applied via MAUI's built-in per-app theme switch. The sidebar's own
+        // dark-mode row (AppSidebar.OnDarkModeToggleToggled) applies the same UserAppTheme/
+        // Preferences write directly so it works from every page, not just Settings; both stay
+        // in sync via Application.RequestedThemeChanged.
         if (Application.Current is { } app)
         {
             app.UserAppTheme = IsDarkMode ? AppTheme.Dark : AppTheme.Light;

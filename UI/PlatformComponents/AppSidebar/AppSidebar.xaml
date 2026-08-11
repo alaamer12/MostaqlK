@@ -2,6 +2,7 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:components="clr-namespace:MostaqlK.UI.PlatformComponents"
+             xmlns:platform="clr-namespace:MostaqlK.UI.PlatformComponents"
              x:Class="MostaqlK.UI.PlatformComponents.AppSidebar.AppSidebar"
              x:Name="Root">
 
@@ -154,23 +155,10 @@
                            TextColor="{AppThemeBinding Light=#475569, Dark=#94A3B8}"
                            FontFamily="Tajawal" />
                 </HorizontalStackLayout>
-                <!-- The mockup's toggle is a plain 40x24 pill with a 16x16 white knob
-                     (`w-10 h-6 bg-slate-300 dark:bg-blue-600 rounded-full`), not an OS switch;
-                     a native Switch renders nothing like it at any scale. -->
-                <Border Grid.Column="2" x:Name="DarkModePill" WidthRequest="40" HeightRequest="24"
-                        StrokeThickness="0" VerticalOptions="Center" Padding="4,0"
-                        BackgroundColor="{AppThemeBinding Light=#CBD5E1, Dark=#2563EB}">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="12" />
-                    </Border.StrokeShape>
-                    <Border x:Name="DarkModeKnob" WidthRequest="16" HeightRequest="16" StrokeThickness="0"
-                            BackgroundColor="White" VerticalOptions="Center"
-                            HorizontalOptions="End">
-                        <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="8" />
-                        </Border.StrokeShape>
-                    </Border>
-                </Border>
+                <!-- Reuses the same AppToggle unit as the settings dark-mode switch (UI/PlatformComponents/AppToggle)
+                     instead of a purely-decorative pill, so the sidebar toggle actually flips the theme
+                     via AppSidebar.OnDarkModeToggleToggled below. -->
+                <platform:AppToggle Grid.Column="2" x:Name="DarkModeToggle" AutomationId="Sidebar_DarkModeToggle" VerticalOptions="Center" />
             </Grid>
         </VerticalStackLayout>
     </Grid>

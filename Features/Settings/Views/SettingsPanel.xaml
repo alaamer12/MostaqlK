@@ -127,7 +127,7 @@
 
                             <Grid ColumnDefinitions="*,Auto">
                                 <Label Grid.Column="0" Text="الوضع الليلي" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" FontFamily="Tajawal" />
-                                <platform:AppToggle Grid.Column="1" AutomationId="Settings_DarkModeToggle" IsToggled="{Binding IsDarkMode}" />
+                                <platform:AppToggle x:Name="DarkModeToggle" Grid.Column="1" AutomationId="Settings_DarkModeToggle" IsToggled="{Binding IsDarkMode}" />
                             </Grid>
 
                             <Button Text="حفظ" AutomationId="Settings_SaveButton" Command="{Binding SaveCommand}" HorizontalOptions="End" BackgroundColor="{AppThemeBinding Light=#2563EB, Dark=#3B82F6}" TextColor="White" FontFamily="Tajawal" />

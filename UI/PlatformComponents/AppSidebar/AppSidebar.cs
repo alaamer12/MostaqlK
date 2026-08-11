@@ -11,6 +11,10 @@ namespace MostaqlK.UI.PlatformComponents.AppSidebar;
 /// </summary>
 public partial class AppSidebar : ContentView
 {
+    // Same Preferences key SettingsViewModel persists dark-mode under, so a toggle from either
+    // the sidebar or the Settings page row stays in sync everywhere it appears.
+    private const string KeyIsDarkMode = "settings_is_dark_mode";
+
     public static readonly BindableProperty StatValueProperty = BindableProperty.Create(
         nameof(StatValue), typeof(string), typeof(AppSidebar), "0");
 
@@ -55,13 +59,55 @@ public partial class AppSidebar : ContentView
     private const string InactiveTextLight = "#475569";
     private const string InactiveTextDark = "#94A3B8";
 
+    private bool _suppressToggleHandler;
+
     public AppSidebar()
     {
         InitializeComponent();
         ApplyActiveState();
+        SyncDarkModeToggleFromCurrentTheme();
+        DarkModeToggle.Toggled += OnDarkModeToggleToggled;
         if (Application.Current is { } app)
         {
-            app.RequestedThemeChanged += (_, _) => ApplyActiveState();
+            app.RequestedThemeChanged += (_, _) =>
+            {
+                ApplyActiveState();
+                SyncDarkModeToggleFromCurrentTheme();
+            };
+        }
+    }
+
+    private void SyncDarkModeToggleFromCurrentTheme()
+    {
+        _suppressToggleHandler = true;
+        DarkModeToggle.IsToggled = Application.Current?.RequestedTheme == AppTheme.Dark;
+        _suppressToggleHandler = false;
+    }
+
+    [TraceInteraction("Sidebar_DarkModeToggle")]
+    [MostaqlK.Core.ErrorOutcome(MostaqlK.Core.ErrorOutcome.Rethrown, Label = "Sidebar_DarkModeToggle")]
+    private void OnDarkModeToggleToggled(object? sender, ToggledEventArgs e)
+    {
+        // Reentrancy guard: SyncDarkModeToggleFromCurrentTheme sets IsToggled in response to a
+        // theme change, which would otherwise re-enter this handler and re-apply the same theme.
+        if (_suppressToggleHandler)
+        {
+            return;
+        }
+
+        using var _ = TraceScope.Begin("Sidebar_DarkModeToggle");
+        try
+        {
+            Microsoft.Maui.Storage.Preferences.Set(KeyIsDarkMode, e.Value);
+            if (Application.Current is { } app)
+            {
+                app.UserAppTheme = e.Value ? AppTheme.Dark : AppTheme.Light;
+            }
+        }
+        catch (Exception ex)
+        {
+            _.MarkFaulted(ex);
+            throw;
         }
     }
 
