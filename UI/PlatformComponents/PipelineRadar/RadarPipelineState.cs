@@ -218,6 +218,16 @@ public sealed class RadarPipelineState
     public int HoveredWorker { get; private set; } = -1;
     public int FocusedWorker { get; private set; } = -1;
 
+    /// <summary>
+    /// A ring the user explicitly *clicked* (discovery or queue), as opposed to merely hovered.
+    /// Hover is transient - it disappears the moment the pointer leaves the dial, which is why
+    /// clicking the queue ring used to look like it did nothing at all: there was no state for a
+    /// click on anything but a worker segment, so no emphasis survived the pointer leaving and no
+    /// drill-in stayed pinned. This value is sticky until the same ring (or empty space) is clicked
+    /// again, and it feeds the same smoothed emphasis values hover already drives.
+    /// </summary>
+    public RadarRegion SelectedRegion { get; private set; }
+
     public double DiscoveryEmphasis { get; private set; }
     private double _discoveryEmphasisTarget;
     private double _discoveryEmphasisVelocity;
@@ -400,6 +410,13 @@ public sealed class RadarPipelineState
     /// <summary>Focus mode: the chosen worker dominates, the others (and unrelated rings) quieten.</summary>
     public void SetFocusedWorker(int workerIndex) => FocusedWorker = workerIndex;
 
+    /// <summary>
+    /// Pins (or releases, with <see cref="RadarRegion.None"/>) a clicked ring. Worker segments are
+    /// expressed through <see cref="FocusedWorker"/> instead, so they are never stored here.
+    /// </summary>
+    public void SetSelectedRegion(RadarRegion region) =>
+        SelectedRegion = region == RadarRegion.Worker ? RadarRegion.None : region;
+
     public RadarProjectToken? TokenOfWorker(int workerIndex)
     {
         foreach (var token in _tokens)
@@ -526,9 +543,13 @@ public sealed class RadarPipelineState
         }
 
         // --- interaction emphasis ---
-        _discoveryEmphasisTarget = HoveredRegion == RadarRegion.Discovery ? 1 : 0;
-        _queueEmphasisTarget = HoveredRegion == RadarRegion.Queue ? 1 : 0;
-        _dimmingTarget = FocusedWorker >= 0 ? 1 : (HoveredRegion != RadarRegion.None ? 0.45 : 0);
+        // A pinned ring keeps its emphasis after the pointer has left, so a click has a visible,
+        // lasting effect instead of vanishing with the hover.
+        _discoveryEmphasisTarget = HoveredRegion == RadarRegion.Discovery || SelectedRegion == RadarRegion.Discovery ? 1 : 0;
+        _queueEmphasisTarget = HoveredRegion == RadarRegion.Queue || SelectedRegion == RadarRegion.Queue ? 1 : 0;
+        _dimmingTarget = FocusedWorker >= 0
+            ? 1
+            : (HoveredRegion != RadarRegion.None || SelectedRegion != RadarRegion.None ? 0.45 : 0);
         _connectorTarget = FocusedWorker >= 0 && !ReducedMotion ? 1 : 0;
 
         DiscoveryEmphasis = SmoothDamp(DiscoveryEmphasis, _discoveryEmphasisTarget, ref _discoveryEmphasisVelocity, EmphasisSmoothTime, dt);

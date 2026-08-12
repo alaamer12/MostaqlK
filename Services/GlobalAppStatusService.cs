@@ -161,6 +161,13 @@ public sealed partial class GlobalAppStatusService : ObservableObject
     // Enqueue timestamps, so the queue tooltip can report the oldest item and the average wait.
     private readonly Dictionary<long, DateTimeOffset> _queueEnqueuedAt = new();
     private readonly object _queueSync = new();
+
+    /// <summary>
+    /// Project id -> title, remembered from the discovery listing so every later pipeline stage can
+    /// name a project semantically. Guarded by <c>_queueSync</c>.
+    /// </summary>
+    private readonly Dictionary<long, string> _projectTitles = new();
+    private const int MaxRememberedTitles = 512;
     private double _waitSecondsTotal;
     private int _waitSamples;
 
@@ -256,9 +263,46 @@ public sealed partial class GlobalAppStatusService : ObservableObject
         lock (_queueSync)
         {
             _queueEnqueuedAt[projectId] = DateTimeOffset.UtcNow;
+            RegisterTitle(projectId, title);
         }
 
         ProjectDiscovered?.Invoke(projectId, title);
+    }
+
+    /// <summary>
+    /// Remembers the human-readable title a project was discovered with, so every later stage can
+    /// name it. The pipeline only writes a project row once it has been *enriched*, so between
+    /// discovery and completion the listing snapshot is the single place a title exists at all -
+    /// which is why the worker cards used to show a bare `#1267826` instead of the project name.
+    /// Must be called while holding <c>_queueSync</c>.
+    /// </summary>
+    private void RegisterTitle(long projectId, string title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            return;
+        }
+
+        _projectTitles[projectId] = title.Trim();
+
+        // Bounded: a long-running session discovers thousands of projects and only the in-flight
+        // ones are ever asked about, so the oldest entries are dropped rather than kept forever.
+        if (_projectTitles.Count > MaxRememberedTitles)
+        {
+            foreach (var stale in _projectTitles.Keys.Take(_projectTitles.Count - MaxRememberedTitles).ToList())
+            {
+                _projectTitles.Remove(stale);
+            }
+        }
+    }
+
+    /// <summary>The remembered title for a project, or an empty string when we never saw one.</summary>
+    public string TitleOf(long projectId)
+    {
+        lock (_queueSync)
+        {
+            return _projectTitles.TryGetValue(projectId, out var title) ? title : string.Empty;
+        }
     }
 
     public void NotifyProjectAssignedToWorker(int workerIndex, long projectId, string title = "")
@@ -274,10 +318,36 @@ public sealed partial class GlobalAppStatusService : ObservableObject
             }
         }
 
+        var resolved = string.IsNullOrWhiteSpace(title) ? TitleOf(projectId) : title.Trim();
+
         var worker = Workers[workerIndex];
         worker.CurrentProjectId = projectId;
-        worker.CurrentProjectTitle = string.IsNullOrEmpty(title) ? $"#{projectId}" : title;
+        // The id is only a last resort now: the caller's title wins, then the title remembered from
+        // discovery, and `#id` only remains for a project recovered from the persisted backlog whose
+        // listing row this process never saw (it is replaced by the real title the moment the detail
+        // page is parsed - see UpdateWorkerProjectTitle).
+        worker.CurrentProjectTitle = string.IsNullOrEmpty(resolved) ? $"#{projectId}" : resolved;
 
+        ProjectAssignedToWorker?.Invoke(workerIndex, projectId, worker.CurrentProjectTitle);
+    }
+
+    /// <summary>
+    /// Replaces a worker's current project title once a better one is known (the enriched detail
+    /// page). Ignored if the worker has already moved on to another project.
+    /// </summary>
+    public void UpdateWorkerProjectTitle(int workerIndex, long projectId, string title)
+    {
+        if (workerIndex < 0 || workerIndex >= 3 || string.IsNullOrWhiteSpace(title)) return;
+
+        lock (_queueSync)
+        {
+            RegisterTitle(projectId, title);
+        }
+
+        var worker = Workers[workerIndex];
+        if (worker.CurrentProjectId != projectId) return;
+
+        worker.CurrentProjectTitle = title.Trim();
         ProjectAssignedToWorker?.Invoke(workerIndex, projectId, worker.CurrentProjectTitle);
     }
 

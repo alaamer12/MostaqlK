@@ -162,6 +162,16 @@ public sealed class PollService : IPollService
 
             _globalStatus.DiscoveryProgress = 0.9;
 
+            // The listing row already carries the project's title, and it is the *only* place a
+            // title exists before enrichment (no project row is written at discovery time). Passing
+            // it on is what lets the radar and the pipeline panel name a project instead of showing
+            // a bare `#1267826`.
+            var titles = new Dictionary<long, string>(listingResult.Value.Count);
+            foreach (var summary in listingResult.Value)
+            {
+                titles[summary.ProjectId] = summary.Title ?? string.Empty;
+            }
+
             var enqueued = 0;
             foreach (var projectId in diffResult.Value.NewProjectIds)
             {
@@ -176,7 +186,9 @@ public sealed class PollService : IPollService
 
                 await _discoveryQueue.EnqueueAsync(projectId, cancellationToken);
                 // Radar: detection pulse -> token -> queue slot; the ring grows on arrival.
-                _globalStatus.NotifyProjectDiscovered(projectId);
+                _globalStatus.NotifyProjectDiscovered(
+                    projectId,
+                    titles.TryGetValue(projectId, out var title) ? title : string.Empty);
                 _globalStatus.UpdateQueueCount(_discoveryQueue.Count);
                 enqueued++;
             }

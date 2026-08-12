@@ -14,8 +14,16 @@
 
         <!-- The canvas fills the box proportionally, so the same unit works both as a small footer
              dial and as the large dial inside the pipeline dashboard panel (see Diameter). -->
+        <!-- FlowDirection is pinned to LeftToRight even though the hosting page is RightToLeft.
+             This is the documented escape hatch for a subtree whose geometry is physical rather
+             than textual: under RTL the platform mirrors the canvas horizontally, so the dial was
+             painted flipped while `HitTest` still computed its angle from unmirrored pointer
+             coordinates - clicking the left worker slice activated the right one and vice versa.
+             The radar contains no text, so forcing LTR removes the mirroring entirely and makes
+             what is drawn and what is hit-tested the same geometry again. -->
         <GraphicsView x:Name="RadarCanvas"
                       AutomationId="Pipeline_Radar"
+                      FlowDirection="LeftToRight"
                       AbsoluteLayout.LayoutBounds="0,0,1,1"
                       AbsoluteLayout.LayoutFlags="All">
             <GraphicsView.GestureRecognizers>

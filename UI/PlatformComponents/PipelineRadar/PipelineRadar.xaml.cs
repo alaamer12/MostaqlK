@@ -106,6 +106,16 @@ public partial class PipelineRadar : ContentView
     /// <summary>The worker the user clicked to focus, or -1.</summary>
     public int FocusedWorker => _state.FocusedWorker;
 
+    /// <summary>
+    /// Raised when the user's explicit selection changes, with the pinned ring and the focused
+    /// worker (-1 when no worker is focused). Hosts use it to pin their drill-in to the clicked
+    /// ring instead of following the pointer only.
+    /// </summary>
+    public event Action<RadarRegion, int>? SelectionChanged;
+
+    /// <summary>The ring the user clicked to pin, or <see cref="RadarRegion.None"/>.</summary>
+    public RadarRegion SelectedRegion => _state.SelectedRegion;
+
     /// <summary>The ring currently under the pointer.</summary>
     public RadarRegion HoveredRegion => _pointerRegion;
 
@@ -130,6 +140,24 @@ public partial class PipelineRadar : ContentView
     /// <summary>Title of the project token currently associated with a worker, if any.</summary>
     public string? ProjectTitleOfWorker(int index) => _state.TokenOfWorker(index)?.Title;
 
+    /// <summary>How many project tokens the dial is currently drawing on the queue ring.</summary>
+    public int VisibleQueuedTokens => _state.QueuedTokenCount;
+
+    /// <summary>Titles of the projects the dial currently shows sitting in the queue ring.</summary>
+    public IEnumerable<string> QueuedProjectTitles
+    {
+        get
+        {
+            foreach (var token in _state.Tokens)
+            {
+                if (token.IsActive && token.Stage == RadarTokenStage.InQueue && !string.IsNullOrEmpty(token.Title))
+                {
+                    yield return token.Title;
+                }
+            }
+        }
+    }
+
     /// <summary>Focuses a worker (or releases focus with -1) from outside the dial.</summary>
     public void FocusWorker(int index)
     {
@@ -139,8 +167,12 @@ public partial class PipelineRadar : ContentView
         }
 
         _state.SetFocusedWorker(index);
+        // A worker and a ring are mutually exclusive selections: focusing a worker releases a
+        // pinned ring so the host's drill-in never has two competing sources.
+        _state.SetSelectedRegion(RadarRegion.None);
         SelectTokenOfFocusedWorker();
         FocusedWorkerChanged?.Invoke(_state.FocusedWorker);
+        SelectionChanged?.Invoke(_state.SelectedRegion, _state.FocusedWorker);
         Wake();
     }
 
@@ -516,18 +548,30 @@ public partial class PipelineRadar : ContentView
 
     private void OnTapped(object? sender, TappedEventArgs e)
     {
-        // Click a worker to focus it (and its project); click anywhere else to release focus.
+        // Click a worker segment to focus it (and its project), click the discovery or queue ring to
+        // pin that ring's drill-in, click the same thing again - or empty space - to release.
+        // Only the worker case existed before, which is why clicking the queue ring appeared to do
+        // nothing whatsoever.
         if (_pointerRegion == RadarRegion.Worker && _pointerWorker >= 0)
         {
+            _state.SetSelectedRegion(RadarRegion.None);
             _state.SetFocusedWorker(_state.FocusedWorker == _pointerWorker ? -1 : _pointerWorker);
+        }
+        else if (_pointerRegion is RadarRegion.Queue or RadarRegion.Discovery)
+        {
+            _state.SetFocusedWorker(-1);
+            _state.SetSelectedRegion(_state.SelectedRegion == _pointerRegion ? RadarRegion.None : _pointerRegion);
         }
         else
         {
             _state.SetFocusedWorker(-1);
+            _state.SetSelectedRegion(RadarRegion.None);
         }
 
         SelectTokenOfFocusedWorker();
+        SelectTokensOfSelectedRegion();
         FocusedWorkerChanged?.Invoke(_state.FocusedWorker);
+        SelectionChanged?.Invoke(_state.SelectedRegion, _state.FocusedWorker);
         Wake();
     }
 
@@ -597,6 +641,23 @@ public partial class PipelineRadar : ContentView
         foreach (var token in _state.Tokens)
         {
             token.IsSelected = _state.FocusedWorker >= 0 && token.WorkerIndex == _state.FocusedWorker;
+        }
+    }
+
+    /// <summary>
+    /// Pinning the queue ring also marks every queued token as selected, so the click visibly
+    /// answers "which items is this arc made of?" rather than only brightening the arc.
+    /// </summary>
+    private void SelectTokensOfSelectedRegion()
+    {
+        if (_state.SelectedRegion != RadarRegion.Queue)
+        {
+            return;
+        }
+
+        foreach (var token in _state.Tokens)
+        {
+            token.IsSelected = token.IsActive && token.Stage == RadarTokenStage.InQueue;
         }
     }
 

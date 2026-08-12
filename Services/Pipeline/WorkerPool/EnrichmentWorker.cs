@@ -140,6 +140,11 @@ public sealed class EnrichmentWorker
             return;
         }
 
+        // The detail page is the authoritative title, and for a project rehydrated from the
+        // persisted backlog it is the *first* title this process ever sees - so the worker card
+        // stops showing `#id` as soon as enrichment succeeds.
+        _globalStatus.UpdateWorkerProjectTitle(_workerId, projectId, details.Title);
+
         try
         {
             await _projectRepository.UpsertDetailsAsync(details, cancellationToken);

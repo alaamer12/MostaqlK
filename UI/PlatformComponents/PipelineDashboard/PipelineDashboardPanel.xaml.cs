@@ -62,6 +62,9 @@ public partial class PipelineDashboardPanel : ContentView
 
         Radar.HoverChanged += OnRadarHoverChanged;
         Radar.FocusedWorkerChanged += OnRadarFocusedWorkerChanged;
+        // Clicking the discovery or queue ring pins that ring's drill-in; without this the click
+        // had no observable effect at all, because the section only ever followed the pointer.
+        Radar.SelectionChanged += OnRadarSelectionChanged;
 
         // Only the *settled* width drives the dial size: resizing a GraphicsView on every frame of
         // the collapse slide forced a measure pass per frame, which is what made the slide hop.
@@ -337,6 +340,8 @@ public partial class PipelineDashboardPanel : ContentView
         RefreshReadout();
     }
 
+    private void OnRadarSelectionChanged(RadarRegion region, int workerIndex) => RefreshReadout();
+
     private void OnRadarFocusedWorkerChanged(int workerIndex)
     {
         ApplyFocusEmphasis(workerIndex);
@@ -473,6 +478,9 @@ public partial class PipelineDashboardPanel : ContentView
                     : StatusText(state);
 
             Assign(_workerProjectLabels[i], project);
+            // The row is one truncated line wide, so the full project name lives in a native
+            // tooltip - a real title is far longer than the `#id` this used to show.
+            ToolTipProperties.SetText(_workerProjectLabels[i], project);
             Assign(_workerTimeLabels[i], state == RadarWorkerState.Processing
                 ? $"{Format(telemetry?.ElapsedSeconds ?? 0)} ث"
                 : $"{telemetry?.CompletedCount ?? 0} ✓");
@@ -500,6 +508,13 @@ public partial class PipelineDashboardPanel : ContentView
             ? Radar.FocusedWorker
             : _hoveredRegion == RadarRegion.Worker ? _hoveredWorker : -1;
 
+        // The pointer wins while it is actually over a ring, but a *clicked* ring stays pinned once
+        // the pointer leaves - otherwise a click on the queue ring was indistinguishable from a
+        // hover that ended, which is exactly why it looked like nothing happened.
+        var pinned = Radar.SelectedRegion;
+        var region = _hoveredRegion != RadarRegion.None ? _hoveredRegion : pinned;
+        var pinnedSuffix = pinned != RadarRegion.None && pinned == region ? " • مثبّت" : string.Empty;
+
         if (worker >= 0)
         {
             var telemetry = _status?.Workers[worker];
@@ -519,10 +534,10 @@ public partial class PipelineDashboardPanel : ContentView
             return;
         }
 
-        if (_hoveredRegion == RadarRegion.Discovery)
+        if (region == RadarRegion.Discovery)
         {
             SetDetail(
-                "الاستكشاف",
+                $"الاستكشاف{pinnedSuffix}",
                 Radar.IsScanning ? "الحالة: جارٍ الفحص" : "الحالة: خامل",
                 LastScanText.Labelled(_status?.LastScanCompletedAt),
                 $"مشاريع مكتشفة: {_status?.ProjectsDiscoveredCount ?? 0}",
@@ -536,14 +551,35 @@ public partial class PipelineDashboardPanel : ContentView
             return;
         }
 
+        // Backlog view: also names the projects the ring is actually made of, so clicking the arc
+        // answers "what is waiting?" and not just "how full is it?".
         SetDetail(
-            "قائمة الانتظار",
+            $"قائمة الانتظار{pinnedSuffix}",
             $"{Math.Round(queueCount)} / {capacity}",
             $"{Math.Round(utilisation * 100)}% استخدام",
             $"أقدم عنصر: {Format(_status?.OldestQueuedItemSeconds ?? 0)} ث",
             $"متوسط الانتظار: {Format(_status?.AverageQueueWaitSeconds ?? 0)} ث",
-            "اختر عاملاً لعرض تفاصيله",
-            string.Empty);
+            QueuedTitlesText(),
+            region == RadarRegion.Queue ? "انقر الحلقة مرة أخرى لإلغاء التثبيت" : "اختر عاملاً أو حلقة لعرض تفاصيلها");
+    }
+
+    /// <summary>
+    /// The first few queued project titles, capped so the drill-in cannot grow without bound while
+    /// a large backlog drains.
+    /// </summary>
+    private string QueuedTitlesText()
+    {
+        var titles = Radar.QueuedProjectTitles.Take(3).ToList();
+        if (titles.Count == 0)
+        {
+            return Radar.VisibleQueuedTokens > 0
+                ? $"عناصر في الانتظار: {Radar.VisibleQueuedTokens}"
+                : string.Empty;
+        }
+
+        var remaining = Radar.VisibleQueuedTokens - titles.Count;
+        var joined = string.Join(" • ", titles);
+        return remaining > 0 ? $"في الانتظار: {joined} (+{remaining})" : $"في الانتظار: {joined}";
     }
 
     private void SetDetail(string title, string line1, string line2, string line3, string line4, string line5, string line6)
