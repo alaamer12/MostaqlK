@@ -145,6 +145,23 @@ public partial class App : Application
 		return requested.Value;
 	}
 
+	/// <summary>
+	/// Stops the pipeline's background loops (Poll Service + Worker Pool) as soon as the window
+	/// starts closing. Called from <see cref="MauiProgram"/>'s <c>OnClosed</c> lifecycle event.
+	/// FIX (graceful shutdown, exit code -1073741189 / 0xC000027B on the X button): without this,
+	/// those loops kept running on the thread pool after the native window/dispatcher was torn
+	/// down, and their next attempt to marshal a property change onto the (now gone) UI dispatcher
+	/// could fast-fail the whole process instead of exiting cleanly.
+	/// </summary>
+	internal void RequestPipelineShutdown()
+	{
+		if (!_pipelineCts.IsCancellationRequested)
+		{
+			MostaqlK.Services.Diagnostics.InteractionLogger.Mark("App.Shutdown.PipelineCancelled", "A");
+			_pipelineCts.Cancel();
+		}
+	}
+
 	protected override Window CreateWindow(IActivationState? activationState)
 	{
 		var window = new Window(new AppShell(StartupNavigation.FromArguments(Environment.GetCommandLineArgs())));

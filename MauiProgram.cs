@@ -116,8 +116,31 @@ public static class MauiProgram
 	}
 #endif
 
+	/// <summary>
+	/// Best-effort safety net: logs otherwise-unobserved exceptions from background threads
+	/// (pipeline loops, fire-and-forget tasks) instead of letting them surface as a silent,
+	/// hard-to-diagnose process crash. This cannot catch native/WinRT fast-fail failures (like
+	/// the dispatcher-teardown crash fixed via <c>App.RequestPipelineShutdown</c>), but it does
+	/// stop ordinary unhandled managed exceptions from taking the whole app down ungracefully.
+	/// </summary>
+	private static void RegisterGlobalExceptionLogging()
+	{
+		AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+			MostaqlK.Services.Diagnostics.InteractionLogger.Fault(
+				"AppDomain.UnhandledException",
+				args.ExceptionObject as Exception ?? new Exception(args.ExceptionObject?.ToString() ?? "Unknown"));
+
+		TaskScheduler.UnobservedTaskException += (_, args) =>
+		{
+			MostaqlK.Services.Diagnostics.InteractionLogger.Fault("TaskScheduler.UnobservedTaskException", args.Exception);
+			args.SetObserved();
+		};
+	}
+
 	public static MauiApp CreateMauiApp()
 	{
+		RegisterGlobalExceptionLogging();
+
 		var builder = MauiApp.CreateBuilder();
 		builder
 			.UseMauiApp<App>()
@@ -253,6 +276,11 @@ public static class MauiProgram
 				})
 				.OnClosed((window, args) =>
 				{
+					// FIX (fast-fail crash on the X button, exit code -1073741189 / 0xC000027B):
+					// stop the pipeline's background loops (PollService/WorkerPool) BEFORE the
+					// native window/dispatcher is fully torn down, so they cannot try to marshal
+					// another property change onto a dispatcher that no longer exists.
+					(Microsoft.Maui.Controls.Application.Current as App)?.RequestPipelineShutdown();
 					nativeHost?.Dispose();
 					nativeHost = null;
 				}));

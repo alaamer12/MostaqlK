@@ -17,14 +17,28 @@ public sealed partial class GlobalAppStatusService : ObservableObject
     /// </summary>
     protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
     {
-        var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher is null || dispatcher.IsDispatchRequired is false)
+        // FIX (fast-fail crash on window close, exit code -1073741189 / 0xC000027B): the pipeline's
+        // background loops (PollService/EnrichmentWorker) keep raising property changes for a short
+        // window after the user closes the app. By then WinUI has already torn down the native
+        // DispatcherQueue, so `dispatcher.Dispatch` (and even `IsDispatchRequired`) can throw a WinRT
+        // interop exception on a thread-pool thread that the runtime cannot recover from, which
+        // Windows reports as a stack-buffer-overrun fast-fail rather than a normal .NET exception.
+        // Swallowing it here keeps shutdown graceful instead of hard-crashing the process.
+        try
         {
-            base.OnPropertyChanged(e);
-            return;
-        }
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher is null || dispatcher.IsDispatchRequired is false)
+            {
+                base.OnPropertyChanged(e);
+                return;
+            }
 
-        dispatcher.Dispatch(() => base.OnPropertyChanged(e));
+            dispatcher.Dispatch(() => base.OnPropertyChanged(e));
+        }
+        catch (Exception ex)
+        {
+            MostaqlK.Services.Diagnostics.InteractionLogger.Fault("GlobalAppStatusService.OnPropertyChanged.DispatchFailed", ex);
+        }
     }
 
     [ObservableProperty]
