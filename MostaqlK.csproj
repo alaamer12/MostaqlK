@@ -106,4 +106,20 @@
 	<ItemGroup>
 	</ItemGroup>
 
+	<Target Name="BuildWin">
+		<Exec Command="dotnet build MostaqlK.csproj -f net10.0-windows10.0.19041.0" />
+	</Target>
+
+	<Target Name="RunWin">
+		<Exec Command="dotnet run -f net10.0-windows10.0.19041.0" />
+	</Target>
+
+	<Target Name="TestWin">
+		<Exec Command="dotnet test MostaqlK.UITests/MostaqlK.UITests.csproj" />
+	</Target>
+
+	<Target Name="DeployWin">
+		<Exec Command="dotnet publish MostaqlK.csproj -f net10.0-windows10.0.19041.0 -c Release -p:PublishReadyToRun=true" />
+	</Target>
+
 </Project>
