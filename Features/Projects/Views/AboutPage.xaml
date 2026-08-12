@@ -4,6 +4,7 @@
              xmlns:sidebar="clr-namespace:MostaqlK.UI.PlatformComponents.AppSidebar"
              x:Class="MostaqlK.Features.Projects.Views.AboutPage"
              Title="حول التطبيق"
+             Shell.NavBarIsVisible="False"
              FlowDirection="RightToLeft"
              BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
 
@@ -16,6 +17,8 @@
 
         <sidebar:AppSidebar Grid.Column="0"
                              ActivePage="About"
+                             StatValue="{Binding GlobalStatus.ProjectsAddedTodayText}"
+                             NotificationCount="{Binding GlobalStatus.UnreadNotificationCountText}"
                              ProjectsClicked="OnProjectsNavClicked"
                              AdvancedSearchClicked="OnAdvancedSearchNavClicked"
                              NotificationsClicked="OnNotificationsNavClicked"

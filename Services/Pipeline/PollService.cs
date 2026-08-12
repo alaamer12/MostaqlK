@@ -1,5 +1,6 @@
 using MostaqlK.Core;
 using MostaqlK.Infrastructure.Http;
+using MostaqlK.Infrastructure.Database;
 using MostaqlK.Services.Pipeline.DiffEngine;
 
 namespace MostaqlK.Services.Pipeline;
@@ -12,6 +13,8 @@ public sealed class PollService : IPollService
     private readonly DiffEngine.DiffEngine _diffEngine;
     private readonly DiscoveryQueue _discoveryQueue;
     private readonly InFlightTracker _inFlightTracker;
+    private readonly IProjectRepository _projectRepository;
+    private readonly GlobalAppStatusService _globalStatus;
     private readonly TokenBucketRateLimiter _rateLimiter;
     private CancellationTokenSource? _loopCts;
     private Task? _loopTask;
@@ -38,12 +41,16 @@ public sealed class PollService : IPollService
         DiffEngine.DiffEngine diffEngine,
         DiscoveryQueue discoveryQueue,
         InFlightTracker inFlightTracker,
+        IProjectRepository projectRepository,
+        GlobalAppStatusService globalStatus,
         TokenBucketRateLimiter rateLimiter)
     {
         _scraper = scraper;
         _diffEngine = diffEngine;
         _discoveryQueue = discoveryQueue;
         _inFlightTracker = inFlightTracker;
+        _projectRepository = projectRepository;
+        _globalStatus = globalStatus;
         _rateLimiter = rateLimiter;
     }
 
@@ -113,19 +120,29 @@ public sealed class PollService : IPollService
         try
         {
             SetStatus(PollServiceStatus.Polling);
+            _globalStatus.DiscoveryProgress = 0.1; // Start pulse
             await _rateLimiter.WaitForTokenAsync(cancellationToken);
 
+            _globalStatus.DiscoveryProgress = 0.3;
             var listingResult = await _scraper.FetchListingAsync(cancellationToken);
             if (listingResult.IsError)
             {
+                _globalStatus.DiscoveryProgress = 0;
                 return Result<int>.Err(listingResult.Error);
             }
 
+            _globalStatus.DiscoveryProgress = 0.6;
+            _globalStatus.IsSnapshotActive = true; // Trigger Radar Sweep
             var diffResult = await _diffEngine.DiffAsync(listingResult.Value, cancellationToken);
+            _globalStatus.IsSnapshotActive = false;
+
             if (diffResult.IsError)
             {
+                _globalStatus.DiscoveryProgress = 0;
                 return Result<int>.Err(diffResult.Error);
             }
+
+            _globalStatus.DiscoveryProgress = 0.9;
 
             var enqueued = 0;
             foreach (var projectId in diffResult.Value.NewProjectIds)
@@ -136,11 +153,18 @@ public sealed class PollService : IPollService
                     continue;
                 }
 
+                // Add to persistent backlog before enqueuing in memory.
+                await _projectRepository.AddToBacklogAsync(projectId, cancellationToken);
+
                 await _discoveryQueue.EnqueueAsync(projectId, cancellationToken);
+                _globalStatus.NotifyProjectDiscovered();
+                _globalStatus.QueuePressure = Math.Min(1.0, _discoveryQueue.Count / 50.0);
                 enqueued++;
             }
 
             SetStatus(enqueued > 0 ? PollServiceStatus.BacklogDraining : PollServiceStatus.Idle);
+            _globalStatus.DiscoveryProgress = 1.0;
+            _ = Task.Delay(1000).ContinueWith(_ => _globalStatus.DiscoveryProgress = 0);
             return Result<int>.Ok(enqueued);
         }
         catch (OperationCanceledException)

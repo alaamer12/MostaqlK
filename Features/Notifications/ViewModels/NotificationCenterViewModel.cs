@@ -16,15 +16,16 @@ namespace MostaqlK.Features.Notifications.ViewModels;
 public sealed partial class NotificationCenterViewModel : ObservableObject
 {
     private readonly INotificationDispatcher _notificationDispatcher;
+    private readonly GlobalAppStatusService _globalStatus;
 
     public ObservableCollection<ProjectSummary> RecentNotifications { get; } = [];
 
-    [ObservableProperty]
-    public partial int UnreadBadgeCount { get; set; }
+    public GlobalAppStatusService GlobalStatus => _globalStatus;
 
-    public NotificationCenterViewModel(INotificationDispatcher notificationDispatcher)
+    public NotificationCenterViewModel(INotificationDispatcher notificationDispatcher, GlobalAppStatusService globalStatus)
     {
         _notificationDispatcher = notificationDispatcher;
+        _globalStatus = globalStatus;
         _notificationDispatcher.HistoryChanged += OnHistoryChanged;
         RefreshFromHistory();
     }
@@ -36,7 +37,7 @@ public sealed partial class NotificationCenterViewModel : ObservableObject
         MainThread.BeginInvokeOnMainThread(() =>
         {
             RefreshFromHistory();
-            UnreadBadgeCount++;
+            _globalStatus.IncrementUnreadNotificationCount();
         });
     }
 
@@ -51,7 +52,7 @@ public sealed partial class NotificationCenterViewModel : ObservableObject
 
     public void MarkAllAsSeen()
     {
-        UnreadBadgeCount = 0;
+        _globalStatus.ResetUnreadNotificationCount();
     }
 
     [RelayCommand]

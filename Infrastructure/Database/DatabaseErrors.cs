@@ -20,6 +20,12 @@ public static class DatabaseErrors
         ExternalMessage: "حدث خطأ أثناء الوصول إلى البيانات المحفوظة.",
         Cause: cause);
 
+    public static DomainError CommandFailed(string operation, Exception cause) => new(
+        Code: "DB-004",
+        InternalMessage: $"Command '{operation}' failed: {cause.Message}",
+        ExternalMessage: "تعذر تنفيذ الأمر في قاعدة البيانات.",
+        Cause: cause);
+
     public static DomainError SchemaInvalid(string details) => new(
         Code: "DB-003",
         InternalMessage: $"Database schema is invalid or out of date: {details}",

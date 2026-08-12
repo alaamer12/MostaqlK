@@ -5,6 +5,7 @@ using Microsoft.Maui.Storage;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Infrastructure.Database.SearchIndex;
 using MostaqlK.Models;
+using MostaqlK.Services;
 using MostaqlK.Services.Diagnostics;
 using MostaqlK.Services.Pipeline;
 
@@ -27,6 +28,8 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     private readonly FtsQueryService _ftsQueryService;
     private readonly IPollService _pollService;
     private readonly TokenBucketRateLimiter _rateLimiter;
+    private readonly GlobalAppStatusService _globalStatus;
+    private readonly IDispatcherTimer _lastScanTimer;
 
     // Guards against overlapping LoadAsync calls racing each other: if the search box's
     // debounce fires more than once in quick succession (e.g. WinAppDriver/remote SendKeys
@@ -37,6 +40,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     // search box already shows the final term "CSS". Each LoadAsync call is stamped with a
     // monotonically increasing token; only the most recent call is allowed to apply its results.
     private int _loadRequestToken;
+    private DateTime? _lastLoadTime;
 
     public ObservableCollection<ProjectCardViewModel> Projects { get; } = [];
 
@@ -66,11 +70,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(TrackedCountText))]
     public partial int TrackedCount { get; set; }
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ProjectsAddedTodayText))]
-    public partial int ProjectsAddedTodayCount { get; set; }
-
-    public string ProjectsAddedTodayText => ProjectsAddedTodayCount.ToString();
+    public GlobalAppStatusService GlobalStatus => _globalStatus;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PollIntervalText))]
@@ -123,14 +123,44 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         IProjectRepository projectRepository,
         FtsQueryService ftsQueryService,
         IPollService pollService,
-        TokenBucketRateLimiter rateLimiter)
+        TokenBucketRateLimiter rateLimiter,
+        GlobalAppStatusService globalStatus)
     {
         _projectRepository = projectRepository;
         _ftsQueryService = ftsQueryService;
         _pollService = pollService;
         _rateLimiter = rateLimiter;
+        _globalStatus = globalStatus;
+
+        _lastScanTimer = Application.Current!.Dispatcher.CreateTimer();
+        _lastScanTimer.Interval = TimeSpan.FromSeconds(1);
+        _lastScanTimer.Tick += (s, e) => UpdateLastScanText();
+        _lastScanTimer.Start();
 
         RefreshHeaderStatus();
+    }
+
+    private void UpdateLastScanText()
+    {
+        if (_lastLoadTime == null)
+        {
+            LastScanText = "آخر فحص: لم يتم الفحص بعد";
+            return;
+        }
+
+        var elapsed = DateTime.Now - _lastLoadTime.Value;
+        if (elapsed.TotalSeconds < 5)
+        {
+            LastScanText = "آخر فحص: منذ لحظات";
+        }
+        else if (elapsed.TotalMinutes < 1)
+        {
+            LastScanText = $"آخر فحص: منذ {Math.Floor(elapsed.TotalSeconds)} ثانية";
+        }
+        else
+        {
+            LastScanText = $"آخر فحص: منذ {Math.Floor(elapsed.TotalMinutes)} دقيقة";
+        }
     }
 
     public void RefreshHeaderStatus()
@@ -138,7 +168,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         PollIntervalSeconds = Preferences.Get(KeyPollIntervalSeconds, _pollService.PollIntervalSeconds);
         RequestsPerMinute = Preferences.Get(KeyMaxRequestsPerMinute, Math.Max(1, _rateLimiter.Capacity));
         IsPollingActive = !_pollService.IsPaused;
-        LastScanText = "آخر فحص: منذ لحظات";
+        UpdateLastScanText();
     }
 
     [RelayCommand]
@@ -162,7 +192,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
             }
             if (today.IsOk)
             {
-                ProjectsAddedTodayCount = today.Value;
+                _globalStatus.SetProjectsAddedToday(today.Value);
             }
 
             var result = string.IsNullOrWhiteSpace(searchQueryAtRequestTime)
@@ -219,7 +249,8 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
             }
 
             IsEmpty = Projects.Count == 0;
-            LastScanText = "آخر فحص: منذ لحظات";
+            _lastLoadTime = DateTime.Now;
+            UpdateLastScanText();
         }
         finally
         {

@@ -33,6 +33,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly TokenBucketRateLimiter _rateLimiter;
     private readonly NotificationGrouper _grouper;
     private readonly IProjectRepository _projectRepository;
+    private readonly GlobalAppStatusService _globalStatus;
     private bool _isLoading;
 
     [ObservableProperty]
@@ -50,8 +51,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsDarkMode { get; set; }
 
-    [ObservableProperty]
-    public partial int ProjectsAddedTodayCount { get; set; }
+    public GlobalAppStatusService GlobalStatus => _globalStatus;
 
     /// <summary>
     /// Validation feedback surfaced to the UI (reusing <c>LabelWithSubText</c>'s
@@ -67,12 +67,14 @@ public sealed partial class SettingsViewModel : ObservableObject
         IPollService pollService,
         TokenBucketRateLimiter rateLimiter,
         NotificationGrouper grouper,
-        IProjectRepository projectRepository)
+        IProjectRepository projectRepository,
+        GlobalAppStatusService globalStatus)
     {
         _pollService = pollService;
         _rateLimiter = rateLimiter;
         _grouper = grouper;
         _projectRepository = projectRepository;
+        _globalStatus = globalStatus;
 
         LoadFromPreferences();
         _ = LoadProjectsAddedTodayAsync();
@@ -114,7 +116,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         var result = await _projectRepository.CountAddedTodayAsync();
         if (!result.IsError)
         {
-            ProjectsAddedTodayCount = result.Value;
+            _globalStatus.SetProjectsAddedToday(result.Value);
         }
     }
 

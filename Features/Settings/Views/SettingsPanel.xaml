@@ -8,6 +8,7 @@
              x:Class="MostaqlK.Features.Settings.Views.SettingsPanel"
              x:DataType="vm:SettingsViewModel"
              Title="الإعدادات"
+             Shell.NavBarIsVisible="False"
              FlowDirection="RightToLeft"
              BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
 
@@ -21,7 +22,8 @@
 
         <sidebar:AppSidebar Grid.Column="0"
                              ActivePage="Settings"
-                             StatValue="{Binding ProjectsAddedTodayCount}"
+                             StatValue="{Binding GlobalStatus.ProjectsAddedTodayText}"
+                             NotificationCount="{Binding GlobalStatus.UnreadNotificationCountText}"
                              ProjectsClicked="OnProjectsNavClicked"
                              AdvancedSearchClicked="OnAdvancedSearchNavClicked"
                              NotificationsClicked="OnNotificationsNavClicked"
@@ -52,7 +54,7 @@
                         <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                         <VerticalStackLayout Spacing="4">
                             <Label Text="مشاريع مضافة اليوم" FontSize="14" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
-                            <Label Text="{Binding ProjectsAddedTodayCount}" FontSize="28" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                            <Label Text="{Binding GlobalStatus.ProjectsAddedTodayCount}" FontSize="28" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
                         </VerticalStackLayout>
                     </Border>
 

@@ -27,6 +27,26 @@ public interface IProjectRepository
     Task<Result<int>> CountAddedTodayAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Adds a project ID to the discovery backlog for recovery.
+    /// </summary>
+    Task<Result<bool>> AddToBacklogAsync(long projectId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes a project ID from the discovery backlog (usually after successful enrichment).
+    /// </summary>
+    Task<Result<bool>> RemoveFromBacklogAsync(long projectId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fetches all project IDs currently in the discovery backlog.
+    /// </summary>
+    Task<Result<IReadOnlyList<long>>> GetBacklogIdsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes backlog items older than the specified number of days.
+    /// </summary>
+    Task<Result<int>> CleanOldBacklogAsync(int days = 30, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Total number of tracked projects and, of those, how many are still unread. Backs the status
     /// bar's "N مشروع متتبَّع • N غير مقروء" pair, which counts the whole store rather than
     /// just the page of rows currently loaded into the feed.

@@ -7,6 +7,7 @@
              xmlns:views="clr-namespace:MostaqlK.Features.Projects.Views"
              xmlns:notifViews="clr-namespace:MostaqlK.Features.Notifications.Views"
              xmlns:sidebar="clr-namespace:MostaqlK.UI.PlatformComponents.AppSidebar"
+             xmlns:radar="clr-namespace:MostaqlK.UI.PlatformComponents.PipelineRadar"
              x:Class="MostaqlK.Features.Projects.Views.MainWindowPage"
              x:DataType="vm:ProjectFeedViewModel"
              Title=""
@@ -22,8 +23,8 @@
         <BoxView Grid.Column="0" Color="{AppThemeBinding Light=White, Dark=#0F172A}" />
         <sidebar:AppSidebar Grid.Column="0"
                             ActivePage="Projects"
-                            StatValue="{Binding ProjectsAddedTodayText}"
-                            NotificationCount="{Binding BindingContext.UnreadBadgeCount, Source={x:Reference NotificationsFlyout}, StringFormat='{0}'}"
+                            StatValue="{Binding GlobalStatus.ProjectsAddedTodayText}"
+                            NotificationCount="{Binding GlobalStatus.UnreadNotificationCountText}"
                             ProjectsClicked="OnProjectsNavClicked"
                             AdvancedSearchClicked="OnAdvancedSearchNavClicked"
                             NotificationsClicked="OnNotificationsNavClicked"
@@ -266,7 +267,12 @@
                         <BoxView WidthRequest="8" HeightRequest="8" Color="#22C55E" CornerRadius="4" VerticalOptions="Center" />
                     </HorizontalStackLayout>
                     <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
-                        <Label Text="{Binding LastScanText}" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" VerticalOptions="Center" FontFamily="Tajawal" />
+                        <Label Text="{Binding LastScanText}"
+                               AutomationId="Projects_LastScanLabel"
+                               FontSize="11"
+                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                               VerticalOptions="Center"
+                               FontFamily="Tajawal" />
                         <Label Text="↻"
                                AutomationId="Projects_RefreshLabel"
                                FontSize="12"
@@ -278,6 +284,13 @@
                             </Label.GestureRecognizers>
                         </Label>
                     </HorizontalStackLayout>
+
+                    <radar:PipelineRadar DiscoveryProgress="{Binding GlobalStatus.DiscoveryProgress}"
+                                         QueuePressure="{Binding GlobalStatus.QueuePressure}"
+                                         EnrichmentActivity="{Binding GlobalStatus.EnrichmentActivity}"
+                                         IsSnapshotActive="{Binding GlobalStatus.IsSnapshotActive}"
+                                         VerticalOptions="Center"
+                                         Margin="12,0,0,0" />
                 </HorizontalStackLayout>
             </Grid>
 

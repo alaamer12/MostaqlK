@@ -402,6 +402,86 @@ public sealed class ProjectRepository : IProjectRepository
         }
     }
 
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Command failure surfaced as Result.Err")]
+    public async Task<Result<bool>> AddToBacklogAsync(long projectId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "INSERT OR IGNORE INTO discovery_backlog (project_id) VALUES (@projectId);";
+            command.Parameters.AddWithValue("@projectId", projectId);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            return Result<bool>.Ok(true);
+        }
+        catch (SqliteException ex)
+        {
+            return Result<bool>.Err(DatabaseErrors.CommandFailed(nameof(AddToBacklogAsync), ex));
+        }
+    }
+
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Command failure surfaced as Result.Err")]
+    public async Task<Result<bool>> RemoveFromBacklogAsync(long projectId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "DELETE FROM discovery_backlog WHERE project_id = @projectId;";
+            command.Parameters.AddWithValue("@projectId", projectId);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            return Result<bool>.Ok(true);
+        }
+        catch (SqliteException ex)
+        {
+            return Result<bool>.Err(DatabaseErrors.CommandFailed(nameof(RemoveFromBacklogAsync), ex));
+        }
+    }
+
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result.Err")]
+    public async Task<Result<IReadOnlyList<long>>> GetBacklogIdsAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT project_id FROM discovery_backlog ORDER BY discovered_at ASC;";
+
+            var ids = new List<long>();
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                ids.Add(reader.GetInt64(0));
+            }
+            return Result<IReadOnlyList<long>>.Ok(ids);
+        }
+        catch (SqliteException ex)
+        {
+            return Result<IReadOnlyList<long>>.Err(DatabaseErrors.QueryFailed(nameof(GetBacklogIdsAsync), ex));
+        }
+    }
+
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Command failure surfaced as Result.Err")]
+    public async Task<Result<int>> CleanOldBacklogAsync(int days = 30, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "DELETE FROM discovery_backlog WHERE discovered_at < datetime('now', '-' || @days || ' days');";
+            command.Parameters.AddWithValue("@days", days);
+
+            var count = await command.ExecuteNonQueryAsync(cancellationToken);
+            return Result<int>.Ok(count);
+        }
+        catch (SqliteException ex)
+        {
+            return Result<int>.Err(DatabaseErrors.CommandFailed(nameof(CleanOldBacklogAsync), ex));
+        }
+    }
+
     [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result.Err")]
     public async Task<Result<(int Tracked, int Unread)>> CountTrackedAsync(CancellationToken cancellationToken = default)
     {

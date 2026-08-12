@@ -9,6 +9,7 @@
              x:Class="MostaqlK.Features.Projects.Views.ProjectDetailsPage"
              x:DataType="vm:ProjectDetailsViewModel"
              Title="تفاصيل المشروع"
+             Shell.NavBarIsVisible="False"
              FlowDirection="RightToLeft"
              BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
 
@@ -22,6 +23,8 @@
 
         <sidebar:AppSidebar Grid.Column="0"
                              ActivePage="Projects"
+                             StatValue="{Binding GlobalStatus.ProjectsAddedTodayText}"
+                             NotificationCount="{Binding GlobalStatus.UnreadNotificationCountText}"
                              ProjectsClicked="OnProjectsNavClicked"
                              AdvancedSearchClicked="OnAdvancedSearchNavClicked"
                              NotificationsClicked="OnNotificationsNavClicked"

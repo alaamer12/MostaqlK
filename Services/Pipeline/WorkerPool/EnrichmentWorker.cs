@@ -26,6 +26,7 @@ public sealed class EnrichmentWorker
     private readonly IEnrichmentService _enrichmentService;
     private readonly InFlightTracker _inFlightTracker;
     private readonly IProjectRepository _projectRepository;
+    private readonly GlobalAppStatusService _globalStatus;
     private readonly INotificationDispatcher _notificationDispatcher;
 
     public EnrichmentWorker(
@@ -34,6 +35,7 @@ public sealed class EnrichmentWorker
         IEnrichmentService enrichmentService,
         InFlightTracker inFlightTracker,
         IProjectRepository projectRepository,
+        GlobalAppStatusService globalStatus,
         INotificationDispatcher notificationDispatcher)
     {
         _workerId = workerId;
@@ -41,6 +43,7 @@ public sealed class EnrichmentWorker
         _enrichmentService = enrichmentService;
         _inFlightTracker = inFlightTracker;
         _projectRepository = projectRepository;
+        _globalStatus = globalStatus;
         _notificationDispatcher = notificationDispatcher;
     }
 
@@ -50,10 +53,23 @@ public sealed class EnrichmentWorker
         {
             try
             {
+                _globalStatus.UpdateWorkerState(_workerId, WorkerState.Processing);
+                _globalStatus.QueuePressure = Math.Min(1.0, _discoveryQueue.Count / 50.0);
                 await ProcessAsync(projectId, cancellationToken);
+                // Success: remove from persistent backlog.
+                await _projectRepository.RemoveFromBacklogAsync(projectId, cancellationToken);
+                _globalStatus.UpdateWorkerState(_workerId, WorkerState.Completed);
+            }
+            catch (Exception)
+            {
+                _globalStatus.UpdateWorkerState(_workerId, WorkerState.Error);
+                throw;
             }
             finally
             {
+                // Give a moment for the Completed/Error state to be visible before returning to Idle
+                _ = Task.Delay(2000).ContinueWith(_ => _globalStatus.UpdateWorkerState(_workerId, WorkerState.Idle));
+                _globalStatus.QueuePressure = Math.Min(1.0, _discoveryQueue.Count / 50.0);
                 // Hard rule per In-Flight Tracker spec: always released, success or failure,
                 // so no ID can get stuck permanently in-flight.
                 _inFlightTracker.MarkComplete(projectId);

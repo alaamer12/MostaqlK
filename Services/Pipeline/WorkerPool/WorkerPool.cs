@@ -14,6 +14,7 @@ public sealed class WorkerPool
     private readonly IEnrichmentService _enrichmentService;
     private readonly InFlightTracker _inFlightTracker;
     private readonly IProjectRepository _projectRepository;
+    private readonly GlobalAppStatusService _globalStatus;
     private readonly INotificationDispatcher _notificationDispatcher;
     private readonly List<Task> _runningWorkers = [];
 
@@ -25,25 +26,43 @@ public sealed class WorkerPool
         IEnrichmentService enrichmentService,
         InFlightTracker inFlightTracker,
         IProjectRepository projectRepository,
+        GlobalAppStatusService globalStatus,
         INotificationDispatcher notificationDispatcher)
     {
         _discoveryQueue = discoveryQueue;
         _enrichmentService = enrichmentService;
         _inFlightTracker = inFlightTracker;
         _projectRepository = projectRepository;
+        _globalStatus = globalStatus;
         _notificationDispatcher = notificationDispatcher;
     }
 
-    public Task<Result<bool>> StartAsync(CancellationToken cancellationToken = default)
+    public async Task<Result<bool>> StartAsync(CancellationToken cancellationToken = default)
     {
+        // Recovery: Load pending IDs from the discovery backlog table into the queue on startup.
+        var backlogResult = await _projectRepository.GetBacklogIdsAsync(cancellationToken);
+        if (backlogResult.IsOk)
+        {
+            foreach (var projectId in backlogResult.Value)
+            {
+                if (_inFlightTracker.TryMarkInFlight(projectId))
+                {
+                    await _discoveryQueue.EnqueueAsync(projectId, cancellationToken);
+                }
+            }
+        }
+
+        // Cleanup: Prune very old backlog entries (e.g. > 30 days) to prevent bloat.
+        _ = _projectRepository.CleanOldBacklogAsync(30, cancellationToken);
+
         for (var i = 0; i < WorkerCount; i++)
         {
             var worker = new EnrichmentWorker(
-                i, _discoveryQueue, _enrichmentService, _inFlightTracker, _projectRepository, _notificationDispatcher);
+                i, _discoveryQueue, _enrichmentService, _inFlightTracker, _projectRepository, _globalStatus, _notificationDispatcher);
             _runningWorkers.Add(worker.RunAsync(cancellationToken));
         }
 
-        return Task.FromResult(Result<bool>.Ok(true));
+        return Result<bool>.Ok(true);
     }
 
     public Task StopAsync()

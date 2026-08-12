@@ -1,11 +1,16 @@
+using MostaqlK.Services;
 using Microsoft.Maui.ApplicationModel;
 
 namespace MostaqlK.Features.Projects.Views;
 
 public partial class AboutPage : ContentPage
 {
-    public AboutPage()
+    public GlobalAppStatusService GlobalStatus { get; }
+
+    public AboutPage(GlobalAppStatusService globalStatus)
     {
+        GlobalStatus = globalStatus;
+        BindingContext = this;
         InitializeComponent();
 
         // Pulled live from the OS/package manifest via AppInfo, never hardcoded, so this stays

@@ -21,8 +21,12 @@ public sealed class SqliteConnectionFactory
     private bool _schemaVerified;
 
     public SqliteConnectionFactory()
+        : this(Path.Combine(FileSystem.AppDataDirectory, "mostaqlk.db"))
     {
-        var dbPath = Path.Combine(FileSystem.AppDataDirectory, "mostaqlk.db");
+    }
+
+    public SqliteConnectionFactory(string dbPath)
+    {
         _connectionString = new SqliteConnectionStringBuilder { DataSource = dbPath }.ToString();
     }
 
@@ -174,6 +178,12 @@ public sealed class SqliteConnectionFactory
             requires_auth INTEGER NOT NULL DEFAULT 0,
             size_text TEXT,
             FOREIGN KEY (project_id) REFERENCES projects (project_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS discovery_backlog (
+            project_id INTEGER PRIMARY KEY,
+            discovered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            retry_count INTEGER DEFAULT 0
         );
 
         CREATE VIRTUAL TABLE IF NOT EXISTS projects_fts USING fts5(

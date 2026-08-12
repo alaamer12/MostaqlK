@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Infrastructure.Http;
 using MostaqlK.Models;
+using MostaqlK.Services;
 using MostaqlK.Services.Diagnostics;
 
 namespace MostaqlK.Features.Projects.ViewModels;
@@ -69,6 +70,7 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
 {
     private readonly IProjectRepository _projectRepository;
     private readonly AssetDownloadService _assetDownloadService;
+    private readonly GlobalAppStatusService _globalStatus;
 
     public ObservableCollection<ProjectSkill> Skills { get; } = [];
 
@@ -89,10 +91,13 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     /// <summary>True once loading has finished with no error — drives the success-state ScrollView.</summary>
     public bool ShowDetails => !IsLoading && !HasError && Details is not null;
 
-    public ProjectDetailsViewModel(IProjectRepository projectRepository, AssetDownloadService assetDownloadService)
+    public GlobalAppStatusService GlobalStatus => _globalStatus;
+
+    public ProjectDetailsViewModel(IProjectRepository projectRepository, AssetDownloadService assetDownloadService, GlobalAppStatusService globalStatus)
     {
         _projectRepository = projectRepository;
         _assetDownloadService = assetDownloadService;
+        _globalStatus = globalStatus;
     }
 
     [RelayCommand]
