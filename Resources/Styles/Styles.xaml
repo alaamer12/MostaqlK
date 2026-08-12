@@ -1,7 +1,8 @@
 ﻿<?xml version="1.0" encoding="UTF-8" ?>
 <ResourceDictionary 
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem">
 
     <!-- NOTE: do NOT add an implicit `<Style TargetType="Label">` here. Verified experimentally:
          any implicit Label style (even one that only sets an already-used FontFamily) makes this
@@ -52,6 +53,9 @@
                 </VisualStateGroup>
             </VisualStateGroupList>
         </Setter>
+        <Style.Behaviors>
+            <ds:PressableEffect ApplyHoverHighlight="False" />
+        </Style.Behaviors>
     </Style>
 
     <Style TargetType="CheckBox">
@@ -70,6 +74,9 @@
                 </VisualStateGroup>
             </VisualStateGroupList>
         </Setter>
+        <Style.Behaviors>
+            <ds:PressableEffect ApplyHoverHighlight="True" />
+        </Style.Behaviors>
     </Style>
 
     <Style TargetType="DatePicker">
@@ -157,6 +164,9 @@
                 </VisualStateGroup>
             </VisualStateGroupList>
         </Setter>
+        <Style.Behaviors>
+            <ds:PressableEffect ApplyHoverHighlight="True" />
+        </Style.Behaviors>
     </Style>
 
     <Style TargetType="Label">
@@ -213,6 +223,9 @@
                 </VisualStateGroup>
             </VisualStateGroupList>
         </Setter>
+        <Style.Behaviors>
+            <ds:PressableEffect ApplyHoverHighlight="True" />
+        </Style.Behaviors>
     </Style>
 
     <Style TargetType="ProgressBar">
@@ -250,6 +263,9 @@
                 </VisualStateGroup>
             </VisualStateGroupList>
         </Setter>
+        <Style.Behaviors>
+            <ds:PressableEffect ApplyHoverHighlight="True" />
+        </Style.Behaviors>
     </Style>
 
     <Style TargetType="RefreshView">
@@ -359,6 +375,9 @@
                 </VisualStateGroup>
             </VisualStateGroupList>
         </Setter>
+        <Style.Behaviors>
+            <ds:PressableEffect ApplyHoverHighlight="True" />
+        </Style.Behaviors>
     </Style>
 
     <Style TargetType="TimePicker">

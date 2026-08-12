@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:components="clr-namespace:MostaqlK.UI.PlatformComponents"
              xmlns:platform="clr-namespace:MostaqlK.UI.PlatformComponents"
+             xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem"
              x:Class="MostaqlK.UI.PlatformComponents.AppSidebar.AppSidebar"
              x:Name="Root">
 
@@ -77,6 +78,9 @@
                     </Grid>
                 </Border>
                 <Button AutomationId="Sidebar_ProjectsButton" Style="{StaticResource SidebarNavRowHitTargetStyle}" Clicked="OnProjectsClicked" />
+                <Grid.Behaviors>
+                    <ds:PressableEffect ApplyHoverHighlight="True" />
+                </Grid.Behaviors>
             </Grid>
             <Grid>
                 <Border x:Name="AdvancedSearchButton" Style="{StaticResource SidebarNavRowStyle}">
@@ -87,6 +91,9 @@
                     </Grid>
                 </Border>
                 <Button AutomationId="Sidebar_AdvancedSearchButton" Style="{StaticResource SidebarNavRowHitTargetStyle}" Clicked="OnAdvancedSearchClicked" />
+                <Grid.Behaviors>
+                    <ds:PressableEffect ApplyHoverHighlight="True" />
+                </Grid.Behaviors>
             </Grid>
             <Grid>
                 <Border x:Name="NotificationsButton" Style="{StaticResource SidebarNavRowStyle}">
@@ -107,6 +114,9 @@
                     </Grid>
                 </Border>
                 <Button AutomationId="Sidebar_NotificationsButton" Style="{StaticResource SidebarNavRowHitTargetStyle}" Clicked="OnNotificationsClicked" />
+                <Grid.Behaviors>
+                    <ds:PressableEffect ApplyHoverHighlight="True" />
+                </Grid.Behaviors>
             </Grid>
             <Grid>
                 <Border x:Name="SettingsButton" Style="{StaticResource SidebarNavRowStyle}">
@@ -117,6 +127,9 @@
                     </Grid>
                 </Border>
                 <Button AutomationId="Sidebar_SettingsButton" Style="{StaticResource SidebarNavRowHitTargetStyle}" Clicked="OnSettingsClicked" />
+                <Grid.Behaviors>
+                    <ds:PressableEffect ApplyHoverHighlight="True" />
+                </Grid.Behaviors>
             </Grid>
             <Grid>
                 <Border x:Name="AboutButton" Style="{StaticResource SidebarNavRowStyle}">
@@ -127,6 +140,9 @@
                     </Grid>
                 </Border>
                 <Button AutomationId="Sidebar_AboutButton" Style="{StaticResource SidebarNavRowHitTargetStyle}" Clicked="OnAboutClicked" />
+                <Grid.Behaviors>
+                    <ds:PressableEffect ApplyHoverHighlight="True" />
+                </Grid.Behaviors>
             </Grid>
         </VerticalStackLayout>
 

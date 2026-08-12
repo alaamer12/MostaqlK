@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:MostaqlK.Features.Notifications.ViewModels"
              xmlns:models="clr-namespace:MostaqlK.Models"
+             xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem"
              x:Class="MostaqlK.Features.Notifications.Views.RecentNotificationsFlyout"
              x:Name="RootView"
              x:DataType="vm:NotificationCenterViewModel"
@@ -23,15 +24,20 @@
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="models:ProjectSummary">
-                        <VerticalStackLayout Padding="6" Spacing="2" AutomationId="Notifications_Row">
-                            <VerticalStackLayout.GestureRecognizers>
+                        <Border Padding="6" StrokeThickness="0" BackgroundColor="Transparent">
+                            <Border.GestureRecognizers>
                                 <TapGestureRecognizer
                                     Command="{Binding BindingContext.OpenProjectCommand, Source={x:Reference RootView}}"
                                     CommandParameter="{Binding .}" />
-                            </VerticalStackLayout.GestureRecognizers>
-                            <Label Text="{Binding Title}" FontSize="14" FontFamily="Tajawal" />
-                            <Label Text="{Binding PostedRelative}" FontSize="12" TextColor="Gray" FontFamily="Tajawal" />
-                        </VerticalStackLayout>
+                            </Border.GestureRecognizers>
+                            <Border.Behaviors>
+                                <ds:PressableEffect ApplyHoverHighlight="True" />
+                            </Border.Behaviors>
+                            <VerticalStackLayout Spacing="2" AutomationId="Notifications_Row">
+                                <Label Text="{Binding Title}" FontSize="14" FontFamily="Tajawal" />
+                                <Label Text="{Binding PostedRelative}" FontSize="12" TextColor="Gray" FontFamily="Tajawal" />
+                            </VerticalStackLayout>
+                        </Border>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>

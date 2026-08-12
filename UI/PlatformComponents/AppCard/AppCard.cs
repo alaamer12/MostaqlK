@@ -50,6 +50,9 @@ public partial class AppCard : Border
         Padding = new Thickness(24);
         Shadow = new Shadow { Brush = Colors.Black, Opacity = 0.05f, Radius = 4, Offset = new Point(0, 1) };
         UpdateAccentBorder(false);
+
+        // Add tactile feedback behavior
+        Behaviors.Add(new PressableEffect { ApplyHoverHighlight = true });
     }
 
     private static void OnIsUnreadChanged(BindableObject bindable, object oldValue, object newValue)

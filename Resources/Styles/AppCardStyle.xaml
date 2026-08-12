@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem">
 
     <!--
         Shared base style for AppCard (UI/PlatformComponents/AppCard) — the project-feed card.
@@ -28,6 +29,9 @@
                 </VisualStateGroup>
             </VisualStateGroupList>
         </Setter>
+        <Style.Behaviors>
+            <ds:PressableEffect ApplyHoverHighlight="True" />
+        </Style.Behaviors>
     </Style>
 
 </ResourceDictionary>

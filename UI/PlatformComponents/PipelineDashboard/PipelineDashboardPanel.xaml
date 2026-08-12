@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:radar="clr-namespace:MostaqlK.UI.PlatformComponents.PipelineRadar"
              xmlns:lastscan="clr-namespace:MostaqlK.UI.PlatformComponents.LastScanStatus"
+             xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem"
              x:Class="MostaqlK.UI.PlatformComponents.PipelineDashboard.PipelineDashboardPanel"
              x:Name="Root">
 
@@ -68,6 +69,9 @@
                             Padding="0"
                             Margin="0"
                             Clicked="OnToggleClicked" />
+                    <Grid.Behaviors>
+                        <ds:PressableEffect ApplyHoverHighlight="True" />
+                    </Grid.Behaviors>
                 </Grid>
             </Grid>
 
@@ -166,6 +170,9 @@
                                 <Label x:Name="Worker0TimeLabel" Grid.Column="2" Style="{StaticResource DashValueLabelStyle}" VerticalOptions="Center" />
                             </Grid>
                             <Button AutomationId="Pipeline_Worker1Button" BackgroundColor="Transparent" BorderWidth="0" Text="" Padding="0" Margin="0" Clicked="OnWorker0Clicked" />
+                            <Grid.Behaviors>
+                                <ds:PressableEffect ApplyHoverHighlight="True" />
+                            </Grid.Behaviors>
                         </Grid>
                     </Border>
 
@@ -180,6 +187,9 @@
                                 <Label x:Name="Worker1TimeLabel" Grid.Column="2" Style="{StaticResource DashValueLabelStyle}" VerticalOptions="Center" />
                             </Grid>
                             <Button AutomationId="Pipeline_Worker2Button" BackgroundColor="Transparent" BorderWidth="0" Text="" Padding="0" Margin="0" Clicked="OnWorker1Clicked" />
+                            <Grid.Behaviors>
+                                <ds:PressableEffect ApplyHoverHighlight="True" />
+                            </Grid.Behaviors>
                         </Grid>
                     </Border>
 
@@ -194,6 +204,9 @@
                                 <Label x:Name="Worker2TimeLabel" Grid.Column="2" Style="{StaticResource DashValueLabelStyle}" VerticalOptions="Center" />
                             </Grid>
                             <Button AutomationId="Pipeline_Worker3Button" BackgroundColor="Transparent" BorderWidth="0" Text="" Padding="0" Margin="0" Clicked="OnWorker2Clicked" />
+                            <Grid.Behaviors>
+                                <ds:PressableEffect ApplyHoverHighlight="True" />
+                            </Grid.Behaviors>
                         </Grid>
                     </Border>
 
@@ -239,6 +252,9 @@
                         Padding="0"
                         Margin="0"
                         Clicked="OnToggleClicked" />
+                <Grid.Behaviors>
+                    <ds:PressableEffect ApplyHoverHighlight="True" />
+                </Grid.Behaviors>
             </Grid>
 
             <BoxView x:Name="RailDot0" WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#334155" HorizontalOptions="Center" />

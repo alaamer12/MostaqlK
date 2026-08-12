@@ -2,6 +2,7 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:local="clr-namespace:MostaqlK.UI.PlatformComponents.PipelineRadar"
+             xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem"
              x:Class="MostaqlK.UI.PlatformComponents.PipelineRadar.PipelineRadar">
 
     <!-- AbsoluteLayout so the hover data panel can overflow above the footer without
@@ -32,6 +33,9 @@
                                           PointerMoved="OnPointerMoved" />
                 <TapGestureRecognizer Tapped="OnTapped" />
             </GraphicsView.GestureRecognizers>
+            <GraphicsView.Behaviors>
+                <ds:PressableEffect ApplyHoverHighlight="False" />
+            </GraphicsView.Behaviors>
         </GraphicsView>
 
         <Border x:Name="TooltipPanel"

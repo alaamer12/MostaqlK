@@ -145,6 +145,9 @@
                                 <Border.GestureRecognizers>
                                     <TapGestureRecognizer Command="{Binding TogglePollingCommand}" />
                                 </Border.GestureRecognizers>
+                                <Border.Behaviors>
+                                    <design:PressableEffect ApplyHoverHighlight="True" />
+                                </Border.Behaviors>
                                 <!-- `flex items-center gap-1.5` with a leading `fa-solid fa-pause`. -->
                                 <HorizontalStackLayout Spacing="6">
                                     <components:AppIcon Icon="Pause"
@@ -172,6 +175,9 @@
                                 <Border.GestureRecognizers>
                                     <TapGestureRecognizer Tapped="OnGearTapped" />
                                 </Border.GestureRecognizers>
+                                <Border.Behaviors>
+                                    <design:PressableEffect ApplyHoverHighlight="True" />
+                                </Border.Behaviors>
                                 <components:AppIcon Icon="Gear"
                                                      FontSize="14"
                                                      TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
@@ -208,7 +214,14 @@
                                FontSize="13"
                                FontFamily="TajawalBold"
                                TextColor="{AppThemeBinding Light=#2386C8, Dark=#5CA8DE}"
-                               VerticalOptions="Center" />
+                               VerticalOptions="Center">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding SearchCommand}" />
+                            </Label.GestureRecognizers>
+                            <Label.Behaviors>
+                                <design:PressableEffect ApplyHoverHighlight="True" />
+                            </Label.Behaviors>
+                        </Label>
                     </Grid>
                 </Border>
             </VerticalStackLayout>
@@ -266,6 +279,9 @@
                         <Label.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding MarkAllReadCommand}" />
                         </Label.GestureRecognizers>
+                        <Label.Behaviors>
+                            <design:PressableEffect ApplyHoverHighlight="True" />
+                        </Label.Behaviors>
                     </Label>
                 </HorizontalStackLayout>
 

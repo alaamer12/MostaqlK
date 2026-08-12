@@ -71,9 +71,7 @@ public static class InteractionLogger
 
     private static void Write(string kind, string checkpoint, string? variant, object? data, Exception? exception)
     {
-#if !DEBUG
-        return;
-#endif
+#if DEBUG
         try
         {
             var entry = new StringBuilder()
@@ -108,6 +106,7 @@ public static class InteractionLogger
         {
             // Diagnostics must never crash the app/tests they are trying to help debug.
         }
+#endif
     }
 
     private static string SafeSerialize(object data)
