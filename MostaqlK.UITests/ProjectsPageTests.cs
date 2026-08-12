@@ -158,20 +158,37 @@ public class ProjectsPageTests
     public void Click_Refresh_UpdatesLastScanText_AndDoesNotDoubleFireOnRapidSecondTap()
     {
         var since = DateTimeOffset.Now;
+        var lastScanLabel = UiDebugger.WaitAndFind(Driver, "Projects_LastScanLabel");
+        
+        // Wait until we are out of the "moments" (5s) window so we can see a text change.
+        // We check for "ثانية" which appears in "منذ 5 ثانية", "منذ 6 ثانية" etc.
+        var wait = new OpenQA.Selenium.Support.UI.WebDriverWait(Driver, TimeSpan.FromSeconds(10));
+        wait.Until(d => lastScanLabel.Text.Contains("ثانية"));
+        
+        var textBefore = lastScanLabel.Text;
+
         UiDebugger.WaitAndClick(Driver, "Projects_RefreshLabel");
         Thread.Sleep(300);
 
         // Tap again immediately (rapid double-fire probe) before the first refresh has settled.
         UiDebugger.WaitAndClick(Driver, "Projects_RefreshLabel");
-        Thread.Sleep(1500);
-
+        
+        // After refresh, it should go back to "منذ لحظات" (within moments).
+        wait.Until(d => lastScanLabel.Text.Contains("لحظات"));
+        
+        var textAfter = lastScanLabel.Text;
         var enterCount = CountLogEntries("RefreshCommand", since, kind: "ENTER");
         var exitCount = CountLogEntries("RefreshCommand", since, kind: "EXIT");
 
-        Assert.That(enterCount, Is.GreaterThan(0),
-            "RefreshCommand should have logged at least one entry after the rapid double-tap.");
-        Assert.That(exitCount, Is.LessThanOrEqualTo(enterCount),
-            "RefreshCommand should not report more completions than invocations (no runaway double-fire).");
+        Assert.Multiple(() =>
+        {
+            Assert.That(enterCount, Is.GreaterThan(0),
+                "RefreshCommand should have logged at least one entry after the rapid double-tap.");
+            Assert.That(exitCount, Is.LessThanOrEqualTo(enterCount),
+                "RefreshCommand should not report more completions than invocations (no runaway double-fire).");
+            Assert.That(textAfter, Is.Not.EqualTo(textBefore),
+                $"The LastScanLabel text should have changed from '{textBefore}' to '{textAfter}'.");
+        });
 
         // The page must still be responsive (no freeze/crash) — the search input must remain reachable.
         UiDebugger.WaitAndFind(Driver, "Projects_SearchInput");

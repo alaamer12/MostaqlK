@@ -112,6 +112,11 @@ public class SettingsPageTests
         var picker = UiDebugger.WaitAndFind(Driver, "Settings_GroupingModePicker");
         var initialText = picker.Text;
 
+        // Ensure we are at a known starting point (top of the list) to make Down deterministic.
+        picker.SendKeys(OpenQA.Selenium.Keys.Home);
+        Thread.Sleep(500);
+        initialText = picker.Text;
+
         // Avoid opening the native Picker's popup via Click() + keyboard nav — doing so triggers a
         // fatal native WinUI popup/UIA race in this environment (observed as "Currently selected
         // window has been closed"). SendKeys directly to the closed control is enough to drive the

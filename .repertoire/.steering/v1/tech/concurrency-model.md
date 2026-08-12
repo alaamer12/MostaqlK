@@ -77,4 +77,10 @@ A single enrichment's DB writes (the `projects` row insert, plus whatever else v
 
 ## Restart / crash behavior
 
-`InFlightTracker` is in-memory only, by design — it does not need to persist across restarts. On a fresh process start, the set is empty, which is exactly correct: anything that was mid-enrichment but not committed before the previous process ended is, by definition, not in the DB either, so the next poll's diff engine will correctly see it as `unseen` again and reprocess it. This is the same mechanism that makes the [backlog-handling model](../../base/product/architecture-pipeline.md#backlog-handling-no-special-cold-start) work without a dedicated resume/recovery path — a crash mid-backlog just looks like a large `unseen` set on the next poll, handled identically to any other backlog.
+While `InFlightTracker` maintains the active in-memory state for thread-safe diffing, it is backed by a persistent **Discovery Backlog** (`discovery_backlog` table in SQLite). 
+
+1. **On Discovery**: IDs are persisted to the backlog before being enqueued.
+2. **On Success**: IDs are removed from the backlog after successful enrichment and DB commit.
+3. **On Startup**: The app re-hydrates the discovery queue from the persistent backlog.
+
+This ensures that projects are never "lost" if the application is closed while they are in the queue, even if they move off the first page of the Mostaql feed before the next launch. See [`docs/PIPELINE_DESIGN.md`](../../../docs/PIPELINE_DESIGN.md) for full implementation details.

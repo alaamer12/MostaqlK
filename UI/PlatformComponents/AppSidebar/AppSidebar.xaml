@@ -101,6 +101,7 @@
                                 <RoundRectangle CornerRadius="10" />
                             </Border.StrokeShape>
                             <Label Text="{Binding NotificationCount, Source={x:Reference Root}}" FontSize="12" FontFamily="TajawalBold"
+                                   AutomationId="Sidebar_NotificationCountLabel"
                                    TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
                         </Border>
                     </Grid>
@@ -143,6 +144,7 @@
                            TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
                            FontFamily="Tajawal" />
                     <Label Text="{Binding StatValue, Source={x:Reference Root}}" FontSize="30" FontFamily="TajawalBold"
+                           AutomationId="Sidebar_StatValueLabel"
                            HorizontalTextAlignment="Center"
                            TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" />
                 </VerticalStackLayout>

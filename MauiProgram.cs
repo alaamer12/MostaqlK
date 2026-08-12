@@ -168,6 +168,9 @@ public static class MauiProgram
 		// Tray icon
 		builder.Services.AddSingleton<TrayIconService>();
 
+		// Global Status
+		builder.Services.AddSingleton<GlobalAppStatusService>();
+
 		// Features: Projects
 		builder.Services.AddTransient<ProjectFeedViewModel>();
 		builder.Services.AddTransient<StatusBarViewModel>();

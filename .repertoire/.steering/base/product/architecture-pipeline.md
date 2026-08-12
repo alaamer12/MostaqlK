@@ -56,7 +56,7 @@ Large backlogs naturally interact well with [notification grouping](../../v1/pro
 - `project_id` is added to `in_flight_ids` the moment it's enqueued.
 - It's removed the moment enrichment either commits successfully or fails permanently (always via a `finally`-equivalent — a failure must never leave an ID stuck as permanently invisible to future polls).
 - Diff logic: `new_to_enqueue = listing_ids − db_ids − in_flight_ids`.
-- On process restart, `in_flight_ids` is naturally empty — anything that was mid-enrichment but uncommitted before a crash/close is simply picked up fresh on the next poll (correct behavior: it resumes rather than silently drops).
+- On process restart, `in_flight_ids` is re-hydrated from the persistent **Discovery Backlog** (a shadow table in SQLite) — anything that was mid-enrichment but uncommitted before a crash/close is immediately put back into the queue. This prevents projects from being lost if they move off the first page of the feed during the offline period.
 
 **Defensive backstop:** `project_id` is a `PRIMARY KEY`/`UNIQUE` constraint in the DB regardless. Inserts use `INSERT OR IGNORE` / `ON CONFLICT DO NOTHING` — even if in-flight tracking has a bug, a duplicate insert fails cleanly instead of corrupting the archive.
 
