@@ -167,7 +167,17 @@ public static class MauiProgram
 		// Pipeline services
 		builder.Services.AddSingleton<InFlightTracker>();
 		builder.Services.AddSingleton<DiscoveryQueue>();
-		builder.Services.AddSingleton<TokenBucketRateLimiter>(_ => new TokenBucketRateLimiter(capacity: 10, refillPerSecond: 1));
+		// The shared budget is `max_requests_per_minute` (configuration-reference.md: default 2), and
+		// the user's saved value must be honoured from the very first poll cycle - it used to be read
+		// only by SettingsViewModel, which is Transient and never constructed unless the Settings page
+		// was opened, so the running limiter always kept its hard-coded startup numbers.
+		// `settings_safe_requests` (the "الطلبات الآمنة" checkbox) decides whether that budget is
+		// enforced with the documented spacing or with the older, much faster burst behaviour.
+		builder.Services.AddSingleton<TokenBucketRateLimiter>(_ => new TokenBucketRateLimiter(
+			Microsoft.Maui.Storage.Preferences.Get(
+				"settings_max_requests_per_minute",
+				TokenBucketRateLimiter.DefaultRequestsPerMinute),
+			Microsoft.Maui.Storage.Preferences.Get("settings_safe_requests", true)));
 		builder.Services.AddSingleton<SqliteCommittedProvider>();
 		builder.Services.AddSingleton<InFlightSetProvider>();
 		builder.Services.AddSingleton<DiffEngine>();

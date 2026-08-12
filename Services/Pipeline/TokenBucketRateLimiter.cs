@@ -5,11 +5,44 @@ namespace MostaqlK.Services.Pipeline;
 /// the poll service and the enrichment workers, so the app never exceeds the configured
 /// requests-per-interval budget against Mostaql.
 /// </summary>
+/// <remarks>
+/// Per <c>v1/tech/worker-pool-and-rate-limiter.md</c> the bucket is defined by a single number,
+/// <c>max_requests_per_minute</c>: capacity equals that per-minute budget and tokens refill at
+/// <c>rpm / 60</c> per second, "so a long idle period doesn't let the app burst its entire
+/// minute's budget in one second - capacity equals the per-minute rate, not an inflated
+/// allowance". The limiter used to be constructed with an unrelated capacity/refill pair
+/// (capacity 10, 1 token per second = 60/min with a 10-request burst), which is why a fresh
+/// database produced roughly twenty detail fetches inside ten seconds instead of spacing them
+/// out: the burst allowance and the refill rate were both far above the configured budget.
+/// <para>
+/// <see cref="MinimumSpacing"/> implements the second half of
+/// <c>base/product/architecture-pipeline.md § rate limiting</c>: even inside the per-minute
+/// budget, consecutive requests are spaced so a backlog burst never opens several simultaneous
+/// connections.
+/// </para>
+/// </remarks>
 public sealed class TokenBucketRateLimiter
 {
+    /// <summary>Default shared budget (<c>max_requests_per_minute</c>) per configuration-reference.md.</summary>
+    public const int DefaultRequestsPerMinute = 2;
+
+    /// <summary>
+    /// Burst allowance used when <c>safe requests</c> is switched off: the app is then allowed to
+    /// keep up to this many tokens in hand and refill one per second, which is the fast behaviour
+    /// the pipeline shipped with before the spec-compliant pacing landed.
+    /// </summary>
+    public const int FastModeBurstCapacity = 10;
+
+    /// <summary>Refill rate (tokens/second) used when <c>safe requests</c> is switched off.</summary>
+    public const double FastModeRefillPerSecond = 1.0;
+
+    /// <summary>Spacing enforced between two requests while <c>safe requests</c> is on.</summary>
+    public static readonly TimeSpan SafeModeMinimumSpacing = TimeSpan.FromSeconds(1);
+
     private readonly object _gate = new();
     private double _tokens;
     private DateTimeOffset _lastRefill;
+    private DateTimeOffset _lastGrant = DateTimeOffset.MinValue;
 
     /// <summary>
     /// Bucket size. Settable at runtime (see <c>SettingsViewModel</c>) so the configured
@@ -41,27 +74,66 @@ public sealed class TokenBucketRateLimiter
         }
     }
 
-    public TokenBucketRateLimiter(int capacity, double refillPerSecond)
+    /// <summary>
+    /// Minimum spacing enforced between two granted tokens, so several workers releasing at once
+    /// cannot fire simultaneous connections even while the bucket still holds tokens.
+    /// </summary>
+    public TimeSpan MinimumSpacing { get; set; } = SafeModeMinimumSpacing;
+
+    /// <summary>
+    /// Whether the documented safe pacing is in force (the <c>safe requests</c> setting). When
+    /// <see langword="true"/> the bucket follows the spec exactly - capacity equals
+    /// <c>max_requests_per_minute</c>, refill is <c>rpm / 60</c> per second and consecutive
+    /// requests are spaced by <see cref="SafeModeMinimumSpacing"/>. When <see langword="false"/>
+    /// the limiter reverts to the faster, deliberately looser burst behaviour
+    /// (<see cref="FastModeBurstCapacity"/> tokens, one refilled per second, no spacing), which
+    /// drains a large backlog far quicker at the cost of a much higher outbound request rate.
+    /// </summary>
+    public bool SafeRequests { get; private set; } = true;
+
+    /// <summary>
+    /// Builds the bucket from the configured <c>max_requests_per_minute</c> budget and the
+    /// <c>safe requests</c> switch.
+    /// </summary>
+    public TokenBucketRateLimiter(int requestsPerMinute = DefaultRequestsPerMinute, bool safeRequests = true)
     {
-        Capacity = capacity;
-        RefillPerSecond = refillPerSecond;
-        _tokens = capacity;
+        Apply(requestsPerMinute, safeRequests, fillBucket: true);
         _lastRefill = DateTimeOffset.UtcNow;
     }
 
     /// <summary>
-    /// Reconfigures the bucket for a new requests-per-minute budget, called live from
-    /// <c>SettingsViewModel</c> when the user changes the rate setting. Clamps the current
-    /// token count to the new capacity so a shrink takes effect immediately.
+    /// Reconfigures the bucket for a new requests-per-minute budget and/or <c>safe requests</c>
+    /// state, called live from <c>SettingsViewModel</c> when the user changes either setting.
+    /// Clamps the current token count to the new capacity so a shrink takes effect immediately.
     /// </summary>
-    public void Reconfigure(int capacity, double refillPerSecond)
+    public void Reconfigure(int requestsPerMinute, bool safeRequests)
     {
         lock (_gate)
         {
-            Capacity = capacity;
-            RefillPerSecond = refillPerSecond;
-            _tokens = Math.Min(_tokens, capacity);
+            Apply(requestsPerMinute, safeRequests, fillBucket: false);
         }
+    }
+
+    /// <summary>Must be called while holding `_gate` (or from the constructor).</summary>
+    private void Apply(int requestsPerMinute, bool safeRequests, bool fillBucket)
+    {
+        var rpm = Math.Max(1, requestsPerMinute);
+        SafeRequests = safeRequests;
+
+        if (safeRequests)
+        {
+            Capacity = rpm;
+            RefillPerSecond = rpm / 60.0;
+            MinimumSpacing = SafeModeMinimumSpacing;
+        }
+        else
+        {
+            Capacity = Math.Max(rpm, FastModeBurstCapacity);
+            RefillPerSecond = Math.Max(rpm / 60.0, FastModeRefillPerSecond);
+            MinimumSpacing = TimeSpan.Zero;
+        }
+
+        _tokens = fillBucket ? Capacity : Math.Min(_tokens, Capacity);
     }
 
     /// <summary>
@@ -81,14 +153,24 @@ public sealed class TokenBucketRateLimiter
             {
                 Refill();
 
-                if (_tokens >= 1.0)
+                var now = DateTimeOffset.UtcNow;
+                var sinceLastGrant = now - _lastGrant;
+
+                if (sinceLastGrant < MinimumSpacing)
+                {
+                    waitTime = MinimumSpacing - sinceLastGrant;
+                }
+                else if (_tokens >= 1.0)
                 {
                     _tokens -= 1.0;
+                    _lastGrant = now;
                     return;
                 }
-
-                var missing = 1.0 - _tokens;
-                waitTime = TimeSpan.FromSeconds(missing / RefillPerSecond);
+                else
+                {
+                    var missing = 1.0 - _tokens;
+                    waitTime = TimeSpan.FromSeconds(missing / RefillPerSecond);
+                }
             }
 
             if (waitTime < TimeSpan.FromMilliseconds(10))

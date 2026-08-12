@@ -68,6 +68,8 @@ Rendered once per item inside `Projects_ProjectsCollectionView`.
 |---|---|---|---|---|---|
 | Poll interval input | `Settings_PollIntervalInput` | Inputtable, focusable | `SettingsViewModel.PollIntervalSeconds` → `OnPollIntervalSecondsChanged` → `Preferences.Set` + `IPollService.PollIntervalSeconds` | `SettingsPanel.xaml:74-78` | `SettingsPageTests.Type_PollInterval_PersistsAndAppliesLive` |
 | Requests-per-minute input | `Settings_RequestsPerMinuteInput` | Inputtable, focusable | `SettingsViewModel.RequestsPerMinute` → `OnRequestsPerMinuteChanged` → `Preferences.Set` + `TokenBucketRateLimiter.Reconfigure` | `SettingsPanel.xaml:86-90` | `SettingsPageTests.Type_RequestsPerMinute_PersistsAndAppliesLive` |
+| "الطلبات الآمنة" checkbox | `Settings_SafeRequestsCheckbox` | Clickable (checkbox), default checked | `SettingsViewModel.SafeRequests` → `OnSafeRequestsChanged` → `Preferences.Set("settings_safe_requests")` + `TokenBucketRateLimiter.Reconfigure(rpm, safeRequests)`; also read at startup in `MauiProgram` | `SettingsPanel.xaml:103-125` | `SettingsPageTests.Toggle_SafeRequests_Off` / `Toggle_SafeRequests_On` (counterpart) |
+| Safe-requests (i) hint | `Settings_SafeRequestsInfo` | Hoverable (native tooltip), dynamic-data | `SettingsViewModel.SafeRequestsHintText` (recomputed from `SafeRequests` + `RequestsPerMinute`), shown both as `ToolTipProperties.Text` and as the row's sub-label | `SettingsPanel.xaml:106-113` | `SettingsPageTests.Hover_SafeRequestsInfo_ShowsExplanation` |
 | Grouping mode picker | `Settings_GroupingModePicker` | Clickable, dynamic-data, focusable | `SettingsViewModel.GroupingMode` → `OnGroupingModeChanged` → `Preferences.Set` + `NotificationGrouper.Mode` | `SettingsPanel.xaml:98-111` | `SettingsPageTests.Select_GroupingMode_PersistsAndAppliesLive` |
 | Grouping threshold input | `Settings_GroupingThresholdInput` | Inputtable, focusable | `SettingsViewModel.GroupingThreshold` → `OnGroupingThresholdChanged` → `Preferences.Set` + `NotificationGrouper.AfterMinutesThreshold`/`AfterCountThreshold` | `SettingsPanel.xaml:119-123` | `SettingsPageTests.Type_GroupingThreshold_PersistsAndAppliesLive` |
 | Dark mode toggle | `Settings_DarkModeToggle` | Clickable (toggle) | `SettingsViewModel.IsDarkMode` → `OnIsDarkModeChanged` → `Preferences.Set` + `Application.Current.UserAppTheme` | `SettingsPanel.xaml:129` | `SettingsPageTests.Toggle_DarkMode_On` / `Toggle_DarkMode_Off` (counterpart) |
@@ -97,11 +99,6 @@ Opened from `Sidebar_NotificationsButton` on `MainWindowPage` (see `Notification
 - Projects: 11 catalogued interactive/dynamic elements carrying an `AutomationId` (+ 2 dynamic-data-only labels noted).
 - Project Card: 1 (`ProjectCard_Root`, template — one instance per feed row).
 - Project Details: 4 catalogued elements carrying an `AutomationId`.
-- Settings: 6 catalogued elements carrying an `AutomationId` (+ 1 dynamic-data-only label noted).
-- About: 2 catalogued elements carrying an `AutomationId`.
-- Notifications Flyout: 2 catalogued elements carrying an `AutomationId` (row is a template — one instance per notification).
-ard_Root`, template — one instance per feed row).
-- Project Details: 4 catalogued elements carrying an `AutomationId`.
-- Settings: 6 catalogued elements carrying an `AutomationId` (+ 1 dynamic-data-only label noted).
+- Settings: 8 catalogued elements carrying an `AutomationId` (+ 1 dynamic-data-only label noted).
 - About: 2 catalogued elements carrying an `AutomationId`.
 - Notifications Flyout: 2 catalogued elements carrying an `AutomationId` (row is a template — one instance per notification).

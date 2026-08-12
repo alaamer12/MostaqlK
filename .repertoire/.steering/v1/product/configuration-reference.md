@@ -15,6 +15,9 @@
 - `poll_interval_seconds` — how often the listing page is re-fetched. Default: 30.
 - `max_requests_per_minute` — shared budget across listing polls + detail/asset fetches. Default: 2/min, user-adjustable. See [architecture-pipeline.md § rate limiting](../../base/product/architecture-pipeline.md#rate-limiting).
 - `max_concurrent_detail_fetches` — worker pool size for Tier 2 enrichment. Default: 2–3.
+- `safe_requests` — how strictly `max_requests_per_minute` is enforced. Default: **true**.
+  - **On (default):** the shared token bucket follows [worker-pool-and-rate-limiter.md](../tech/worker-pool-and-rate-limiter.md#shared-rate-limiter-token-bucket) exactly — capacity equals `max_requests_per_minute`, tokens refill at `rpm / 60` per second, and consecutive requests are spaced by at least 1s (the "minimum inter-request spacing" from [architecture-pipeline.md § rate limiting](../../base/product/architecture-pipeline.md#rate-limiting)).
+  - **Off:** the limiter allows a 10-request burst refilling at 1/s. A large backlog drains far faster, at a materially higher risk of being blocked by the site. Offered as an explicit, opt-in escape hatch only.
 
 ## `query_params`
 
@@ -59,6 +62,7 @@ Deferred — full detail in [roadmap-future.md](../../v2/product/roadmap-future.
 | `poll_interval_seconds` | 30 | v1 |
 | `max_requests_per_minute` | 2 | v1 |
 | `max_concurrent_detail_fetches` | 2–3 | v1 |
+| `safe_requests` | true | v1 |
 | `query_params` | *(empty)* | v2 |
 | `include_assets` | false | v2 |
 | `notification_grouping_enabled` | false | v2 |

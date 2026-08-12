@@ -94,6 +94,36 @@
                                 </Border>
                             </Grid>
 
+                            <!-- "الطلبات الآمنة": on (default) the shared token bucket enforces
+                                 max_requests_per_minute exactly as worker-pool-and-rate-limiter.md
+                                 specifies (capacity = rpm, refill = rpm/60 per second, 1s spacing);
+                                 off restores the older 10-request burst behaviour. The (i) glyph
+                                 carries the explanation as a native tooltip, and the same text is
+                                 repeated as a sub-label so it is readable without hovering. -->
+                            <VerticalStackLayout Spacing="4">
+                                <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
+                                    <Label Grid.Column="0" Text="الطلبات الآمنة" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" FontFamily="Tajawal" />
+                                    <Label Grid.Column="1"
+                                           Text="ⓘ"
+                                           FontSize="15"
+                                           VerticalOptions="Center"
+                                           AutomationId="Settings_SafeRequestsInfo"
+                                           TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}"
+                                           FontFamily="Tajawal"
+                                           ToolTipProperties.Text="{Binding SafeRequestsHintText}" />
+                                    <CheckBox Grid.Column="3"
+                                              AutomationId="Settings_SafeRequestsCheckbox"
+                                              IsChecked="{Binding SafeRequests}"
+                                              VerticalOptions="Center"
+                                              Color="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" />
+                                </Grid>
+                                <Label Text="{Binding SafeRequestsHintText}"
+                                       FontSize="12"
+                                       LineBreakMode="WordWrap"
+                                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                       FontFamily="Tajawal" />
+                            </VerticalStackLayout>
+
                             <Grid ColumnDefinitions="*,Auto">
                                 <Label Grid.Column="0" Text="طريقة تجميع الإشعارات" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" FontFamily="Tajawal" />
                                 <Border Grid.Column="1" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}" Padding="12,4" WidthRequest="160">

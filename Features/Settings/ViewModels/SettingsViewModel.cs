@@ -23,9 +23,13 @@ public sealed partial class SettingsViewModel : ObservableObject
     private const string KeyGroupingMode = "settings_grouping_mode";
     private const string KeyGroupingThreshold = "settings_grouping_threshold";
     private const string KeyIsDarkMode = "settings_is_dark_mode";
+    private const string KeySafeRequests = "settings_safe_requests";
 
-    private const int DefaultPollIntervalSeconds = 60;
-    private const int DefaultMaxRequestsPerMinute = 2;
+    // configuration-reference.md: `poll_interval_seconds` default 30, `max_requests_per_minute`
+    // default 2. This screen used to advertise a 60s default while PollService itself defaulted to
+    // 30, so the two disagreed on an untouched install.
+    private const int DefaultPollIntervalSeconds = 30;
+    private const int DefaultMaxRequestsPerMinute = TokenBucketRateLimiter.DefaultRequestsPerMinute;
     private const int MinPollIntervalSeconds = 10;
     private const int MaxPollIntervalSeconds = 3600;
 
@@ -41,6 +45,22 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     public partial int RequestsPerMinute { get; set; }
+
+    /// <summary>
+    /// "الطلبات الآمنة" - when on (the default), <see cref="RequestsPerMinute"/> is enforced exactly
+    /// as <c>worker-pool-and-rate-limiter.md</c> describes: the bucket holds at most that many
+    /// tokens, refills at <c>rpm / 60</c> per second and spaces consecutive requests by one second.
+    /// When off, the limiter allows a 10-request burst refilling once per second, which drains a
+    /// large backlog much faster but sends far more traffic to mostaql.com in a short window.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SafeRequestsHintText))]
+    public partial bool SafeRequests { get; set; } = true;
+
+    /// <summary>Tooltip body for the "الطلبات الآمنة" row's (i) affordance.</summary>
+    public string SafeRequestsHintText => SafeRequests
+        ? $"مُفعّل: يتم توزيع الطلبات على مدار الدقيقة بحد {RequestsPerMinute} طلب/دقيقة مع فاصل ثانية واحدة بين كل طلبين، وهو السلوك الموصى به لتجنّب الحجب من الموقع."
+        : $"مُعطّل: يُسمح بإرسال حتى {TokenBucketRateLimiter.FastModeBurstCapacity} طلبات دفعة واحدة ثم طلب كل ثانية، فتُعالج القائمة أسرع بكثير لكن مع خطر أعلى للحجب.";
 
     [ObservableProperty]
     public partial NotificationGroupingMode GroupingMode { get; set; }
@@ -86,6 +106,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         PollIntervalSeconds = Preferences.Get(KeyPollIntervalSeconds, DefaultPollIntervalSeconds);
         RequestsPerMinute = Preferences.Get(KeyMaxRequestsPerMinute, DefaultMaxRequestsPerMinute);
+        SafeRequests = Preferences.Get(KeySafeRequests, true);
         GroupingThreshold = Preferences.Get(KeyGroupingThreshold, 5);
         // Seed from the theme the app already resolved at startup (App.xaml.cs, which honours a
         // `--theme=light|dark` argument over the stored preference) and only fall back to the
@@ -156,6 +177,17 @@ public sealed partial class SettingsViewModel : ObservableObject
         ApplyPollSettings();
     }
 
+    partial void OnSafeRequestsChanged(bool value)
+    {
+        if (_isLoading)
+        {
+            return;
+        }
+
+        Preferences.Set(KeySafeRequests, value);
+        ApplyPollSettings();
+    }
+
     partial void OnGroupingModeChanged(NotificationGroupingMode value)
     {
         if (_isLoading)
@@ -200,11 +232,10 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         _pollService.PollIntervalSeconds = PollIntervalSeconds;
 
-        // requests/minute -> token-bucket capacity/refill: refill continuously across the
-        // minute so requests spread out rather than bursting, capacity mirrors the per-minute
-        // budget itself.
-        var refillPerSecond = RequestsPerMinute / 60.0;
-        _rateLimiter.Reconfigure(capacity: RequestsPerMinute, refillPerSecond: refillPerSecond);
+        // The limiter derives capacity, refill and spacing from these two values itself, so the
+        // numbers can no longer drift apart from the configured budget.
+        _rateLimiter.Reconfigure(RequestsPerMinute, SafeRequests);
+        OnPropertyChanged(nameof(SafeRequestsHintText));
     }
 
     private void ApplyGroupingSettings()

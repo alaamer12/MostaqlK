@@ -19,6 +19,8 @@ public sealed class WorkerPool
     private readonly List<Task> _runningWorkers = [];
 
     // Per system-components.md #6 (Worker Pool): `max_concurrent_detail_fetches` default 2-3.
+    // configuration-reference.md lists 2 as the shipped default, and the radar draws exactly three
+    // segments, so this stays inside the documented range.
     public int WorkerCount { get; set; } = 3;
 
     public WorkerPool(
@@ -63,7 +65,11 @@ public sealed class WorkerPool
         {
             var worker = new EnrichmentWorker(
                 i, _discoveryQueue, _enrichmentService, _inFlightTracker, _projectRepository, _globalStatus, _notificationDispatcher);
-            _runningWorkers.Add(worker.RunAsync(cancellationToken));
+            // `Task.Run` per worker-pool-and-rate-limiter.md's own sample: it guarantees the worker
+            // loop runs on the thread pool even if StartAsync is ever called from the UI thread
+            // again, so a detail-page parse or a SQLite write can never land on the dispatcher and
+            // freeze the window.
+            _runningWorkers.Add(Task.Run(() => worker.RunAsync(cancellationToken), cancellationToken));
         }
 
         return Result<bool>.Ok(true);

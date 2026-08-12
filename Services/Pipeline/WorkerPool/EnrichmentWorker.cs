@@ -64,10 +64,23 @@ public sealed class EnrichmentWorker
                 await _projectRepository.RemoveFromBacklogAsync(projectId, cancellationToken);
                 _globalStatus.UpdateWorkerState(_workerId, WorkerState.Completed);
             }
-            catch (Exception)
+            catch (OperationCanceledException)
             {
-                _globalStatus.UpdateWorkerState(_workerId, WorkerState.Error);
+                // App shutdown: leave the loop without marking the worker as failed.
                 throw;
+            }
+            catch (Exception ex)
+            {
+                // This used to rethrow, which ended `RunAsync` for good: the faulted task was never
+                // observed anywhere (WorkerPool only awaits them in StopAsync), so one unexpected
+                // exception silently removed a worker from the pool permanently - and three of them
+                // left the queue with nobody draining it while the UI still showed a live pipeline.
+                // A single project's failure must not cost the app a worker.
+                _globalStatus.UpdateWorkerState(_workerId, WorkerState.Error);
+                InteractionLogger.Failure(
+                    "EnrichmentWorker.Unexpected",
+                    EnrichErrors.Unexpected(projectId, ex),
+                    new { WorkerId = _workerId, ProjectId = projectId });
             }
             finally
             {

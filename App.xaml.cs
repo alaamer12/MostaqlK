@@ -77,12 +77,30 @@ public partial class App : Application
 		// kicks off their already-implemented `StartAsync` loops once, at process startup.
 		// Only THIS launch's explicit --seed-design-data argument keeps the pipeline offline —
 		// a persisted preference from a previous run can no longer do so (see fix note above).
+		//
+		// FIX (whole-window freeze while a fresh database was being filled): this constructor runs
+		// on the UI thread, so it carries WinUI's SynchronizationContext. Calling StartAsync
+		// directly meant every `await` inside `PollService.RunLoopAsync` and inside each
+		// `EnrichmentWorker.RunAsync` resumed *on the UI thread* - so the ~165 KB listing parse,
+		// every detail-page parse and every SQLite write for the whole backlog executed on the
+		// dispatcher and the window stopped responding until the queue drained. `Task.Run` starts
+		// both loops on the thread pool with no captured context; UI-bound state still reaches the
+		// UI safely because `GlobalAppStatusService` marshals its own PropertyChanged.
 		if (!explicitlySeededThisLaunch)
 		{
 			var pollService = services.GetRequiredService<IPollService>();
 			var workerPool = services.GetRequiredService<WorkerPool>();
-			_ = pollService.StartAsync(_pipelineCts.Token);
-			_ = workerPool.StartAsync(_pipelineCts.Token);
+
+			// The poll interval is persisted but was only ever read by the Transient
+			// SettingsViewModel, so an untouched app ignored the user's saved value entirely.
+			pollService.PollIntervalSeconds = Math.Clamp(
+				Microsoft.Maui.Storage.Preferences.Get("settings_poll_interval_seconds", pollService.PollIntervalSeconds),
+				10,
+				3600);
+
+			var pipelineToken = _pipelineCts.Token;
+			_ = Task.Run(() => pollService.StartAsync(pipelineToken), pipelineToken);
+			_ = Task.Run(() => workerPool.StartAsync(pipelineToken), pipelineToken);
 			MostaqlK.Services.Diagnostics.InteractionLogger.Mark("App.Startup.PipelineStarted", "A");
 		}
 		else

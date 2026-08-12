@@ -133,6 +133,12 @@ public sealed class PollService : IPollService
 
             _globalStatus.DiscoveryProgress = 0.3;
             var listingResult = await _scraper.FetchListingAsync(cancellationToken);
+
+            // The temporary debug delay that used to sit here has been removed: it only ever
+            // delayed the *listing* fetch, never the enrichment workers' detail fetches, which is
+            // why a burst of ~20 requests could still go out inside ten seconds while this delay
+            // was in place. Request spacing now belongs entirely to TokenBucketRateLimiter, the one
+            // place every outbound request passes through.
             if (listingResult.IsError)
             {
                 _globalStatus.DiscoveryProgress = 0;
