@@ -7,7 +7,8 @@
     xmlns:projectViews="clr-namespace:MostaqlK.Features.Projects.Views"
     xmlns:settingsViews="clr-namespace:MostaqlK.Features.Settings.Views"
     Title="MostaqlK"
-    FlowDirection="RightToLeft">
+    FlowDirection="RightToLeft"
+    FlyoutBehavior="Disabled">
 
     <!-- MainWindowPage (projects.html) is the real V1 entry point. The MAUI-template
          MainPage is kept registered under its own route so it still resolves if referenced
