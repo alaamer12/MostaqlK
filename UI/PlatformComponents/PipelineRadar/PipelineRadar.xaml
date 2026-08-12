@@ -1,14 +1,57 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:local="clr-namespace:MostaqlK.UI.PlatformComponents.PipelineRadar"
              x:Class="MostaqlK.UI.PlatformComponents.PipelineRadar.PipelineRadar">
-    <GraphicsView x:Name="RadarCanvas"
-                  HeightRequest="48"
-                  WidthRequest="48"
-                  HorizontalOptions="Center"
-                  VerticalOptions="Center"
-                  ToolTipProperties.Text="Pipeline Activity Radar"
-                  PointerEntered="OnPointerEntered"
-                  PointerExited="OnPointerExited" />
+
+    <!-- AbsoluteLayout so the hover data panel can overflow above the footer without
+         re-measuring the footer layout while the radar animates. -->
+    <AbsoluteLayout x:Name="RadarBox"
+                    WidthRequest="56"
+                    HeightRequest="56"
+                    HorizontalOptions="Center"
+                    VerticalOptions="Center">
+
+        <!-- The canvas fills the box proportionally, so the same unit works both as a small footer
+             dial and as the large dial inside the pipeline dashboard panel (see Diameter). -->
+        <GraphicsView x:Name="RadarCanvas"
+                      AutomationId="Pipeline_Radar"
+                      AbsoluteLayout.LayoutBounds="0,0,1,1"
+                      AbsoluteLayout.LayoutFlags="All">
+            <GraphicsView.GestureRecognizers>
+                <PointerGestureRecognizer PointerEntered="OnPointerEntered"
+                                          PointerExited="OnPointerExited"
+                                          PointerMoved="OnPointerMoved" />
+                <TapGestureRecognizer Tapped="OnTapped" />
+            </GraphicsView.GestureRecognizers>
+        </GraphicsView>
+
+        <Border x:Name="TooltipPanel"
+                AutomationId="Pipeline_RadarTooltip"
+                AbsoluteLayout.LayoutBounds="-176,-112,180,108"
+                IsVisible="False"
+                InputTransparent="True"
+                Opacity="0"
+                Padding="10,8"
+                StrokeThickness="1"
+                Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}"
+                BackgroundColor="{AppThemeBinding Light=White, Dark=#0B1220}">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="8" />
+            </Border.StrokeShape>
+            <VerticalStackLayout Spacing="2">
+                <Label x:Name="TooltipTitle"
+                       FontSize="11"
+                       FontFamily="TajawalBold"
+                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                <Label x:Name="TooltipLine1" FontSize="10" FontFamily="Tajawal" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                <Label x:Name="TooltipLine2" FontSize="10" FontFamily="Tajawal" LineBreakMode="TailTruncation" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                <Label x:Name="TooltipLine3" FontSize="10" FontFamily="Tajawal" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                <Label x:Name="TooltipLine4" FontSize="10" FontFamily="Tajawal" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                <Label x:Name="TooltipLine5" FontSize="10" FontFamily="Tajawal" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+            </VerticalStackLayout>
+        </Border>
+
+    </AbsoluteLayout>
+
 </ContentView>

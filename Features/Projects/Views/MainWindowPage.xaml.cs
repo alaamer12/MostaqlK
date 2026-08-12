@@ -27,6 +27,23 @@ public partial class MainWindowPage : ContentPage
         await _viewModel.LoadAsync();
     }
 
+    /// <summary>
+    /// Keeps the pipeline panel's resize range honest: the panel may never grow past the point
+    /// where the project feed would drop under its own minimum width, so panning simply stops
+    /// there instead of squeezing the cards.
+    /// </summary>
+    private void OnRootSizeChanged(object? sender, EventArgs e)
+    {
+        const double minimumFeedWidth = 520;
+        const double sidebarWidth = 256;
+
+        var available = Root.Width - sidebarWidth - minimumFeedWidth;
+        PanelSplitter.Maximum = Math.Max(PanelSplitter.Minimum, available);
+    }
+
+    private void OnPanelSplitterDragCompleted(object? sender, double width) =>
+        PipelinePanel.PersistWidth();
+
     private void OnProjectsNavClicked(object? sender, EventArgs e)
     {
         // Already on the projects feed — no-op for now.

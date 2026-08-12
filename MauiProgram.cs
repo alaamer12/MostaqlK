@@ -139,7 +139,21 @@ public static class MauiProgram
 #endif
 
 		// Infrastructure
-		builder.Services.AddSingleton<HttpClient>();
+		// mostaql.com sits behind a bot filter that answers a *header-less* request with HTTP 403
+		// before any HTML is produced. A bare `new HttpClient()` sends no User-Agent at all, so every
+		// single poll cycle failed at the listing fetch - verified directly against the endpoint:
+		// no User-Agent => 403 (118 bytes), a normal browser User-Agent => 200 (~165 KB). That is
+		// why the pipeline looked dead while the "last scan" counter kept ticking.
+		builder.Services.AddSingleton<HttpClient>(_ =>
+		{
+			var http = new HttpClient();
+			http.DefaultRequestHeaders.UserAgent.ParseAdd(
+				"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36");
+			http.DefaultRequestHeaders.Accept.ParseAdd(
+				"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+			http.DefaultRequestHeaders.AcceptLanguage.ParseAdd("ar,en-US;q=0.9,en;q=0.8");
+			return http;
+		});
 		builder.Services.AddSingleton<SqliteConnectionFactory>();
 		builder.Services.AddSingleton<IProjectScraper, MostaqlScraper>();
 		builder.Services.AddSingleton<IProjectRepository, ProjectRepository>();

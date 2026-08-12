@@ -9,6 +9,24 @@ namespace MostaqlK.Services;
 /// </summary>
 public sealed partial class GlobalAppStatusService : ObservableObject
 {
+    /// <summary>
+    /// Every property here is written from the pipeline's own background loops (`PollService`,
+    /// `EnrichmentWorker`), while the bindings that read them live in the footer and the pipeline
+    /// dashboard. Raising <c>PropertyChanged</c> off the UI thread is a real crash risk on WinUI, so
+    /// the notification is marshalled once, centrally, rather than at every call site.
+    /// </summary>
+    protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.IsDispatchRequired is false)
+        {
+            base.OnPropertyChanged(e);
+            return;
+        }
+
+        dispatcher.Dispatch(() => base.OnPropertyChanged(e));
+    }
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ProjectsAddedTodayText))]
     public partial int ProjectsAddedTodayCount { get; set; }
@@ -34,6 +52,156 @@ public sealed partial class GlobalAppStatusService : ObservableObject
     /// <summary>Detailed states for each worker (0-2).</summary>
     public WorkerState[] WorkerStates { get; } = new WorkerState[3];
 
+    /// <summary>Per-worker telemetry surfaced by the radar's worker tooltip.</summary>
+    public WorkerTelemetry[] Workers { get; } =
+    [
+        new WorkerTelemetry(0),
+        new WorkerTelemetry(1),
+        new WorkerTelemetry(2),
+    ];
+
+    /// <summary>Backlog capacity the queue ring/utilisation percentage is measured against.</summary>
+    [ObservableProperty]
+    public partial int QueueCapacity { get; set; } = 50;
+
+    /// <summary>Number of project ids currently waiting in the discovery backlog.</summary>
+    [ObservableProperty]
+    public partial int QueueCount { get; set; }
+
+    /// <summary>Total projects discovered since the app started (radar discovery tooltip).</summary>
+    [ObservableProperty]
+    public partial int ProjectsDiscoveredCount { get; set; }
+
+    /// <summary>When the last listing scan completed, used for "Last scan: 1.4s ago".</summary>
+    [ObservableProperty]
+    public partial DateTimeOffset? LastScanCompletedAt { get; set; }
+
+    /// <summary>Configured poll interval, mirrored from <c>PollService.PollIntervalSeconds</c>.</summary>
+    [ObservableProperty]
+    public partial int ScanIntervalSeconds { get; set; } = 30;
+
+    /// <summary>True while a listing scan is in flight (drives the radar's scanning segment).</summary>
+    [ObservableProperty]
+    public partial bool IsScanning { get; set; }
+
+    // --- Scan outcome ---
+    // A scan that fails, and a scan that succeeds but finds nothing new, used to look identical to
+    // the user: both left every number at zero. Only `LastScanCompletedAt` moved, and only on
+    // success, so a permanently failing endpoint was indistinguishable from "no new projects".
+    // These properties make the outcome of the *attempt* visible.
+
+    /// <summary>When the last scan attempt started, successful or not.</summary>
+    [ObservableProperty]
+    public partial DateTimeOffset? LastScanAttemptedAt { get; set; }
+
+    /// <summary>Number of scan attempts since the app started.</summary>
+    [ObservableProperty]
+    public partial int ScanAttemptCount { get; set; }
+
+    /// <summary>Projects returned by the last successful listing fetch (new + already known).</summary>
+    [ObservableProperty]
+    public partial int LastScanSeenCount { get; set; }
+
+    /// <summary>Genuinely new projects enqueued by the last successful scan.</summary>
+    [ObservableProperty]
+    public partial int LastScanNewCount { get; set; }
+
+    /// <summary>True when the most recent scan attempt failed; drives the panel's error line.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ConnectionText))]
+    [NotifyPropertyChangedFor(nameof(IsConnectionHealthy))]
+    public partial bool LastScanFailed { get; set; }
+
+    /// <summary>
+    /// Footer connection line. It used to be the hard-coded string "الاتصال: متصل" next to a
+    /// permanently green dot, so the app cheerfully claimed to be connected while every single scan
+    /// was being rejected.
+    /// </summary>
+    public string ConnectionText => LastScanFailed ? "الاتصال: فشل الفحص" : "الاتصال: متصل";
+
+    /// <summary>Drives which of the two footer dots is shown (green vs red).</summary>
+    public bool IsConnectionHealthy => !LastScanFailed;
+
+    /// <summary>The failing error's code (e.g. <c>HTTP.UNEXPECTED_STATUS</c>) for the log/diagnostics.</summary>
+    [ObservableProperty]
+    public partial string? LastScanErrorCode { get; set; }
+
+    /// <summary>The user-facing half of the failing <see cref="Core.DomainError"/>.</summary>
+    [ObservableProperty]
+    public partial string? LastScanErrorMessage { get; set; }
+
+    /// <summary>The failing error's remediation hint, when it carries one.</summary>
+    [ObservableProperty]
+    public partial string? LastScanFixMessage { get; set; }
+
+    /// <summary>
+    /// Publishes a failed scan attempt. Callers must also log through
+    /// <c>InteractionLogger.Failure</c> - this is the on-screen half, not a replacement for the log.
+    /// </summary>
+    public void NotifyScanFailed(Core.DomainError error)
+    {
+        LastScanFailed = true;
+        LastScanErrorCode = error.Code;
+        LastScanErrorMessage = error.ExternalMessage;
+        LastScanFixMessage = error.FixMessage;
+    }
+
+    /// <summary>Publishes a successful scan attempt, clearing any previous failure.</summary>
+    public void NotifyScanSucceeded(int seenCount, int newCount)
+    {
+        LastScanFailed = false;
+        LastScanErrorCode = null;
+        LastScanErrorMessage = null;
+        LastScanFixMessage = null;
+        LastScanSeenCount = seenCount;
+        LastScanNewCount = newCount;
+        LastScanCompletedAt = DateTimeOffset.UtcNow;
+    }
+
+    // Enqueue timestamps, so the queue tooltip can report the oldest item and the average wait.
+    private readonly Dictionary<long, DateTimeOffset> _queueEnqueuedAt = new();
+    private readonly object _queueSync = new();
+    private double _waitSecondsTotal;
+    private int _waitSamples;
+
+    /// <summary>Age of the oldest item still waiting in the backlog, in seconds.</summary>
+    public double OldestQueuedItemSeconds
+    {
+        get
+        {
+            lock (_queueSync)
+            {
+                if (_queueEnqueuedAt.Count == 0)
+                {
+                    return 0;
+                }
+
+                var oldest = DateTimeOffset.MaxValue;
+                foreach (var enqueuedAt in _queueEnqueuedAt.Values)
+                {
+                    if (enqueuedAt < oldest)
+                    {
+                        oldest = enqueuedAt;
+                    }
+                }
+
+                return Math.Max(0, (DateTimeOffset.UtcNow - oldest).TotalSeconds);
+            }
+        }
+    }
+
+    /// <summary>Rolling average time a project spent queued before a worker claimed it.</summary>
+    public double AverageQueueWaitSeconds
+    {
+        get
+        {
+            lock (_queueSync)
+            {
+                return _waitSamples == 0 ? 0 : _waitSecondsTotal / _waitSamples;
+            }
+        }
+    }
+
     public event Action<int, WorkerState>? WorkerStateChanged;
 
     public void UpdateWorkerState(int index, WorkerState state)
@@ -42,14 +210,92 @@ public sealed partial class GlobalAppStatusService : ObservableObject
         if (WorkerStates[index] == state) return;
 
         WorkerStates[index] = state;
+        var worker = Workers[index];
+        worker.State = state;
+
+        switch (state)
+        {
+            case WorkerState.Processing:
+                worker.ProcessingStartedAt = DateTimeOffset.UtcNow;
+                break;
+
+            case WorkerState.Completed:
+                worker.CompletedCount++;
+                worker.LastProcessingSeconds = worker.ElapsedSeconds;
+                worker.ProcessingStartedAt = null;
+                break;
+
+            case WorkerState.Error:
+                worker.ErrorCount++;
+                worker.LastProcessingSeconds = worker.ElapsedSeconds;
+                worker.ProcessingStartedAt = null;
+                break;
+
+            default:
+                worker.ProcessingStartedAt = null;
+                worker.CurrentProjectTitle = string.Empty;
+                worker.CurrentProjectId = null;
+                break;
+        }
+
         WorkerStateChanged?.Invoke(index, state);
     }
 
-    public event Action? ProjectDiscovered;
+    /// <summary>Raised when a brand new project id enters the pipeline (discovery -> backlog).</summary>
+    public event Action<long, string>? ProjectDiscovered;
 
-    public void NotifyProjectDiscovered()
+    /// <summary>Raised when a worker claims a queued project (backlog -> enrichment).</summary>
+    public event Action<int, long, string>? ProjectAssignedToWorker;
+
+    /// <summary>Raised when a queued project leaves the pipeline without being enriched.</summary>
+    public event Action<long>? ProjectRemovedFromQueue;
+
+    public void NotifyProjectDiscovered(long projectId, string title = "")
     {
-        ProjectDiscovered?.Invoke();
+        ProjectsDiscoveredCount++;
+        lock (_queueSync)
+        {
+            _queueEnqueuedAt[projectId] = DateTimeOffset.UtcNow;
+        }
+
+        ProjectDiscovered?.Invoke(projectId, title);
+    }
+
+    public void NotifyProjectAssignedToWorker(int workerIndex, long projectId, string title = "")
+    {
+        if (workerIndex < 0 || workerIndex >= 3) return;
+
+        lock (_queueSync)
+        {
+            if (_queueEnqueuedAt.Remove(projectId, out var enqueuedAt))
+            {
+                _waitSecondsTotal += Math.Max(0, (DateTimeOffset.UtcNow - enqueuedAt).TotalSeconds);
+                _waitSamples++;
+            }
+        }
+
+        var worker = Workers[workerIndex];
+        worker.CurrentProjectId = projectId;
+        worker.CurrentProjectTitle = string.IsNullOrEmpty(title) ? $"#{projectId}" : title;
+
+        ProjectAssignedToWorker?.Invoke(workerIndex, projectId, worker.CurrentProjectTitle);
+    }
+
+    public void NotifyProjectRemovedFromQueue(long projectId)
+    {
+        lock (_queueSync)
+        {
+            _queueEnqueuedAt.Remove(projectId);
+        }
+
+        ProjectRemovedFromQueue?.Invoke(projectId);
+    }
+
+    /// <summary>Publishes the backlog size, keeping <see cref="QueuePressure"/> in sync with it.</summary>
+    public void UpdateQueueCount(int count)
+    {
+        QueueCount = Math.Max(0, count);
+        QueuePressure = QueueCapacity <= 0 ? 0 : Math.Min(1.0, QueueCount / (double)QueueCapacity);
     }
 
     /// <summary>Triggered whenever a snapshot is taken, driving the radar sweep.</summary>

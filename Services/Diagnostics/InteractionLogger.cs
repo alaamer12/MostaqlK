@@ -37,6 +37,29 @@ public static class InteractionLogger
     public static void Fault(string interactionName, Exception exception, object? data = null)
         => Write("FAULT", interactionName, variant: null, data, exception);
 
+    /// <summary>
+    /// Logs a failing <see cref="MostaqlK.Core.Result{T}"/>. This sink did not exist before, which
+    /// is exactly how a hard, permanent failure (the listing endpoint answering 403 on every single
+    /// poll cycle) could stay completely invisible: <see cref="MostaqlK.Core.DomainError"/> values
+    /// were constructed faithfully and then dropped on the floor, and only *exceptions* had
+    /// anywhere to go. Any code that observes <c>Result.IsError</c> and does not propagate it to a
+    /// caller must report it here.
+    /// </summary>
+    public static void Failure(string checkpoint, MostaqlK.Core.DomainError error, object? data = null)
+        => Write(
+            "ERROR",
+            checkpoint,
+            variant: error.Code,
+            data: new
+            {
+                error.Code,
+                error.InternalMessage,
+                error.ExternalMessage,
+                error.FixMessage,
+                Detail = data,
+            },
+            exception: error.Cause);
+
     /// <summary>Absolute path of the rolling diagnostics log file, for tests to read/tail.</summary>
     public static string LogFilePath_ForTests => LogFilePath.Value;
 

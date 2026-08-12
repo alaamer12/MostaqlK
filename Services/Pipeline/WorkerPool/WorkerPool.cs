@@ -48,8 +48,12 @@ public sealed class WorkerPool
                 if (_inFlightTracker.TryMarkInFlight(projectId))
                 {
                     await _discoveryQueue.EnqueueAsync(projectId, cancellationToken);
+                    // Re-hydrated items are real backlog too, so the radar shows them as discovered.
+                    _globalStatus.NotifyProjectDiscovered(projectId);
                 }
             }
+
+            _globalStatus.UpdateQueueCount(_discoveryQueue.Count);
         }
 
         // Cleanup: Prune very old backlog entries (e.g. > 30 days) to prevent bloat.

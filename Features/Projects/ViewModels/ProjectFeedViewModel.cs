@@ -29,7 +29,6 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     private readonly IPollService _pollService;
     private readonly TokenBucketRateLimiter _rateLimiter;
     private readonly GlobalAppStatusService _globalStatus;
-    private readonly IDispatcherTimer _lastScanTimer;
 
     // Guards against overlapping LoadAsync calls racing each other: if the search box's
     // debounce fires more than once in quick succession (e.g. WinAppDriver/remote SendKeys
@@ -40,7 +39,14 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     // search box already shows the final term "CSS". Each LoadAsync call is stamped with a
     // monotonically increasing token; only the most recent call is allowed to apply its results.
     private int _loadRequestToken;
-    private DateTime? _lastLoadTime;
+
+    // The feed used to only ever reload from OnAppearing or a manual refresh - nothing in the
+    // background pipeline (PollService/WorkerPool/EnrichmentWorker) ever told this view-model that
+    // new rows existed, so a page that had already appeared once never showed projects discovered
+    // or enriched afterwards, even though the database and the dashboard panel were both fully
+    // live. These three pipeline events are debounced into a single reload so a burst of
+    // discoveries doesn't hammer the database with one query per project.
+    private CancellationTokenSource? _autoReloadDebounce;
 
     public ObservableCollection<ProjectCardViewModel> Projects { get; } = [];
 
@@ -86,8 +92,6 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(RateLimitText))]
     public partial int RequestsPerMinute { get; set; } = 12;
 
-    [ObservableProperty]
-    public partial string LastScanText { get; set; } = "آخر فحص: منذ لحظات";
 
     /// <summary>True once loading has finished with no error and at least one result — drives the success-state ScrollView.</summary>
     public bool ShowFeed => !IsLoading && !HasError && !IsEmpty;
@@ -132,43 +136,75 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         _rateLimiter = rateLimiter;
         _globalStatus = globalStatus;
 
-        _lastScanTimer = Application.Current!.Dispatcher.CreateTimer();
-        _lastScanTimer.Interval = TimeSpan.FromSeconds(1);
-        _lastScanTimer.Tick += (s, e) => UpdateLastScanText();
-        _lastScanTimer.Start();
-
         RefreshHeaderStatus();
+
+        // Auto-refresh: a discovered project lands in `projects` immediately (see
+        // ProjectRepository's INSERT OR IGNORE), and a completed worker rewrites it with the
+        // enriched details, so either event means GetRecentAsync's result set has actually
+        // changed. MainWindowPage is created once for the app's lifetime, so this subscription
+        // does not need to be torn down.
+        _globalStatus.ProjectDiscovered += OnProjectDiscovered;
+        _globalStatus.WorkerStateChanged += OnWorkerStateChanged;
+        _globalStatus.ProjectRemovedFromQueue += OnProjectRemovedFromQueue;
     }
 
-    private void UpdateLastScanText()
+    private void OnProjectDiscovered(long projectId, string title) => ScheduleAutoReload();
+
+    private void OnProjectRemovedFromQueue(long projectId) => ScheduleAutoReload();
+
+    private void OnWorkerStateChanged(int workerIndex, WorkerState state)
     {
-        if (_lastLoadTime == null)
+        if (state is WorkerState.Completed or WorkerState.Error)
         {
-            LastScanText = "آخر فحص: لم يتم الفحص بعد";
+            ScheduleAutoReload();
+        }
+    }
+
+    /// <summary>
+    /// Debounces a burst of pipeline events (a discovery storm, several workers finishing near
+    /// simultaneously) into a single <see cref="LoadAsync"/>, dispatched on the UI thread since
+    /// these events are raised from background pipeline loops.
+    /// </summary>
+    private void ScheduleAutoReload()
+    {
+        var cts = new CancellationTokenSource();
+        var previous = Interlocked.Exchange(ref _autoReloadDebounce, cts);
+        previous?.Cancel();
+        previous?.Dispose();
+
+        _ = DebouncedReloadAsync(cts.Token);
+    }
+
+    private async Task DebouncedReloadAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(400, token);
+        }
+        catch (TaskCanceledException)
+        {
             return;
         }
 
-        var elapsed = DateTime.Now - _lastLoadTime.Value;
-        if (elapsed.TotalSeconds < 5)
+        if (token.IsCancellationRequested)
         {
-            LastScanText = "آخر فحص: منذ لحظات";
+            return;
         }
-        else if (elapsed.TotalMinutes < 1)
-        {
-            LastScanText = $"آخر فحص: منذ {Math.Floor(elapsed.TotalSeconds)} ثانية";
-        }
-        else
-        {
-            LastScanText = $"آخر فحص: منذ {Math.Floor(elapsed.TotalMinutes)} دقيقة";
-        }
+
+        await MainThread.InvokeOnMainThreadAsync(LoadAsync);
     }
+
+    // The footer's "آخر فحص" line used to be built here, timed from the last moment this *view*
+    // reloaded from the database, which has nothing to do with when the pipeline
+    // last scanned. That is why it could read "منذ دقيقة" while the header advertised a 30-second
+    // poll interval. The wording now lives in the shared LastScanStatus unit and is driven by
+    // GlobalAppStatusService.LastScanCompletedAt, the timestamp PollService writes every cycle.
 
     public void RefreshHeaderStatus()
     {
         PollIntervalSeconds = Preferences.Get(KeyPollIntervalSeconds, _pollService.PollIntervalSeconds);
         RequestsPerMinute = Preferences.Get(KeyMaxRequestsPerMinute, Math.Max(1, _rateLimiter.Capacity));
         IsPollingActive = !_pollService.IsPaused;
-        UpdateLastScanText();
     }
 
     [RelayCommand]
@@ -249,8 +285,6 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
             }
 
             IsEmpty = Projects.Count == 0;
-            _lastLoadTime = DateTime.Now;
-            UpdateLastScanText();
         }
         finally
         {
@@ -270,6 +304,9 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         using var _ = TraceScope.Begin("RefreshCommand");
         try
         {
+            // Reload what is already stored, and ask the pipeline for a scan now: the footer's
+            // "آخر فحص" reflects real scans, so the button has to cause one rather than pretend.
+            _pollService.RequestCheckNow();
             await LoadAsync();
         }
         catch (Exception ex)

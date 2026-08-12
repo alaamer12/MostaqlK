@@ -1,6 +1,7 @@
 using MostaqlK.Core;
 using MostaqlK.Infrastructure.Http;
 using MostaqlK.Infrastructure.Database;
+using MostaqlK.Services.Diagnostics;
 using MostaqlK.Services.Pipeline.DiffEngine;
 
 namespace MostaqlK.Services.Pipeline;
@@ -83,7 +84,7 @@ public sealed class PollService : IPollService
     private async Task RunLoopAsync(CancellationToken cancellationToken)
     {
         // Run an immediate first poll rather than waiting a full interval on startup.
-        await PollOnceAsync(cancellationToken);
+        ReportCycle(await PollOnceAsync(cancellationToken));
 
         try
         {
@@ -103,7 +104,9 @@ public sealed class PollService : IPollService
 
                 if (!_isPaused)
                 {
-                    await PollOnceAsync(cancellationToken);
+                    // The loop used to discard this Result entirely, which is the exact point where a
+                    // permanent listing failure became invisible. Every cycle now reports its outcome.
+                    ReportCycle(await PollOnceAsync(cancellationToken));
                 }
             }
         }
@@ -120,6 +123,11 @@ public sealed class PollService : IPollService
         try
         {
             SetStatus(PollServiceStatus.Polling);
+            // Radar discovery tier: the scanning segment runs for as long as this flag is set.
+            _globalStatus.IsScanning = true;
+            _globalStatus.LastScanAttemptedAt = DateTimeOffset.UtcNow;
+            _globalStatus.ScanAttemptCount++;
+            _globalStatus.ScanIntervalSeconds = PollIntervalSeconds;
             _globalStatus.DiscoveryProgress = 0.1; // Start pulse
             await _rateLimiter.WaitForTokenAsync(cancellationToken);
 
@@ -128,6 +136,8 @@ public sealed class PollService : IPollService
             if (listingResult.IsError)
             {
                 _globalStatus.DiscoveryProgress = 0;
+                _globalStatus.IsScanning = false;
+                Fail(listingResult.Error, "PollService.FetchListing");
                 return Result<int>.Err(listingResult.Error);
             }
 
@@ -139,6 +149,8 @@ public sealed class PollService : IPollService
             if (diffResult.IsError)
             {
                 _globalStatus.DiscoveryProgress = 0;
+                _globalStatus.IsScanning = false;
+                Fail(diffResult.Error, "PollService.Diff");
                 return Result<int>.Err(diffResult.Error);
             }
 
@@ -157,24 +169,56 @@ public sealed class PollService : IPollService
                 await _projectRepository.AddToBacklogAsync(projectId, cancellationToken);
 
                 await _discoveryQueue.EnqueueAsync(projectId, cancellationToken);
-                _globalStatus.NotifyProjectDiscovered();
-                _globalStatus.QueuePressure = Math.Min(1.0, _discoveryQueue.Count / 50.0);
+                // Radar: detection pulse -> token -> queue slot; the ring grows on arrival.
+                _globalStatus.NotifyProjectDiscovered(projectId);
+                _globalStatus.UpdateQueueCount(_discoveryQueue.Count);
                 enqueued++;
             }
 
             SetStatus(enqueued > 0 ? PollServiceStatus.BacklogDraining : PollServiceStatus.Idle);
             _globalStatus.DiscoveryProgress = 1.0;
-            _ = Task.Delay(1000).ContinueWith(_ => _globalStatus.DiscoveryProgress = 0);
+            // "Saw 41 projects, 0 of them new" is a completely different story from "the request
+            // failed", and the UI could not tell them apart before.
+            _globalStatus.NotifyScanSucceeded(listingResult.Value.Count, enqueued);
+            _ = Task.Delay(1000).ContinueWith(_ =>
+            {
+                _globalStatus.DiscoveryProgress = 0;
+                _globalStatus.IsScanning = false;
+            });
             return Result<int>.Ok(enqueued);
         }
         catch (OperationCanceledException)
         {
+            _globalStatus.IsScanning = false;
             throw;
         }
         catch (Exception ex)
         {
+            _globalStatus.IsScanning = false;
             SetStatus(PollServiceStatus.Error);
-            return Result<int>.Err(PollErrors.ListingFetchFailed(ex));
+            var error = PollErrors.ListingFetchFailed(ex);
+            Fail(error, "PollService.Unexpected");
+            return Result<int>.Err(error);
+        }
+    }
+
+    /// <summary>Logs a failing cycle and publishes it to the UI. Never swallow a poll failure again.</summary>
+    private void Fail(DomainError error, string checkpoint)
+    {
+        SetStatus(PollServiceStatus.Error);
+        InteractionLogger.Failure(checkpoint, error, new { PollIntervalSeconds, _globalStatus.ScanAttemptCount });
+        _globalStatus.NotifyScanFailed(error);
+    }
+
+    /// <summary>
+    /// Last line of defence: whatever <see cref="PollOnceAsync"/> returns is accounted for, so a
+    /// future failure path that forgets to call <see cref="Fail"/> still leaves a trace in the log.
+    /// </summary>
+    private static void ReportCycle(Result<int> cycle)
+    {
+        if (cycle.IsError)
+        {
+            InteractionLogger.Failure("PollService.Cycle", cycle.Error);
         }
     }
 

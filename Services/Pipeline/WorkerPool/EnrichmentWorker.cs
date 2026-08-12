@@ -2,6 +2,7 @@ using MostaqlK.Core;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Models;
 using MostaqlK.Services;
+using MostaqlK.Services.Diagnostics;
 
 namespace MostaqlK.Services.Pipeline.WorkerPool;
 
@@ -53,8 +54,11 @@ public sealed class EnrichmentWorker
         {
             try
             {
+                // Radar: the queued project token travels to this worker's segment, then the
+                // segment activates - the user can see *which* worker picked the project up.
+                _globalStatus.NotifyProjectAssignedToWorker(_workerId, projectId);
                 _globalStatus.UpdateWorkerState(_workerId, WorkerState.Processing);
-                _globalStatus.QueuePressure = Math.Min(1.0, _discoveryQueue.Count / 50.0);
+                _globalStatus.UpdateQueueCount(_discoveryQueue.Count);
                 await ProcessAsync(projectId, cancellationToken);
                 // Success: remove from persistent backlog.
                 await _projectRepository.RemoveFromBacklogAsync(projectId, cancellationToken);
@@ -69,7 +73,7 @@ public sealed class EnrichmentWorker
             {
                 // Give a moment for the Completed/Error state to be visible before returning to Idle
                 _ = Task.Delay(2000).ContinueWith(_ => _globalStatus.UpdateWorkerState(_workerId, WorkerState.Idle));
-                _globalStatus.QueuePressure = Math.Min(1.0, _discoveryQueue.Count / 50.0);
+                _globalStatus.UpdateQueueCount(_discoveryQueue.Count);
                 // Hard rule per In-Flight Tracker spec: always released, success or failure,
                 // so no ID can get stuck permanently in-flight.
                 _inFlightTracker.MarkComplete(projectId);
@@ -93,6 +97,10 @@ public sealed class EnrichmentWorker
             }
 
             lastError = result.Error;
+            InteractionLogger.Failure(
+                "EnrichmentWorker.Attempt",
+                lastError,
+                new { WorkerId = _workerId, ProjectId = projectId, Attempt = attempt });
 
             if (attempt < RetryDelays.Length)
             {
@@ -102,10 +110,20 @@ public sealed class EnrichmentWorker
 
         if (details is null)
         {
-            // Permanent failure: max attempts exhausted. Per Step 4's future scope, this
-            // should mark `enrichment_status = 'failed'` in the DB - for now we only log via
-            // the domain error, since `ProjectRepository` writes are not implemented yet.
-            _ = lastError is not null ? EnrichErrors.MaxAttemptsExhausted(projectId, RetryDelays.Length, lastError) : null;
+            // Permanent failure: max attempts exhausted. Per Step 4's future scope, this should also
+            // mark `enrichment_status = 'failed'` in the DB. The error itself used to be built and
+            // then assigned to a discard (`_ = ...`), so "gave up after 5 attempts" left no trace
+            // anywhere at all - it is now logged and the worker segment is marked as failed.
+            if (lastError is not null)
+            {
+                var exhausted = EnrichErrors.MaxAttemptsExhausted(projectId, RetryDelays.Length, lastError);
+                InteractionLogger.Failure(
+                    "EnrichmentWorker.MaxAttemptsExhausted",
+                    exhausted,
+                    new { WorkerId = _workerId, ProjectId = projectId });
+                _globalStatus.UpdateWorkerState(_workerId, WorkerState.Error);
+            }
+
             return;
         }
 

@@ -1,0 +1,258 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:radar="clr-namespace:MostaqlK.UI.PlatformComponents.PipelineRadar"
+             xmlns:lastscan="clr-namespace:MostaqlK.UI.PlatformComponents.LastScanStatus"
+             x:Class="MostaqlK.UI.PlatformComponents.PipelineDashboard.PipelineDashboardPanel"
+             x:Name="Root">
+
+    <ContentView.Resources>
+        <!-- Card surface reused by every block in the panel: same `bg-slate-100 dark:bg-slate-800
+             rounded-xl p-3` treatment the sidebar stat card uses, so the panel reads as part of
+             the existing design language (there is no mockup for this column). -->
+        <Style x:Key="DashCardStyle" TargetType="Border">
+            <Setter Property="StrokeThickness" Value="0" />
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
+            <Setter Property="StrokeShape">
+                <Setter.Value>
+                    <RoundRectangle CornerRadius="12" />
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DashSectionLabelStyle" TargetType="Label">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontFamily" Value="TajawalMedium" />
+            <Setter Property="TextColor" Value="{AppThemeBinding Light=#475569, Dark=#94A3B8}" />
+        </Style>
+
+        <Style x:Key="DashValueLabelStyle" TargetType="Label">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontFamily" Value="Tajawal" />
+            <Setter Property="LineBreakMode" Value="TailTruncation" />
+            <Setter Property="MaxLines" Value="1" />
+            <Setter Property="TextColor" Value="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+        </Style>
+    </ContentView.Resources>
+
+    <!-- Expanded body and collapsed rail share one cell: collapsing swaps which one is visible and
+         animates the panel width, so no layout is rebuilt and the pipeline stays on screen either
+         way (the whole point of moving the dial out of the footer). -->
+    <Grid x:Name="PanelRoot" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+
+        <!-- ============================= expanded ============================= -->
+        <Grid x:Name="Body" RowDefinitions="Auto,*">
+
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="12,10" ColumnSpacing="8">
+                <Label Grid.Column="0"
+                       Text="خط المعالجة"
+                       FontSize="14"
+                       FontFamily="TajawalBold"
+                       VerticalOptions="Center"
+                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                <!-- Transparent Button over the glyph: a Border/Label + TapGestureRecognizer never
+                     surfaces an AutomationId to the Windows UIA tree (dotnet/maui#4715). -->
+                <Grid Grid.Column="1" WidthRequest="28" HeightRequest="28">
+                    <Label x:Name="CollapseGlyph"
+                           Text="»"
+                           FontSize="16"
+                           FontFamily="TajawalBold"
+                           HorizontalOptions="Center"
+                           VerticalOptions="Center"
+                           TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                    <Button AutomationId="Pipeline_PanelToggle"
+                            BackgroundColor="Transparent"
+                            BorderWidth="0"
+                            Text=""
+                            Padding="0"
+                            Margin="0"
+                            Clicked="OnToggleClicked" />
+                </Grid>
+            </Grid>
+
+            <ScrollView Grid.Row="1" Padding="12,0,12,12">
+                <VerticalStackLayout Spacing="12">
+
+                    <!-- The chart. Tooltips are off: this panel *is* the readout. -->
+                    <radar:PipelineRadar x:Name="Radar"
+                                         ShowTooltip="False"
+                                         HorizontalOptions="Center"
+                                         DiscoveryProgress="{Binding DiscoveryProgress, Source={x:Reference Root}}"
+                                         QueuePressure="{Binding QueuePressure, Source={x:Reference Root}}"
+                                         QueueCount="{Binding QueueCount, Source={x:Reference Root}}"
+                                         QueueCapacity="{Binding QueueCapacity, Source={x:Reference Root}}"
+                                         EnrichmentActivity="{Binding EnrichmentActivity, Source={x:Reference Root}}"
+                                         IsSnapshotActive="{Binding IsSnapshotActive, Source={x:Reference Root}}" />
+
+                    <!-- Discovery -->
+                    <Border Style="{StaticResource DashCardStyle}">
+                        <VerticalStackLayout Spacing="6">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                <BoxView x:Name="DiscoveryDot" Grid.Column="0" WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#5CA8DE" VerticalOptions="Center" />
+                                <Label Grid.Column="1" Text="الاستكشاف" Style="{StaticResource DashSectionLabelStyle}" VerticalOptions="Center" />
+                            </Grid>
+                            <Label x:Name="DiscoveryStatusLabel" Style="{StaticResource DashValueLabelStyle}" />
+                            <!-- Same unit the projects footer uses: one wording, one timer, one
+                                 timestamp - the two used to disagree with each other. -->
+                            <lastscan:LastScanStatus x:Name="DiscoveryLastScan"
+                                                     FontSize="12"
+                                                     TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                            <Label x:Name="DiscoveryCountLabel" Style="{StaticResource DashValueLabelStyle}" />
+                            <Label x:Name="DiscoveryIntervalLabel" Style="{StaticResource DashValueLabelStyle}" />
+                            <!-- "Saw 41 projects, 0 new" - without this line a healthy scan that
+                                 finds nothing new is indistinguishable from a scan that never ran. -->
+                            <Label x:Name="DiscoveryResultLabel"
+                                   AutomationId="Pipeline_DiscoveryResultLabel"
+                                   Style="{StaticResource DashValueLabelStyle}" />
+                            <!-- The failure surface. A failing poll cycle used to be completely
+                                 silent: the DomainError was built and dropped, so a permanent 403
+                                 looked exactly like an idle pipeline. -->
+                            <Label x:Name="DiscoveryErrorLabel"
+                                   AutomationId="Pipeline_DiscoveryErrorLabel"
+                                   IsVisible="False"
+                                   FontSize="12"
+                                   FontFamily="TajawalMedium"
+                                   LineBreakMode="WordWrap"
+                                   TextColor="{AppThemeBinding Light=#B91C1C, Dark=#F87171}" />
+                            <Label x:Name="DiscoveryFixLabel"
+                                   IsVisible="False"
+                                   FontSize="11"
+                                   FontFamily="Tajawal"
+                                   LineBreakMode="WordWrap"
+                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Queue -->
+                    <Border Style="{StaticResource DashCardStyle}">
+                        <VerticalStackLayout Spacing="6">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Grid.Column="0" Text="قائمة الانتظار" Style="{StaticResource DashSectionLabelStyle}" VerticalOptions="Center" />
+                                <Label x:Name="QueueUtilLabel"
+                                       Grid.Column="1"
+                                       FontSize="12"
+                                       FontFamily="TajawalBold"
+                                       VerticalOptions="Center"
+                                       TextColor="{AppThemeBinding Light=#B45309, Dark=#F59E0B}" />
+                            </Grid>
+                            <Label x:Name="QueueValueLabel"
+                                   AutomationId="Pipeline_QueueValueLabel"
+                                   FontSize="24"
+                                   FontFamily="TajawalBold"
+                                   TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                            <!-- Utilisation bar: the fill width is interpolated alongside the ring
+                                 so the number and its visual never disagree. -->
+                            <Grid x:Name="QueueBar" HeightRequest="4" SizeChanged="OnQueueBarSizeChanged">
+                                <BoxView CornerRadius="2" Color="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" />
+                                <BoxView x:Name="QueueBarFill" CornerRadius="2" Color="#F59E0B" WidthRequest="0" HorizontalOptions="Start" />
+                            </Grid>
+                            <Label x:Name="QueueOldestLabel" Style="{StaticResource DashValueLabelStyle}" />
+                            <Label x:Name="QueueAvgLabel" Style="{StaticResource DashValueLabelStyle}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Workers. Clicking a row focuses that worker in the dial (and vice versa). -->
+                    <Label Text="العوامل" Style="{StaticResource DashSectionLabelStyle}" Margin="4,0,0,0" />
+
+                    <Border x:Name="Worker0Card" Style="{StaticResource DashCardStyle}">
+                        <Grid>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                <BoxView x:Name="Worker0Dot" Grid.Column="0" WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#334155" VerticalOptions="Center" />
+                                <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                    <Label x:Name="Worker0TitleLabel" Text="العامل 1" FontSize="12" FontFamily="TajawalMedium" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                                    <Label x:Name="Worker0ProjectLabel" Style="{StaticResource DashValueLabelStyle}" />
+                                </VerticalStackLayout>
+                                <Label x:Name="Worker0TimeLabel" Grid.Column="2" Style="{StaticResource DashValueLabelStyle}" VerticalOptions="Center" />
+                            </Grid>
+                            <Button AutomationId="Pipeline_Worker1Button" BackgroundColor="Transparent" BorderWidth="0" Text="" Padding="0" Margin="0" Clicked="OnWorker0Clicked" />
+                        </Grid>
+                    </Border>
+
+                    <Border x:Name="Worker1Card" Style="{StaticResource DashCardStyle}">
+                        <Grid>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                <BoxView x:Name="Worker1Dot" Grid.Column="0" WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#334155" VerticalOptions="Center" />
+                                <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                    <Label x:Name="Worker1TitleLabel" Text="العامل 2" FontSize="12" FontFamily="TajawalMedium" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                                    <Label x:Name="Worker1ProjectLabel" Style="{StaticResource DashValueLabelStyle}" />
+                                </VerticalStackLayout>
+                                <Label x:Name="Worker1TimeLabel" Grid.Column="2" Style="{StaticResource DashValueLabelStyle}" VerticalOptions="Center" />
+                            </Grid>
+                            <Button AutomationId="Pipeline_Worker2Button" BackgroundColor="Transparent" BorderWidth="0" Text="" Padding="0" Margin="0" Clicked="OnWorker1Clicked" />
+                        </Grid>
+                    </Border>
+
+                    <Border x:Name="Worker2Card" Style="{StaticResource DashCardStyle}">
+                        <Grid>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                <BoxView x:Name="Worker2Dot" Grid.Column="0" WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#334155" VerticalOptions="Center" />
+                                <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                    <Label x:Name="Worker2TitleLabel" Text="العامل 3" FontSize="12" FontFamily="TajawalMedium" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                                    <Label x:Name="Worker2ProjectLabel" Style="{StaticResource DashValueLabelStyle}" />
+                                </VerticalStackLayout>
+                                <Label x:Name="Worker2TimeLabel" Grid.Column="2" Style="{StaticResource DashValueLabelStyle}" VerticalOptions="Center" />
+                            </Grid>
+                            <Button AutomationId="Pipeline_Worker3Button" BackgroundColor="Transparent" BorderWidth="0" Text="" Padding="0" Margin="0" Clicked="OnWorker2Clicked" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Drill-in: follows the dial's selection (click a worker) and falls back to
+                         whatever is hovered, then to the backlog overview. -->
+                    <Border Style="{StaticResource DashCardStyle}"
+                            BackgroundColor="{AppThemeBinding Light=#EFF6FF, Dark=#1A2A44}">
+                        <VerticalStackLayout Spacing="6">
+                            <Label x:Name="DetailTitleLabel"
+                                   AutomationId="Pipeline_DetailTitleLabel"
+                                   FontSize="12"
+                                   FontFamily="TajawalBold"
+                                   TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" />
+                            <Label x:Name="DetailLine1" Style="{StaticResource DashValueLabelStyle}" />
+                            <Label x:Name="DetailLine2" Style="{StaticResource DashValueLabelStyle}" />
+                            <Label x:Name="DetailLine3" Style="{StaticResource DashValueLabelStyle}" />
+                            <Label x:Name="DetailLine4" Style="{StaticResource DashValueLabelStyle}" />
+                            <Label x:Name="DetailLine5" Style="{StaticResource DashValueLabelStyle}" />
+                            <Label x:Name="DetailLine6" Style="{StaticResource DashValueLabelStyle}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                </VerticalStackLayout>
+            </ScrollView>
+        </Grid>
+
+        <!-- ============================= collapsed rail ============================= -->
+        <!-- Never fully hidden: the rail keeps worker states and backlog utilisation on screen, so
+             the panel can be closed without losing pipeline awareness. -->
+        <VerticalStackLayout x:Name="Rail" Spacing="10" Padding="0,10" IsVisible="False" HorizontalOptions="Center">
+            <Grid WidthRequest="28" HeightRequest="28">
+                <Label x:Name="ExpandGlyph"
+                       Text="«"
+                       FontSize="16"
+                       FontFamily="TajawalBold"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center"
+                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                <Button AutomationId="Pipeline_RailToggle"
+                        BackgroundColor="Transparent"
+                        BorderWidth="0"
+                        Text=""
+                        Padding="0"
+                        Margin="0"
+                        Clicked="OnToggleClicked" />
+            </Grid>
+
+            <BoxView x:Name="RailDot0" WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#334155" HorizontalOptions="Center" />
+            <BoxView x:Name="RailDot1" WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#334155" HorizontalOptions="Center" />
+            <BoxView x:Name="RailDot2" WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#334155" HorizontalOptions="Center" />
+
+            <Label x:Name="RailQueueLabel"
+                   AutomationId="Pipeline_RailQueueLabel"
+                   FontSize="10"
+                   FontFamily="TajawalBold"
+                   HorizontalOptions="Center"
+                   TextColor="{AppThemeBinding Light=#B45309, Dark=#F59E0B}" />
+        </VerticalStackLayout>
+
+    </Grid>
+
+</ContentView>

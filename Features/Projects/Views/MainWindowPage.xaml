@@ -7,7 +7,8 @@
              xmlns:views="clr-namespace:MostaqlK.Features.Projects.Views"
              xmlns:notifViews="clr-namespace:MostaqlK.Features.Notifications.Views"
              xmlns:sidebar="clr-namespace:MostaqlK.UI.PlatformComponents.AppSidebar"
-             xmlns:radar="clr-namespace:MostaqlK.UI.PlatformComponents.PipelineRadar"
+             xmlns:dashboard="clr-namespace:MostaqlK.UI.PlatformComponents.PipelineDashboard"
+             xmlns:lastscan="clr-namespace:MostaqlK.UI.PlatformComponents.LastScanStatus"
              x:Class="MostaqlK.Features.Projects.Views.MainWindowPage"
              x:DataType="vm:ProjectFeedViewModel"
              Title=""
@@ -18,7 +19,14 @@
     <!-- Layout mirrors projects.html: sidebar + header controls + active-query + dense cards + footer. -->
     <!-- Colours follow the mockup's light/dark class pairs (bg-slate-100 dark:bg-slate-950 for the
          page, bg-white dark:bg-slate-900 for panels, border-slate-200 dark:border-slate-800). -->
-    <Grid x:Name="Root" BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}" ColumnDefinitions="Auto,*">
+    <!-- Columns (the page is RTL, so column 0 renders on the *right*): nav sidebar, project feed,
+         drag handle, pipeline dashboard. The dashboard therefore sits on the visual left, opposite
+         the nav rail, and the handle lets the user pan the boundary between the two sections
+         within each one's minimum width (see OnRootSizeChanged). -->
+    <Grid x:Name="Root"
+          BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}"
+          ColumnDefinitions="Auto,*,Auto,Auto"
+          SizeChanged="OnRootSizeChanged">
 
         <BoxView Grid.Column="0" Color="{AppThemeBinding Light=White, Dark=#0F172A}" />
         <sidebar:AppSidebar Grid.Column="0"
@@ -263,38 +271,61 @@
 
                 <HorizontalStackLayout Grid.Column="1" Spacing="16" VerticalOptions="Center" Margin="0,4,0,0">
                     <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
-                        <Label Text="الاتصال: متصل" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" VerticalOptions="Center" FontFamily="Tajawal" />
-                        <BoxView WidthRequest="8" HeightRequest="8" Color="#22C55E" CornerRadius="4" VerticalOptions="Center" />
-                    </HorizontalStackLayout>
-                    <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
-                        <Label Text="{Binding LastScanText}"
-                               AutomationId="Projects_LastScanLabel"
+                        <!-- This line was hard-coded to "متصل" with a permanently green dot, so a
+                             pipeline whose every scan was being rejected still reported itself
+                             connected. It now follows the real scan outcome. -->
+                        <Label Text="{Binding GlobalStatus.ConnectionText}"
+                               AutomationId="Projects_ConnectionLabel"
                                FontSize="11"
                                TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
                                VerticalOptions="Center"
                                FontFamily="Tajawal" />
-                        <Label Text="↻"
-                               AutomationId="Projects_RefreshLabel"
-                               FontSize="12"
-                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
-                               VerticalOptions="Center"
-                               FontFamily="Tajawal">
-                            <Label.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding RefreshCommand}" />
-                            </Label.GestureRecognizers>
-                        </Label>
+                        <BoxView WidthRequest="8" HeightRequest="8" Color="#22C55E" CornerRadius="4" VerticalOptions="Center"
+                                 IsVisible="{Binding GlobalStatus.IsConnectionHealthy}" />
+                        <BoxView WidthRequest="8" HeightRequest="8" Color="#EF4444" CornerRadius="4" VerticalOptions="Center"
+                                 IsVisible="{Binding GlobalStatus.LastScanFailed}" />
                     </HorizontalStackLayout>
+                    <!-- Same shared readout the pipeline dashboard's discovery card uses, reading
+                         the pipeline's own scan timestamp rather than the feed's last load - which
+                         is why the footer no longer drifts past the poll interval. -->
+                    <lastscan:LastScanStatus AutomationId="Projects_LastScanStatus"
+                                             LabelAutomationId="Projects_LastScanLabel"
+                                             RefreshAutomationId="Projects_RefreshLabel"
+                                             LastScanAt="{Binding GlobalStatus.LastScanCompletedAt}"
+                                             ShowRefresh="True"
+                                             RefreshCommand="{Binding RefreshCommand}"
+                                             FontSize="11"
+                                             TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                             VerticalOptions="Center" />
 
-                    <radar:PipelineRadar DiscoveryProgress="{Binding GlobalStatus.DiscoveryProgress}"
-                                         QueuePressure="{Binding GlobalStatus.QueuePressure}"
-                                         EnrichmentActivity="{Binding GlobalStatus.EnrichmentActivity}"
-                                         IsSnapshotActive="{Binding GlobalStatus.IsSnapshotActive}"
-                                         VerticalOptions="Center"
-                                         Margin="12,0,0,0" />
+                    <!-- The 56px radar dial used to live here. It was unreadable at that size and
+                         faded out entirely once the pipeline settled, so it moved to the pipeline
+                         dashboard column (see PipelinePanel below). -->
                 </HorizontalStackLayout>
             </Grid>
 
         </Grid>
+
+        <components:SplitterHandle x:Name="PanelSplitter"
+                                   Grid.Column="2"
+                                   AutomationId="Pipeline_ResizeHandle"
+                                   Minimum="260"
+                                   Maximum="560"
+                                   DragSign="-1"
+                                   IsVisible="{Binding Source={x:Reference PipelinePanel}, Path=IsExpanded}"
+                                   Value="{Binding Source={x:Reference PipelinePanel}, Path=ExpandedWidth, Mode=TwoWay}"
+                                   DragCompleted="OnPanelSplitterDragCompleted" />
+
+        <dashboard:PipelineDashboardPanel x:Name="PipelinePanel"
+                                          Grid.Column="3"
+                                          AutomationId="Pipeline_DashboardPanel"
+                                          VerticalOptions="Fill"
+                                          DiscoveryProgress="{Binding GlobalStatus.DiscoveryProgress}"
+                                          QueuePressure="{Binding GlobalStatus.QueuePressure}"
+                                          QueueCount="{Binding GlobalStatus.QueueCount}"
+                                          QueueCapacity="{Binding GlobalStatus.QueueCapacity}"
+                                          EnrichmentActivity="{Binding GlobalStatus.EnrichmentActivity}"
+                                          IsSnapshotActive="{Binding GlobalStatus.IsSnapshotActive}" />
 
         <notifViews:RecentNotificationsFlyout x:Name="NotificationsFlyout"
                                                AutomationId="Notifications_Flyout"
