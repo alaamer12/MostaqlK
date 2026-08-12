@@ -136,6 +136,7 @@ public static class MauiProgram
 
 #if DEBUG
 		builder.Logging.AddDebug();
+		builder.Logging.AddConsole();
 #endif
 
 		// Infrastructure

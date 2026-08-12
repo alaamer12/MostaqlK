@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 
@@ -22,18 +23,22 @@ public static class InteractionLogger
     /// given branch actually executed — this is the "set(Label).ToState(...)" diagnostic the
     /// project uses instead of guessing from UI behavior alone.
     /// </summary>
+    [Conditional("DEBUG")]
     public static void Mark(string checkpoint, string variant, object? data = null)
         => Write("MARK", checkpoint, variant, data, exception: null);
 
     /// <summary>Logs the start of a traced command/handler invocation. See <see cref="TraceInteractionAttribute"/>.</summary>
+    [Conditional("DEBUG")]
     public static void Enter(string interactionName, object? parameters = null)
         => Write("ENTER", interactionName, variant: null, parameters, exception: null);
 
     /// <summary>Logs the successful completion of a traced command/handler invocation.</summary>
+    [Conditional("DEBUG")]
     public static void Exit(string interactionName, object? result = null)
         => Write("EXIT", interactionName, variant: null, result, exception: null);
 
     /// <summary>Logs an exception thrown/caught during a traced command/handler invocation.</summary>
+    [Conditional("DEBUG")]
     public static void Fault(string interactionName, Exception exception, object? data = null)
         => Write("FAULT", interactionName, variant: null, data, exception);
 
@@ -45,6 +50,7 @@ public static class InteractionLogger
     /// anywhere to go. Any code that observes <c>Result.IsError</c> and does not propagate it to a
     /// caller must report it here.
     /// </summary>
+    [Conditional("DEBUG")]
     public static void Failure(string checkpoint, MostaqlK.Core.DomainError error, object? data = null)
         => Write(
             "ERROR",
@@ -65,6 +71,9 @@ public static class InteractionLogger
 
     private static void Write(string kind, string checkpoint, string? variant, object? data, Exception? exception)
     {
+#if !DEBUG
+        return;
+#endif
         try
         {
             var entry = new StringBuilder()

@@ -75,7 +75,8 @@
 		     the transitive version until Microsoft.Data.Sqlite itself upgrades its dependency. -->
 		<PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
-		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" Condition="'$(Configuration)' == 'Debug'" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.0" Condition="'$(Configuration)' == 'Debug'" />
 	</ItemGroup>
 
 	<!-- Platforms\Windows\*.xaml would otherwise be auto-globbed as a native WinUI Page by the
@@ -107,19 +108,19 @@
 	</ItemGroup>
 
 	<Target Name="BuildWin">
-		<Exec Command="dotnet build MostaqlK.csproj -f net10.0-windows10.0.19041.0" />
+		<Exec Command="dotnet build MostaqlK.csproj -f net10.0-windows10.0.19041.0" StandardOutputImportance="High" StandardErrorImportance="High" />
 	</Target>
 
 	<Target Name="RunWin">
-		<Exec Command="dotnet run -f net10.0-windows10.0.19041.0" />
+		<Exec Command="dotnet run -f net10.0-windows10.0.19041.0" StandardOutputImportance="High" StandardErrorImportance="High" />
 	</Target>
 
 	<Target Name="TestWin">
-		<Exec Command="dotnet test MostaqlK.UITests/MostaqlK.UITests.csproj" />
+		<Exec Command="dotnet test MostaqlK.UITests/MostaqlK.UITests.csproj" StandardOutputImportance="High" StandardErrorImportance="High" />
 	</Target>
 
 	<Target Name="DeployWin">
-		<Exec Command="dotnet publish MostaqlK.csproj -f net10.0-windows10.0.19041.0 -c Release -p:PublishReadyToRun=true" />
+		<Exec Command="dotnet publish MostaqlK.csproj -f net10.0-windows10.0.19041.0 -c Release -p:PublishReadyToRun=true" StandardOutputImportance="High" StandardErrorImportance="High" />
 	</Target>
 
 </Project>
