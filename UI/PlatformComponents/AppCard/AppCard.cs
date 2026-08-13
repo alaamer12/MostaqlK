@@ -45,28 +45,41 @@ public partial class AppCard : Border
         // panel in projects.html (bg-white/dark:bg-slate-900, rounded-xl, border, shadow-sm).
         StrokeShape = new RoundRectangle { CornerRadius = DesignTokens.CornerRadius.Default };
         StrokeThickness = 1;
-        BackgroundColor = Colors.White;
-        Stroke = new SolidColorBrush(Color.FromArgb("#E2E8F0"));
         Padding = new Thickness(24);
         Shadow = new Shadow { Brush = Colors.Black, Opacity = 0.05f, Radius = 4, Offset = new Point(0, 1) };
-        UpdateAccentBorder(false);
+        UpdateThemeColors();
 
         // Add tactile feedback behavior
         Behaviors.Add(new PressableEffect { ApplyHoverHighlight = true });
+
+        // Read/unread accent colors differ per theme (ReadBorderLight/Dark, AccentPrimary/Dark in
+        // Colors.xaml) - re-apply whenever the OS/app theme flips, same pattern as
+        // AppSidebar/SplitterHandle/PipelineRadar.
+        if (Application.Current is { } app)
+        {
+            app.RequestedThemeChanged += (_, _) => UpdateThemeColors();
+        }
     }
 
     private static void OnIsUnreadChanged(BindableObject bindable, object oldValue, object newValue)
     {
-        (bindable as AppCard)?.UpdateAccentBorder((bool)newValue);
+        (bindable as AppCard)?.UpdateThemeColors();
     }
 
-    private void UpdateAccentBorder(bool isUnread)
+    private void UpdateThemeColors()
     {
-        // Unread cards use the mockup's blue edge treatment (border-inline-start accent).
-        // MAUI Border can't do per-edge strokes, so use a stronger blue outline for unread.
-        StrokeThickness = isUnread ? 2 : 1;
-        Stroke = isUnread
-            ? new SolidColorBrush(Color.FromArgb("#2386C8"))
-            : new SolidColorBrush(Color.FromArgb("#E2E8F0"));
+        var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
+
+        // Surface background — mirrors AppSurfaceLight/AppSurfaceDark from Colors.xaml.
+        BackgroundColor = isDark ? Color.FromArgb("#0F172A") : Colors.White;
+
+        // Unread cards use the mockup's blue edge treatment (border-inline-start accent, using
+        // AccentPrimary/AccentPrimaryDark). MAUI Border can't do per-edge strokes, so a stronger
+        // full outline stands in for the accent bar. Read cards use the muted
+        // ReadBorderLight/ReadBorderDark slate outline instead.
+        StrokeThickness = IsUnread ? 2 : 1;
+        Stroke = IsUnread
+            ? new SolidColorBrush(isDark ? Color.FromArgb("#5CA8DE") : Color.FromArgb("#2386C8"))
+            : new SolidColorBrush(isDark ? Color.FromArgb("#475569") : Color.FromArgb("#CBD5E1"));
     }
 }

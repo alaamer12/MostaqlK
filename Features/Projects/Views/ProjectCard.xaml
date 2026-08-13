@@ -8,12 +8,14 @@
              x:DataType="vm:ProjectCardViewModel"
              FlowDirection="RightToLeft">
 
-    <!-- Dense project card matching projects.html structure. -->
-    <!-- Surface follows the mockup's bg-white dark:bg-slate-900 card panel. -->
+    <!-- Dense project card matching projects.html structure, wrapped in a Grid so the animated
+         "new" corner ribbon (ds:NewRibbonBadge) can overlay the card's physical-left corner
+         without disturbing the card's own layout/padding. -->
+    <Grid Margin="0,0,0,16">
+    <!-- Surface follows the mockup's bg-white dark:bg-slate-900 card panel; colors are now set
+         theme-aware from AppCard's own code (see AppCard.UpdateThemeColors). -->
     <components:AppCard IsUnread="{Binding IsUnread}"
-                        Margin="0,0,0,16"
-                        Padding="24"
-                        BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+                        Padding="24">
         <VerticalStackLayout Spacing="0" AutomationId="ProjectCard_Root" SemanticProperties.Description="{Binding Title}">
 
             <VerticalStackLayout.GestureRecognizers>
@@ -213,5 +215,14 @@
 
         </VerticalStackLayout>
     </components:AppCard>
+
+        <!-- Animated "new" ribbon on the card's physical-left corner (this view runs
+             FlowDirection="RightToLeft", so HorizontalOptions="End" pins the layout's End edge -
+             the physical left) - active only while the project is unread. -->
+        <ds:NewRibbonBadge IsActive="{Binding IsUnread}"
+                           HorizontalOptions="End"
+                           VerticalOptions="Start"
+                           AutomationId="ProjectCard_NewRibbon" />
+    </Grid>
 
 </ContentView>
