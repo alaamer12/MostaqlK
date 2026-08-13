@@ -114,4 +114,17 @@ public sealed class NotificationDispatcher : INotificationDispatcher
             }
         }, TaskScheduler.Default);
     }
+
+    public void MarkHistoryAsRead()
+    {
+        lock (_historyGate)
+        {
+            foreach (var project in _history)
+            {
+                project.IsUnread = false;
+            }
+        }
+
+        HistoryChanged?.Invoke();
+    }
 }

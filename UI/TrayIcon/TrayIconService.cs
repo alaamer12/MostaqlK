@@ -142,7 +142,16 @@ public class TrayIconService
 
     private void OnSettings()
     {
-        MainThread.BeginInvokeOnMainThread(() => Shell.Current?.GoToAsync(nameof(SettingsPanel)));
+        // Must restore the window first: if it's currently hidden to the tray (MinimizeToTray),
+        // navigating alone leaves the app invisible - the same "nothing happened" symptom the
+        // Open action itself works around via RestoreRequested.
+        OnOpen();
+
+        // Every other call site (AppShell, AboutPage, MainWindowPage, ProjectDetailsPage) uses
+        // the absolute "//SettingsPanel" route; this one used the bare, relative route name
+        // instead, which is why nothing happened - a relative GoToAsync depends on the current
+        // page's own route stack, which a tray click (outside any page's context) cannot rely on.
+        MainThread.BeginInvokeOnMainThread(() => Shell.Current?.GoToAsync("//SettingsPanel"));
     }
 
     private static void OnQuit()

@@ -18,4 +18,11 @@ public interface INotificationDispatcher
 
     /// <summary>Raised whenever <see cref="RecentHistory"/> changes.</summary>
     event Action? HistoryChanged;
+
+    /// <summary>
+    /// Flips <see cref="ProjectSummary.IsUnread"/> to <c>false</c> for every item currently in
+    /// <see cref="RecentHistory"/>, so the recent-notifications flyout can render read vs. unread
+    /// items differently and keeps that state after being reopened (until a new project arrives).
+    /// </summary>
+    void MarkHistoryAsRead();
 }

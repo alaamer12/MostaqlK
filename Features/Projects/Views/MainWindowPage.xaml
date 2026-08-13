@@ -207,19 +207,21 @@
                                    TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
                                    VerticalOptions="Center" />
                         </HorizontalStackLayout>
-                        <Label Grid.Column="1"
-                               Text="✎  تعديل"
-                               FontSize="13"
-                               FontFamily="TajawalBold"
-                               TextColor="{AppThemeBinding Light=#2386C8, Dark=#5CA8DE}"
-                               VerticalOptions="Center">
-                            <Label.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding SearchCommand}" />
-                            </Label.GestureRecognizers>
-                            <Label.Behaviors>
-                                <design:PressableEffect ApplyHoverHighlight="True" />
-                            </Label.Behaviors>
-                        </Label>
+                        <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                            <components:AppIcon Icon="Edit" WidthRequest="14" HeightRequest="14" TextColor="{AppThemeBinding Light=#2386C8, Dark=#5CA8DE}" VerticalOptions="Center" />
+                            <Label Text="تعديل"
+                                   FontSize="13"
+                                   FontFamily="TajawalBold"
+                                   TextColor="{AppThemeBinding Light=#2386C8, Dark=#5CA8DE}"
+                                   VerticalOptions="Center">
+                                <Label.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding SearchCommand}" />
+                                </Label.GestureRecognizers>
+                                <Label.Behaviors>
+                                    <design:PressableEffect ApplyHoverHighlight="True" />
+                                </Label.Behaviors>
+                            </Label>
+                        </HorizontalStackLayout>
                     </Grid>
                 </Border>
             </VerticalStackLayout>
@@ -340,6 +342,19 @@
                                           QueueCapacity="{Binding GlobalStatus.QueueCapacity}"
                                           EnrichmentActivity="{Binding GlobalStatus.EnrichmentActivity}"
                                           IsSnapshotActive="{Binding GlobalStatus.IsSnapshotActive}" />
+
+        <!-- Full-page transparent backdrop, shown together with the flyout so a click anywhere
+             outside of it (auto-dismiss, like any normal menu/popover) closes it too - before this
+             the only way out was re-clicking the bell/sidebar entry that opened it. -->
+        <BoxView x:Name="NotificationsBackdrop"
+                 Grid.ColumnSpan="4"
+                 Color="Transparent"
+                 IsVisible="False"
+                 InputTransparent="False">
+            <BoxView.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnNotificationsBackdropTapped" />
+            </BoxView.GestureRecognizers>
+        </BoxView>
 
         <notifViews:RecentNotificationsFlyout x:Name="NotificationsFlyout"
                                                AutomationId="Notifications_Flyout"

@@ -23,6 +23,13 @@ public static class AppIconGlyphExtensions
     /// <summary>"فشل الإثراء" badge red — no mockup counterpart, matches the app's own badge colour.</summary>
     private const string FailedRedHex = "#DC2626";
 
+    // Tier 3 — settings-row conceptual colors, per DESIGN.md § icon system
+    private const string SettingPollIndigoHex = "#6366F1";
+    private const string SettingQueryVioletHex = "#8B5CF6";
+    private const string SettingAssetsOrangeHex = "#F97316";
+    private const string SettingGroupingTealHex = "#14B8A6";
+    private const string SettingRatePinkHex = "#EC4899";
+
     /// <summary>
     /// Maps an icon to its base (inactive/default) image resource name, and — for the 5
     /// sidebar nav icons that need an active-state color swap — an "_active" (<c>#2563EB</c>)
@@ -44,6 +51,18 @@ public static class AppIconGlyphExtensions
         AppIconGlyph.Users => "icon_users",
         AppIconGlyph.CircleCheck => "icon_circle_check",
         AppIconGlyph.Clock => "icon_clock",
+        AppIconGlyph.Stopwatch => "icon_stopwatch",
+        AppIconGlyph.LayerGroup => "icon_layer_group",
+        AppIconGlyph.Paperclip => "icon_paperclip",
+        AppIconGlyph.Gauge => "icon_gauge_high",
+        AppIconGlyph.CircleQuestion => "icon_circle_question",
+        AppIconGlyph.Upload => "icon_upload",
+        AppIconGlyph.Link => "icon_link",
+        AppIconGlyph.Edit => "icon_edit",
+        AppIconGlyph.Refresh => "icon_refresh",
+        AppIconGlyph.ChevronRight => "icon_chevron_right",
+        AppIconGlyph.ChevronLeft => "icon_chevron_left",
+        AppIconGlyph.Close => "icon_close",
         _ => "icon_circle_info",
     };
 
@@ -59,6 +78,7 @@ public static class AppIconGlyphExtensions
         "icon_bell",
         "icon_gear",
         "icon_circle_info",
+        "icon_edit",
     ];
 
     /// <summary>
@@ -78,6 +98,13 @@ public static class AppIconGlyphExtensions
 
         // The failure badge has no mockup counterpart; it reuses the clock in the badge's red.
         ("icon_clock", _) when textColor.Equals(Color.FromArgb(FailedRedHex)) => "_red",
+
+        // Settings page conceptual colors (Tier 3)
+        ("icon_stopwatch", _) when textColor.Equals(Color.FromArgb(SettingPollIndigoHex)) => "_indigo",
+        ("icon_filter", _) when textColor.Equals(Color.FromArgb(SettingQueryVioletHex)) => "_violet",
+        ("icon_paperclip", _) when textColor.Equals(Color.FromArgb(SettingAssetsOrangeHex)) => "_orange",
+        ("icon_layer_group", _) when textColor.Equals(Color.FromArgb(SettingGroupingTealHex)) => "_teal",
+        ("icon_gauge_high", _) when textColor.Equals(Color.FromArgb(SettingRatePinkHex)) => "_pink",
 
         _ => null,
     };

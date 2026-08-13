@@ -87,6 +87,30 @@ public enum AppIconGlyph
     /// <summary>Settings page "؟" help hint icon. Regular <c>fa-circle-question</c> (f059).</summary>
     CircleQuestion,
 
+    /// <summary>Settings page "الفاصل الزمني للفحص" card icon. Solid <c>fa-stopwatch</c> (f2f2).</summary>
+    Stopwatch,
+
+    /// <summary>Settings page "تجميع التنبيهات" card icon. Solid <c>fa-layer-group</c> (f5fd).</summary>
+    LayerGroup,
+
+    /// <summary>Settings page cookie upload icon. Solid <c>fa-upload</c> (f093).</summary>
+    Upload,
+
+    /// <summary>Project card edit icon. Solid <c>fa-pen-to-square</c> (f044).</summary>
+    Edit,
+
+    /// <summary>Footer refresh icon. Solid <c>fa-rotate-right</c> (f01e).</summary>
+    Refresh,
+
+    /// <summary>Chevron right icon. Solid <c>fa-chevron-right</c> (f054).</summary>
+    ChevronRight,
+
+    /// <summary>Chevron left icon. Solid <c>fa-chevron-left</c> (f053).</summary>
+    ChevronLeft,
+
+    /// <summary>Close icon. Solid <c>fa-xmark</c> (f00d).</summary>
+    Close,
+
     /// <summary>About page "platform" fact-row icon. Brands <c>fa-windows</c> (f17a).</summary>
     Windows,
 }

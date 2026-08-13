@@ -6,20 +6,46 @@ namespace MostaqlK.Features.Projects.Views;
 public partial class MainWindowPage : ContentPage
 {
     private readonly ProjectFeedViewModel _viewModel;
+    private readonly NotificationCenterViewModel _notificationCenterViewModel;
 
     public MainWindowPage(ProjectFeedViewModel viewModel, NotificationCenterViewModel notificationCenterViewModel)
     {
         InitializeComponent();
         _viewModel = viewModel;
+        _notificationCenterViewModel = notificationCenterViewModel;
         BindingContext = _viewModel;
         NotificationsFlyout.BindingContext = notificationCenterViewModel;
+        NotificationsFlyout.CloseRequested += OnNotificationsFlyoutCloseRequested;
     }
 
     /// <summary>Shows the recent-notifications flyout overlay, used both by the sidebar entry and the tray icon's "Recent notifications" menu action.</summary>
     public void OpenNotificationsFlyout()
     {
-        NotificationsFlyout.IsVisible = true;
+        SetNotificationsFlyoutVisible(true);
     }
+
+    /// <summary>
+    /// Opening the notifications menu marks every notification as read (the unread badge, not
+    /// the individual project cards in the feed - those keep their own separate read state).
+    /// Closing it back does nothing: only the act of opening should count as "seen".
+    /// </summary>
+    private void SetNotificationsFlyoutVisible(bool visible)
+    {
+        NotificationsFlyout.IsVisible = visible;
+        // The backdrop shares the flyout's visibility 1:1: it exists purely to catch outside
+        // clicks (auto-dismiss) without intercepting anything while the flyout is closed.
+        NotificationsBackdrop.IsVisible = visible;
+        if (visible)
+        {
+            _notificationCenterViewModel.MarkAllAsSeen();
+        }
+    }
+
+    private void OnNotificationsFlyoutCloseRequested(object? sender, EventArgs e) =>
+        SetNotificationsFlyoutVisible(false);
+
+    private void OnNotificationsBackdropTapped(object? sender, TappedEventArgs e) =>
+        SetNotificationsFlyoutVisible(false);
 
     protected override async void OnAppearing()
     {
@@ -57,7 +83,7 @@ public partial class MainWindowPage : ContentPage
 
     private void OnNotificationsNavClicked(object? sender, EventArgs e)
     {
-        NotificationsFlyout.IsVisible = !NotificationsFlyout.IsVisible;
+        SetNotificationsFlyoutVisible(!NotificationsFlyout.IsVisible);
     }
 
     private async void OnSettingsNavClicked(object? sender, EventArgs e)
@@ -67,7 +93,7 @@ public partial class MainWindowPage : ContentPage
 
     private void OnNotificationsButtonTapped(object? sender, TappedEventArgs e)
     {
-        NotificationsFlyout.IsVisible = !NotificationsFlyout.IsVisible;
+        SetNotificationsFlyoutVisible(!NotificationsFlyout.IsVisible);
     }
 
     private async void OnAboutNavClicked(object? sender, EventArgs e)

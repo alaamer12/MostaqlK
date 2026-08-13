@@ -198,7 +198,8 @@ public partial class PipelineDashboardPanel : ContentView
     {
         var target = IsExpanded ? ExpandedWidth : RailWidth;
 
-        CollapseGlyph.Text = IsExpanded ? "»" : "«";
+        CollapseGlyph.Icon = IsExpanded ? AppIconGlyph.ChevronRight : AppIconGlyph.ChevronLeft;
+        ExpandGlyph.Icon = IsExpanded ? AppIconGlyph.ChevronRight : AppIconGlyph.ChevronLeft;
 
         // Rapid toggling must never queue two width animations against each other.
         this.AbortAnimation(WidthAnimationName);

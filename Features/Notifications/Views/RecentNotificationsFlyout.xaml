@@ -4,27 +4,59 @@
              xmlns:vm="clr-namespace:MostaqlK.Features.Notifications.ViewModels"
              xmlns:models="clr-namespace:MostaqlK.Models"
              xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem"
+             xmlns:components="clr-namespace:MostaqlK.UI.PlatformComponents"
              x:Class="MostaqlK.Features.Notifications.Views.RecentNotificationsFlyout"
              x:Name="RootView"
              x:DataType="vm:NotificationCenterViewModel"
              FlowDirection="RightToLeft">
 
     <!-- Flyout listing recently discovered projects, opened from the "التنبيهات" sidebar
-         entry in projects.html (badge count = UnreadBadgeCount). -->
-    <Border Padding="12" StrokeShape="RoundRectangle 8" WidthRequest="320">
+         entry in projects.html (badge count = UnreadBadgeCount). Needs an explicit, opaque
+         BackgroundColor + Stroke: a Border with neither set renders fully transparent, which is
+         why this used to look like a ghost panel instead of a real menu/popover. -->
+    <Border Padding="0"
+            StrokeShape="RoundRectangle 12"
+            StrokeThickness="1"
+            Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}"
+            BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}"
+            WidthRequest="320">
         <Border.Shadow>
-            <Shadow Brush="Black" Opacity="0.15" Radius="8" Offset="0,2" />
+            <Shadow Brush="Black" Opacity="0.25" Radius="12" Offset="0,4" />
         </Border.Shadow>
-        <VerticalStackLayout Spacing="8">
-            <Label Text="التنبيهات" FontSize="16" FontFamily="TajawalBold" />
+        <VerticalStackLayout Spacing="0">
+            <!-- Header row: title + an explicit X close button. Before this the flyout had no
+                 way to be dismissed other than re-clicking the bell/sidebar entry that opened it,
+                 which most users don't expect from a popover menu. -->
+            <Grid ColumnDefinitions="*,Auto" Padding="16,10,10,10">
+                <Label Grid.Column="0" Text="التنبيهات" FontSize="16" FontFamily="TajawalBold" VerticalOptions="Center"
+                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                <Border Grid.Column="1" WidthRequest="28" HeightRequest="28" Padding="0"
+                        StrokeThickness="0" BackgroundColor="Transparent" StrokeShape="RoundRectangle 6"
+                        AutomationId="Notifications_CloseButton"
+                        HorizontalOptions="Center" VerticalOptions="Center">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnCloseTapped" />
+                    </Border.GestureRecognizers>
+                    <Border.Behaviors>
+                        <ds:PressableEffect ApplyHoverHighlight="True" />
+                    </Border.Behaviors>
+                    <components:AppIcon Icon="Close" FontSize="12" HorizontalOptions="Center" VerticalOptions="Center"
+                                        TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                </Border>
+            </Grid>
 
-            <CollectionView ItemsSource="{Binding RecentNotifications}" AutomationId="Notifications_List" HeightRequest="360">
+            <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
+
+            <CollectionView ItemsSource="{Binding RecentNotifications}" AutomationId="Notifications_List"
+                             HeightRequest="360" BackgroundColor="Transparent" Margin="0,4">
                 <CollectionView.EmptyView>
-                    <Label Text="لا توجد إشعارات حديثة" FontSize="13" TextColor="Gray" HorizontalOptions="Center" FontFamily="Tajawal" />
+                    <Label Text="لا توجد إشعارات حديثة" FontSize="13" TextColor="Gray" HorizontalOptions="Center"
+                           Margin="0,20" FontFamily="Tajawal" />
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="models:ProjectSummary">
-                        <Border Padding="6" StrokeThickness="0" BackgroundColor="Transparent">
+                        <Border Padding="10,8" Margin="6,2" StrokeThickness="0" StrokeShape="RoundRectangle 8"
+                                AutomationId="Notifications_Row">
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer
                                     Command="{Binding BindingContext.OpenProjectCommand, Source={x:Reference RootView}}"
@@ -33,10 +65,38 @@
                             <Border.Behaviors>
                                 <ds:PressableEffect ApplyHoverHighlight="True" />
                             </Border.Behaviors>
-                            <VerticalStackLayout Spacing="2" AutomationId="Notifications_Row">
-                                <Label Text="{Binding Title}" FontSize="14" FontFamily="Tajawal" />
-                                <Label Text="{Binding PostedRelative}" FontSize="12" TextColor="Gray" FontFamily="Tajawal" />
-                            </VerticalStackLayout>
+                            <!-- Unread items get a tinted background + a small accent dot + a bold title,
+                                 mirroring the sidebar's unread badge. Once IsUnread flips to false (see
+                                 NotificationCenterViewModel.MarkAllAsSeen), the row falls back to the plain
+                                 read style. -->
+                            <Border.Triggers>
+                                <DataTrigger TargetType="Border" Binding="{Binding IsUnread}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#EFF6FF, Dark=#0B2540}" />
+                                </DataTrigger>
+                                <DataTrigger TargetType="Border" Binding="{Binding IsUnread}" Value="False">
+                                    <Setter Property="BackgroundColor" Value="Transparent" />
+                                </DataTrigger>
+                            </Border.Triggers>
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                <BoxView Grid.Column="0" WidthRequest="6" HeightRequest="6" CornerRadius="3"
+                                         VerticalOptions="Start" Margin="0,5,0,0"
+                                         Color="{AppThemeBinding Light=#2386C8, Dark=#5CA8DE}"
+                                         IsVisible="{Binding IsUnread}" />
+                                <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                    <Label Text="{Binding Title}" FontSize="14" FontFamily="Tajawal"
+                                           TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}">
+                                        <Label.Triggers>
+                                            <DataTrigger TargetType="Label" Binding="{Binding IsUnread}" Value="True">
+                                                <Setter Property="FontFamily" Value="TajawalBold" />
+                                            </DataTrigger>
+                                            <DataTrigger TargetType="Label" Binding="{Binding IsUnread}" Value="False">
+                                                <Setter Property="FontFamily" Value="Tajawal" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
+                                    <Label Text="{Binding PostedRelative}" FontSize="12" TextColor="Gray" FontFamily="Tajawal" />
+                                </VerticalStackLayout>
+                            </Grid>
                         </Border>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>

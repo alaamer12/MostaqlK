@@ -162,6 +162,23 @@ by this flow.
 the window back once it was hidden via `MinimizeToTray` — `MauiProgram` subscribes to it and calls
 `AppWindow.Show()` + `Window.Activate()`.
 
+Two ways to reset a remembered choice, both reading/writing the same
+`close_behavior_remembered`/`close_behavior_action` keys via `CloseBehaviorService`:
+
+- **In-app**: Settings page ("سلوك إغلاق التطبيق" card) — `SettingsViewModel.RememberCloseBehavior`
+  reflects whether a choice is currently remembered; toggling it off calls
+  `CloseBehaviorService.ForgetRememberedAction()` so the confirmation dialog is shown again on the
+  next X-button click (there is nothing to set it back on from this row alone — only the dialog's
+  own "remember my choice" checkbox can create a new remembered choice).
+- **Offline (app closed)**: `tools/reset-close-behavior-preference.ps1 -ConfirmReset`. The
+  unpackaged Windows build's `Preferences` implementation stores every key as flat JSON under a
+  single container in one file (`%LOCALAPPDATA%\User Name\com.companyname.mostaqlk\Settings\preferences.dat`
+  by default, overridable via `-PreferencesPath`) — there is no per-key file to just delete, so the
+  script parses that JSON (via `JavaScriptSerializer`, since `ConvertFrom-Json -AsHashtable` needs
+  PowerShell 6+ and this repo's other `tools/` scripts target Windows PowerShell 5.1) and removes
+  just the two close-behavior keys before rewriting the file. Modeled on
+  `tools/reset-local-database.ps1`'s param/`-ConfirmReset` shape.
+
 ## Notifications
 
 Location: `Infrastructure/Notifications/`, `Services/NotificationDispatcher.cs`, `Services/NotificationGrouper.cs`
@@ -171,6 +188,7 @@ Location: `Infrastructure/Notifications/`, `Services/NotificationDispatcher.cs`,
 | `ToastAumidRegistrar` | static class | Fixes real toasts never appearing on this unpackaged (`WindowsPackageType=None`) build: `AppNotificationManager.Register()` alone only registers the COM activation server, it does not give the process an identity, so without an explicit AUMID + a Start Menu shortcut carrying that AUMID, Windows silently drops the toast instead of showing it. Idempotently calls `SetCurrentProcessExplicitAppUserModelID` and creates/repairs `%AppData%\Microsoft\Windows\Start Menu\Programs\MostaqlK.lnk` with the `System.AppUserModel.ID` property set to the constant `Aumid` ("MostaqlK.App"), via raw `IShellLinkW`/`IPropertyStore` COM interop. Called once from `WindowsToastSender.EnsureRegistered()` before `AppNotificationManager.Default.Register()`. Best-effort/never throws — logged via `InteractionLogger`. | Implemented |
 | `WindowsToastSender` | class | Sends the actual Windows toast via `Microsoft.Windows.AppNotifications.AppNotificationManager` (individual vs grouped builder per project batch size). Toast failures are never silently swallowed: every send outcome (success or exception) is logged via `InteractionLogger.Mark`/`Fault`, and `NotificationDispatcher.HandleFlush` double-checks the returned `Result<bool>` on top of that. | Implemented |
 | `NotificationGrouper` | class | Buffers newly discovered projects and decides when to flush a batch to `WindowsToastSender` (immediate single-item bypass, end-of-minute, after-N-minutes, or after-N-count), instrumented with `InteractionLogger.Mark` checkpoints on every timer schedule/flush so a real run can be traced to confirm flushing actually happens. Verified live: `NotificationGrouper.Flush` → `NotificationDispatcher.HandleFlush` → `WindowsToastSender.SendAsync` all fired for real newly-discovered projects with no `FAULT` entries, and Windows' own notification-sources settings list registered `MostaqlK` as a toast sender, confirming the AUMID fix took effect. | Implemented |
+| `RecentNotificationsFlyout` / `NotificationCenterViewModel` | View + ViewModel | Recent-notifications popover (sidebar "التنبيهات" entry, header bell button, and tray "Recent notifications" action all open the same `MainWindowPage.NotificationsFlyout`). Its `Border` previously set neither `BackgroundColor` nor `Stroke`, so it rendered fully transparent instead of a real menu/popover; now has an explicit opaque `BackgroundColor`/`Stroke`/rounded `StrokeShape` plus a header row and per-item padding. Clicking a row already navigated to `ProjectDetailsPage?projectId=...` via `OpenProjectCommand`/`OpenProjectAsync` (unchanged). Opening the flyout (not clicking an individual project card) now also calls `NotificationCenterViewModel.MarkAllAsSeen()` via `MainWindowPage.SetNotificationsFlyoutVisible`, resetting the unread badge every time the menu is opened. The header now has an explicit X `AppIcon(Close)` button (`RecentNotificationsFlyout.CloseRequested` -> `MainWindowPage.OnNotificationsFlyoutCloseRequested`) since there was previously no way to dismiss it other than re-clicking whatever opened it, plus a full-page transparent `NotificationsBackdrop` `BoxView` (shown/hidden 1:1 with the flyout) whose tap also closes it, giving it normal auto-dismiss-on-outside-click menu behavior. Each row is now context-aware of read state: `ProjectSummary.IsUnread` drives a `DataTrigger`-based tinted background, a small accent dot, and a bold title for unread items, falling back to the plain read style once `NotificationDispatcher.MarkHistoryAsRead()` (called from `MarkAllAsSeen`) flips it off — `ProjectSummary` has no `INotifyPropertyChanged`, so `MarkAllAsSeen` re-populates the `ObservableCollection` (`RefreshFromHistory`) to force the `CollectionView` to re-evaluate each row's style. | Implemented |
 
 ## Secrets & session cookie
 
@@ -223,6 +241,13 @@ Two follow-up bugs found after that fix, both in `TrayIconNativeHost`:
   restarts. Fixed by giving the icon a fixed `guidItem`/`NIF_GUID` (a static `Guid` constant) so its
   identity is stable across restarts, plus a defensive `NIM_DELETE` of that same GUID on startup to
   clear any stale entry left by a previous run before the fresh `NIM_ADD`.
+- **Tray menu "Settings" did nothing.** `TrayIconService.OnSettings` navigated with the bare
+  relative route `nameof(SettingsPanel)`, while every other call site in the app (`AppShell`,
+  `AboutPage`, `MainWindowPage`, `ProjectDetailsPage`) uses the absolute `"//SettingsPanel"` route.
+  A relative `GoToAsync` depends on the current page's own route stack, which a tray click (firing
+  outside any page's context) cannot rely on, so navigation silently no-opped. Fixed to use the
+  same absolute route, and to call the same window-restore step `OnOpen()` already runs, in case
+  the window is currently hidden to the tray.
 
 ---
 

@@ -34,7 +34,7 @@ $keysToRemove = @('close_behavior_remembered', 'close_behavior_action')
 $removedAny = $false
 foreach ($key in $keysToRemove) {
     if ($container.ContainsKey($key)) {
-        $container.Remove($key)
+        [void]$container.Remove($key)
         Write-Host "Removed preference: $key"
         $removedAny = $true
     }

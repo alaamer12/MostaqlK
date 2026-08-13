@@ -54,6 +54,13 @@ public sealed partial class NotificationCenterViewModel : ObservableObject, IDis
     public void MarkAllAsSeen()
     {
         _globalStatus.ResetUnreadNotificationCount();
+
+        // Flip every currently-listed item's IsUnread flag too (not just the badge counter), so
+        // the flyout itself can render read vs. unread rows differently. ProjectSummary isn't
+        // INotifyPropertyChanged, so re-populating the ObservableCollection is what makes the
+        // CollectionView re-evaluate each row's IsUnread-driven style.
+        _notificationDispatcher.MarkHistoryAsRead();
+        RefreshFromHistory();
     }
 
     /// <summary>Unsubscribes from the singleton dispatcher so this transient instance can be collected

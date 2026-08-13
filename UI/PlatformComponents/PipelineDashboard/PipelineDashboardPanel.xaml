@@ -4,6 +4,7 @@
              xmlns:radar="clr-namespace:MostaqlK.UI.PlatformComponents.PipelineRadar"
              xmlns:lastscan="clr-namespace:MostaqlK.UI.PlatformComponents.LastScanStatus"
              xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem"
+             xmlns:platform="clr-namespace:MostaqlK.UI.PlatformComponents"
              x:Class="MostaqlK.UI.PlatformComponents.PipelineDashboard.PipelineDashboardPanel"
              x:Name="Root">
 
@@ -55,10 +56,9 @@
                 <!-- Transparent Button over the glyph: a Border/Label + TapGestureRecognizer never
                      surfaces an AutomationId to the Windows UIA tree (dotnet/maui#4715). -->
                 <Grid Grid.Column="1" WidthRequest="28" HeightRequest="28">
-                    <Label x:Name="CollapseGlyph"
-                           Text="»"
-                           FontSize="16"
-                           FontFamily="TajawalBold"
+                    <platform:AppIcon x:Name="CollapseGlyph"
+                           Icon="ChevronRight"
+                           HeightRequest="12" WidthRequest="12"
                            HorizontalOptions="Center"
                            VerticalOptions="Center"
                            TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
@@ -238,10 +238,9 @@
              the panel can be closed without losing pipeline awareness. -->
         <VerticalStackLayout x:Name="Rail" Spacing="10" Padding="0,10" IsVisible="False" HorizontalOptions="Center">
             <Grid WidthRequest="28" HeightRequest="28">
-                <Label x:Name="ExpandGlyph"
-                       Text="«"
-                       FontSize="16"
-                       FontFamily="TajawalBold"
+                <platform:AppIcon x:Name="ExpandGlyph"
+                       Icon="ChevronLeft"
+                       HeightRequest="12" WidthRequest="12"
                        HorizontalOptions="Center"
                        VerticalOptions="Center"
                        TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />

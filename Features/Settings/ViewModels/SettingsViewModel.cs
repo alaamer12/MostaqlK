@@ -49,6 +49,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly IProjectRepository _projectRepository;
     private readonly GlobalAppStatusService _globalStatus;
     private readonly CookieStore _cookieStore;
+    private readonly CloseBehaviorService _closeBehaviorService;
     private bool _isLoading;
 
     [ObservableProperty]
@@ -116,7 +117,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         NotificationGrouper grouper,
         IProjectRepository projectRepository,
         GlobalAppStatusService globalStatus,
-        CookieStore cookieStore)
+        CookieStore cookieStore,
+        CloseBehaviorService closeBehaviorService)
     {
         _cookieStore = cookieStore;
         _pollService = pollService;
@@ -125,9 +127,19 @@ public sealed partial class SettingsViewModel : ObservableObject
         _grouper = grouper;
         _projectRepository = projectRepository;
         _globalStatus = globalStatus;
+        _closeBehaviorService = closeBehaviorService;
 
         LoadFromPreferences();
         RefreshCookieStatus();
+
+        // Guarded the same way LoadFromPreferences guards its own initial reads: setting
+        // RememberCloseBehavior here must not itself trigger OnRememberCloseBehaviorChanged
+        // (which would otherwise call ForgetRememberedAction() on every VM construction whenever
+        // nothing is currently remembered).
+        _isLoading = true;
+        RefreshCloseBehaviorStatus();
+        _isLoading = false;
+
         _ = LoadProjectsAddedTodayAsync();
     }
 
@@ -259,6 +271,54 @@ public sealed partial class SettingsViewModel : ObservableObject
         CookieFeedbackText = string.Empty;
         ClearValidationError();
         RefreshCookieStatus();
+    }
+
+    // -----------------------------------------------------------------
+    // Close-to-tray confirmation ("إغلاق التطبيق" / CloseBehaviorService)
+    // -----------------------------------------------------------------
+
+    /// <summary>
+    /// True once the user has ticked "remember my choice" on the X-button confirmation dialog
+    /// (see <see cref="CloseBehaviorService"/>), so every later click silently repeats the same
+    /// action without asking again. Toggling this row off is the settings-side equivalent of the
+    /// standalone <c>tools/reset-close-behavior-preference.ps1</c> script.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool RememberCloseBehavior { get; set; }
+
+    /// <summary>Human-readable summary of the remembered choice, or that none is remembered.</summary>
+    [ObservableProperty]
+    public partial string CloseBehaviorStatusText { get; set; } = string.Empty;
+
+    private void RefreshCloseBehaviorStatus()
+    {
+        var remembered = _closeBehaviorService.GetRememberedAction();
+        RememberCloseBehavior = remembered is not null;
+        CloseBehaviorStatusText = remembered switch
+        {
+            CloseAction.Exit => "سيتم إغلاق التطبيق نهائيًا عند الضغط على X دون سؤالك مرة أخرى.",
+            CloseAction.MinimizeToTray => "سيستمر التطبيق بالعمل في الخلفية عند الضغط على X دون سؤالك مرة أخرى.",
+            _ => "سيُسألك التطبيق عن السلوك المطلوب في كل مرة تضغط فيها على X.",
+        };
+    }
+
+    partial void OnRememberCloseBehaviorChanged(bool value)
+    {
+        if (_isLoading)
+        {
+            return;
+        }
+
+        if (!value)
+        {
+            // Turning the toggle off is the only direction settable from here - it forgets the
+            // remembered choice so the confirmation dialog is shown again next time. There is no
+            // stored choice to "remember" from this row alone (that only happens via the dialog's
+            // own checkbox), so flipping it back on would have nothing to persist.
+            _closeBehaviorService.ForgetRememberedAction();
+        }
+
+        RefreshCloseBehaviorStatus();
     }
 
     private void LoadFromPreferences()
