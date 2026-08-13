@@ -13,7 +13,7 @@ namespace MostaqlK.Features.Notifications.ViewModels;
 /// Sourced from <see cref="INotificationDispatcher.RecentHistory"/> (bounded, in-memory, no
 /// DB persistence per V1 scope).
 /// </summary>
-public sealed partial class NotificationCenterViewModel : ObservableObject
+public sealed partial class NotificationCenterViewModel : ObservableObject, IDisposable
 {
     private readonly INotificationDispatcher _notificationDispatcher;
     private readonly GlobalAppStatusService _globalStatus;
@@ -34,11 +34,12 @@ public sealed partial class NotificationCenterViewModel : ObservableObject
     {
         // HistoryChanged is raised off the grouper's flush path (a background timer callback
         // or a poll-cycle continuation), never guaranteed to be the UI thread.
-        MainThread.BeginInvokeOnMainThread(() =>
-        {
-            RefreshFromHistory();
-            _globalStatus.IncrementUnreadNotificationCount();
-        });
+        // NOTE: the unread badge itself is now incremented once, from the singleton
+        // `NotificationDispatcher.HandleFlush` - not here. This view-model is `AddTransient`, so a
+        // new instance (and a new subscription to `HistoryChanged`) is created every time the
+        // flyout/window is recreated; incrementing a shared counter from here meant every leaked
+        // instance counted the same flush again, inflating the badge far past +1 per new project.
+        MainThread.BeginInvokeOnMainThread(RefreshFromHistory);
     }
 
     private void RefreshFromHistory()
@@ -53,6 +54,13 @@ public sealed partial class NotificationCenterViewModel : ObservableObject
     public void MarkAllAsSeen()
     {
         _globalStatus.ResetUnreadNotificationCount();
+    }
+
+    /// <summary>Unsubscribes from the singleton dispatcher so this transient instance can be collected
+    /// without leaving a dangling <see cref="INotificationDispatcher.HistoryChanged"/> handler behind.</summary>
+    public void Dispose()
+    {
+        _notificationDispatcher.HistoryChanged -= OnHistoryChanged;
     }
 
     [RelayCommand]

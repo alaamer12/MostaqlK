@@ -27,14 +27,16 @@ public sealed class TokenBucketRateLimiter
     public const int DefaultRequestsPerMinute = 2;
 
     /// <summary>
-    /// Burst allowance used when <c>safe requests</c> is switched off: the app is then allowed to
-    /// keep up to this many tokens in hand and refill one per second, which is the fast behaviour
-    /// the pipeline shipped with before the spec-compliant pacing landed.
+    /// How much faster than the strict per-minute pacing the bucket refills while <c>safe
+    /// requests</c> is switched off. FIX (rate limit "hard-coded" bug): this used to be an
+    /// absolute floor (<c>Capacity = Math.Max(rpm, 10)</c>, <c>RefillPerSecond =
+    /// Math.Max(rpm / 60, 1.0)</c>) that completely ignored a configured budget below that floor
+    /// - e.g. setting <c>max_requests_per_minute</c> to 5 with "safe requests" off still drained
+    /// at a fixed ~60/min, making the configured number look like it had no effect at all. Fast
+    /// mode is now always derived from the configured <c>rpm</c> (just refilling this many times
+    /// faster, with no minimum spacing), so it can never diverge from what the user actually set.
     /// </summary>
-    public const int FastModeBurstCapacity = 10;
-
-    /// <summary>Refill rate (tokens/second) used when <c>safe requests</c> is switched off.</summary>
-    public const double FastModeRefillPerSecond = 1.0;
+    public const double FastModeRefillMultiplier = 10.0;
 
     /// <summary>Spacing enforced between two requests while <c>safe requests</c> is on.</summary>
     public static readonly TimeSpan SafeModeMinimumSpacing = TimeSpan.FromSeconds(1);
@@ -85,9 +87,10 @@ public sealed class TokenBucketRateLimiter
     /// <see langword="true"/> the bucket follows the spec exactly - capacity equals
     /// <c>max_requests_per_minute</c>, refill is <c>rpm / 60</c> per second and consecutive
     /// requests are spaced by <see cref="SafeModeMinimumSpacing"/>. When <see langword="false"/>
-    /// the limiter reverts to the faster, deliberately looser burst behaviour
-    /// (<see cref="FastModeBurstCapacity"/> tokens, one refilled per second, no spacing), which
-    /// drains a large backlog far quicker at the cost of a much higher outbound request rate.
+    /// the limiter reverts to the faster, deliberately looser burst behaviour (still capacity
+    /// <c>rpm</c>, but refilling <see cref="FastModeRefillMultiplier"/> times quicker and with no
+    /// spacing), which drains a large backlog far quicker at the cost of a much higher outbound
+    /// request rate - while always staying tied to the configured budget.
     /// </summary>
     public bool SafeRequests { get; private set; } = true;
 
@@ -128,8 +131,8 @@ public sealed class TokenBucketRateLimiter
         }
         else
         {
-            Capacity = Math.Max(rpm, FastModeBurstCapacity);
-            RefillPerSecond = Math.Max(rpm / 60.0, FastModeRefillPerSecond);
+            Capacity = rpm;
+            RefillPerSecond = rpm / 60.0 * FastModeRefillMultiplier;
             MinimumSpacing = TimeSpan.Zero;
         }
 

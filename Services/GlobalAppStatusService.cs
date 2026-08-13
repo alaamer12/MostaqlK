@@ -399,9 +399,9 @@ public sealed partial class GlobalAppStatusService : ObservableObject
         ProjectsAddedTodayCount = count;
     }
 
-    public void IncrementUnreadNotificationCount()
+    public void IncrementUnreadNotificationCount(int by = 1)
     {
-        UnreadNotificationCount++;
+        UnreadNotificationCount += by;
     }
 
     public void ResetUnreadNotificationCount()

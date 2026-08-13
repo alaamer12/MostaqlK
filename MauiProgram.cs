@@ -114,6 +114,28 @@ public static class MauiProgram
 		DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, ref useDarkMode, sizeof(int));
 		DwmSetWindowAttribute(hwnd, 19 /* DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 */, ref useDarkMode, sizeof(int));
 	}
+
+	/// <summary>
+	/// Hides the native scrollbar track/thumb on every <see cref="CollectionView"/> in the app
+	/// (currently just the projects feed's list, <c>MainWindowPage.xaml</c>'s
+	/// <c>Projects_ProjectsCollectionView</c>) without disabling scrolling itself - mouse-wheel
+	/// and drag scrolling keep working, only the always-visible scrollbar chrome goes away, to
+	/// match the flat, chrome-less list in projects.html. MAUI's CollectionView has no
+	/// cross-platform "scrollbar visibility" property, so this reaches into the Windows handler's
+	/// platform view (a WinUI <c>ListViewBase</c>, which owns an internal <c>ScrollViewer</c>) and
+	/// sets the attached <c>ScrollViewer.VerticalScrollBarVisibility</c> property directly.
+	/// </summary>
+	private static void HideCollectionViewScrollBars()
+	{
+		Microsoft.Maui.Controls.Handlers.Items.CollectionViewHandler.Mapper.AppendToMapping("HideScrollBar", (handler, _) =>
+		{
+			if (handler.PlatformView is Microsoft.UI.Xaml.Controls.ListViewBase listViewBase)
+			{
+				Microsoft.UI.Xaml.Controls.ScrollViewer.SetVerticalScrollBarVisibility(listViewBase, Microsoft.UI.Xaml.Controls.ScrollBarVisibility.Hidden);
+				Microsoft.UI.Xaml.Controls.ScrollViewer.SetHorizontalScrollBarVisibility(listViewBase, Microsoft.UI.Xaml.Controls.ScrollBarVisibility.Hidden);
+			}
+		});
+	}
 #endif
 
 	/// <summary>
@@ -140,6 +162,9 @@ public static class MauiProgram
 	public static MauiApp CreateMauiApp()
 	{
 		RegisterGlobalExceptionLogging();
+#if WINDOWS
+		HideCollectionViewScrollBars();
+#endif
 
 		var builder = MauiApp.CreateBuilder();
 		builder

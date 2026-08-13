@@ -12,6 +12,7 @@ public sealed class NotificationDispatcher : INotificationDispatcher
 
     private readonly WindowsToastSender _toastSender;
     private readonly NotificationGrouper _grouper;
+    private readonly GlobalAppStatusService _globalStatus;
     private readonly Lock _historyGate = new();
     private readonly List<ProjectSummary> _history = [];
 
@@ -34,10 +35,11 @@ public sealed class NotificationDispatcher : INotificationDispatcher
     /// <summary>Raised after a batch is added to <see cref="RecentHistory"/>, so the UI can refresh.</summary>
     public event Action? HistoryChanged;
 
-    public NotificationDispatcher(WindowsToastSender toastSender, NotificationGrouper grouper)
+    public NotificationDispatcher(WindowsToastSender toastSender, NotificationGrouper grouper, GlobalAppStatusService globalStatus)
     {
         _toastSender = toastSender;
         _grouper = grouper;
+        _globalStatus = globalStatus;
         _grouper.OnFlush += HandleFlush;
     }
 
@@ -70,6 +72,17 @@ public sealed class NotificationDispatcher : INotificationDispatcher
                 _history.RemoveRange(MaxHistory, _history.Count - MaxHistory);
             }
         }
+
+        // FIX (badge count exploding on new items, e.g. 0 -> 9 for a single new project): this used
+        // to be incremented from `NotificationCenterViewModel.OnHistoryChanged`, but that view-model
+        // is `AddTransient` - a fresh instance is created (and subscribes to `HistoryChanged`) every
+        // time the flyout/window is recreated, and none of them ever unsubscribe. Every leaked
+        // instance then incremented this *singleton* counter independently for the very same flush,
+        // so the badge grew by however many instances had piled up, not by the batch size. Since
+        // `NotificationDispatcher` itself is a singleton and `HandleFlush` only ever runs once per
+        // flush, incrementing here is the single source of truth - by the actual batch size, so a
+        // grouped flush of several new projects still counts correctly.
+        _globalStatus.IncrementUnreadNotificationCount(batch.Count);
 
         HistoryChanged?.Invoke();
 

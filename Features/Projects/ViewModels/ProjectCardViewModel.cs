@@ -49,12 +49,44 @@ public sealed partial class ProjectCardViewModel : ObservableObject
     /// <summary>Bound by <c>ProjectCard.xaml</c>'s tap gesture; delegates back to the owning feed's select handler.</summary>
     public ICommand SelectCommand { get; }
 
+    /// <summary>Bound by <c>ProjectCard.xaml</c>'s "عرض في مستقل" button; opens the project's live listing on mostaql.com in the OS-default browser.</summary>
+    public ICommand OpenOnMostaqlCommand { get; }
+
     public ProjectCardViewModel(ProjectSummary project, Action<ProjectCardViewModel>? onSelected = null)
     {
         Project = project;
         _onSelected = onSelected;
         SelectCommand = new RelayCommand(() => _onSelected?.Invoke(this));
+        OpenOnMostaqlCommand = new AsyncRelayCommand(OpenOnMostaqlAsync);
     }
+
+    /// <summary>
+    /// Opens <see cref="MostaqlUrl"/> via <see cref="Launcher"/> - a fire-and-forget hand-off to the
+    /// OS-default browser, same mechanism as the About page's "Mostaqlk" footer link
+    /// (<c>AboutPage.xaml.cs</c>). Swallows failures (e.g. no default browser registered) instead of
+    /// crashing the app, since this is a "nice to have" affordance, not a critical path.
+    /// </summary>
+    private async Task OpenOnMostaqlAsync()
+    {
+        if (string.IsNullOrWhiteSpace(MostaqlUrl))
+        {
+            return;
+        }
+
+        try
+        {
+            await Launcher.Default.OpenAsync(MostaqlUrl);
+        }
+        catch (Exception ex)
+        {
+            MostaqlK.Services.Diagnostics.InteractionLogger.Fault("ProjectCardViewModel.OpenOnMostaqlAsync", ex);
+        }
+    }
+
+    /// <summary>Live listing URL for this project. Falls back to the canonical detail-page URL if the scraped <see cref="ProjectSummary.Url"/> is missing.</summary>
+    public string MostaqlUrl => string.IsNullOrWhiteSpace(Project.Url)
+        ? (Project.ProjectId > 0 ? $"https://mostaql.com/project/{Project.ProjectId}" : string.Empty)
+        : Project.Url;
 
     public bool IsUnread => Project.IsUnread;
 

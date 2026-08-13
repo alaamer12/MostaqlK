@@ -17,7 +17,7 @@
 - `max_concurrent_detail_fetches` — worker pool size for Tier 2 enrichment. Default: 2–3.
 - `safe_requests` — how strictly `max_requests_per_minute` is enforced. Default: **true**.
   - **On (default):** the shared token bucket follows [worker-pool-and-rate-limiter.md](../tech/worker-pool-and-rate-limiter.md#shared-rate-limiter-token-bucket) exactly — capacity equals `max_requests_per_minute`, tokens refill at `rpm / 60` per second, and consecutive requests are spaced by at least 1s (the "minimum inter-request spacing" from [architecture-pipeline.md § rate limiting](../../base/product/architecture-pipeline.md#rate-limiting)).
-  - **Off:** the limiter allows a 10-request burst refilling at 1/s. A large backlog drains far faster, at a materially higher risk of being blocked by the site. Offered as an explicit, opt-in escape hatch only.
+  - **Off:** the limiter keeps the same `max_requests_per_minute` burst capacity but refills it 10× faster with no minimum spacing (FIX: this used to be a fixed 10-request/1-per-second floor that ignored a lower configured `max_requests_per_minute`, making the setting look hard-coded/inert whenever it was below 10; it now always scales off whatever budget is configured). A large backlog drains far faster, at a materially higher risk of being blocked by the site. Offered as an explicit, opt-in escape hatch only.
 
 ## `query_params`
 

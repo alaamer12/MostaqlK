@@ -39,4 +39,27 @@
         </Style.Behaviors>
     </Style>
 
+    <!--
+        Compact "outline chip" secondary-action button used where a full AppButtonBase would be
+        too heavy (e.g. ProjectCard's "عرض في مستقل" link-out button): a Border (not a Button) so
+        it can carry an icon + label pair, styled as a light accent-tinted pill with a hairline
+        border. Still gets the same tactile PressableEffect feedback (hover highlight + press
+        scale/opacity) as every other clickable unit in the app.
+    -->
+    <Style x:Key="OutlineChipButtonStyle" TargetType="Border">
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light=#DBEAFE, Dark=#1E3A5F}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#EFF6FF, Dark=#132237}" />
+        <Setter Property="Padding" Value="14,8" />
+        <Setter Property="HorizontalOptions" Value="Start" />
+        <Setter Property="StrokeShape">
+            <Setter.Value>
+                <RoundRectangle CornerRadius="8" />
+            </Setter.Value>
+        </Setter>
+        <Style.Behaviors>
+            <ds:PressableEffect ApplyHoverHighlight="True" />
+        </Style.Behaviors>
+    </Style>
+
 </ResourceDictionary>

@@ -103,14 +103,28 @@
                             <VerticalStackLayout Spacing="4">
                                 <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
                                     <Label Grid.Column="0" Text="الطلبات الآمنة" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" FontFamily="Tajawal" />
-                                    <Label Grid.Column="1"
-                                           Text="ⓘ"
-                                           FontSize="15"
-                                           VerticalOptions="Center"
-                                           AutomationId="Settings_SafeRequestsInfo"
-                                           TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}"
-                                           FontFamily="Tajawal"
-                                           ToolTipProperties.Text="{Binding SafeRequestsHintText}" />
+                                    <!-- FIX: the (i) glyph used to be a bare Label with FontFamily="Tajawal" (an
+                                         Arabic-only face with no ⓘ glyph), so it rendered with a near-zero
+                                         measured width and the native ToolTip's hover hit-test never triggered.
+                                         Wrapping it in an explicitly-sized, background-transparent Border (with no
+                                         Arabic FontFamily override, so the system's symbol fallback font actually
+                                         has the glyph) gives WinUI a real hoverable area to attach the tooltip to. -->
+                                    <Border Grid.Column="1"
+                                            WidthRequest="22"
+                                            HeightRequest="22"
+                                            Padding="0"
+                                            StrokeThickness="0"
+                                            BackgroundColor="Transparent"
+                                            VerticalOptions="Center"
+                                            AutomationId="Settings_SafeRequestsInfo"
+                                            ToolTipProperties.Text="{Binding SafeRequestsHintText}">
+                                        <Label Text="ⓘ"
+                                               FontSize="15"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center"
+                                               InputTransparent="True"
+                                               TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" />
+                                    </Border>
                                     <CheckBox Grid.Column="3"
                                               AutomationId="Settings_SafeRequestsCheckbox"
                                               IsChecked="{Binding SafeRequests}"
