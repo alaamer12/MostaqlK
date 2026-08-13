@@ -2,6 +2,7 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:components="clr-namespace:MostaqlK.UI.PlatformComponents"
+             xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem"
              xmlns:vm="clr-namespace:MostaqlK.Features.Projects.ViewModels"
              x:Class="MostaqlK.Features.Projects.Views.ProjectCard"
              x:DataType="vm:ProjectCardViewModel"
@@ -191,12 +192,12 @@
                  A Border-based "outline chip" (not a Button) so it can host an icon + label pair;
                  OutlineChipButtonStyle (Resources/Styles/AppButtonStyle.xaml) already carries the
                  PressableEffect hover/press feedback shared with the rest of the design system. -->
-            <Border Style="{StaticResource OutlineChipButtonStyle}"
+            <ds:PressableBorder Style="{StaticResource OutlineChipButtonStyle}"
                     Margin="0,16,0,0"
                     AutomationId="ProjectCard_OpenOnMostaqlButton">
-                <Border.GestureRecognizers>
+                <ds:PressableBorder.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding OpenOnMostaqlCommand}" />
-                </Border.GestureRecognizers>
+                </ds:PressableBorder.GestureRecognizers>
                 <HorizontalStackLayout Spacing="6" InputTransparent="True">
                     <components:AppIcon Icon="Link"
                                         FontSize="12"
@@ -208,7 +209,7 @@
                            VerticalOptions="Center"
                            TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" />
                 </HorizontalStackLayout>
-            </Border>
+            </ds:PressableBorder>
 
         </VerticalStackLayout>
     </components:AppCard>

@@ -52,6 +52,11 @@ public partial class PressableEffect : Behavior<View>
     private PointerGestureRecognizer? _pointerRecognizer;
     private TapGestureRecognizer? _tapRecognizer;
 
+    // Whether THIS view's own highlight is currently being suppressed because a nested
+    // pressable descendant (e.g. ProjectCard's "عرض في مستقل" chip inside the card) is being
+    // hovered/pressed - see SuppressForChildHover/ResumeAfterChildHover below.
+    private bool _suppressedByChildHover;
+
     protected override void OnAttachedTo(View bindable)
     {
         base.OnAttachedTo(bindable);
@@ -101,6 +106,14 @@ public partial class PressableEffect : Behavior<View>
     {
         if (_associatedView == null) return;
 
+        // WinUI's PointerEntered/Exited are geometry-bound to each element's own bounding box:
+        // they don't fire on an ancestor just because the pointer moved onto a nested child that's
+        // still visually inside the ancestor's rect (e.g. moving from a ProjectCard's body onto its
+        // "عرض في مستقل" chip button). So when THIS view's own hover starts, tell the nearest
+        // ancestor that also has a PressableEffect to step aside instead of showing both highlights
+        // stacked on top of each other.
+        FindAncestorPressable()?.SuppressForChildHover();
+
         if (ApplyHoverHighlight)
         {
             // Always use current color as base for hover, but avoid using a previous hover color
@@ -112,22 +125,7 @@ public partial class PressableEffect : Behavior<View>
                 _originalBackgroundColor = currentColor;
             }
             
-            // Modern elegant hover color: slightly lighter in dark, slightly darker in light
-            var defaultHover = Application.Current?.RequestedTheme == AppTheme.Dark
-                ? Color.FromArgb("#15FFFFFF") // Subtle light overlay for dark theme
-                : Color.FromArgb("#0A000000"); // Very subtle dark overlay for light theme
-            
-            var highlight = HoverColor ?? defaultHover;
-            
-            // If the view has a background, we should blend the highlight
-            if (_originalBackgroundColor != Colors.Transparent && _originalBackgroundColor != null)
-            {
-                _associatedView.BackgroundColor = BlendColors(_originalBackgroundColor, highlight);
-            }
-            else
-            {
-                _associatedView.BackgroundColor = highlight;
-            }
+            ApplyHighlightNow();
         }
 
         // Apply cursor only once
@@ -136,6 +134,82 @@ public partial class PressableEffect : Behavior<View>
             ApplyPlatformCursor();
             _cursorApplied = true;
         }
+    }
+
+    private void ApplyHighlightNow()
+    {
+        if (_associatedView == null || _originalBackgroundColor == null)
+        {
+            return;
+        }
+
+        // Modern elegant hover color: slightly lighter in dark, slightly darker in light
+        var defaultHover = Application.Current?.RequestedTheme == AppTheme.Dark
+            ? Color.FromArgb("#15FFFFFF") // Subtle light overlay for dark theme
+            : Color.FromArgb("#0A000000"); // Very subtle dark overlay for light theme
+
+        var highlight = HoverColor ?? defaultHover;
+
+        // If the view has a background, we should blend the highlight
+        _associatedView.BackgroundColor = _originalBackgroundColor != Colors.Transparent
+            ? BlendColors(_originalBackgroundColor, highlight)
+            : highlight;
+    }
+
+    /// <summary>
+    /// Called by a nested descendant's <see cref="PressableEffect"/> when IT starts hovering, so
+    /// this (ancestor) view's own highlight doesn't stay stuck showing underneath/behind the
+    /// child's own highlight for as long as the pointer sits anywhere within this view's bounds.
+    /// </summary>
+    internal void SuppressForChildHover()
+    {
+        if (_associatedView == null || _originalBackgroundColor == null)
+        {
+            return;
+        }
+
+        _suppressedByChildHover = true;
+        _associatedView.BackgroundColor = _originalBackgroundColor;
+    }
+
+    /// <summary>
+    /// Called by a nested descendant's <see cref="PressableEffect"/> when IT stops hovering
+    /// (pointer exited the child but is still within this ancestor's bounds), so this view's own
+    /// highlight resumes as if the pointer had just re-entered it.
+    /// </summary>
+    internal void ResumeAfterChildHover()
+    {
+        if (!_suppressedByChildHover)
+        {
+            return;
+        }
+
+        _suppressedByChildHover = false;
+        if (ApplyHoverHighlight)
+        {
+            ApplyHighlightNow();
+        }
+    }
+
+    /// <summary>Walks up the visual tree to find the nearest ancestor carrying its own <see cref="PressableEffect"/> (e.g. a ProjectCard's AppCard wrapping this chip button).</summary>
+    private PressableEffect? FindAncestorPressable()
+    {
+        var parent = (_associatedView as Element)?.Parent;
+        while (parent != null)
+        {
+            if (parent is View view)
+            {
+                foreach (var behavior in view.Behaviors)
+                {
+                    if (behavior is PressableEffect ancestorEffect && ancestorEffect != this)
+                    {
+                        return ancestorEffect;
+                    }
+                }
+            }
+            parent = parent.Parent;
+        }
+        return null;
     }
 
     private bool _cursorApplied = false;
@@ -160,7 +234,12 @@ public partial class PressableEffect : Behavior<View>
             _associatedView.BackgroundColor = _originalBackgroundColor;
             _originalBackgroundColor = null;
         }
-        
+
+        // Pointer left this (child) view but is still within the ancestor's bounds (that's exactly
+        // why WinUI didn't already re-trigger the ancestor's own PointerEntered) - let the
+        // ancestor's highlight take back over.
+        FindAncestorPressable()?.ResumeAfterChildHover();
+
         ResetPressEffect();
     }
 

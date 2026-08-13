@@ -43,10 +43,12 @@
         Compact "outline chip" secondary-action button used where a full AppButtonBase would be
         too heavy (e.g. ProjectCard's "عرض في مستقل" link-out button): a Border (not a Button) so
         it can carry an icon + label pair, styled as a light accent-tinted pill with a hairline
-        border. Still gets the same tactile PressableEffect feedback (hover highlight + press
-        scale/opacity) as every other clickable unit in the app.
+        border. Targets ds:PressableBorder (not the plain Border) so every consumer gets its own,
+        dedicated PressableEffect instance instead of one shared via Style.Behaviors - MAUI's docs
+        warn stateful Style behaviors are shared across every control using the style, which broke
+        hover/press for all but the last card when this style is repeated once per feed item.
     -->
-    <Style x:Key="OutlineChipButtonStyle" TargetType="Border">
+    <Style x:Key="OutlineChipButtonStyle" TargetType="ds:PressableBorder">
         <Setter Property="StrokeThickness" Value="1" />
         <Setter Property="Stroke" Value="{AppThemeBinding Light=#DBEAFE, Dark=#1E3A5F}" />
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#EFF6FF, Dark=#132237}" />
@@ -57,9 +59,6 @@
                 <RoundRectangle CornerRadius="8" />
             </Setter.Value>
         </Setter>
-        <Style.Behaviors>
-            <ds:PressableEffect ApplyHoverHighlight="True" />
-        </Style.Behaviors>
     </Style>
 
 </ResourceDictionary>

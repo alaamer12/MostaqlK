@@ -75,7 +75,9 @@ Location: `UI/DesignSystem/`
 | `ShimmerBox` | `ContentView` | Skeleton-loading placeholder; sweeping shimmer animation. | Implemented |
 | `TruncatingLabel` | `Label` | Text truncation with `MaxChars` cap + `…` ellipsis. | Scaffold |
 | `LabelWithSubText` | `ContentView`/`Label` | Canonical error display: `ExternalMessage` + `FixMessage`. Used for the feed's empty/error states and the details page's error state. | Implemented |
-| `PressableEffect` | `Behavior<View>` | Adds elegant pressing (scale/opacity) and theme-aware hover (highlight/cursor) effects to any interactive view. | Implemented |
+| `PressableEffect` | `Behavior<View>` | Adds elegant pressing (scale/opacity) and theme-aware hover (highlight/cursor) effects to any interactive view; when nested inside another pressable ancestor (e.g. a chip button inside a `ProjectCard`), coordinates with the ancestor's own `PressableEffect` (`SuppressForChildHover`/`ResumeAfterChildHover`) so the two highlights don't visually stack/overlap. | Implemented |
+| `PressableBorder` | `Border` | A `Border` that adds its own dedicated `PressableEffect` instance in its constructor (same pattern as `AppCard`). Required for any `Style` that carries a `PressableEffect` via `Style.Behaviors` and gets applied to more than one element (e.g. one per `CollectionView` item) — MAUI's own docs warn stateful `Style.Behaviors` are a single shared instance reused by every consumer, which silently broke hover/press for all but the last element. Used by `OutlineChipButtonStyle`. | Implemented |
+| `OutlineChipButtonStyle` | keyed `Style` (`TargetType="ds:PressableBorder"`) | Compact accent-tinted "outline chip" secondary-action button (icon + label pair) for actions too light for a full `AppButtonBase` — e.g. `ProjectCard`'s "عرض في مستقل" link-out button. Defined in `Resources/Styles/AppButtonStyle.xaml`. | Implemented |
 
 Planned (folder placeholders exist, no C# units yet): `IconSystem/`, `Letterbox/`, `Stickers/`. The
 `Letterbox` visual language (dark navy canvas, centered icon scene, sparkle accents, feature pill,
