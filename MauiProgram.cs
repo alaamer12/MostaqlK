@@ -212,6 +212,10 @@ public static class MauiProgram
 		builder.Services.AddSingleton<Infrastructure.Database.SearchIndex.FtsQueryService>();
 		builder.Services.AddSingleton<AssetDownloadService>();
 		builder.Services.AddSingleton<DesignDataSeeder>();
+		// Session cookie uploaded from Settings, held encrypted in `app_secrets` (DPAPI/CurrentUser)
+		// and republished to CookieJar so the scraper/downloader can resolve real attachment URLs.
+		builder.Services.AddSingleton<ISecretRepository, SecretRepository>();
+		builder.Services.AddSingleton<CookieStore>();
 
 		// Pipeline services
 		builder.Services.AddSingleton<InFlightTracker>();
@@ -313,6 +317,11 @@ public static class MauiProgram
 #endif
 
 		var app = builder.Build();
+
+		// Resolve the cookie store immediately (it is what installs CookieJar.SecureProvider) and
+		// load the stored session, so the first poll cycle is already authenticated rather than
+		// silently anonymous until the user happens to open Settings.
+		_ = app.Services.GetRequiredService<CookieStore>().InitializeAsync();
 
 #if WINDOWS
 		appRef = app;

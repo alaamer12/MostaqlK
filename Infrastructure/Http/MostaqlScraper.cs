@@ -15,13 +15,15 @@ public sealed class MostaqlScraper : IProjectScraper
     private readonly HttpClient _httpClient;
 
     /// <summary>
-    /// Cached auth cookie header, resolved once per process. Attaching it to the *page* fetch
+    /// Auth cookie header, resolved per request rather than cached, so a cookie the user uploads
+    /// in Settings applies to the very next poll instead of only after an app restart (the
+    /// resolution itself is an in-memory lookup in Release). Attaching it to the *page* fetch
     /// (not just to the file download) is what makes attachments usable at all: Mostaql renders
     /// anonymous visitors a "/register?..." stub in place of the real /file/{id}/... URL, so an
     /// unauthenticated scrape can only ever produce a manual-download placeholder.
     /// Null when no cookie is configured, in which case scraping behaves exactly as before.
     /// </summary>
-    private readonly Lazy<string?> _cookieHeader = new(() => CookieJar.Load());
+    private static string? CookieHeader => CookieJar.Load();
 
     public MostaqlScraper(HttpClient httpClient)
     {
@@ -81,7 +83,7 @@ public sealed class MostaqlScraper : IProjectScraper
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            if (_cookieHeader.Value is { Length: > 0 } cookie)
+            if (CookieHeader is { Length: > 0 } cookie)
             {
                 request.Headers.TryAddWithoutValidation("Cookie", cookie);
             }

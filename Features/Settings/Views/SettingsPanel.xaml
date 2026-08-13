@@ -4,6 +4,7 @@
              xmlns:vm="clr-namespace:MostaqlK.Features.Settings.ViewModels"
              xmlns:platform="clr-namespace:MostaqlK.UI.PlatformComponents"
              xmlns:sidebar="clr-namespace:MostaqlK.UI.PlatformComponents.AppSidebar"
+             xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem"
              xmlns:services="clr-namespace:MostaqlK.Services"
              x:Class="MostaqlK.Features.Settings.Views.SettingsPanel"
              x:DataType="vm:SettingsViewModel"
@@ -177,6 +178,126 @@
                             </Grid>
 
                             <Button Text="حفظ" AutomationId="Settings_SaveButton" Command="{Binding SaveCommand}" HorizontalOptions="End" BackgroundColor="{AppThemeBinding Light=#2563EB, Dark=#3B82F6}" TextColor="White" FontFamily="Tajawal" />
+
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Session cookie: Mostaql only exposes real attachment URLs to a logged-in
+                         session, so the user uploads their browser cookie export here. The file is
+                         parsed into a Cookie header and stored encrypted (DPAPI, current Windows
+                         user) in the local database - never as plaintext on disk. -->
+                    <Border Padding="16" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                        <VerticalStackLayout Spacing="12">
+
+                            <Label Text="ملف الجلسة (الكوكيز)" FontSize="18" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                            <Label Text="ارفع ملف الكوكيز المُصدَّر من المتصفح لتفعيل تنزيل مرفقات المشاريع. يُخزَّن الملف مُشفَّرًا داخل قاعدة البيانات المحلية ولا يُحفظ كنص صريح."
+                                   FontSize="12"
+                                   LineBreakMode="WordWrap"
+                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                   FontFamily="Tajawal" />
+
+                            <!-- Dashed drop zone. PressableBorder (Design System) gives it the
+                                 per-instance hover highlight + press scale/opacity animation and
+                                 the hand cursor for free; the dashed stroke and the state colours
+                                 (idle / saved / rejected) are driven by DataTriggers so no
+                                 code-behind or converter is needed. -->
+                            <ds:PressableBorder AutomationId="Settings_CookieDropZone"
+                                                Padding="20"
+                                                StrokeThickness="2"
+                                                StrokeDashArray="6,4"
+                                                StrokeDashOffset="0"
+                                                Stroke="{AppThemeBinding Light=#94A3B8, Dark=#475569}"
+                                                BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#0B1220}">
+                                <ds:PressableBorder.StrokeShape><RoundRectangle CornerRadius="14" /></ds:PressableBorder.StrokeShape>
+                                <ds:PressableBorder.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding UploadSessionCookieCommand}" />
+                                </ds:PressableBorder.GestureRecognizers>
+                                <ds:PressableBorder.Triggers>
+                                    <DataTrigger TargetType="ds:PressableBorder" Binding="{Binding IsCookieSuccess}" Value="True">
+                                        <Setter Property="Stroke" Value="{AppThemeBinding Light=#16A34A, Dark=#4ADE80}" />
+                                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#F0FDF4, Dark=#0B1E14}" />
+                                    </DataTrigger>
+                                    <DataTrigger TargetType="ds:PressableBorder" Binding="{Binding IsCookieError}" Value="True">
+                                        <Setter Property="Stroke" Value="{AppThemeBinding Light=#DC2626, Dark=#F87171}" />
+                                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#FEF2F2, Dark=#210F10}" />
+                                    </DataTrigger>
+                                    <DataTrigger TargetType="ds:PressableBorder" Binding="{Binding IsCookieBusy}" Value="True">
+                                        <Setter Property="Stroke" Value="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" />
+                                    </DataTrigger>
+                                </ds:PressableBorder.Triggers>
+
+                                <VerticalStackLayout Spacing="6" HorizontalOptions="Center" InputTransparent="True">
+                                    <!-- Idle/finished glyph swaps for the spinner while encrypting. -->
+                                    <Label Text="⬆"
+                                           FontSize="28"
+                                           HorizontalOptions="Center"
+                                           IsVisible="{Binding IsCookieIdle}"
+                                           TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" />
+                                    <ActivityIndicator AutomationId="Settings_CookieSpinner"
+                                                       IsVisible="{Binding IsCookieBusy}"
+                                                       IsRunning="{Binding IsCookieBusy}"
+                                                       HeightRequest="28"
+                                                       HorizontalOptions="Center"
+                                                       Color="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" />
+                                    <Label Text="اسحب ملف الكوكيز هنا أو اضغط للاختيار"
+                                           FontSize="14"
+                                           HorizontalOptions="Center"
+                                           FontFamily="TajawalBold"
+                                           TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                                    <Label Text="{Binding SessionCookieStatusText}"
+                                           AutomationId="Settings_CookieStatusLabel"
+                                           FontSize="12"
+                                           HorizontalTextAlignment="Center"
+                                           LineBreakMode="WordWrap"
+                                           TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                           FontFamily="Tajawal" />
+                                </VerticalStackLayout>
+                            </ds:PressableBorder>
+
+                            <!-- Result line: green on success, red on rejection, muted while busy. -->
+                            <Label Text="{Binding CookieFeedbackText}"
+                                   AutomationId="Settings_CookieFeedbackLabel"
+                                   FontSize="13"
+                                   LineBreakMode="WordWrap"
+                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                   FontFamily="Tajawal">
+                                <Label.Triggers>
+                                    <DataTrigger TargetType="Label" Binding="{Binding IsCookieSuccess}" Value="True">
+                                        <Setter Property="TextColor" Value="{AppThemeBinding Light=#16A34A, Dark=#4ADE80}" />
+                                    </DataTrigger>
+                                    <DataTrigger TargetType="Label" Binding="{Binding IsCookieError}" Value="True">
+                                        <Setter Property="TextColor" Value="{AppThemeBinding Light=#DC2626, Dark=#F87171}" />
+                                    </DataTrigger>
+                                </Label.Triggers>
+                            </Label>
+
+                            <!-- Development-only note: Release builds ignore any cookies.txt on
+                                 disk, so this row is hidden there (see CookieJar.DevelopmentFallbacksEnabled). -->
+                            <Label Text="وضع التطوير: يمكن أيضًا استخدام ملف cookies.txt الموجود في مجلد المشروع أو متغيّر البيئة MOSTAQL_COOKIE. هذه الوسائل معطّلة تمامًا في نسخة الإصدار."
+                                   IsVisible="{Binding ShowDevelopmentCookieNote}"
+                                   FontSize="12"
+                                   LineBreakMode="WordWrap"
+                                   TextColor="{AppThemeBinding Light=#B45309, Dark=#FCD34D}"
+                                   FontFamily="Tajawal" />
+
+                            <HorizontalStackLayout Spacing="8" HorizontalOptions="End">
+                                <Button Text="حذف الجلسة"
+                                        AutomationId="Settings_ClearCookieButton"
+                                        Command="{Binding ClearSessionCookieCommand}"
+                                        IsVisible="{Binding HasSessionCookie}"
+                                        BackgroundColor="Transparent"
+                                        BorderWidth="1"
+                                        BorderColor="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
+                                        TextColor="{AppThemeBinding Light=#DC2626, Dark=#F87171}"
+                                        FontFamily="Tajawal" />
+                                <Button Text="رفع ملف الجلسة"
+                                        AutomationId="Settings_UploadCookieButton"
+                                        Command="{Binding UploadSessionCookieCommand}"
+                                        BackgroundColor="{AppThemeBinding Light=#2563EB, Dark=#3B82F6}"
+                                        TextColor="White"
+                                        FontFamily="Tajawal" />
+                            </HorizontalStackLayout>
 
                         </VerticalStackLayout>
                     </Border>

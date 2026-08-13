@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MostaqlK.Infrastructure.Database;
+using MostaqlK.Infrastructure.Http;
 using MostaqlK.Services;
 using MostaqlK.Services.Diagnostics;
 using MostaqlK.Services.Pipeline;
@@ -33,11 +34,15 @@ public sealed partial class SettingsViewModel : ObservableObject
     private const int MinPollIntervalSeconds = 10;
     private const int MaxPollIntervalSeconds = 3600;
 
+    /// <summary>Floor for how long the cookie drop zone's spinner stays visible, in milliseconds.</summary>
+    private const int SpinnerMinimumVisibleMilliseconds = 500;
+
     private readonly IPollService _pollService;
     private readonly TokenBucketRateLimiter _rateLimiter;
     private readonly NotificationGrouper _grouper;
     private readonly IProjectRepository _projectRepository;
     private readonly GlobalAppStatusService _globalStatus;
+    private readonly CookieStore _cookieStore;
     private bool _isLoading;
 
     [ObservableProperty]
@@ -91,8 +96,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         TokenBucketRateLimiter rateLimiter,
         NotificationGrouper grouper,
         IProjectRepository projectRepository,
-        GlobalAppStatusService globalStatus)
+        GlobalAppStatusService globalStatus,
+        CookieStore cookieStore)
     {
+        _cookieStore = cookieStore;
         _pollService = pollService;
         _rateLimiter = rateLimiter;
         _grouper = grouper;
@@ -100,7 +107,138 @@ public sealed partial class SettingsViewModel : ObservableObject
         _globalStatus = globalStatus;
 
         LoadFromPreferences();
+        RefreshCookieStatus();
         _ = LoadProjectsAddedTodayAsync();
+    }
+
+    // -----------------------------------------------------------------
+    // Session cookie ("ملف الجلسة")
+    // -----------------------------------------------------------------
+
+    /// <summary>True once a session cookie is stored, which switches the row to its "active" copy.</summary>
+    [ObservableProperty]
+    public partial bool HasSessionCookie { get; set; }
+
+    /// <summary>Human-readable state of the stored cookie, shown under the upload button.</summary>
+    [ObservableProperty]
+    public partial string SessionCookieStatusText { get; set; } = string.Empty;
+
+    /// <summary>
+    /// True while the picked file is being parsed and encrypted. Drives the drop zone's spinner
+    /// and disables the command, so the (short but non-instant) DPAPI round-trip is visible
+    /// feedback rather than an unexplained frozen frame.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(UploadSessionCookieCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ClearSessionCookieCommand))]
+    public partial bool IsCookieBusy { get; set; }
+
+    /// <summary>Transient "saved" state of the drop zone (green outline + check).</summary>
+    [ObservableProperty]
+    public partial bool IsCookieSuccess { get; set; }
+
+    /// <summary>Transient "rejected" state of the drop zone (red outline + cross).</summary>
+    [ObservableProperty]
+    public partial bool IsCookieError { get; set; }
+
+    /// <summary>Result line under the drop zone; empty while idle.</summary>
+    [ObservableProperty]
+    public partial string CookieFeedbackText { get; set; } = string.Empty;
+
+    /// <summary>The upload affordance is inert while a previous upload is still being encrypted.</summary>
+    public bool IsCookieIdle => !IsCookieBusy;
+
+    partial void OnIsCookieBusyChanged(bool value) => OnPropertyChanged(nameof(IsCookieIdle));
+
+    /// <summary>
+    /// Only true in development builds, where <see cref="CookieJar"/> still accepts a plaintext
+    /// <c>cookies.txt</c> next to the repo / an env var. A shipped build reads the cookie solely
+    /// from the encrypted store, so this note must not appear there.
+    /// </summary>
+    public bool ShowDevelopmentCookieNote => CookieJar.DevelopmentFallbacksEnabled;
+
+    private void RefreshCookieStatus()
+    {
+        HasSessionCookie = _cookieStore.HasCookie;
+        SessionCookieStatusText = _cookieStore.HasCookie
+            ? $"جلسة محفوظة ({_cookieStore.CookieCount} كوكيز) - آخر تحديث {_cookieStore.UpdatedAtUtc?.ToLocalTime():yyyy/MM/dd HH:mm}"
+            : "لا توجد جلسة محفوظة. بدون ملف الجلسة لن يتمكن التطبيق من تنزيل مرفقات المشاريع.";
+    }
+
+    /// <summary>
+    /// Lets the user pick a browser-exported cookie file and stores it encrypted in the local
+    /// database. Only the parsed header is kept - the picked file itself is never copied anywhere.
+    /// </summary>
+    [TraceInteraction("UploadSessionCookieCommand")]
+    [MostaqlK.Core.ErrorOutcome(MostaqlK.Core.ErrorOutcome.Handled, Label = "Picker/IO failure surfaced as a validation message")]
+    [RelayCommand(CanExecute = nameof(IsCookieIdle))]
+    public async Task UploadSessionCookieAsync()
+    {
+        using var _ = TraceScope.Begin("UploadSessionCookieCommand");
+        try
+        {
+            var picked = await FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = "اختر ملف الجلسة (cookies.txt)",
+            });
+
+            if (picked is null)
+            {
+                return;
+            }
+
+            IsCookieSuccess = false;
+            IsCookieError = false;
+            IsCookieBusy = true;
+            CookieFeedbackText = "جارٍ التحقق من الملف وتشفيره...";
+
+            var content = await File.ReadAllTextAsync(picked.FullPath);
+
+            // Parsing + DPAPI encryption + the SQLite write take a few hundred milliseconds; keep
+            // the spinner on screen for at least that long so the state change reads as a
+            // deliberate step rather than a flicker.
+            var save = _cookieStore.SaveFromFileContentAsync(content);
+            await Task.WhenAll(save, Task.Delay(SpinnerMinimumVisibleMilliseconds));
+            var count = save.Result;
+
+            IsCookieBusy = false;
+
+            if (count is null)
+            {
+                IsCookieError = true;
+                CookieFeedbackText = "تعذّر قراءة أي كوكيز صالحة من الملف المحدد.";
+                SetValidationError("تعذّر قراءة أي كوكيز صالحة من الملف المحدد.");
+                return;
+            }
+
+            IsCookieSuccess = true;
+            CookieFeedbackText = $"تم حفظ {count} كوكيز مُشفّرة بنجاح.";
+            ClearValidationError();
+            RefreshCookieStatus();
+        }
+        catch (Exception ex)
+        {
+            _.MarkFaulted(ex);
+            IsCookieBusy = false;
+            IsCookieError = true;
+            CookieFeedbackText = "تعذّر حفظ ملف الجلسة.";
+            SetValidationError("تعذّر حفظ ملف الجلسة.");
+        }
+    }
+
+    /// <summary>Deletes the stored session so the app goes back to anonymous scraping.</summary>
+    [TraceInteraction("ClearSessionCookieCommand")]
+    [MostaqlK.Core.ErrorOutcome(MostaqlK.Core.ErrorOutcome.Handled, Label = "Delete failure logged inside CookieStore")]
+    [RelayCommand(CanExecute = nameof(IsCookieIdle))]
+    public async Task ClearSessionCookieAsync()
+    {
+        using var _ = TraceScope.Begin("ClearSessionCookieCommand");
+        await _cookieStore.ClearAsync();
+        IsCookieSuccess = false;
+        IsCookieError = false;
+        CookieFeedbackText = string.Empty;
+        ClearValidationError();
+        RefreshCookieStatus();
     }
 
     private void LoadFromPreferences()

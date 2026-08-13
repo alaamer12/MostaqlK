@@ -30,9 +30,18 @@ public static class CookieJar
     public static string? LastSource { get; private set; }
 
     /// <summary>
+    /// The primary, production source: the cookie the user uploaded in Settings, held encrypted in
+    /// the local database and decrypted into memory by <c>CookieStore</c>, which installs itself
+    /// here at startup. Kept as a delegate so this MAUI-free type stays usable by the parser test
+    /// harness (which has no database) and does not depend on the app's DI container.
+    /// </summary>
+    public static Func<string?>? SecureProvider { get; set; }
+
+    /// <summary>
     /// Resolves a cookie header, trying in order: the explicit <paramref name="explicitPath"/>,
-    /// the <c>MOSTAQL_COOKIE</c> env var (raw header text), the <c>MOSTAQL_COOKIE_FILE</c> env var,
-    /// then a <c>cookies.txt</c> walked up from the current directory (development convenience).
+    /// then the encrypted store populated from Settings (<see cref="SecureProvider"/>), and - in
+    /// DEBUG builds only - the <c>MOSTAQL_COOKIE</c>/<c>MOSTAQL_COOKIE_FILE</c> env vars and a
+    /// <c>cookies.txt</c> walked up from the current directory.
     /// Returns <c>null</c> when nothing usable is configured - callers must treat that as
     /// "manual download required" rather than as an error.
     /// </summary>
@@ -46,29 +55,53 @@ public static class CookieJar
             return ParseFile(File.ReadAllText(explicitPath));
         }
 
+        if (SecureProvider?.Invoke() is { Length: > 0 } stored)
+        {
+            LastSource = "encrypted store";
+            return stored;
+        }
+
+#if DEBUG
+        // Development-only conveniences. A shipped build must never pick a session up off the
+        // filesystem or the environment: in Release the only accepted source is the encrypted
+        // store above (populated from Settings), so a stray plaintext `cookies.txt` next to the
+        // executable cannot silently authenticate a real user's app.
         var inline = Environment.GetEnvironmentVariable("MOSTAQL_COOKIE");
         if (!string.IsNullOrWhiteSpace(inline))
         {
-            LastSource = "MOSTAQL_COOKIE";
+            LastSource = "MOSTAQL_COOKIE (dev)";
             return ParseFile(inline);
         }
 
         var envPath = Environment.GetEnvironmentVariable("MOSTAQL_COOKIE_FILE");
         if (!string.IsNullOrWhiteSpace(envPath) && File.Exists(envPath))
         {
-            LastSource = envPath;
+            LastSource = envPath + " (dev)";
             return ParseFile(File.ReadAllText(envPath));
         }
 
         var discovered = FindUpwards("cookies.txt");
         if (discovered is not null)
         {
-            LastSource = discovered;
+            LastSource = discovered + " (dev)";
             return ParseFile(File.ReadAllText(discovered));
         }
+#endif
 
         return null;
     }
+
+    /// <summary>
+    /// True when the repo-root/env cookie fallbacks are compiled in, i.e. this is a development
+    /// build. The settings screen uses it to explain where a cookie came from when the user has
+    /// not uploaded one.
+    /// </summary>
+    public static bool DevelopmentFallbacksEnabled =>
+#if DEBUG
+        true;
+#else
+        false;
+#endif
 
     /// <summary>
     /// Parses raw cookie-file text into a <c>Cookie:</c> header value. Public so it can be unit
@@ -156,6 +189,7 @@ public static class CookieJar
     private static string Unquote(string value) =>
         value.Length >= 2 && value[0] == '"' && value[^1] == '"' ? value[1..^1] : value;
 
+#if DEBUG
     private static string? FindUpwards(string fileName)
     {
         var dir = new DirectoryInfo(Directory.GetCurrentDirectory());
@@ -170,4 +204,5 @@ public static class CookieJar
         }
         return null;
     }
+#endif
 }

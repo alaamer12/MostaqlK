@@ -75,6 +75,10 @@
 		     the transitive version until Microsoft.Data.Sqlite itself upgrades its dependency. -->
 		<PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+		<!-- DPAPI (ProtectedData) for the encrypted `app_secrets` store: the session cookie the
+		     user uploads in Settings is protected with a key the OS derives from the current
+		     Windows account, so the blob in mostaqlk.db is useless on another machine/user. -->
+		<PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.0" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" Condition="'$(Configuration)' == 'Debug'" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.0" Condition="'$(Configuration)' == 'Debug'" />
 	</ItemGroup>

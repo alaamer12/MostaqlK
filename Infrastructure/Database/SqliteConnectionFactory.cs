@@ -85,6 +85,12 @@ public sealed class SqliteConnectionFactory
             // touches rows that don't have an FTS row yet.
             BackfillMissingFtsRows(connection);
 
+            // Idempotent add-on table (see `SecretsTableSql`). Deliberately *not* a user_version
+            // bump: existing V1 databases stay schema-compatible, and bumping the version without
+            // a real migration path would make every already-installed app throw
+            // `SchemaVersionMismatch` on first launch.
+            EnsureSecretsTable(connection);
+
             _schemaVerified = true;
         }
     }
@@ -125,6 +131,25 @@ public sealed class SqliteConnectionFactory
             """;
         command.ExecuteNonQuery();
     }
+
+    /// <summary>
+    /// Creates the encrypted secrets table if it is missing. Values are ciphertext produced by
+    /// <c>SecretProtector</c>, so the column stays opaque even to someone opening the .db file.
+    /// </summary>
+    private static void EnsureSecretsTable(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = SecretsTableSql;
+        command.ExecuteNonQuery();
+    }
+
+    private const string SecretsTableSql = """
+        CREATE TABLE IF NOT EXISTS app_secrets (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        """;
 
     /// <summary>
     /// Bootstrap ("version 1") schema - see <c>Migrations/0001_initial_schema.sql</c> for the

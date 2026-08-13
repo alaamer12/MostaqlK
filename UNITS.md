@@ -147,6 +147,24 @@ Location: `Infrastructure/Notifications/`, `Services/NotificationDispatcher.cs`,
 | `WindowsToastSender` | class | Sends the actual Windows toast via `Microsoft.Windows.AppNotifications.AppNotificationManager` (individual vs grouped builder per project batch size). Toast failures are never silently swallowed: every send outcome (success or exception) is logged via `InteractionLogger.Mark`/`Fault`, and `NotificationDispatcher.HandleFlush` double-checks the returned `Result<bool>` on top of that. | Implemented |
 | `NotificationGrouper` | class | Buffers newly discovered projects and decides when to flush a batch to `WindowsToastSender` (immediate single-item bypass, end-of-minute, after-N-minutes, or after-N-count), instrumented with `InteractionLogger.Mark` checkpoints on every timer schedule/flush so a real run can be traced to confirm flushing actually happens. Verified live: `NotificationGrouper.Flush` → `NotificationDispatcher.HandleFlush` → `WindowsToastSender.SendAsync` all fired for real newly-discovered projects with no `FAULT` entries, and Windows' own notification-sources settings list registered `MostaqlK` as a toast sender, confirming the AUMID fix took effect. | Implemented |
 
+## Secrets & session cookie
+
+Location: `Infrastructure/Security/`, `Infrastructure/Database/SecretRepository.cs`, `Services/CookieStore.cs`, `Infrastructure/Http/CookieJar.cs`
+
+| Unit | Type | Purpose | Status |
+|---|---|---|---|
+| `SecretProtector` | static class | Encrypts/decrypts small secrets before they touch SQLite. On Windows the key is derived by the OS from the current user account (DPAPI, `CurrentUser` scope, plus app-specific entropy), so the stored blob is useless on another machine/user and no key material lives beside the ciphertext; non-Windows falls back to AES-GCM under a machine+user-derived key (obfuscation only). `TryUnprotect` returns `null` rather than throwing on a foreign/corrupt blob. | Implemented |
+| `ISecretRepository` / `SecretRepository` | repository | `app_secrets(key, value, updated_at)` key/value store, values always written through `SecretProtector`. The table is created idempotently by `SqliteConnectionFactory.EnsureSecretsTable` — deliberately **not** a `user_version` bump, which would make every already-installed V1 database throw `SchemaVersionMismatch`. | Implemented |
+| `CookieStore` | singleton service | Owns the Mostaql session cookie end to end: validates an uploaded cookie file via `CookieJar.ParseFile`, persists it encrypted, keeps the decrypted header in memory, and installs itself as `CookieJar.SecureProvider` so `MostaqlScraper`/`AssetDownloadService` pick it up without knowing its origin. Initialized eagerly in `MauiProgram` so the first poll cycle is already authenticated. | Implemented |
+| `CookieJar` | static class | Parses Netscape/curl exports and plain `name=value` / `a=1; b=2` DevTools copies into one `Cookie:` header. Resolution order: explicit path → encrypted store (`SecureProvider`) → **DEBUG-only** `MOSTAQL_COOKIE` / `MOSTAQL_COOKIE_FILE` / repo-root `cookies.txt` walk-up. Those file/env fallbacks are compiled out of Release (`DevelopmentFallbacksEnabled`), so a shipped build can only ever use the cookie the user uploaded in Settings. | Implemented |
+
+The Settings screen's "ملف الجلسة (الكوكيز)" card is the user-facing entry point: a dashed
+`PressableBorder` drop zone (hover highlight + press animation from `PressableEffect`, hand cursor)
+with an `ActivityIndicator` while the file is parsed/encrypted and `DataTrigger`-driven
+green/red state colours for saved/rejected. No new UI unit was introduced — it composes
+`PressableBorder` plus stock MAUI primitives. The development-only note under it is bound to
+`ShowDevelopmentCookieNote`, so it never renders in Release.
+
 ## Tray Icon
 
 Location: `UI/TrayIcon/`
