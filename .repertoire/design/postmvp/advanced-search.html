@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>البحث المتقدم — Mostaqlk</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<style data-purpose="custom-styles">
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
+
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #f1f5f9;
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        :root {
+            --accent-primary: #2386C8;
+            --accent-positive: #2E9E6B;
+            --group-and: #2386C8;
+            --group-or: #C2740C;
+        }
+        html.dark {
+            --accent-primary: #5CA8DE;
+            --accent-positive: #4FBF8C;
+            --group-and: #5CA8DE;
+            --group-or: #E0A64D;
+        }
+
+        body { transition: background-color 0.2s ease, color 0.2s ease; }
+        html.dark body { background-color: #0f172a; }
+
+        .group-and { border-color: color-mix(in srgb, var(--group-and) 35%, transparent); background-color: color-mix(in srgb, var(--group-and) 5%, transparent); }
+        .group-or { border-color: color-mix(in srgb, var(--group-or) 35%, transparent); background-color: color-mix(in srgb, var(--group-or) 6%, transparent); }
+    </style>
+<script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#64748b',
+                        background: '#f8fafc',
+                        surface: '#ffffff',
+                    }
+                }
+            }
+        }
+    </script>
+<script>
+        (function () {
+            try {
+                var stored = localStorage.getItem('mostaqlk-theme');
+                var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                var isDark = stored ? stored === 'dark' : systemDark;
+                if (isDark) document.documentElement.classList.add('dark');
+            } catch (e) { /* localStorage unavailable — fall back to light */ }
+        })();
+    </script>
+</head>
+<body class="h-screen flex overflow-hidden text-slate-800 dark:text-slate-200 dark:bg-slate-950">
+<!-- BEGIN: Sidebar -->
+<aside class="w-64 bg-background dark:bg-slate-900 flex flex-col border-l border-slate-200 dark:border-slate-800" data-purpose="sidebar">
+<div class="h-20 flex items-center px-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-xl">
+                    M
+                </div>
+<div>
+<h1 class="font-bold text-lg leading-tight dark:text-slate-100">Mostaqlk</h1>
+<span class="text-xs text-slate-500 dark:text-slate-400">v2.0.0</span>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-4 py-4 space-y-2 overflow-y-auto" data-purpose="sidebar-nav">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="./dashboard.html">
+<i class="fa-solid fa-list-check w-5 text-center"></i>
+<span>المشاريع</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl font-medium relative" href="./advanced-search.html">
+<div class="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-600 rounded-l-full"></div>
+<i class="fa-solid fa-magnifying-glass w-5 text-center"></i>
+<span>البحث المتقدم</span>
+</a>
+<a class="flex items-center justify-between px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="#">
+<div class="flex items-center gap-3">
+<i class="fa-regular fa-bell w-5 text-center"></i>
+<span>التنبيهات</span>
+</div>
+<span class="bg-blue-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">5</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="./settings.html">
+<i class="fa-solid fa-gear w-5 text-center"></i>
+<span>الإعدادات</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="./about.html">
+<i class="fa-solid fa-circle-info w-5 text-center"></i>
+<span>حول التطبيق</span>
+</a>
+</nav>
+<div class="p-4 border-t border-slate-200 dark:border-slate-800 space-y-4">
+<div class="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 text-center">
+<span class="block text-sm text-slate-500 dark:text-slate-400 mb-1">مشاريع مضافة اليوم</span>
+<span class="block text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">12</span>
+</div>
+<div class="flex items-center justify-between px-2">
+<div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+<i class="fa-regular fa-moon"></i>
+<span>الوضع الداكن</span>
+</div>
+<button id="theme-toggle" class="w-10 h-6 bg-slate-300 dark:bg-blue-600 rounded-full relative cursor-pointer focus:outline-none transition-colors" aria-pressed="false" aria-label="تبديل الوضع الداكن" onclick="toggleTheme()">
+<div id="theme-toggle-knob" class="w-4 h-4 bg-white rounded-full absolute top-1 shadow-sm transition-all" style="right: 0.25rem;"></div>
+</button>
+</div>
+</div>
+</aside>
+<!-- END: Sidebar -->
+
+<!-- BEGIN: Main Content -->
+<main class="flex-1 flex flex-col min-w-0 bg-slate-100 dark:bg-slate-950 overflow-hidden" data-purpose="main-content">
+
+<div class="p-6 pb-2 space-y-4 shrink-0">
+<div class="bg-white dark:bg-slate-900 px-4 py-3 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 flex items-center gap-2">
+<i class="fa-solid fa-magnifying-glass text-slate-400 dark:text-slate-500 text-sm"></i>
+<h1 class="font-bold text-slate-900 dark:text-slate-100">البحث المتقدم</h1>
+<span class="text-xs text-slate-400 dark:text-slate-500 mr-1">— ابحث وصفِّ الأرشيف المحلي بأي شرط تريده، وبأي ترتيب منطقي بينها</span>
+</div>
+
+<!-- Free-text search box -->
+<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-2">
+<div class="relative">
+<i class="fa-solid fa-magnifying-glass absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"></i>
+<input id="search-text-input" class="w-full pr-11 pl-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 dark:text-slate-100 dark:placeholder-slate-500 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow" placeholder="بحث نصي في العنوان، الوصف، والمهارات (عربي وإنجليزي، يتحمل الأخطاء الإملائية)" type="text"/>
+</div>
+</div>
+
+<!-- Query builder root -->
+<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+<div class="px-5 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<i class="fa-solid fa-diagram-project text-slate-400 dark:text-slate-500 text-sm"></i>
+<h2 class="font-bold text-sm text-slate-900 dark:text-slate-100">شروط التصفية</h2>
+<span class="text-xs text-slate-400 dark:text-slate-500">— كل الشروط الجذرية تُطبَّق بمنطق <span class="font-bold" style="color: var(--group-and);">و</span> مع مربع البحث النصي</span>
+</div>
+<button id="clear-all-btn" onclick="clearAllConditions()" class="text-xs text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors flex items-center gap-1">
+<i class="fa-solid fa-trash-can text-xs"></i>
+<span>مسح الكل</span>
+</button>
+</div>
+
+<div id="root-group" class="p-4 space-y-3">
+<!-- populated by JS -->
+</div>
+
+<div class="px-4 pb-4 flex items-center gap-2">
+<button onclick="addCondition('root')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-dashed border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 dark:hover:text-blue-400 transition-colors">
+<i class="fa-solid fa-plus"></i>
+<span>إضافة شرط</span>
+</button>
+<button onclick="addGroup('root')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-dashed border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-amber-400 hover:text-amber-600 dark:hover:border-amber-500 dark:hover:text-amber-400 transition-colors">
+<i class="fa-solid fa-layer-group"></i>
+<span>إضافة مجموعة شروط</span>
+</button>
+</div>
+</div>
+
+<!-- Live SQL-ish preview -->
+<div id="query-preview" class="bg-slate-900 dark:bg-black rounded-xl px-4 py-3 text-xs font-mono text-slate-300 dark:text-slate-400 overflow-x-auto" dir="ltr">
+    WHERE <span class="text-slate-500">true</span>
+</div>
+
+<!-- Sort + run bar -->
+<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+<div class="flex items-center gap-2 text-sm">
+<i class="fa-solid fa-arrow-down-wide-short text-slate-400 dark:text-slate-500 text-xs"></i>
+<span class="text-slate-500 dark:text-slate-400">الترتيب حسب</span>
+<select id="sort-field-select" class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+<option value="relevance">الصلة (relevance)</option>
+<option value="posted_at" selected="">تاريخ النشر</option>
+<option value="budget_max">الميزانية</option>
+<option value="proposal_count">عدد المقترحات</option>
+<option value="delivery_days">مدة التسليم</option>
+<option value="title">العنوان (أبجديًا)</option>
+</select>
+<button id="sort-direction-btn" onclick="toggleSortDirection()" class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" title="عكس اتجاه الترتيب">
+<i id="sort-direction-icon" class="fa-solid fa-arrow-down-short-wide"></i>
+</button>
+</div>
+<button onclick="runSearch()" class="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold text-white transition-colors shadow-sm" style="background-color: var(--accent-primary);">
+<i class="fa-solid fa-magnifying-glass"></i>
+<span>تطبيق البحث</span>
+</button>
+</div>
+</div>
+
+<!-- Results -->
+<div class="flex-1 overflow-y-auto px-6 pb-6">
+<div class="flex items-center justify-between mb-3 text-xs text-slate-400 dark:text-slate-500">
+<span id="results-count-text">3 نتائج مطابقة</span>
+</div>
+<div class="space-y-4">
+
+<!-- Result card 1 -->
+<article class="project-card unread relative flex flex-col gap-0" style="border-inline-start: 4px solid var(--accent-primary);">
+<div class="w-full bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 relative overflow-hidden">
+<div class="flex items-start justify-between gap-4 mb-3">
+<h2 class="text-xl font-extrabold text-slate-900 dark:text-slate-100 leading-relaxed hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors">تصميم موقع تعليمي تفاعلي</h2>
+<span class="flex items-center gap-1.5 px-3 py-1 bg-green-50 dark:bg-green-500/10 text-[color:var(--accent-positive)] text-xs font-medium rounded-md shrink-0">
+<i class="fa-regular fa-circle-check"></i>
+                                تم الإثراء
+                            </span>
+</div>
+<p class="text-slate-600 dark:text-slate-400 text-sm leading-relaxed mb-4">
+                                أحتاج إلى تصميم وتطوير موقع تعليمي تفاعلي للدورات اونلاين مع لوحة تحكم للمدرب والطلاب، يدعم المحتوى المرئي والاختبارات والشهادات.
+                            </p>
+<div class="flex flex-wrap gap-2 mb-4">
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">تصميم واجهات</span>
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">تطوير ويب</span>
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">PHP</span>
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">MySQL</span>
+</div>
+<div class="flex items-center justify-between gap-4 py-4 border-t border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-3">
+<div class="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center font-bold text-base shrink-0">أع</div>
+<div class="flex flex-col gap-0.5">
+<h3 class="font-bold text-base text-slate-900 dark:text-slate-100 flex items-center gap-1.5 leading-tight">
+                                        أحمد العتيبي
+                                        <i class="fa-solid fa-circle-check text-green-500 dark:text-green-400 text-sm"></i>
+</h3>
+<span class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">السعودية <span class="w-1 h-1 bg-slate-300 dark:bg-slate-600 rounded-full inline-block"></span> عضو منذ 2021</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 text-xs shrink-0"><i class="fa-regular fa-clock"></i> منذ 3 دقائق</div>
+</div>
+<div class="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-6">
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">الميزانية</span><span class="font-bold text-green-600 dark:text-green-400">2,500 - 5,500 ر.س</span></div>
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">مدة التسليم</span><span class="font-bold text-slate-800 dark:text-slate-200">20 يوم</span></div>
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">مدة التنفيذ</span><span class="font-bold text-slate-800 dark:text-slate-200">60 يوما</span></div>
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">عدد المقترحات</span><div class="flex items-center gap-1 font-bold text-slate-800 dark:text-slate-200"><i class="fa-solid fa-users text-slate-400 dark:text-slate-500 text-xs"></i> 69 عرض</div></div>
+</div>
+<div class="flex items-center gap-1.5 text-xs font-medium" style="color: var(--accent-primary);"><div class="w-2 h-2 rounded-full ms-1" style="background-color: var(--accent-primary);"></div>غير مقروء</div>
+</div>
+</div>
+</article>
+
+<!-- Result card 2 -->
+<article class="project-card read relative flex flex-col gap-0" style="border-inline-start: 4px solid #cbd5e1;">
+<div class="w-full bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 relative overflow-hidden">
+<div class="flex items-start justify-between gap-4 mb-3">
+<h2 class="text-xl font-medium text-slate-700 dark:text-slate-300 leading-relaxed hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors">تطوير متجر إلكتروني متكامل</h2>
+<span class="flex items-center gap-1.5 px-3 py-1 bg-green-50 dark:bg-green-500/10 text-[color:var(--accent-positive)] text-xs font-medium rounded-md shrink-0">
+<i class="fa-regular fa-circle-check"></i>
+                                تم الإثراء
+                            </span>
+</div>
+<p class="text-slate-600 dark:text-slate-400 text-sm leading-relaxed mb-4">
+                                نبحث عن مطوّر لإنشاء متجر إلكتروني متكامل مع نظام دفع، إدارة مخزون، ولوحة تحكم للتقارير والمبيعات.
+                            </p>
+<div class="flex flex-wrap gap-2 mb-4">
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">تطوير ويب</span>
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">ريأكت</span>
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">Node.js</span>
+</div>
+<div class="flex items-center justify-between gap-4 py-4 border-t border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-3">
+<div class="w-11 h-11 rounded-full bg-gradient-to-br from-teal-500 to-teal-600 text-white flex items-center justify-center font-bold text-base shrink-0">فه</div>
+<div class="flex flex-col gap-0.5">
+<h3 class="font-bold text-base text-slate-900 dark:text-slate-100 flex items-center gap-1.5 leading-tight">
+                                        فهد الحربي
+                                        <i class="fa-solid fa-circle-check text-green-500 dark:text-green-400 text-sm"></i>
+</h3>
+<span class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">الإمارات <span class="w-1 h-1 bg-slate-300 dark:bg-slate-600 rounded-full inline-block"></span> عضو منذ 2019</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 text-xs shrink-0"><i class="fa-regular fa-clock"></i> منذ يومين</div>
+</div>
+<div class="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-6">
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">الميزانية</span><span class="font-bold text-green-600 dark:text-green-400">4,000 - 9,000 ر.س</span></div>
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">مدة التسليم</span><span class="font-bold text-slate-800 dark:text-slate-200">30 يوم</span></div>
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">مدة التنفيذ</span><span class="font-bold text-slate-800 dark:text-slate-200">90 يوما</span></div>
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">عدد المقترحات</span><div class="flex items-center gap-1 font-bold text-slate-800 dark:text-slate-200"><i class="fa-solid fa-users text-slate-400 dark:text-slate-500 text-xs"></i> 24 عرض</div></div>
+</div>
+</div>
+</div>
+</article>
+
+<!-- Result card 3 -->
+<article class="project-card read relative flex flex-col gap-0" style="border-inline-start: 4px solid #cbd5e1;">
+<div class="w-full bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 relative overflow-hidden">
+<div class="flex items-start justify-between gap-4 mb-3">
+<h2 class="text-xl font-medium text-slate-700 dark:text-slate-300 leading-relaxed hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors">تصميم هوية بصرية لتطبيق تعليمي</h2>
+<span class="flex items-center gap-1.5 px-3 py-1 bg-green-50 dark:bg-green-500/10 text-[color:var(--accent-positive)] text-xs font-medium rounded-md shrink-0">
+<i class="fa-regular fa-circle-check"></i>
+                                تم الإثراء
+                            </span>
+</div>
+<p class="text-slate-600 dark:text-slate-400 text-sm leading-relaxed mb-4">
+                                مطلوب تصميم شعار وهوية بصرية كاملة لتطبيق تعليمي موجّه للأطفال، تشمل الألوان والخطوط ودليل الاستخدام.
+                            </p>
+<div class="flex flex-wrap gap-2 mb-4">
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">تصميم شعارات</span>
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">هوية بصرية</span>
+</div>
+<div class="flex items-center justify-between gap-4 py-4 border-t border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-3">
+<div class="w-11 h-11 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 text-white flex items-center justify-center font-bold text-base shrink-0">سم</div>
+<div class="flex flex-col gap-0.5">
+<h3 class="font-bold text-base text-slate-900 dark:text-slate-100 flex items-center gap-1.5 leading-tight">
+                                        سارة المطيري
+                                        <i class="fa-solid fa-circle-check text-green-500 dark:text-green-400 text-sm"></i>
+</h3>
+<span class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">السعودية <span class="w-1 h-1 bg-slate-300 dark:bg-slate-600 rounded-full inline-block"></span> عضو منذ 2020</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 text-xs shrink-0"><i class="fa-regular fa-clock"></i> منذ 8 دقائق</div>
+</div>
+<div class="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-6">
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">الميزانية</span><span class="font-bold text-green-600 dark:text-green-400">500 - 1,000 ر.س</span></div>
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">مدة التسليم</span><span class="font-bold text-slate-800 dark:text-slate-200">7 أيام</span></div>
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">مدة التنفيذ</span><span class="font-bold text-slate-800 dark:text-slate-200">45 يوما</span></div>
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">عدد المقترحات</span><div class="flex items-center gap-1 font-bold text-slate-800 dark:text-slate-200"><i class="fa-solid fa-users text-slate-400 dark:text-slate-500 text-xs"></i> 69 عرض</div></div>
+</div>
+</div>
+</div>
+</article>
+
+</div>
+</div>
+</main>
+<!-- END: Main Content -->
+
+<script>
+    function applyTheme(isDark) {
+        document.documentElement.classList.toggle('dark', isDark);
+        const btn = document.getElementById('theme-toggle');
+        const knob = document.getElementById('theme-toggle-knob');
+        if (btn) btn.setAttribute('aria-pressed', String(isDark));
+        if (knob) knob.style.right = isDark ? '1.25rem' : '0.25rem';
+    }
+    function toggleTheme() {
+        const isDark = !document.documentElement.classList.contains('dark');
+        applyTheme(isDark);
+        try { localStorage.setItem('mostaqlk-theme', isDark ? 'dark' : 'light'); } catch (e) {}
+    }
+    applyTheme(document.documentElement.classList.contains('dark'));
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        try { if (!localStorage.getItem('mostaqlk-theme')) applyTheme(e.matches); } catch (err) { applyTheme(e.matches); }
+    });
+
+    // ============================================================
+    // Field registry — schema-driven. Adding a column here is the
+    // only step needed to make it filterable/sortable in the UI.
+    // See search-and-filtering.md § safety: field/operator whitelist.
+    // ============================================================
+    const FIELD_REGISTRY = {
+        title:            { label: 'العنوان',                 type: 'text' },
+        category:         { label: 'التصنيف',                 type: 'enum', options: ['تطوير ويب', 'تصميم واجهات', 'كتابة محتوى', 'تسويق إلكتروني', 'تصميم شعارات', 'ترجمة'] },
+        skills:           { label: 'المهارات',                 type: 'multi_enum', options: ['PHP', 'MySQL', 'React', 'Node.js', 'سيو', 'هوية بصرية', 'WordPress'] },
+        budget_min:       { label: 'الميزانية (الحد الأدنى)',    type: 'number', unit: 'ر.س' },
+        budget_max:       { label: 'الميزانية (الحد الأقصى)',    type: 'number', unit: 'ر.س' },
+        delivery_days:    { label: 'مدة التسليم (أيام)',        type: 'number', unit: 'يوم' },
+        proposal_count:   { label: 'عدد المقترحات',            type: 'number' },
+        posted_at:        { label: 'تاريخ النشر',              type: 'date' },
+        is_read:          { label: 'الحالة: مقروء',             type: 'boolean' },
+        enrichment_status:{ label: 'حالة الإثراء',             type: 'enum', options: ['pending', 'enriched', 'failed'] },
+        'owner.hire_rate':                  { label: 'معدل توظيف المالك (%)',        type: 'number' },
+        'owner.open_projects_count':        { label: 'مشاريع المالك المفتوحة',       type: 'number' },
+        'owner.in_progress_projects_count': { label: 'مشاريع المالك قيد التنفيذ',     type: 'number' },
+        'owner.joined_at':                  { label: 'تاريخ تسجيل المالك',           type: 'date' },
+    };
+
+    const OPERATORS_BY_TYPE = {
+        text:       [['eq','يساوي'], ['neq','لا يساوي'], ['contains','يحتوي'], ['not_contains','لا يحتوي'], ['starts_with','يبدأ بـ']],
+        number:     [['eq','='], ['neq','≠'], ['gt','>'], ['gte','≥'], ['lt','<'], ['lte','≤'], ['between','بين']],
+        date:       [['before','قبل'], ['after','بعد'], ['between','بين'], ['last_n_days','خلال آخر (أيام)']],
+        boolean:    [['is','يساوي']],
+        enum:       [['eq','يساوي'], ['neq','لا يساوي'], ['in','ضمن [...]']],
+        multi_enum: [['any_of','يحتوي أي من'], ['all_of','يحتوي الكل']],
+    };
+
+    // ============================================================
+    // Condition tree state.
+    // A group: { id, type: 'group', connector: 'and'|'or', children: [condition|group] }
+    // A leaf:  { id, type: 'condition', field, operator, value }
+    // ============================================================
+    let idCounter = 0;
+    const newId = () => 'n' + (++idCounter);
+
+    const tree = {
+        id: 'root', type: 'group', connector: 'and', children: [
+            { id: newId(), type: 'condition', field: 'category', operator: 'eq', value: 'تطوير ويب' },
+            {
+                id: newId(), type: 'group', connector: 'or', children: [
+                    { id: newId(), type: 'condition', field: 'budget_max', operator: 'gte', value: '500' },
+                    { id: newId(), type: 'condition', field: 'proposal_count', operator: 'lt', value: '10' },
+                ]
+            }
+        ]
+    };
+
+    function findNode(node, id) {
+        if (node.id === id) return node;
+        if (node.children) {
+            for (const child of node.children) {
+                const found = findNode(child, id);
+                if (found) return found;
+            }
+        }
+        return null;
+    }
+    function findParent(node, id, parent = null) {
+        if (node.id === id) return parent;
+        if (node.children) {
+            for (const child of node.children) {
+                const found = findParent(child, id, node);
+                if (found) return found;
+            }
+        }
+        return null;
+    }
+
+    function defaultValueFor(field) {
+        const def = FIELD_REGISTRY[field];
+        if (def.type === 'boolean') return 'true';
+        if (def.type === 'enum' || def.type === 'multi_enum') return def.options[0];
+        return '';
+    }
+
+    function addCondition(parentId) {
+        const parent = parentId === 'root' ? tree : findNode(tree, parentId);
+        const firstField = Object.keys(FIELD_REGISTRY)[0];
+        parent.children.push({
+            id: newId(), type: 'condition', field: firstField,
+            operator: OPERATORS_BY_TYPE[FIELD_REGISTRY[firstField].type][0][0],
+            value: defaultValueFor(firstField)
+        });
+        render();
+    }
+
+    function addGroup(parentId) {
+        const parent = parentId === 'root' ? tree : findNode(tree, parentId);
+        const firstField = Object.keys(FIELD_REGISTRY)[0];
+        parent.children.push({
+            id: newId(), type: 'group', connector: 'and', children: [
+                { id: newId(), type: 'condition', field: firstField,
+                  operator: OPERATORS_BY_TYPE[FIELD_REGISTRY[firstField].type][0][0],
+                  value: defaultValueFor(firstField) }
+            ]
+        });
+        render();
+    }
+
+    function removeNode(id) {
+        const parent = findParent(tree, id);
+        if (!parent) return;
+        parent.children = parent.children.filter(c => c.id !== id);
+        render();
+    }
+
+    function toggleConnector(groupId) {
+        const group = findNode(tree, groupId);
+        group.connector = group.connector === 'and' ? 'or' : 'and';
+        render();
+    }
+
+    function updateConditionField(id, field) {
+        const node = findNode(tree, id);
+        node.field = field;
+        node.operator = OPERATORS_BY_TYPE[FIELD_REGISTRY[field].type][0][0];
+        node.value = defaultValueFor(field);
+        render();
+    }
+    function updateConditionOperator(id, operator) {
+        const node = findNode(tree, id);
+        node.operator = operator;
+        if (operator === 'between') node.value = { from: '', to: '' };
+        else if (typeof node.value === 'object') node.value = '';
+        render();
+    }
+    function updateConditionValue(id, value, subkey) {
+        const node = findNode(tree, id);
+        if (subkey) { if (typeof node.value !== 'object') node.value = {}; node.value[subkey] = value; }
+        else node.value = value;
+        updatePreview();
+    }
+
+    function clearAllConditions() {
+        tree.connector = 'and';
+        tree.children = [];
+        render();
+    }
+
+    // ============================================================
+    // Rendering
+    // ============================================================
+    function fieldOptionsHtml(selectedField) {
+        return Object.entries(FIELD_REGISTRY).map(([key, def]) =>
+            `<option value="${key}" ${key === selectedField ? 'selected' : ''}>${def.label}</option>`
+        ).join('');
+    }
+    function operatorOptionsHtml(fieldType, selectedOp) {
+        return OPERATORS_BY_TYPE[fieldType].map(([key, label]) =>
+            `<option value="${key}" ${key === selectedOp ? 'selected' : ''}>${label}</option>`
+        ).join('');
+    }
+    function valueInputHtml(node) {
+        const def = FIELD_REGISTRY[node.field];
+        const commonCls = "rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 min-w-0";
+
+        if (node.operator === 'between') {
+            const from = (node.value && node.value.from) || '';
+            const to = (node.value && node.value.to) || '';
+            const inputType = def.type === 'date' ? 'date' : 'number';
+            return `<div class="flex items-center gap-1.5">
+                <input type="${inputType}" value="${from}" oninput="updateConditionValue('${node.id}', this.value, 'from')" class="${commonCls} w-28" placeholder="من"/>
+                <span class="text-xs text-slate-400">—</span>
+                <input type="${inputType}" value="${to}" oninput="updateConditionValue('${node.id}', this.value, 'to')" class="${commonCls} w-28" placeholder="إلى"/>
+            </div>`;
+        }
+        if (def.type === 'boolean') {
+            return `<select onchange="updateConditionValue('${node.id}', this.value)" class="${commonCls}">
+                <option value="true" ${node.value === 'true' ? 'selected' : ''}>نعم</option>
+                <option value="false" ${node.value === 'false' ? 'selected' : ''}>لا</option>
+            </select>`;
+        }
+        if (def.type === 'enum') {
+            return `<select onchange="updateConditionValue('${node.id}', this.value)" class="${commonCls}">
+                ${def.options.map(o => `<option value="${o}" ${node.value === o ? 'selected' : ''}>${o}</option>`).join('')}
+            </select>`;
+        }
+        if (def.type === 'multi_enum') {
+            return `<select onchange="updateConditionValue('${node.id}', this.value)" class="${commonCls}">
+                ${def.options.map(o => `<option value="${o}" ${node.value === o ? 'selected' : ''}>${o}</option>`).join('')}
+            </select>`;
+        }
+        if (def.type === 'date') {
+            return `<input type="date" value="${node.value || ''}" oninput="updateConditionValue('${node.id}', this.value)" class="${commonCls}"/>`;
+        }
+        if (def.type === 'number') {
+            return `<input type="number" value="${node.value || ''}" oninput="updateConditionValue('${node.id}', this.value)" class="${commonCls} w-28" placeholder="${def.unit || ''}"/>`;
+        }
+        return `<input type="text" value="${node.value || ''}" oninput="updateConditionValue('${node.id}', this.value)" class="${commonCls}" placeholder="القيمة"/>`;
+    }
+
+    function renderCondition(node, connectorLabel, isFirst) {
+        const def = FIELD_REGISTRY[node.field];
+        return `
+        <div class="flex items-center gap-2 flex-wrap" data-node-id="${node.id}">
+            ${!isFirst ? `<span class="text-xs font-bold w-6 text-center shrink-0" style="color: var(--connector-color, inherit);">${connectorLabel}</span>` : `<span class="w-6 shrink-0"></span>`}
+            <div class="flex items-center gap-1.5 flex-wrap bg-slate-50 dark:bg-slate-800/60 rounded-lg px-2 py-1.5 flex-1 min-w-0">
+                <i class="fa-solid fa-tag text-slate-300 dark:text-slate-600 text-xs shrink-0"></i>
+                <select onchange="updateConditionField('${node.id}', this.value)" class="rounded-md border-0 bg-transparent px-1.5 py-1 text-sm font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 shrink-0">
+                    ${fieldOptionsHtml(node.field)}
+                </select>
+                <select onchange="updateConditionOperator('${node.id}', this.value)" class="rounded-md border-0 bg-transparent px-1.5 py-1 text-sm text-slate-500 dark:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 shrink-0">
+                    ${operatorOptionsHtml(def.type, node.operator)}
+                </select>
+                ${valueInputHtml(node)}
+            </div>
+            <button onclick="removeNode('${node.id}')" class="w-7 h-7 flex items-center justify-center rounded-md text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors shrink-0" title="إزالة الشرط">
+                <i class="fa-solid fa-xmark text-xs"></i>
+            </button>
+        </div>`;
+    }
+
+    function renderGroup(group, connectorLabel, isFirst, depth) {
+        const isAnd = group.connector === 'and';
+        const groupColorClass = isAnd ? 'group-and' : 'group-or';
+        const pillColor = isAnd ? 'var(--group-and)' : 'var(--group-or)';
+        const pillLabel = isAnd ? 'و — الكل' : 'أو — أي واحد';
+
+        const childrenHtml = group.children.map((child, i) => {
+            const label = isAnd ? 'و' : 'أو';
+            if (child.type === 'group') return renderGroup(child, label, i === 0, depth + 1);
+            return renderCondition(child, label, i === 0);
+        }).join('');
+
+        const showConnectorPrefix = !isFirst && depth > 0;
+
+        return `
+        <div class="flex items-start gap-2" data-node-id="${group.id}">
+            ${showConnectorPrefix ? `<span class="text-xs font-bold w-6 text-center shrink-0 pt-3" style="color: ${pillColor};">${connectorLabel}</span>` : (depth > 0 ? `<span class="w-6 shrink-0"></span>` : '')}
+            <div class="flex-1 min-w-0 border rounded-xl p-3 space-y-2 ${groupColorClass}">
+                <div class="flex items-center justify-between gap-2">
+                    <button onclick="toggleConnector('${group.id}')" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-white transition-colors" style="background-color: ${pillColor};" title="اضغط لتبديل منطق المجموعة">
+                        <i class="fa-solid fa-shuffle text-[10px]"></i>
+                        <span>${pillLabel}</span>
+                    </button>
+                    <div class="flex items-center gap-1">
+                        <button onclick="addCondition('${group.id}')" class="text-[11px] text-slate-400 dark:text-slate-500 hover:text-blue-500 dark:hover:text-blue-400 transition-colors flex items-center gap-1 px-1.5 py-1">
+                            <i class="fa-solid fa-plus text-[10px]"></i>شرط
+                        </button>
+                        <button onclick="addGroup('${group.id}')" class="text-[11px] text-slate-400 dark:text-slate-500 hover:text-amber-500 dark:hover:text-amber-400 transition-colors flex items-center gap-1 px-1.5 py-1">
+                            <i class="fa-solid fa-layer-group text-[10px]"></i>مجموعة
+                        </button>
+                        ${depth > 0 ? `<button onclick="removeNode('${group.id}')" class="w-6 h-6 flex items-center justify-center rounded-md text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors" title="إزالة المجموعة"><i class="fa-solid fa-xmark text-xs"></i></button>` : ''}
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    ${childrenHtml || `<p class="text-xs text-slate-400 dark:text-slate-500 italic px-2 py-1">مجموعة فارغة — أضف شرطًا</p>`}
+                </div>
+            </div>
+        </div>`;
+    }
+
+    function render() {
+        document.getElementById('root-group').innerHTML = tree.children.map((child, i) => {
+            if (child.type === 'group') return renderGroup(child, 'و', i === 0, 1);
+            return renderCondition(child, 'و', i === 0);
+        }).join('') || `<p class="text-xs text-slate-400 dark:text-slate-500 italic px-2 py-1">لا توجد شروط — أضف شرطًا أو مجموعة للبدء</p>`;
+        updatePreview();
+    }
+
+    // ============================================================
+    // Query preview — human-readable reflection of the tree, purely
+    // illustrative. Real execution compiles the same tree server-side
+    // (app-side) into a parameterized WHERE clause; nothing here is
+    // ever sent to SQL as a raw string. See search-and-filtering.md
+    // § safety: no raw SQL from the UI.
+    // ============================================================
+    function valueToText(node) {
+        if (node.operator === 'between') {
+            const from = (node.value && node.value.from) || '?';
+            const to = (node.value && node.value.to) || '?';
+            return `${from} AND ${to}`;
+        }
+        return `'${node.value ?? ''}'`;
+    }
+    function nodeToSqlText(node) {
+        if (node.type === 'condition') {
+            const opSymbols = { eq:'=', neq:'!=', gt:'>', gte:'>=', lt:'<', lte:'<=', contains:'LIKE', not_contains:'NOT LIKE', starts_with:'LIKE', is:'=', in:'IN', any_of:'IN', all_of:'CONTAINS ALL', before:'<', after:'>', between:'BETWEEN', last_n_days:'>=' };
+            const sym = opSymbols[node.operator] || node.operator;
+            return `${node.field} ${sym} ${valueToText(node)}`;
+        }
+        const joiner = node.connector === 'and' ? ' AND ' : ' OR ';
+        const inner = node.children.map(nodeToSqlText).join(joiner);
+        return node.children.length > 1 ? `(${inner})` : inner;
+    }
+    function updatePreview() {
+        const searchVal = document.getElementById('search-text-input').value.trim();
+        const parts = [];
+        if (searchVal) parts.push(`MATCH '${searchVal}'`);
+        if (tree.children.length) parts.push(nodeToSqlText(tree));
+        const body = parts.length ? parts.join(' AND ') : '<span class="text-slate-500">true</span>';
+        document.getElementById('query-preview').innerHTML = 'WHERE ' + body;
+    }
+    document.getElementById('search-text-input').addEventListener('input', updatePreview);
+
+    // Sort direction toggle
+    let sortAsc = false;
+    function toggleSortDirection() {
+        sortAsc = !sortAsc;
+        document.getElementById('sort-direction-icon').className = sortAsc ? 'fa-solid fa-arrow-up-short-wide' : 'fa-solid fa-arrow-down-short-wide';
+    }
+    // relevance only makes sense with active search text — reflect that lightly
+    const sortSelect = document.getElementById('sort-field-select');
+    function refreshRelevanceAvailability() {
+        const relevanceOption = sortSelect.querySelector('option[value="relevance"]');
+        const hasSearch = document.getElementById('search-text-input').value.trim().length > 0;
+        relevanceOption.disabled = !hasSearch;
+        if (!hasSearch && sortSelect.value === 'relevance') sortSelect.value = 'posted_at';
+    }
+    document.getElementById('search-text-input').addEventListener('input', refreshRelevanceAvailability);
+    refreshRelevanceAvailability();
+
+    function runSearch() {
+        // Placeholder — in the real app this compiles `tree` + search text + sort
+        // into a parameterized query against the local FTS5/SQLite archive.
+        console.log('Running search', JSON.stringify(tree, null, 2), 'sort:', sortSelect.value, sortAsc ? 'asc' : 'desc');
+    }
+
+    render();
+</script>
+</body></html>

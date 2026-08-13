@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>البحث المتقدم — Mostaqlk</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<style data-purpose="custom-styles">
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
+
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #f1f5f9;
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        :root {
+            --accent-primary: #2386C8;
+            --accent-positive: #2E9E6B;
+        }
+        html.dark {
+            --accent-primary: #5CA8DE;
+            --accent-positive: #4FBF8C;
+        }
+
+        body { transition: background-color 0.2s ease, color 0.2s ease; }
+        html.dark body { background-color: #0f172a; }
+
+        .preset-btn.active {
+            background-color: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+            font-weight: 700;
+        }
+        .filter-checkbox:checked + label .check-box {
+            background-color: var(--accent-primary);
+            border-color: var(--accent-primary);
+        }
+        .filter-checkbox:checked + label .check-icon { opacity: 1; }
+    </style>
+<script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#64748b',
+                        background: '#f8fafc',
+                        surface: '#ffffff',
+                    }
+                }
+            }
+        }
+    </script>
+<script>
+        (function () {
+            try {
+                var stored = localStorage.getItem('mostaqlk-theme');
+                var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                var isDark = stored ? stored === 'dark' : systemDark;
+                if (isDark) document.documentElement.classList.add('dark');
+            } catch (e) { /* localStorage unavailable — fall back to light */ }
+        })();
+    </script>
+</head>
+<body class="h-screen flex overflow-hidden text-slate-800 dark:text-slate-200 dark:bg-slate-950">
+<!-- BEGIN: Sidebar (nav) -->
+<aside class="w-64 bg-background dark:bg-slate-900 flex flex-col border-l border-slate-200 dark:border-slate-800" data-purpose="sidebar">
+<div class="h-20 flex items-center px-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-xl">
+                    M
+                </div>
+<div>
+<h1 class="font-bold text-lg leading-tight dark:text-slate-100">Mostaqlk</h1>
+<span class="text-xs text-slate-500 dark:text-slate-400">v2.0.0</span>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-4 py-4 space-y-2 overflow-y-auto" data-purpose="sidebar-nav">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="./dashboard.html">
+<i class="fa-solid fa-list-check w-5 text-center"></i>
+<span>المشاريع</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl font-medium relative" href="./advanced-search.html">
+<div class="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-600 rounded-l-full"></div>
+<i class="fa-solid fa-magnifying-glass w-5 text-center"></i>
+<span>البحث المتقدم</span>
+</a>
+<a class="flex items-center justify-between px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="#">
+<div class="flex items-center gap-3">
+<i class="fa-regular fa-bell w-5 text-center"></i>
+<span>التنبيهات</span>
+</div>
+<span class="bg-blue-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">5</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="./settings.html">
+<i class="fa-solid fa-gear w-5 text-center"></i>
+<span>الإعدادات</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl transition-colors" href="./about.html">
+<i class="fa-solid fa-circle-info w-5 text-center"></i>
+<span>حول التطبيق</span>
+</a>
+</nav>
+<div class="p-4 border-t border-slate-200 dark:border-slate-800 space-y-4">
+<div class="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 text-center">
+<span class="block text-sm text-slate-500 dark:text-slate-400 mb-1">مشاريع مضافة اليوم</span>
+<span class="block text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">12</span>
+</div>
+<div class="flex items-center justify-between px-2">
+<div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+<i class="fa-regular fa-moon"></i>
+<span>الوضع الداكن</span>
+</div>
+<button id="theme-toggle" class="w-10 h-6 bg-slate-300 dark:bg-blue-600 rounded-full relative cursor-pointer focus:outline-none transition-colors" aria-pressed="false" aria-label="تبديل الوضع الداكن" onclick="toggleTheme()">
+<div id="theme-toggle-knob" class="w-4 h-4 bg-white rounded-full absolute top-1 shadow-sm transition-all" style="right: 0.25rem;"></div>
+</button>
+</div>
+</div>
+</aside>
+<!-- END: Sidebar (nav) -->
+
+<!-- BEGIN: Filter Modal -->
+<div id="filter-modal-backdrop" class="hidden fixed inset-0 bg-slate-900/40 dark:bg-black/60 z-40 items-center justify-center p-6" onclick="if(event.target===this) closeFilterModal()">
+<div class="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
+
+<div class="h-16 flex items-center justify-between px-6 border-b border-slate-100 dark:border-slate-800 shrink-0">
+<h2 class="font-bold text-lg text-slate-900 dark:text-slate-100 flex items-center gap-2">
+<i class="fa-solid fa-sliders text-slate-400 dark:text-slate-500 text-sm"></i>
+                    التصفية
+                </h2>
+<div class="flex items-center gap-4">
+<button id="clear-filters-btn" onclick="clearAllFilters()" class="text-xs text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors flex items-center gap-1.5">
+<i class="fa-solid fa-arrow-rotate-left text-xs"></i>
+<span>مسح الكل</span>
+</button>
+<button onclick="closeFilterModal()" class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
+<i class="fa-solid fa-xmark"></i>
+</button>
+</div>
+</div>
+
+<div class="flex-1 overflow-y-auto px-6 py-5" id="filter-sections">
+
+<div class="grid grid-cols-2 gap-x-8 gap-y-6" id="filter-grid-compact">
+
+<div class="filter-section" data-field="category" data-width="compact">
+<h3 class="font-bold text-sm text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+<i class="fa-solid fa-folder-open text-xs text-slate-400 dark:text-slate-500"></i>
+                        التصنيف
+                    </h3>
+<div class="grid grid-cols-2 gap-x-3 gap-y-2" data-options></div>
+</div>
+
+<div class="filter-section" data-field="skills" data-width="compact">
+<h3 class="font-bold text-sm text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+<i class="fa-solid fa-code text-xs text-slate-400 dark:text-slate-500"></i>
+                        المهارات
+                    </h3>
+<div class="grid grid-cols-2 gap-x-3 gap-y-2" data-options></div>
+</div>
+
+<div class="filter-section" data-field="status" data-width="compact">
+<h3 class="font-bold text-sm text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+<i class="fa-solid fa-circle-half-stroke text-xs text-slate-400 dark:text-slate-500"></i>
+                        الحالة
+                    </h3>
+<div class="grid grid-cols-2 gap-x-3 gap-y-2" data-options></div>
+</div>
+
+<div class="filter-section" data-field="owner.hire_rate" data-width="compact">
+<h3 class="font-bold text-sm text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+<i class="fa-solid fa-user-check text-xs text-slate-400 dark:text-slate-500"></i>
+                        معدل توظيف المالك
+                    </h3>
+<div class="grid grid-cols-2 gap-2" data-presets></div>
+</div>
+
+</div>
+
+<div class="my-6 border-t border-slate-100 dark:border-slate-800"></div>
+
+<div class="grid grid-cols-1 gap-y-6" id="filter-grid-wide">
+
+<div class="filter-section" data-field="budget_max" data-width="wide">
+<h3 class="font-bold text-sm text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+<i class="fa-solid fa-sack-dollar text-xs text-slate-400 dark:text-slate-500"></i>
+                        الميزانية
+                    </h3>
+<div class="grid grid-cols-4 gap-2 mb-3" data-presets></div>
+<div class="flex items-center gap-2 max-w-md">
+<input type="number" placeholder="من" data-custom-min class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"/>
+<span class="text-slate-300 dark:text-slate-600 text-xs shrink-0">—</span>
+<input type="number" placeholder="إلى" data-custom-max class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"/>
+<span class="text-xs text-slate-400 dark:text-slate-500 shrink-0">ر.س</span>
+</div>
+</div>
+
+<div class="filter-section" data-field="delivery_days" data-width="wide">
+<h3 class="font-bold text-sm text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+<i class="fa-solid fa-truck-fast text-xs text-slate-400 dark:text-slate-500"></i>
+                        مدة التسليم
+                    </h3>
+<div class="grid grid-cols-4 gap-2 mb-3" data-presets></div>
+<div class="flex items-center gap-2 max-w-md">
+<input type="number" placeholder="من" data-custom-min class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"/>
+<span class="text-slate-300 dark:text-slate-600 text-xs shrink-0">—</span>
+<input type="number" placeholder="إلى" data-custom-max class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"/>
+<span class="text-xs text-slate-400 dark:text-slate-500 shrink-0">يوم</span>
+</div>
+</div>
+
+<div class="filter-section" data-field="proposal_count" data-width="wide">
+<h3 class="font-bold text-sm text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+<i class="fa-solid fa-users text-xs text-slate-400 dark:text-slate-500"></i>
+                        عدد المقترحات
+                    </h3>
+<div class="grid grid-cols-4 gap-2 mb-3" data-presets></div>
+<div class="flex items-center gap-2 max-w-md">
+<input type="number" placeholder="من" data-custom-min class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"/>
+<span class="text-slate-300 dark:text-slate-600 text-xs shrink-0">—</span>
+<input type="number" placeholder="إلى" data-custom-max class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"/>
+<span class="text-xs text-slate-400 dark:text-slate-500 shrink-0">عرض</span>
+</div>
+</div>
+
+<div class="filter-section" data-field="posted_at" data-width="wide">
+<h3 class="font-bold text-sm text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+<i class="fa-regular fa-clock text-xs text-slate-400 dark:text-slate-500"></i>
+                        تاريخ النشر
+                    </h3>
+<div class="grid grid-cols-4 gap-2 mb-3" data-presets></div>
+<div class="flex items-center gap-2 max-w-md">
+<input type="date" data-custom-min class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"/>
+<span class="text-slate-300 dark:text-slate-600 text-xs shrink-0">—</span>
+<input type="date" data-custom-max class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"/>
+</div>
+</div>
+
+</div>
+
+</div>
+
+<div class="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 shrink-0 bg-slate-50 dark:bg-slate-800/50">
+<span id="modal-active-count-text" class="text-xs text-slate-400 dark:text-slate-500"></span>
+<button onclick="closeFilterModal()" class="px-6 py-2.5 rounded-lg text-sm font-bold text-white transition-colors shadow-sm" style="background-color: var(--accent-primary);">
+                    تطبيق التصفية
+                </button>
+</div>
+
+</div>
+</div>
+<!-- END: Filter Modal -->
+
+<!-- BEGIN: Main Content -->
+<main class="flex-1 flex flex-col min-w-0 bg-slate-100 dark:bg-slate-950 overflow-hidden" data-purpose="main-content">
+
+<div class="p-6 pb-2 space-y-3 shrink-0">
+<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-2">
+<div class="relative">
+<i class="fa-solid fa-magnifying-glass absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"></i>
+<input id="search-text-input" class="w-full pr-11 pl-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 dark:text-slate-100 dark:placeholder-slate-500 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow" placeholder="بحث نصي في العنوان، الوصف، والمهارات (عربي وإنجليزي، يتحمل الأخطاء الإملائية)" type="text"/>
+</div>
+</div>
+
+<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap">
+<div class="flex items-center gap-3">
+<button onclick="openFilterModal()" class="relative flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-blue-300 dark:hover:border-blue-600 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+<i class="fa-solid fa-sliders text-xs"></i>
+<span>التصفية</span>
+<span id="filter-trigger-badge" class="hidden absolute -top-1.5 -left-1.5 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold text-white items-center justify-center" style="background-color: var(--accent-primary);"></span>
+</button>
+<span id="results-count-text" class="text-sm text-slate-500 dark:text-slate-400"><span class="font-bold text-slate-800 dark:text-slate-200">3</span> نتيجة مطابقة</span>
+</div>
+<div class="flex items-center gap-2 text-sm">
+<span class="text-slate-500 dark:text-slate-400">الترتيب حسب</span>
+<select id="sort-field-select" class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+<option value="relevance" disabled="">الصلة (relevance)</option>
+<option value="posted_at" selected="">الأحدث أولًا</option>
+<option value="budget_max">الميزانية: من الأعلى</option>
+<option value="budget_max_asc">الميزانية: من الأقل</option>
+<option value="proposal_count">الأقل تنافسًا (مقترحات)</option>
+<option value="delivery_days">مدة التسليم</option>
+<option value="title">العنوان (أبجديًا)</option>
+</select>
+</div>
+</div>
+
+<div id="active-chips-bar" class="hidden flex-wrap items-center gap-2"></div>
+</div>
+
+<div class="flex-1 overflow-y-auto px-6 pb-6">
+<div class="space-y-4">
+
+<article class="project-card unread relative flex flex-col gap-0" style="border-inline-start: 4px solid var(--accent-primary);">
+<div class="w-full bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 relative overflow-hidden">
+<div class="flex items-start justify-between gap-4 mb-3">
+<h2 class="text-xl font-extrabold text-slate-900 dark:text-slate-100 leading-relaxed hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors">تصميم موقع تعليمي تفاعلي</h2>
+<span class="flex items-center gap-1.5 px-3 py-1 bg-green-50 dark:bg-green-500/10 text-[color:var(--accent-positive)] text-xs font-medium rounded-md shrink-0">
+<i class="fa-regular fa-circle-check"></i>
+                                تم الإثراء
+                            </span>
+</div>
+<p class="text-slate-600 dark:text-slate-400 text-sm leading-relaxed mb-4">
+                                أحتاج إلى تصميم وتطوير موقع تعليمي تفاعلي للدورات اونلاين مع لوحة تحكم للمدرب والطلاب، يدعم المحتوى المرئي والاختبارات والشهادات.
+                            </p>
+<div class="flex flex-wrap gap-2 mb-4">
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">تصميم واجهات</span>
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">تطوير ويب</span>
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">PHP</span>
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">MySQL</span>
+</div>
+<div class="flex items-center justify-between gap-4 py-4 border-t border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-3">
+<div class="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center font-bold text-base shrink-0">أع</div>
+<div class="flex flex-col gap-0.5">
+<h3 class="font-bold text-base text-slate-900 dark:text-slate-100 flex items-center gap-1.5 leading-tight">
+                                        أحمد العتيبي
+                                        <i class="fa-solid fa-circle-check text-green-500 dark:text-green-400 text-sm"></i>
+</h3>
+<span class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">السعودية <span class="w-1 h-1 bg-slate-300 dark:bg-slate-600 rounded-full inline-block"></span> عضو منذ 2021</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 text-xs shrink-0"><i class="fa-regular fa-clock"></i> منذ 3 دقائق</div>
+</div>
+<div class="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-6">
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">الميزانية</span><span class="font-bold text-green-600 dark:text-green-400">2,500 - 5,500 ر.س</span></div>
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">مدة التسليم</span><span class="font-bold text-slate-800 dark:text-slate-200">20 يوم</span></div>
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">مدة التنفيذ</span><span class="font-bold text-slate-800 dark:text-slate-200">60 يوما</span></div>
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">عدد المقترحات</span><div class="flex items-center gap-1 font-bold text-slate-800 dark:text-slate-200"><i class="fa-solid fa-users text-slate-400 dark:text-slate-500 text-xs"></i> 69 عرض</div></div>
+</div>
+<div class="flex items-center gap-1.5 text-xs font-medium" style="color: var(--accent-primary);"><div class="w-2 h-2 rounded-full ms-1" style="background-color: var(--accent-primary);"></div>غير مقروء</div>
+</div>
+</div>
+</article>
+
+<article class="project-card read relative flex flex-col gap-0" style="border-inline-start: 4px solid #cbd5e1;">
+<div class="w-full bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 relative overflow-hidden">
+<div class="flex items-start justify-between gap-4 mb-3">
+<h2 class="text-xl font-medium text-slate-700 dark:text-slate-300 leading-relaxed hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors">تطوير متجر إلكتروني متكامل</h2>
+<span class="flex items-center gap-1.5 px-3 py-1 bg-green-50 dark:bg-green-500/10 text-[color:var(--accent-positive)] text-xs font-medium rounded-md shrink-0">
+<i class="fa-regular fa-circle-check"></i>
+                                تم الإثراء
+                            </span>
+</div>
+<p class="text-slate-600 dark:text-slate-400 text-sm leading-relaxed mb-4">
+                                نبحث عن مطوّر لإنشاء متجر إلكتروني متكامل مع نظام دفع، إدارة مخزون، ولوحة تحكم للتقارير والمبيعات.
+                            </p>
+<div class="flex flex-wrap gap-2 mb-4">
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">تطوير ويب</span>
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">ريأكت</span>
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">Node.js</span>
+</div>
+<div class="flex items-center justify-between gap-4 py-4 border-t border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-3">
+<div class="w-11 h-11 rounded-full bg-gradient-to-br from-teal-500 to-teal-600 text-white flex items-center justify-center font-bold text-base shrink-0">فه</div>
+<div class="flex flex-col gap-0.5">
+<h3 class="font-bold text-base text-slate-900 dark:text-slate-100 flex items-center gap-1.5 leading-tight">
+                                        فهد الحربي
+                                        <i class="fa-solid fa-circle-check text-green-500 dark:text-green-400 text-sm"></i>
+</h3>
+<span class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">الإمارات <span class="w-1 h-1 bg-slate-300 dark:bg-slate-600 rounded-full inline-block"></span> عضو منذ 2019</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 text-xs shrink-0"><i class="fa-regular fa-clock"></i> منذ يومين</div>
+</div>
+<div class="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-6">
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">الميزانية</span><span class="font-bold text-green-600 dark:text-green-400">4,000 - 9,000 ر.س</span></div>
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">مدة التسليم</span><span class="font-bold text-slate-800 dark:text-slate-200">30 يوم</span></div>
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">مدة التنفيذ</span><span class="font-bold text-slate-800 dark:text-slate-200">90 يوما</span></div>
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">عدد المقترحات</span><div class="flex items-center gap-1 font-bold text-slate-800 dark:text-slate-200"><i class="fa-solid fa-users text-slate-400 dark:text-slate-500 text-xs"></i> 24 عرض</div></div>
+</div>
+</div>
+</div>
+</article>
+
+<article class="project-card read relative flex flex-col gap-0" style="border-inline-start: 4px solid #cbd5e1;">
+<div class="w-full bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 relative overflow-hidden">
+<div class="flex items-start justify-between gap-4 mb-3">
+<h2 class="text-xl font-medium text-slate-700 dark:text-slate-300 leading-relaxed hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors">تصميم هوية بصرية لتطبيق تعليمي</h2>
+<span class="flex items-center gap-1.5 px-3 py-1 bg-green-50 dark:bg-green-500/10 text-[color:var(--accent-positive)] text-xs font-medium rounded-md shrink-0">
+<i class="fa-regular fa-circle-check"></i>
+                                تم الإثراء
+                            </span>
+</div>
+<p class="text-slate-600 dark:text-slate-400 text-sm leading-relaxed mb-4">
+                                مطلوب تصميم شعار وهوية بصرية كاملة لتطبيق تعليمي موجّه للأطفال، تشمل الألوان والخطوط ودليل الاستخدام.
+                            </p>
+<div class="flex flex-wrap gap-2 mb-4">
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">تصميم شعارات</span>
+<span class="px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs rounded-md font-medium">هوية بصرية</span>
+</div>
+<div class="flex items-center justify-between gap-4 py-4 border-t border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-3">
+<div class="w-11 h-11 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 text-white flex items-center justify-center font-bold text-base shrink-0">سم</div>
+<div class="flex flex-col gap-0.5">
+<h3 class="font-bold text-base text-slate-900 dark:text-slate-100 flex items-center gap-1.5 leading-tight">
+                                        سارة المطيري
+                                        <i class="fa-solid fa-circle-check text-green-500 dark:text-green-400 text-sm"></i>
+</h3>
+<span class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">السعودية <span class="w-1 h-1 bg-slate-300 dark:bg-slate-600 rounded-full inline-block"></span> عضو منذ 2020</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 text-xs shrink-0"><i class="fa-regular fa-clock"></i> منذ 8 دقائق</div>
+</div>
+<div class="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-6">
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">الميزانية</span><span class="font-bold text-green-600 dark:text-green-400">500 - 1,000 ر.س</span></div>
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">مدة التسليم</span><span class="font-bold text-slate-800 dark:text-slate-200">7 أيام</span></div>
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">مدة التنفيذ</span><span class="font-bold text-slate-800 dark:text-slate-200">45 يوما</span></div>
+<div class="text-sm"><span class="block text-slate-500 dark:text-slate-400 text-xs mb-1">عدد المقترحات</span><div class="flex items-center gap-1 font-bold text-slate-800 dark:text-slate-200"><i class="fa-solid fa-users text-slate-400 dark:text-slate-500 text-xs"></i> 69 عرض</div></div>
+</div>
+</div>
+</div>
+</article>
+
+</div>
+</div>
+</main>
+<!-- END: Main Content -->
+
+<script>
+    function applyTheme(isDark) {
+        document.documentElement.classList.toggle('dark', isDark);
+        const btn = document.getElementById('theme-toggle');
+        const knob = document.getElementById('theme-toggle-knob');
+        if (btn) btn.setAttribute('aria-pressed', String(isDark));
+        if (knob) knob.style.right = isDark ? '1.25rem' : '0.25rem';
+    }
+    function toggleTheme() {
+        const isDark = !document.documentElement.classList.contains('dark');
+        applyTheme(isDark);
+        try { localStorage.setItem('mostaqlk-theme', isDark ? 'dark' : 'light'); } catch (e) {}
+    }
+    applyTheme(document.documentElement.classList.contains('dark'));
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        try { if (!localStorage.getItem('mostaqlk-theme')) applyTheme(e.matches); } catch (err) { applyTheme(e.matches); }
+    });
+
+    // ============================================================
+    // Field registry — schema-driven. Every filter section below is
+    // generated from this map + its widget type, not hand-authored
+    // per field. Adding a schema column later = one new entry here.
+    // All sections AND together; multi-select options within a
+    // section OR together (standard e-commerce facet behavior).
+    // See search-and-filtering.md § safety: field/operator whitelist.
+    // ============================================================
+    const FIELD_REGISTRY = {
+        category: {
+            label: 'التصنيف', widget: 'checklist',
+            options: ['تطوير ويب', 'تصميم واجهات', 'كتابة محتوى', 'تسويق إلكتروني', 'تصميم شعارات', 'ترجمة']
+        },
+        skills: {
+            label: 'المهارات', widget: 'checklist',
+            options: ['PHP', 'MySQL', 'React', 'Node.js', 'سيو', 'هوية بصرية', 'WordPress']
+        },
+        budget_max: {
+            label: 'الميزانية', widget: 'range', unit: 'ر.س',
+            presets: [
+                { label: 'أقل من 500', min: null, max: 500 },
+                { label: '500 – 2,000', min: 500, max: 2000 },
+                { label: '2,000 – 6,000', min: 2000, max: 6000 },
+                { label: 'أكثر من 6,000', min: 6000, max: null },
+            ]
+        },
+        delivery_days: {
+            label: 'مدة التسليم', widget: 'range', unit: 'يوم',
+            presets: [
+                { label: 'أقل من 7 أيام', min: null, max: 7 },
+                { label: '7 – 14 يومًا', min: 7, max: 14 },
+                { label: '14 – 30 يومًا', min: 14, max: 30 },
+                { label: 'أكثر من 30 يومًا', min: 30, max: null },
+            ]
+        },
+        proposal_count: {
+            label: 'عدد المقترحات', widget: 'range', unit: 'عرض',
+            presets: [
+                { label: 'أقل من 10', min: null, max: 10 },
+                { label: '10 – 30', min: 10, max: 30 },
+                { label: '30 – 60', min: 30, max: 60 },
+                { label: 'أكثر من 60', min: 60, max: null },
+            ]
+        },
+        posted_at: {
+            label: 'تاريخ النشر', widget: 'range', unit: '',
+            presets: [
+                { label: 'آخر 24 ساعة', min: 1, max: null },
+                { label: 'آخر 3 أيام', min: 3, max: null },
+                { label: 'آخر أسبوع', min: 7, max: null },
+                { label: 'آخر شهر', min: 30, max: null },
+            ]
+        },
+        'owner.hire_rate': {
+            label: 'معدل توظيف المالك', widget: 'presetOnly', unit: '%',
+            presets: [
+                { label: 'أي معدل', min: null, max: null },
+                { label: '50% فأكثر', min: 50, max: null },
+                { label: '75% فأكثر', min: 75, max: null },
+                { label: '90% فأكثر', min: 90, max: null },
+            ]
+        },
+        status: {
+            label: 'الحالة', widget: 'checklist',
+            options: ['غير مقروء فقط', 'تم الإثراء', 'قيد الإثراء']
+        },
+    };
+
+    // ============================================================
+    // Active filter state
+    // ============================================================
+    const state = {};
+    Object.keys(FIELD_REGISTRY).forEach(f => {
+        const def = FIELD_REGISTRY[f];
+        state[f] = def.widget === 'checklist' ? { type: 'checklist', values: new Set() } : { type: 'range', min: null, max: null, presetLabel: null };
+    });
+
+    function renderChecklist(field, def, container) {
+        container.innerHTML = def.options.map((opt, i) => {
+            const cid = `chk-${field}-${i}`;
+            return `
+            <div class="flex items-center gap-2 min-w-0">
+                <input type="checkbox" id="${cid}" class="filter-checkbox sr-only" onchange="toggleChecklistValue('${field}', ${JSON.stringify(opt)}, this.checked)"/>
+                <label for="${cid}" class="flex items-center gap-2 cursor-pointer select-none text-sm text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 min-w-0">
+                    <span class="check-box w-4 h-4 rounded border border-slate-300 dark:border-slate-600 flex items-center justify-center shrink-0 transition-colors">
+                        <i class="check-icon fa-solid fa-check text-white text-[9px] opacity-0 transition-opacity"></i>
+                    </span>
+                    <span class="truncate">${opt}</span>
+                </label>
+            </div>`;
+        }).join('');
+    }
+
+    function renderPresets(field, def, container) {
+        container.innerHTML = def.presets.map((p, i) => `
+            <button type="button" class="preset-btn text-xs px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-600 transition-colors text-center" onclick="applyPreset('${field}', ${i})" data-preset-index="${i}">
+                ${p.label}
+            </button>
+        `).join('');
+    }
+
+    function buildFilterUI() {
+        document.querySelectorAll('.filter-section').forEach(section => {
+            const field = section.dataset.field;
+            const def = FIELD_REGISTRY[field];
+            if (!def) return;
+            if (def.widget === 'checklist') {
+                renderChecklist(field, def, section.querySelector('[data-options]'));
+            } else if (def.widget === 'range') {
+                renderPresets(field, def, section.querySelector('[data-presets]'));
+                const minInput = section.querySelector('[data-custom-min]');
+                const maxInput = section.querySelector('[data-custom-max]');
+                if (minInput) minInput.addEventListener('input', () => applyCustomRange(field, minInput.value, maxInput.value));
+                if (maxInput) maxInput.addEventListener('input', () => applyCustomRange(field, minInput.value, maxInput.value));
+            } else if (def.widget === 'presetOnly') {
+                renderPresets(field, def, section.querySelector('[data-presets]'));
+            }
+        });
+    }
+
+    function toggleChecklistValue(field, value, checked) {
+        if (checked) state[field].values.add(value);
+        else state[field].values.delete(value);
+        onFilterChange();
+    }
+
+    function applyPreset(field, presetIndex) {
+        const def = FIELD_REGISTRY[field];
+        const preset = def.presets[presetIndex];
+        state[field].min = preset.min;
+        state[field].max = preset.max;
+        state[field].presetLabel = preset.label;
+        const section = document.querySelector(`.filter-section[data-field="${field}"]`);
+        section.querySelectorAll('.preset-btn').forEach((btn, i) => btn.classList.toggle('active', i === presetIndex));
+        const minInput = section.querySelector('[data-custom-min]');
+        const maxInput = section.querySelector('[data-custom-max]');
+        if (minInput) minInput.value = preset.min ?? '';
+        if (maxInput) maxInput.value = preset.max ?? '';
+        onFilterChange();
+    }
+
+    function applyCustomRange(field, minVal, maxVal) {
+        state[field].min = minVal !== '' ? Number(minVal) : null;
+        state[field].max = maxVal !== '' ? Number(maxVal) : null;
+        state[field].presetLabel = null;
+        const section = document.querySelector(`.filter-section[data-field="${field}"]`);
+        section.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+        onFilterChange();
+    }
+
+    function clearAllFilters() {
+        Object.keys(FIELD_REGISTRY).forEach(field => {
+            const def = FIELD_REGISTRY[field];
+            if (def.widget === 'checklist') {
+                state[field].values.clear();
+                document.querySelectorAll(`.filter-section[data-field="${field}"] input[type="checkbox"]`).forEach(cb => cb.checked = false);
+            } else {
+                state[field].min = null; state[field].max = null; state[field].presetLabel = null;
+                const section = document.querySelector(`.filter-section[data-field="${field}"]`);
+                section.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+                const minInput = section.querySelector('[data-custom-min]');
+                const maxInput = section.querySelector('[data-custom-max]');
+                if (minInput) minInput.value = '';
+                if (maxInput) maxInput.value = '';
+            }
+        });
+        document.getElementById('search-text-input').value = '';
+        onFilterChange();
+    }
+
+    // ============================================================
+    // Active chips bar — one removable chip per active filter value.
+    // Everything here ANDs together across fields (and ORs within a
+    // checklist field) — same semantics as a normal e-commerce
+    // sidebar. Compiled server-side (app-side) into a parameterized
+    // query; nothing here reaches SQL as a raw string. See
+    // search-and-filtering.md § safety: no raw SQL from the UI.
+    // ============================================================
+    function collectActiveChips() {
+        const chips = [];
+        Object.entries(state).forEach(([field, s]) => {
+            const def = FIELD_REGISTRY[field];
+            if (s.type === 'checklist') {
+                s.values.forEach(v => chips.push({ field, label: `${def.label}: ${v}`, clear: () => toggleChecklistValue(field, v, false) }));
+            } else if (s.min !== null || s.max !== null) {
+                let label;
+                if (s.presetLabel) label = `${def.label}: ${s.presetLabel}`;
+                else if (s.min !== null && s.max !== null) label = `${def.label}: ${s.min}–${s.max}${def.unit ? ' ' + def.unit : ''}`;
+                else if (s.min !== null) label = `${def.label}: ${s.min}+ ${def.unit || ''}`;
+                else label = `${def.label}: حتى ${s.max} ${def.unit || ''}`;
+                chips.push({ field, label, clear: () => applyCustomRange(field, '', '') });
+            }
+        });
+        return chips;
+    }
+
+    function renderChips() {
+        const chips = collectActiveChips();
+        const bar = document.getElementById('active-chips-bar');
+        if (!chips.length) {
+            bar.classList.add('hidden');
+            bar.classList.remove('flex');
+            bar.innerHTML = '';
+            return;
+        }
+        bar.classList.remove('hidden');
+        bar.classList.add('flex');
+        bar.innerHTML = chips.map((c, i) => `
+            <span class="inline-flex items-center gap-1.5 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 text-xs font-medium pl-1.5 pr-3 py-1.5 rounded-full">
+                ${c.label}
+                <button onclick="clearChip(${i})" class="w-4 h-4 flex items-center justify-center rounded-full hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors">
+                    <i class="fa-solid fa-xmark text-[10px]"></i>
+                </button>
+            </span>
+        `).join('') + `
+            <button onclick="clearAllFilters()" class="text-xs text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors underline">مسح الكل</button>
+        `;
+        window._activeChips = chips;
+    }
+    function clearChip(i) { window._activeChips[i].clear(); }
+
+    function countActiveFilters() {
+        return collectActiveChips().length;
+    }
+
+    function updateFilterTriggerBadge() {
+        const count = countActiveFilters();
+        const badge = document.getElementById('filter-trigger-badge');
+        const modalCountText = document.getElementById('modal-active-count-text');
+        if (count > 0) {
+            badge.textContent = count;
+            badge.classList.remove('hidden');
+            badge.classList.add('flex');
+        } else {
+            badge.classList.add('hidden');
+            badge.classList.remove('flex');
+        }
+        modalCountText.textContent = count > 0 ? `${count} ${count === 1 ? 'شرط تصفية نشط' : 'شروط تصفية نشطة'}` : 'لا توجد شروط تصفية نشطة';
+    }
+
+    function openFilterModal() {
+        const backdrop = document.getElementById('filter-modal-backdrop');
+        backdrop.classList.remove('hidden');
+        backdrop.classList.add('flex');
+    }
+    function closeFilterModal() {
+        const backdrop = document.getElementById('filter-modal-backdrop');
+        backdrop.classList.add('hidden');
+        backdrop.classList.remove('flex');
+    }
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeFilterModal();
+    });
+
+    function onFilterChange() {
+        renderChips();
+        updateFilterTriggerBadge();
+        // Placeholder — real app compiles `state` + search text + sort
+        // into a parameterized query against the local FTS5/SQLite archive.
+    }
+
+    const sortSelect = document.getElementById('sort-field-select');
+    function refreshRelevanceAvailability() {
+        const relevanceOption = sortSelect.querySelector('option[value="relevance"]');
+        const hasSearch = document.getElementById('search-text-input').value.trim().length > 0;
+        relevanceOption.disabled = !hasSearch;
+        if (!hasSearch && sortSelect.value === 'relevance') sortSelect.value = 'posted_at';
+    }
+    document.getElementById('search-text-input').addEventListener('input', () => { refreshRelevanceAvailability(); onFilterChange(); });
+    refreshRelevanceAvailability();
+
+    buildFilterUI();
+    renderChips();
+    updateFilterTriggerBadge();
+</script>
+</body></html>
