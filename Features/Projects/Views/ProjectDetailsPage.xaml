@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:components="clr-namespace:MostaqlK.UI.PlatformComponents"
              xmlns:design="clr-namespace:MostaqlK.UI.DesignSystem"
+             xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem"
              xmlns:vm="clr-namespace:MostaqlK.Features.Projects.ViewModels"
              xmlns:models="clr-namespace:MostaqlK.Models"
              xmlns:sidebar="clr-namespace:MostaqlK.UI.PlatformComponents.AppSidebar"
@@ -33,7 +34,7 @@
 
         <Grid Grid.Column="1" RowDefinitions="Auto,*">
             <Grid Grid.Row="0" Padding="28,20,28,8" ColumnDefinitions="Auto,*,Auto">
-                <Button Grid.Column="0" Text="رجوع" AutomationId="Details_BackButton" Clicked="OnProjectsNavClicked"
+                <ds:PressableButton Grid.Column="0" Text="رجوع" AutomationId="Details_BackButton" Clicked="OnProjectsNavClicked"
                         BackgroundColor="Transparent" TextColor="{AppThemeBinding Light=#475569, Dark=#94A3B8}" Padding="0"
                         FontFamily="Tajawal" />
                 <Label Grid.Column="1" Text="تفاصيل المشروع" FontSize="22" FontFamily="TajawalBold"

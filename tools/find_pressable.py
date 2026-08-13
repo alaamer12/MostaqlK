@@ -5,12 +5,13 @@ import sys
 # Patterns to look for in XAML files
 XAML_INTERACTIVE_TAGS = [
     r'<Button\b', r'<ImageButton\b', r'<CheckBox\b', r'<RadioButton\b', 
-    r'<Switch\b', r'<SwipeItem\b', r'<MenuFlyoutItem\b', r'<ToolbarItem\b',
+    r'<Switch\b', r'<AppToggle\b', r'<Picker\b', r'<Entry\b', r'<SearchBar\b',
+    r'<SwipeItem\b', r'<MenuFlyoutItem\b', r'<ToolbarItem\b',
     r'<TapGestureRecognizer\b', r'<PointerGestureRecognizer\b', r'<GestureRecognizer\b',
 ]
 
 XAML_INTERACTIVE_ATTRS = [
-    r'Clicked="', r'Tapped="', r'Command="', r'Command=\{Binding',
+    r'Clicked="', r'Tapped="', r'Command="', r'Command=\{Binding', r'IsToggled="', r'IsChecked="', r'SelectedIndex="',
 ]
 
 CS_INTERACTIVE_PATTERNS = [
@@ -69,7 +70,7 @@ def find_pressable_components(root_dir):
                     
                     # Is it a known interactive element or a custom interactive component?
                     is_candidate = False
-                    if tag_name in ['Button', 'ImageButton', 'CheckBox', 'RadioButton', 'Switch', 'Label', 'Image', 'Border', 'Grid', 'StackLayout']:
+                    if tag_name in ['Button', 'ImageButton', 'CheckBox', 'RadioButton', 'Switch', 'AppToggle', 'Picker', 'Label', 'Image', 'Border', 'Grid', 'StackLayout', 'VerticalStackLayout', 'HorizontalStackLayout']:
                         # For generic containers, only if they have explicit interaction attributes in the snippet
                         snippet_end = content.find('>', tag_match.end())
                         snippet = content[tag_match.start():snippet_end+1]

@@ -1,4 +1,5 @@
 using Microsoft.Maui.Controls;
+using MostaqlK.UI.DesignSystem;
 
 namespace MostaqlK.UI.PlatformComponents;
 
@@ -8,7 +9,7 @@ namespace MostaqlK.UI.PlatformComponents;
 /// <c>AppButton.Windows.cs</c> partial). Style tokens are applied via
 /// <c>Resources/Styles/AppButtonStyle.xaml</c> and its per-platform <c>BasedOn</c> override.
 /// </summary>
-public partial class AppButton : Button
+public partial class AppButton : PressableButton
 {
     public AppButton()
     {

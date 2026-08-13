@@ -126,7 +126,7 @@
                                                InputTransparent="True"
                                                TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" />
                                     </Border>
-                                    <CheckBox Grid.Column="3"
+                                    <ds:PressableCheckBox Grid.Column="3"
                                               AutomationId="Settings_SafeRequestsCheckbox"
                                               IsChecked="{Binding SafeRequests}"
                                               VerticalOptions="Center"
@@ -143,20 +143,20 @@
                                 <Label Grid.Column="0" Text="طريقة تجميع الإشعارات" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" FontFamily="Tajawal" />
                                 <Border Grid.Column="1" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}" Padding="12,4" WidthRequest="160">
                                     <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
-                                    <Picker SelectedItem="{Binding GroupingMode}"
+                                    <ds:PressablePicker SelectedItem="{Binding GroupingMode}"
                                             AutomationId="Settings_GroupingModePicker"
                                             TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
                                             TitleColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
                                             BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}"
                                             FontFamily="Tajawal">
-                                        <Picker.ItemsSource>
+                                        <ds:PressablePicker.ItemsSource>
                                             <x:Array Type="{x:Type services:NotificationGroupingMode}">
                                                 <services:NotificationGroupingMode>EndOfMinute</services:NotificationGroupingMode>
                                                 <services:NotificationGroupingMode>AfterMinutes</services:NotificationGroupingMode>
                                                 <services:NotificationGroupingMode>AfterCount</services:NotificationGroupingMode>
                                             </x:Array>
-                                        </Picker.ItemsSource>
-                                    </Picker>
+                                        </ds:PressablePicker.ItemsSource>
+                                    </ds:PressablePicker>
                                 </Border>
                             </Grid>
 
@@ -177,7 +177,7 @@
                                 <platform:AppToggle x:Name="DarkModeToggle" Grid.Column="1" AutomationId="Settings_DarkModeToggle" IsToggled="{Binding IsDarkMode}" />
                             </Grid>
 
-                            <Button Text="حفظ" AutomationId="Settings_SaveButton" Command="{Binding SaveCommand}" HorizontalOptions="End" BackgroundColor="{AppThemeBinding Light=#2563EB, Dark=#3B82F6}" TextColor="White" FontFamily="Tajawal" />
+                            <ds:PressableButton Text="حفظ" AutomationId="Settings_SaveButton" Command="{Binding SaveCommand}" HorizontalOptions="End" BackgroundColor="{AppThemeBinding Light=#2563EB, Dark=#3B82F6}" TextColor="White" FontFamily="Tajawal" />
 
                         </VerticalStackLayout>
                     </Border>
@@ -282,7 +282,7 @@
                                    FontFamily="Tajawal" />
 
                             <HorizontalStackLayout Spacing="8" HorizontalOptions="End">
-                                <Button Text="حذف الجلسة"
+                                <ds:PressableButton Text="حذف الجلسة"
                                         AutomationId="Settings_ClearCookieButton"
                                         Command="{Binding ClearSessionCookieCommand}"
                                         IsVisible="{Binding HasSessionCookie}"
@@ -291,7 +291,7 @@
                                         BorderColor="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
                                         TextColor="{AppThemeBinding Light=#DC2626, Dark=#F87171}"
                                         FontFamily="Tajawal" />
-                                <Button Text="رفع ملف الجلسة"
+                                <ds:PressableButton Text="رفع ملف الجلسة"
                                         AutomationId="Settings_UploadCookieButton"
                                         Command="{Binding UploadSessionCookieCommand}"
                                         BackgroundColor="{AppThemeBinding Light=#2563EB, Dark=#3B82F6}"

@@ -1,4 +1,5 @@
 using Microsoft.Maui.Controls;
+using MostaqlK.UI.DesignSystem;
 
 namespace MostaqlK.UI.PlatformComponents;
 
@@ -7,7 +8,7 @@ namespace MostaqlK.UI.PlatformComponents;
 /// everywhere; only native handler mapping differs per OS (see the <c>AppToggle.Windows.cs</c>
 /// partial).
 /// </summary>
-public partial class AppToggle : Switch
+public partial class AppToggle : PressableSwitch
 {
     public AppToggle()
     {
