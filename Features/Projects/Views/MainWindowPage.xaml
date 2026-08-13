@@ -134,7 +134,7 @@
                             <Border StrokeThickness="0"
                                     AutomationId="Projects_TogglePollingButton"
                                     SemanticProperties.Description="إيقاف/بدء الفحص"
-                                    BackgroundColor="#EF4444"
+                                    BackgroundColor="{Binding PollToggleColor}"
                                     Padding="12,6"
                                     VerticalOptions="Center">
                                 <Border.StrokeShape>
@@ -146,9 +146,9 @@
                                 <Border.Behaviors>
                                     <design:PressableEffect ApplyHoverHighlight="True" />
                                 </Border.Behaviors>
-                                <!-- `flex items-center gap-1.5` with a leading `fa-solid fa-pause`. -->
+                                <!-- `flex items-center gap-1.5` with a leading `fa-solid fa-pause/fa-play`. -->
                                 <HorizontalStackLayout Spacing="6">
-                                    <components:AppIcon Icon="Pause"
+                                    <components:AppIcon Icon="{Binding PollToggleIcon}"
                                                         FontSize="12"
                                                         TextColor="White"
                                                         VerticalOptions="Center" />

@@ -48,6 +48,7 @@ public static class AppIconGlyphExtensions
         AppIconGlyph.Moon => "icon_moon",
         AppIconGlyph.Filter => "icon_filter",
         AppIconGlyph.Pause => "icon_pause",
+        AppIconGlyph.Play => "icon_play",
         AppIconGlyph.Users => "icon_users",
         AppIconGlyph.CircleCheck => "icon_circle_check",
         AppIconGlyph.Clock => "icon_clock",
@@ -105,6 +106,7 @@ public static class AppIconGlyphExtensions
         ("icon_paperclip", _) when textColor.Equals(Color.FromArgb(SettingAssetsOrangeHex)) => "_orange",
         ("icon_layer_group", _) when textColor.Equals(Color.FromArgb(SettingGroupingTealHex)) => "_teal",
         ("icon_gauge_high", _) when textColor.Equals(Color.FromArgb(SettingRatePinkHex)) => "_pink",
+        (_, _) when textColor?.Equals(Colors.White) == true => "_white",
 
         _ => null,
     };

@@ -61,6 +61,8 @@ ICONS_TO_INSTALL = [
     ('upload', 'solid', 'icon_upload', []),
     ('pen-to-square', 'solid', 'icon_edit', ['active']),
     ('rotate-right', 'solid', 'icon_refresh', []),
+    ('play', 'solid', 'icon_play', ['white']),
+    ('pause', 'solid', 'icon_pause', ['white']),
     ('chevron-right', 'solid', 'icon_chevron_right', []),
     ('chevron-left', 'solid', 'icon_chevron_left', []),
     ('xmark', 'solid', 'icon_close', []),
@@ -74,6 +76,7 @@ COLOR_MAP = {
     'orange':  '#F97316',
     'teal':    '#14B8A6',
     'pink':    '#EC4899',
+    'white':   '#FFFFFF',
 }
 
 def download_svg(fa_name, style):

@@ -8,6 +8,7 @@ using MostaqlK.Models;
 using MostaqlK.Services;
 using MostaqlK.Services.Diagnostics;
 using MostaqlK.Services.Pipeline;
+using MostaqlK.UI.PlatformComponents;
 
 namespace MostaqlK.Features.Projects.ViewModels;
 
@@ -82,6 +83,8 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(PollIntervalText))]
     [NotifyPropertyChangedFor(nameof(LiveStatusText))]
     [NotifyPropertyChangedFor(nameof(PollToggleLabel))]
+    [NotifyPropertyChangedFor(nameof(PollToggleColor))]
+    [NotifyPropertyChangedFor(nameof(PollToggleIcon))]
     public partial bool IsPollingActive { get; set; } = true;
 
     [ObservableProperty]
@@ -105,6 +108,10 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     public string LiveStatusText => IsPollingActive ? "مباشر" : "متوقف";
 
     public string PollToggleLabel => IsPollingActive ? "إيقاف" : "بدء الفحص";
+
+    public Color PollToggleColor => IsPollingActive ? Color.FromArgb("#EF4444") : Color.FromArgb("#22C55E");
+
+    public AppIconGlyph PollToggleIcon => IsPollingActive ? AppIconGlyph.Pause : AppIconGlyph.Play;
 
     public string TrackedCountText => IsSearchActive
         ? $"{TrackedCount} نتيجة مطابقة"
@@ -342,9 +349,15 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
             var nextPaused = IsPollingActive;
             _pollService.SetPaused(nextPaused);
             IsPollingActive = !_pollService.IsPaused;
+            
+            // Persist the state: "reserve the state it closed with"
+            Preferences.Set("settings_is_polling_active", IsPollingActive);
+            
             OnPropertyChanged(nameof(PollIntervalText));
             OnPropertyChanged(nameof(LiveStatusText));
             OnPropertyChanged(nameof(PollToggleLabel));
+            OnPropertyChanged(nameof(PollToggleColor));
+            OnPropertyChanged(nameof(PollToggleIcon));
         }
         catch (Exception ex)
         {

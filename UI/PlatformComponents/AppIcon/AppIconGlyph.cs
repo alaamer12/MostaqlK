@@ -31,6 +31,9 @@ public enum AppIconGlyph
     /// <summary>Poll-toggle "إيقاف" button icon. Solid <c>fa-pause</c> (f04c).</summary>
     Pause,
 
+    /// <summary>Poll-toggle "تشغيل" button icon. Solid <c>fa-play</c> (f04b).</summary>
+    Play,
+
     /// <summary>Status-bar request-rate icon. Solid <c>fa-gauge-high</c> (f625).</summary>
     Gauge,
 

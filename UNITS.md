@@ -139,8 +139,8 @@ Naming convention for AutomationIds (added incrementally as pages are catalogued
 
 ## Window close behavior
 
-Location: `Services/CloseBehaviorService.cs`, `Platforms/Windows/CloseConfirmationDialog.cs`,
-`MauiProgram.cs` (`AppWindow.Closing` wiring)
+Location: `Services/CloseBehaviorService.cs`, `Platforms/Windows/ConfirmationDialog.cs`,
+`Platforms/Windows/CloseConfirmationDialog.cs`, `MauiProgram.cs` (`AppWindow.Closing` wiring)
 
 Avast-style "keep running in background": the native window's X button no longer exits the
 process. `AppWindow.Closing` (unlike WinUI's plain, non-cancelable `Window.Closed`) is
@@ -156,7 +156,8 @@ by this flow.
 | Unit | Type | Purpose | Status |
 |---|---|---|---|
 | `CloseAction` / `CloseBehaviorService` | enum + platform-neutral service (`Services/`) | `CloseAction.MinimizeToTray` \| `Exit`. The service only reads/writes `Preferences` (`close_behavior_remembered`, `close_behavior_action`) — no WinUI dependency, so the persisted decision itself stays testable. `GetRememberedAction()` returns `null` until the user checks "remember my choice" once. | Implemented |
-| `CloseConfirmationDialog` (`Platforms/Windows/`) | static WinUI helper (native `ContentDialog`) | The one-time (per remembered decision) modal: message explaining the background-polling behavior, a `CheckBox` for "remember my choice", and Primary/Secondary buttons mapping to `CloseAction.MinimizeToTray`/`Exit`. Windows-only interop, same reasoning as `TrayIconNativeHost`. | Implemented |
+| `ConfirmationDialog` (`Platforms/Windows/`) | static WinUI helper (native `ContentDialog`) | Reusable base for **any** native primary/secondary(+optional remember-checkbox) confirmation, the same base-component-first shape as `AppEntry`→`DebouncedEntry`→`SearchInputField`: owns building the `ContentDialog` (title/message/button text from `Options`), the RTL `FlowDirection` (a native `ContentDialog` does not inherit the MAUI content's `FlowDirection="RightToLeft"` from `AppShell`/every page — it defaulted to LTR on its own `XamlRoot`, which is why the close-confirmation dialog was rendering mirrored/LTR before this existed), the optional "remember" `CheckBox`, and mapping the result (`IsSecondary` true only when the user explicitly picked the secondary/destructive button — any other dismissal is the safe outcome). | Implemented |
+| `CloseConfirmationDialog` (`Platforms/Windows/`) | static WinUI helper, thin wrapper over `ConfirmationDialog` | Supplies only this prompt's own wording: message explaining the background-polling behavior, "تذكر خياري..." remember-checkbox text, and Primary ("الاستمرار في الخلفية")/Secondary ("إغلاق نهائي") button text mapping to `CloseAction.MinimizeToTray`/`Exit`. No longer builds its own `ContentDialog` or sets `FlowDirection` directly — both now live once in `ConfirmationDialog`, so any future confirmation dialog (e.g. a "confirm delete" prompt) gets the RTL fix and remember-checkbox mechanism for free. | Implemented |
 
 `TrayIconService.RestoreRequested` (raised by the existing "Open" tray/menu action) is what brings
 the window back once it was hidden via `MinimizeToTray` — `MauiProgram` subscribes to it and calls
@@ -248,6 +249,15 @@ Two follow-up bugs found after that fix, both in `TrayIconNativeHost`:
   outside any page's context) cannot rely on, so navigation silently no-opped. Fixed to use the
   same absolute route, and to call the same window-restore step `OnOpen()` already runs, in case
   the window is currently hidden to the tray.
+- **"Check now" (tray menu / footer refresh) silently did nothing while paused.** `PollService`'s
+  loop guarded the *entire* cycle - both the regular timer tick and a manual `RequestCheckNow()`
+  signal - behind the same `if (!_isPaused)` check, so a manual check-now request only ever got
+  queued and then dropped once `_isPaused` was true; nothing in the UI reflected that it had been
+  ignored. Fixed in `PollService.RunLoopAsync` by tracking which task of the `Task.WhenAny` actually
+  completed and running the cycle whenever it was the check-now signal, regardless of `_isPaused` -
+  a regular timer tick still honours the pause. Note: `SetPaused` itself was already working
+  correctly (flips `_isPaused` immediately); it just has no dedicated visual feedback (no tray icon
+  state / tooltip change on pause), which is expected today, not a bug.
 
 ---
 

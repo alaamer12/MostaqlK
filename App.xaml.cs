@@ -98,6 +98,11 @@ public partial class App : Application
 				10,
 				3600);
 
+			// Persist the Start/Pause state: the app now "reserves the state it closed with".
+			// Defaults to false (paused) on the very first run to satisfy the "first run not activated" requirement.
+			var isPollingActive = Microsoft.Maui.Storage.Preferences.Get("settings_is_polling_active", false);
+			pollService.SetPaused(!isPollingActive);
+
 			var pipelineToken = _pipelineCts.Token;
 			_ = Task.Run(() => pollService.StartAsync(pipelineToken), pipelineToken);
 			_ = Task.Run(() => workerPool.StartAsync(pipelineToken), pipelineToken);
