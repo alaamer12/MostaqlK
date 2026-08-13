@@ -46,6 +46,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly TokenBucketRateLimiter _rateLimiter;
     private readonly WorkerPool _workerPool;
     private readonly NotificationGrouper _grouper;
+    private readonly IEnrichmentService _enrichmentService;
     private readonly IProjectRepository _projectRepository;
     private readonly GlobalAppStatusService _globalStatus;
     private readonly CookieStore _cookieStore;
@@ -115,6 +116,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         TokenBucketRateLimiter rateLimiter,
         WorkerPool workerPool,
         NotificationGrouper grouper,
+        IEnrichmentService enrichmentService,
         IProjectRepository projectRepository,
         GlobalAppStatusService globalStatus,
         CookieStore cookieStore,
@@ -125,6 +127,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _rateLimiter = rateLimiter;
         _workerPool = workerPool;
         _grouper = grouper;
+        _enrichmentService = enrichmentService;
         _projectRepository = projectRepository;
         _globalStatus = globalStatus;
         _closeBehaviorService = closeBehaviorService;
@@ -522,7 +525,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private void ApplyAssetSettings()
     {
-        // TODO: Wire to AssetService/EnrichmentService when implemented
+        _enrichmentService.DownloadAssets = IncludeAssets;
     }
 
     private void ApplyTheme()

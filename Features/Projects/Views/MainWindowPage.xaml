@@ -308,6 +308,7 @@
                                              LabelAutomationId="Projects_LastScanLabel"
                                              RefreshAutomationId="Projects_RefreshLabel"
                                              LastScanAt="{Binding GlobalStatus.LastScanCompletedAt}"
+                                             IsChecking="{Binding GlobalStatus.IsScanning}"
                                              ShowRefresh="True"
                                              RefreshCommand="{Binding RefreshCommand}"
                                              FontSize="11"

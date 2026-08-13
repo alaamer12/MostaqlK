@@ -9,5 +9,7 @@ namespace MostaqlK.Services.Pipeline;
 /// </summary>
 public interface IEnrichmentService
 {
+    bool DownloadAssets { get; set; }
+
     Task<Result<ProjectDetails>> EnrichAsync(long projectId, CancellationToken cancellationToken = default);
 }

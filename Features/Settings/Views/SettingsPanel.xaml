@@ -408,16 +408,13 @@
                         </VerticalStackLayout>
                     </Border>
 
-                    <!-- Dark Mode & Save footer -->
+                    <!-- Dark Mode footer -->
                     <Border Padding="16" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
                         <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                        <VerticalStackLayout Spacing="16">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <Label Grid.Column="0" Text="الوضع الليلي" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" FontFamily="Tajawal" />
-                                <platform:AppToggle Grid.Column="1" IsToggled="{Binding IsDarkMode}" />
-                            </Grid>
-                            <ds:PressableButton Text="حفظ جميع التغييرات" Command="{Binding SaveCommand}" HorizontalOptions="Fill" BackgroundColor="{AppThemeBinding Light=#2563EB, Dark=#3B82F6}" TextColor="White" FontFamily="Tajawal" />
-                        </VerticalStackLayout>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Grid.Column="0" Text="الوضع الليلي" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" FontFamily="Tajawal" />
+                            <platform:AppToggle Grid.Column="1" IsToggled="{Binding IsDarkMode}" />
+                        </Grid>
                     </Border>
 
                 </VerticalStackLayout>

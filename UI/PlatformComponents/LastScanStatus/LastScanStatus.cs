@@ -14,6 +14,7 @@ namespace MostaqlK.UI.PlatformComponents.LastScanStatus;
 public partial class LastScanStatus : ContentView
 {
     private readonly IDispatcherTimer? _timer;
+    private int _spinToken;
 
     /// <summary>When the last scan completed - bind to <c>GlobalStatus.LastScanCompletedAt</c>.</summary>
     public static readonly BindableProperty LastScanAtProperty = BindableProperty.Create(
@@ -46,6 +47,16 @@ public partial class LastScanStatus : ContentView
     public static readonly BindableProperty RefreshAutomationIdProperty = BindableProperty.Create(
         nameof(RefreshAutomationId), typeof(string), typeof(LastScanStatus), null,
         propertyChanged: OnRefreshAutomationIdChanged);
+
+    /// <summary>
+    /// True while a real scan is in flight (bind to <c>GlobalStatus.IsScanning</c>). Swaps the
+    /// wording to "جاري الفحص..." and spins the refresh glyph continuously, matching the design's
+    /// retry-button affordance (fa-rotate-right + fa-spin) - before this the button gave no
+    /// feedback at all while a check was actually running.
+    /// </summary>
+    public static readonly BindableProperty IsCheckingProperty = BindableProperty.Create(
+        nameof(IsChecking), typeof(bool), typeof(LastScanStatus), false,
+        propertyChanged: OnIsCheckingChanged);
 
     public DateTimeOffset? LastScanAt
     {
@@ -89,6 +100,12 @@ public partial class LastScanStatus : ContentView
         set => SetValue(RefreshAutomationIdProperty, value);
     }
 
+    public bool IsChecking
+    {
+        get => (bool)GetValue(IsCheckingProperty);
+        set => SetValue(IsCheckingProperty, value);
+    }
+
     public LastScanStatus()
     {
         InitializeComponent();
@@ -124,6 +141,20 @@ public partial class LastScanStatus : ContentView
     private static void OnStateChanged(BindableObject bindable, object oldValue, object newValue) =>
         ((LastScanStatus)bindable).ApplyText();
 
+    private static void OnIsCheckingChanged(BindableObject bindable, object oldValue, object newValue)
+    {
+        var view = (LastScanStatus)bindable;
+        view.ApplyText();
+        if ((bool)newValue)
+        {
+            view.StartSpin();
+        }
+        else
+        {
+            view.StopSpin();
+        }
+    }
+
     private static void OnShowRefreshChanged(BindableObject bindable, object oldValue, object newValue) =>
         ((LastScanStatus)bindable).RefreshHost.IsVisible = (bool)newValue;
 
@@ -135,7 +166,9 @@ public partial class LastScanStatus : ContentView
 
     private void ApplyText()
     {
-        var text = LastScanText.Labelled(LastScanAt);
+        // While an actual scan is running, the wording follows it 1:1 instead of the stale
+        // "since N seconds" figure, matching the design's "جاري الفحص..." copy.
+        var text = IsChecking ? "جاري الفحص..." : LastScanText.Labelled(LastScanAt);
 
         // Only assign on change: this runs every second, and a needless Text write costs a layout
         // pass on the whole footer/panel row.
@@ -143,6 +176,29 @@ public partial class LastScanStatus : ContentView
         {
             TextLabel.Text = text;
         }
+    }
+
+    /// <summary>
+    /// Loops a 360° rotation on the refresh glyph for as long as <see cref="IsChecking"/> stays
+    /// true, cancelling itself (via the token check) the moment it flips back - there is no
+    /// built-in "repeat forever" animation helper in MAUI, so this re-issues itself each cycle.
+    /// Rotates counter-clockwise (negative degrees) per design feedback.
+    /// </summary>
+    private async void StartSpin()
+    {
+        var token = ++_spinToken;
+        RefreshGlyph.Rotation = 0;
+        while (token == _spinToken && IsChecking && Handler is not null)
+        {
+            await RefreshGlyph.RotateToAsync(-360, 900, Easing.Linear);
+            RefreshGlyph.Rotation = 0;
+        }
+    }
+
+    private void StopSpin()
+    {
+        _spinToken++;
+        RefreshGlyph.Rotation = 0;
     }
 
     [TraceInteraction("LastScanStatus_Refresh")]

@@ -108,7 +108,12 @@ public sealed class PollService : IPollService
                     break;
                 }
 
-                if (!_isPaused)
+                // "Check now" (tray menu / footer refresh button) must force a cycle even while
+                // paused - it used to be silently swallowed by the same "!_isPaused" guard as the
+                // regular timer tick, which is exactly why clicking it while paused looked like
+                // the button did nothing. A regular timer tick still honours the pause.
+                var isManualCheckNow = completed == checkNowTask;
+                if (!_isPaused || isManualCheckNow)
                 {
                     // The loop used to discard this Result entirely, which is the exact point where a
                     // permanent listing failure became invisible. Every cycle now reports its outcome.
