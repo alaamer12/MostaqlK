@@ -53,6 +53,18 @@ public partial class App : Application
 			Environment.GetCommandLineArgs(),
 			Microsoft.Maui.Storage.Preferences.Get("settings_is_dark_mode", false));
 
+#if WINDOWS
+		// FIX ("not a single notification, ever since day one"): AUMID + Start Menu shortcut +
+		// AppNotificationManager COM registration used to happen lazily, only the first time a
+		// toast was actually sent (WindowsToastSender.EnsureRegistered, called from a background
+		// worker thread possibly minutes after launch, per NotificationGrouper's default
+		// EndOfMinute buffering). Registering here instead - as early as possible in the app's
+		// own startup, well before any polling/enrichment work begins - matches Microsoft's
+		// documented app-notifications flow (register before the app can process its own
+		// activation args) and removes the "first toast of the whole app's life" race entirely.
+		MostaqlK.Infrastructure.Notifications.WindowsToastSender.EnsureRegisteredEagerly();
+#endif
+
 		// `--seed-design-data` replaces the local store with the dataset the MVP mockups are drawn
 		// against and latches `design_parity_mode` on; `--seed-design-data=off` clears the latch and
 		// restores live polling. Seeding is awaited inline (a couple of local SQLite writes) so the

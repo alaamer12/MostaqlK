@@ -66,6 +66,11 @@ ICONS_TO_INSTALL = [
     ('chevron-right', 'solid', 'icon_chevron_right', []),
     ('chevron-left', 'solid', 'icon_chevron_left', []),
     ('xmark', 'solid', 'icon_close', []),
+    ('windows', 'brands', 'icon_windows', []),
+    ('database', 'solid', 'icon_database', []),
+    ('box-archive', 'solid', 'icon_box_archive', []),
+    ('language', 'solid', 'icon_language', []),
+    ('list', 'solid', 'icon_list', []),
 ]
 
 COLOR_MAP = {

@@ -64,6 +64,11 @@ public static class AppIconGlyphExtensions
         AppIconGlyph.ChevronRight => "icon_chevron_right",
         AppIconGlyph.ChevronLeft => "icon_chevron_left",
         AppIconGlyph.Close => "icon_close",
+        AppIconGlyph.Windows => "icon_windows",
+        AppIconGlyph.Database => "icon_database",
+        AppIconGlyph.Archive => "icon_box_archive",
+        AppIconGlyph.Language => "icon_language",
+        AppIconGlyph.List => "icon_list",
         _ => "icon_circle_info",
     };
 

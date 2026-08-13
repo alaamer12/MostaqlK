@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 
@@ -23,22 +22,27 @@ public static class InteractionLogger
     /// given branch actually executed — this is the "set(Label).ToState(...)" diagnostic the
     /// project uses instead of guessing from UI behavior alone.
     /// </summary>
-    [Conditional("DEBUG")]
+    // FIX (notifications silently never firing, with zero evidence why): every one of these
+    // sinks used to be [Conditional("DEBUG")], which the C# compiler strips at every CALL SITE
+    // in a Release build - i.e. in the actual shipped/installed exe the user runs day to day,
+    // `WindowsToastSender.SendAsync`'s catch block calling `InteractionLogger.Fault(...)` on a
+    // failed toast delivery compiled away to nothing. Any real failure (COM registration error,
+    // notifications disabled for the app, etc.) was therefore guaranteed to be invisible outside
+    // a DEBUG build, which is exactly why this bug went unnoticed "since day one". Logging itself
+    // stays best-effort/never-throws (see the try/catch in Write), so keeping it live in Release
+    // carries no crash risk - only the (negligible) cost of appending a line to a local file.
     public static void Mark(string checkpoint, string variant, object? data = null)
         => Write("MARK", checkpoint, variant, data, exception: null);
 
     /// <summary>Logs the start of a traced command/handler invocation. See <see cref="TraceInteractionAttribute"/>.</summary>
-    [Conditional("DEBUG")]
     public static void Enter(string interactionName, object? parameters = null)
         => Write("ENTER", interactionName, variant: null, parameters, exception: null);
 
     /// <summary>Logs the successful completion of a traced command/handler invocation.</summary>
-    [Conditional("DEBUG")]
     public static void Exit(string interactionName, object? result = null)
         => Write("EXIT", interactionName, variant: null, result, exception: null);
 
     /// <summary>Logs an exception thrown/caught during a traced command/handler invocation.</summary>
-    [Conditional("DEBUG")]
     public static void Fault(string interactionName, Exception exception, object? data = null)
         => Write("FAULT", interactionName, variant: null, data, exception);
 
@@ -50,7 +54,6 @@ public static class InteractionLogger
     /// anywhere to go. Any code that observes <c>Result.IsError</c> and does not propagate it to a
     /// caller must report it here.
     /// </summary>
-    [Conditional("DEBUG")]
     public static void Failure(string checkpoint, MostaqlK.Core.DomainError error, object? data = null)
         => Write(
             "ERROR",
@@ -71,7 +74,6 @@ public static class InteractionLogger
 
     private static void Write(string kind, string checkpoint, string? variant, object? data, Exception? exception)
     {
-#if DEBUG
         try
         {
             var entry = new StringBuilder()
@@ -106,7 +108,6 @@ public static class InteractionLogger
         {
             // Diagnostics must never crash the app/tests they are trying to help debug.
         }
-#endif
     }
 
     private static string SafeSerialize(object data)

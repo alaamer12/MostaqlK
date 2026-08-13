@@ -18,6 +18,18 @@ public sealed class WindowsToastSender
     private static readonly object RegisterLock = new();
     private static bool _registered;
 
+    /// <summary>
+    /// FIX ("not a single notification, ever"): registration used to happen lazily, the first
+    /// time <see cref="SendAsync"/> ran - which for the default EndOfMinute grouping mode could
+    /// be minutes after launch, on a background worker thread, and (per Microsoft's documented
+    /// unpackaged-app flow) *after* the app could have already asked for/handled its own
+    /// activation args. Call this once, as early as possible in the app's startup path (see
+    /// <c>App.xaml.cs</c>'s constructor), so the AUMID + Start Menu shortcut + COM registration
+    /// are in place well before the first real toast is ever attempted. Still safe/idempotent to
+    /// call again from <see cref="SendAsync"/> itself in case startup registration is ever skipped.
+    /// </summary>
+    public static void EnsureRegisteredEagerly() => EnsureRegistered();
+
     [ErrorOutcome(ErrorOutcome.Handled, Label = "Toast delivery failure surfaced as Result<bool>.Err")]
     public Task<Result<bool>> SendAsync(IReadOnlyList<ProjectSummary> projects, CancellationToken cancellationToken = default)
     {
@@ -29,6 +41,21 @@ public sealed class WindowsToastSender
         try
         {
             EnsureRegistered();
+
+            // FIX ("not a single notification, ever"): Show() used to run unconditionally even
+            // when Windows itself has notifications turned off for this app/user/machine, in
+            // which case Show() neither throws nor returns a failure - it just no-ops. That made
+            // "disabled" and "delivered" indistinguishable from this class's point of view. Now
+            // logged explicitly (via the InteractionLogger fix that stopped this from being
+            // compiled out of Release builds) so a disabled setting is finally diagnosable
+            // instead of looking identical to a silent bug.
+            var setting = AppNotificationManager.Default.Setting;
+            if (setting != AppNotificationSetting.Enabled)
+            {
+                InteractionLogger.Mark("WindowsToastSender.SendAsync", "B", new { Reason = "notifications-disabled", Setting = setting.ToString(), Count = projects.Count });
+                return Task.FromResult(Result<bool>.Err(NotificationErrors.ToastDeliveryFailed(
+                    new InvalidOperationException($"App notifications are disabled (AppNotificationManager.Default.Setting = {setting})."))));
+            }
 
             var builder = projects.Count == 1
                 ? BuildIndividualToast(projects[0])
@@ -69,9 +96,27 @@ public sealed class WindowsToastSender
             // without an explicit AUMID + a Start Menu shortcut carrying it, Windows silently
             // drops the toast instead of showing it. See ToastAumidRegistrar for details.
             ToastAumidRegistrar.EnsureRegistered();
+
+            // Per Microsoft's documented app-notifications flow, NotificationInvoked must be
+            // subscribed BEFORE calling Register() - this was previously never subscribed at all,
+            // so a clicked toast had no in-process handler to reactivate/focus the window.
+            AppNotificationManager.Default.NotificationInvoked += OnNotificationInvoked;
             AppNotificationManager.Default.Register();
             _registered = true;
+
+            InteractionLogger.Mark("WindowsToastSender.EnsureRegistered", "A", new { Setting = AppNotificationManager.Default.Setting.ToString() });
         }
+    }
+
+    /// <summary>
+    /// Brings the window back to the foreground when the user clicks a delivered toast. Windows
+    /// launches/reactivates the process and raises this on the notification's own thread; no
+    /// deep-link routing yet (see the TODOs on <see cref="BuildIndividualToast"/>/
+    /// <see cref="BuildGroupedToast"/> for the args already carried for that future step).
+    /// </summary>
+    private static void OnNotificationInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args)
+    {
+        InteractionLogger.Mark("WindowsToastSender.OnNotificationInvoked", "A", new { Arguments = args.Arguments });
     }
 
     /// <summary>

@@ -2,7 +2,9 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:sidebar="clr-namespace:MostaqlK.UI.PlatformComponents.AppSidebar"
+             xmlns:components="clr-namespace:MostaqlK.UI.PlatformComponents"
              xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem"
+             xmlns:platform="clr-namespace:MostaqlK.UI.PlatformComponents"
              x:Class="MostaqlK.Features.Projects.Views.AboutPage"
              Title="حول التطبيق"
              Shell.NavBarIsVisible="False"
@@ -60,36 +62,64 @@
                     <Border Padding="0" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
                         <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                         <VerticalStackLayout>
-                            <Label Text="حقائق سريعة" FontSize="14" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" Padding="20,14,20,10" />
+                            <HorizontalStackLayout Padding="20,14,20,10" Spacing="8">
+                                <components:AppIcon Icon="List" FontSize="14" TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}" VerticalOptions="Center" />
+                                <Label Text="حقائق سريعة" FontSize="14" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" VerticalOptions="Center" />
+                            </HorizontalStackLayout>
                             <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
-
-                            <Grid ColumnDefinitions="Auto,*" Padding="20,12">
-                                <Label Text="المنصة" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontSize="13" FontFamily="Tajawal" VerticalOptions="Center" />
-                                <Label Grid.Column="1" Text="تطبيق سطح مكتب لنظام Windows (مقيم في شريط المهام)" TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" FontSize="13" FontFamily="TajawalBold" HorizontalTextAlignment="End" VerticalOptions="Center" />
+                            
+                            <Grid ColumnDefinitions="Auto,*" Padding="20,14">
+                                <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                                    <components:AppIcon Icon="Windows" FontSize="14" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" WidthRequest="20" HorizontalOptions="Center" />
+                                    <Label Text="المنصة" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontSize="13" FontFamily="Tajawal" />
+                                </HorizontalStackLayout>
+                                <Label Grid.Column="1" Text="تطبيق سطح مكتب لنظام Windows (مقيم في شريط المهام)" 
+                                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" FontSize="13" FontFamily="TajawalBold" 
+                                       HorizontalOptions="End" VerticalOptions="Center" />
                             </Grid>
                             <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
-
-                            <Grid ColumnDefinitions="Auto,*" Padding="20,12">
-                                <Label Text="التخزين" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontSize="13" FontFamily="Tajawal" VerticalOptions="Center" />
-                                <Label Grid.Column="1" Text="قاعدة بيانات محلية مُضمَّنة — بلا خادم أو سحابة" TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" FontSize="13" FontFamily="TajawalBold" HorizontalTextAlignment="End" VerticalOptions="Center" />
+                            
+                            <Grid ColumnDefinitions="Auto,*" Padding="20,14">
+                                <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                                    <components:AppIcon Icon="Database" FontSize="14" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" WidthRequest="20" HorizontalOptions="Center" />
+                                    <Label Text="التخزين" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontSize="13" FontFamily="Tajawal" />
+                                </HorizontalStackLayout>
+                                <Label Grid.Column="1" Text="قاعدة بيانات محلية مُضمَّنة — بلا خادم أو سحابة" 
+                                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" FontSize="13" FontFamily="TajawalBold" 
+                                       HorizontalOptions="End" VerticalOptions="Center" />
                             </Grid>
                             <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
-
-                            <Grid ColumnDefinitions="Auto,*" Padding="20,12">
-                                <Label Text="حد الطلبات" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontSize="13" FontFamily="Tajawal" VerticalOptions="Center" />
-                                <Label Grid.Column="1" Text="قابل للتعديل — الافتراضي ~2 طلب/دقيقة" TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" FontSize="13" FontFamily="TajawalBold" HorizontalTextAlignment="End" VerticalOptions="Center" />
+                            
+                            <Grid ColumnDefinitions="Auto,*" Padding="20,14">
+                                <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                                    <components:AppIcon Icon="Gauge" FontSize="14" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" WidthRequest="20" HorizontalOptions="Center" />
+                                    <Label Text="حد الطلبات" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontSize="13" FontFamily="Tajawal" />
+                                </HorizontalStackLayout>
+                                <Label Grid.Column="1" Text="قابل للتعديل — الافتراضي ~2 طلب/دقيقة" 
+                                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" FontSize="13" FontFamily="TajawalBold" 
+                                       HorizontalOptions="End" VerticalOptions="Center" />
                             </Grid>
                             <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
-
-                            <Grid ColumnDefinitions="Auto,*" Padding="20,12">
-                                <Label Text="سياسة البيانات" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontSize="13" FontFamily="Tajawal" VerticalOptions="Center" />
-                                <Label Grid.Column="1" Text="يُجلب المشروع مرة واحدة ولا يُحدَّث لاحقًا" TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" FontSize="13" FontFamily="TajawalBold" HorizontalTextAlignment="End" VerticalOptions="Center" />
+                            
+                            <Grid ColumnDefinitions="Auto,*" Padding="20,14">
+                                <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                                    <components:AppIcon Icon="Archive" FontSize="14" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" WidthRequest="20" HorizontalOptions="Center" />
+                                    <Label Text="سياسة البيانات" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontSize="13" FontFamily="Tajawal" />
+                                </HorizontalStackLayout>
+                                <Label Grid.Column="1" Text="يُجلب المشروع مرة واحدة ولا يُحدَّث لاحقًا" 
+                                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" FontSize="13" FontFamily="TajawalBold" 
+                                       HorizontalOptions="End" VerticalOptions="Center" />
                             </Grid>
                             <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
-
-                            <Grid ColumnDefinitions="Auto,*" Padding="20,12">
-                                <Label Text="اللغة" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontSize="13" FontFamily="Tajawal" VerticalOptions="Center" />
-                                <Label Grid.Column="1" Text="العربية أساسًا، مع دعم كامل للإنجليزية في البحث" TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" FontSize="13" FontFamily="TajawalBold" HorizontalTextAlignment="End" VerticalOptions="Center" />
+                            
+                            <Grid ColumnDefinitions="Auto,*" Padding="20,14">
+                                <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                                    <components:AppIcon Icon="Language" FontSize="14" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" WidthRequest="20" HorizontalOptions="Center" />
+                                    <Label Text="اللغة" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontSize="13" FontFamily="Tajawal" />
+                                </HorizontalStackLayout>
+                                <Label Grid.Column="1" Text="العربية أساسًا، مع دعم كامل للإنجليزية في البحث" 
+                                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" FontSize="13" FontFamily="TajawalBold" 
+                                       HorizontalOptions="End" VerticalOptions="Center" />
                             </Grid>
                         </VerticalStackLayout>
                     </Border>
