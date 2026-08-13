@@ -56,6 +56,22 @@ public sealed class NotificationDispatcher : INotificationDispatcher
             _grouper.Add(project);
         }
 
+        // FIX (unread badge desync - e.g. mark-all-as-read resets it to 0, then a single new
+        // project arrives but the badge jumps straight to 9): the badge used to be incremented
+        // from HandleFlush, which only fires whenever the toast grouper decides to flush. The
+        // default grouping mode (EndOfMinute, always enabled per SettingsViewModel.LoadFromPreferences
+        // -> ApplyGroupingSettings) buffers every project that becomes unread over the course of a
+        // whole minute before flushing them together. If the user marks everything as read before
+        // that buffer flushes, the still-pending items were never counted toward the badge - so
+        // when the timer eventually fires (possibly together with a brand-new project), the badge
+        // jumps by the entire stale batch instead of by just the new item. A project becomes
+        // unread the instant it's enriched, so the badge must count it right here, immediately,
+        // independent of whenever its toast happens to be batched/shown.
+        if (projects.Count > 0)
+        {
+            _globalStatus.IncrementUnreadNotificationCount(projects.Count);
+        }
+
         return Task.FromResult(Result<bool>.Ok(true));
     }
 
@@ -73,17 +89,12 @@ public sealed class NotificationDispatcher : INotificationDispatcher
             }
         }
 
-        // FIX (badge count exploding on new items, e.g. 0 -> 9 for a single new project): this used
-        // to be incremented from `NotificationCenterViewModel.OnHistoryChanged`, but that view-model
-        // is `AddTransient` - a fresh instance is created (and subscribes to `HistoryChanged`) every
-        // time the flyout/window is recreated, and none of them ever unsubscribe. Every leaked
-        // instance then incremented this *singleton* counter independently for the very same flush,
-        // so the badge grew by however many instances had piled up, not by the batch size. Since
-        // `NotificationDispatcher` itself is a singleton and `HandleFlush` only ever runs once per
-        // flush, incrementing here is the single source of truth - by the actual batch size, so a
-        // grouped flush of several new projects still counts correctly.
-        _globalStatus.IncrementUnreadNotificationCount(batch.Count);
-
+        // NOTE: the unread badge is now incremented from `NotifyNewProjectsAsync`, the instant a
+        // project is queued for notification, not from here - `HandleFlush` only fires whenever
+        // the toast grouper decides a batch is ready, which for the default EndOfMinute mode can
+        // be up to a minute after the project actually became unread (see the FIX comment in
+        // `NotifyNewProjectsAsync` for the full story on the "mark all as read -> 0 -> jumps to 9"
+        // bug this decoupling caused). Incrementing here too would double-count every project.
         HistoryChanged?.Invoke();
 
         // Fire-and-forget: the flush originates from either a background timer callback or the

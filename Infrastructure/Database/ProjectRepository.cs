@@ -505,6 +505,45 @@ public sealed class ProjectRepository : IProjectRepository
         }
     }
 
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Command failure surfaced as Result<bool>.Err")]
+    public async Task<Result<bool>> MarkAsReadAsync(long projectId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            using var command = connection.CreateCommand();
+            // Local read-state, not scraped content - updating it does not violate the
+            // no-update/store-and-forget policy that governs the scraped project fields.
+            command.CommandText = "UPDATE projects SET is_unread = 0 WHERE project_id = @project_id AND is_unread = 1;";
+            command.Parameters.AddWithValue("@project_id", projectId);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            return Result<bool>.Ok(true);
+        }
+        catch (SqliteException ex)
+        {
+            return Result<bool>.Err(DatabaseErrors.CommandFailed(nameof(MarkAsReadAsync), ex));
+        }
+    }
+
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Command failure surfaced as Result<bool>.Err")]
+    public async Task<Result<bool>> MarkAllAsReadAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "UPDATE projects SET is_unread = 0 WHERE is_unread = 1;";
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            return Result<bool>.Ok(true);
+        }
+        catch (SqliteException ex)
+        {
+            return Result<bool>.Err(DatabaseErrors.CommandFailed(nameof(MarkAllAsReadAsync), ex));
+        }
+    }
+
     [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result<bool>.Err")]
     public async Task<Result<bool>> ClearAllAsync(CancellationToken cancellationToken = default)
     {

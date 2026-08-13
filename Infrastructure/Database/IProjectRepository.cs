@@ -54,6 +54,21 @@ public interface IProjectRepository
     Task<Result<(int Tracked, int Unread)>> CountTrackedAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Persists <c>is_unread = 0</c> for a single project. Called when a card is opened/selected
+    /// so the read state survives past the next <c>LoadAsync</c>/pipeline-triggered reload instead
+    /// of only living on the transient <c>ProjectCardViewModel</c> instance.
+    /// </summary>
+    Task<Result<bool>> MarkAsReadAsync(long projectId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Persists <c>is_unread = 0</c> for every project row. Backs the feed footer's
+    /// "تحديد الكل كمقروء" action — without this, the DB's `SUM(is_unread)` used by
+    /// <see cref="CountTrackedAsync"/> would resurrect the old unread rows on the very next
+    /// reload (e.g. triggered by a newly discovered project), making the badge jump back up.
+    /// </summary>
+    Task<Result<bool>> MarkAllAsReadAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Removes every project row (and its skills, assets and search-index entries). Only used by
     /// the design-parity seeder (<c>--seed-design-data</c>) to keep seeding idempotent — the
     /// pipeline itself never deletes, per the no-update policy.

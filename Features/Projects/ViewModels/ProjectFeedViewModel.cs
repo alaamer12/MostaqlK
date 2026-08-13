@@ -354,14 +354,25 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public void MarkAllRead()
+    public async Task MarkAllReadAsync()
     {
         foreach (var project in Projects)
         {
             project.MarkAsRead();
         }
 
-        UnreadCount = Projects.Count(p => p.IsUnread);
+        UnreadCount = 0;
+
+        // Persist to the DB - without this, the next pipeline-triggered reload's
+        // CountTrackedAsync (which reads `SUM(is_unread)` straight from the `projects` table)
+        // would resurrect every row still marked unread there, making the badge jump back up as
+        // soon as a single new project arrives (the bug: 4 unread -> mark all read -> 0 -> one
+        // new project arrives -> 7, because the DB still had the original 4 as unread).
+        var result = await _projectRepository.MarkAllAsReadAsync();
+        if (!result.IsOk)
+        {
+            InteractionLogger.Fault("ProjectFeedViewModel.MarkAllReadAsync", new InvalidOperationException(result.Error.InternalMessage));
+        }
     }
 
     [TraceInteraction("SelectCommand")]
@@ -379,6 +390,14 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
 
             card.MarkAsRead();
             UnreadCount = Projects.Count(p => p.IsUnread);
+
+            // Persist to the DB for the same reason as MarkAllReadAsync above - otherwise the
+            // next reload's DB-backed unread count would still count this row as unread.
+            var result = await _projectRepository.MarkAsReadAsync(card.Project.ProjectId);
+            if (!result.IsOk)
+            {
+                InteractionLogger.Fault("ProjectFeedViewModel.SelectProjectAsync", new InvalidOperationException(result.Error.InternalMessage));
+            }
 
             await Shell.Current.GoToAsync($"ProjectDetailsPage?projectId={card.Project.ProjectId}");
         }
