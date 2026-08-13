@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<!--
+  Fixture 4 of 4: the projects LISTING page (ListingParser).
+  Covers both observed shapes (tr.project-row) plus the id-extraction traps:
+    * row 1: ordinary "/project/{id}-{slug}" URL
+    * row 2: slug that itself ends in a number ("...-3d-2024") - the id must still be the
+      segment right after /project/, not the last number in the URL
+    * row 3: absolute URL with a trailing slash
+-->
+<html lang="ar" dir="rtl">
+<head><meta charset="utf-8"><title>أحدث المشاريع - مستقل</title></head>
+<body>
+<table class="projects-table">
+  <tbody>
+    <tr class="project-row">
+      <td>
+        <h2><a href="/project/1268113-مصمم-مبدع-ومحترف-في-canva">مصمم مبدع ومحترف في Canva</a></h2>
+        <ul class="project__meta">
+          <li>Abdulrhman S.</li>
+          <li>منذ 4 ساعات</li>
+          <li>7 عروض</li>
+        </ul>
+      </td>
+    </tr>
+    <tr class="project-row">
+      <td>
+        <h2><a href="/project/999001-تصميم-شعار-3d-2024">تصميم شعار ثلاثي الأبعاد</a></h2>
+        <ul class="project__meta">
+          <li>Sara M.</li>
+          <li>منذ يومين</li>
+          <li>12 عرض</li>
+        </ul>
+      </td>
+    </tr>
+    <tr class="project-row">
+      <td>
+        <h2><a href="https://mostaql.com/project/555222-كتابة-محتوى/">كتابة محتوى تسويقي</a></h2>
+        <ul class="project__meta">
+          <li>Omar K.</li>
+          <li>منذ ساعة</li>
+          <li>3 عروض</li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+</body>
+</html>

@@ -57,12 +57,11 @@ public static class DetailParser
         doc.LoadHtml(html);
         var root = doc.DocumentNode;
 
-        var titleNode = root.SelectSingleNode("//h1");
-        if (titleNode is null)
+        var title = ExtractTitle(root);
+        if (string.IsNullOrEmpty(title))
         {
             throw ParseErrors.MissingTitle(projectId);
         }
-        var title = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(titleNode.InnerText));
 
         var description = ExtractDescription(root);
         var skills = ExtractSkills(root);
@@ -80,7 +79,8 @@ public static class DetailParser
             // Prefer the structural extraction, but fall back to the label-driven
             // (identifier-blind) DOM-adjacency heuristic when the meta panel/table selector
             // itself didn't yield anything for this label.
-            var sVal = structural.TryGetValue(label, out var sv) ? sv : labelDriven.GetValueOrDefault(label);
+            var labelKey = StructuralExtractor.NormalizeLabel(label);
+            var sVal = structural.TryGetValue(labelKey, out var sv) ? sv : labelDriven.GetValueOrDefault(labelKey);
             var sOk = SanityOk(field, sVal);
 
             string? value;
@@ -128,12 +128,14 @@ public static class DetailParser
         // Enforce nullable-by-design completed-only fields.
         // (1) If the field's Arabic label text is not literally present anywhere on the page,
         // an inference-sourced value has nothing genuine to latch onto - force null.
-        var pageText = HtmlEntity.DeEntitize(root.InnerText) ?? string.Empty;
+        // Compared through NormalizeLabel so an orthographic variant of the label on the page
+        // (trailing colon, diacritics, alef/ya spelling) still counts as "the label is present".
+        var pageText = StructuralExtractor.NormalizeLabel(HtmlEntity.DeEntitize(root.InnerText));
         foreach (var f in CompletedOnlyFields)
         {
             if (fields.TryGetValue(f, out var res) && res.Source == "inference")
             {
-                var label = FieldToLabel.GetValueOrDefault(f);
+                var label = FieldToLabel.GetValueOrDefault(f) is { } l ? StructuralExtractor.NormalizeLabel(l) : null;
                 if (label is not null && !pageText.Contains(label, StringComparison.Ordinal))
                 {
                     fields[f] = new FieldResolution(null, "none", 0.0);
@@ -144,7 +146,7 @@ public static class DetailParser
         // (2) Regardless of (1), these fields are only meaningful when the project is
         // actually completed.
         var statusValue = fields.GetValueOrDefault("project_status")?.Value;
-        if (statusValue != CompletedStatusText)
+        if (statusValue is null || !statusValue.Contains(CompletedStatusText, StringComparison.Ordinal))
         {
             foreach (var f in CompletedOnlyFields)
             {
@@ -157,7 +159,7 @@ public static class DetailParser
 
         var owner = new Owner
         {
-            Name = ExtractOwnerName(root) ?? string.Empty,
+            Name = ExtractOwnerName(root, labelDriven) ?? string.Empty,
             HiringRatePercent = ParsePercent(fields.GetValueOrDefault("hire_rate")?.Value),
             CompletedProjectsCount = ParseLeadingInt(fields.GetValueOrDefault("in_progress_count")?.Value),
         };
@@ -239,6 +241,54 @@ public static class DetailParser
     }
 
     /// <summary>
+    /// Resolves the page title through a fallback chain instead of the prototype's single
+    /// <c>//h1</c> lookup: h1 -> <c>og:title</c> meta -> <c>&lt;title&gt;</c> (with Mostaql's
+    /// " - مستقل" site suffix stripped). A redesign that demotes the project title to an
+    /// <c>h2</c>/styled div used to make the whole parse throw <see cref="ParseErrors.MissingTitle"/>
+    /// even though the title was plainly available in the document head.
+    /// </summary>
+    private static string ExtractTitle(HtmlNode root)
+    {
+        var h1 = root.SelectSingleNode("//h1");
+        if (h1 is not null)
+        {
+            var text = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(h1.InnerText));
+            if (text.Length > 0)
+            {
+                return text;
+            }
+        }
+
+        var og = root.SelectSingleNode("//meta[@property='og:title' or @name='og:title']");
+        var ogTitle = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(og?.GetAttributeValue("content", string.Empty) ?? string.Empty));
+        if (ogTitle.Length > 0)
+        {
+            return StripSiteSuffix(ogTitle);
+        }
+
+        var titleTag = root.SelectSingleNode("//title");
+        var docTitle = titleTag is not null
+            ? StructuralExtractor.Normalize(HtmlEntity.DeEntitize(titleTag.InnerText))
+            : string.Empty;
+        return StripSiteSuffix(docTitle);
+    }
+
+    private static readonly string[] SiteSuffixSeparators = [" - ", " | ", " – "];
+
+    private static string StripSiteSuffix(string title)
+    {
+        foreach (var sep in SiteSuffixSeparators)
+        {
+            var idx = title.LastIndexOf(sep, StringComparison.Ordinal);
+            if (idx > 0 && title[(idx + sep.Length)..].Contains("مستقل", StringComparison.Ordinal))
+            {
+                return title[..idx].Trim();
+            }
+        }
+        return title;
+    }
+
+    /// <summary>
     /// Mirrors pipeline.py's description resolution: <c>#projectDetailsTab</c> is unique and
     /// always wraps the real description (a review comment/proposal reuse the same
     /// "text-wrapper-div" class elsewhere), so scope the lookup inside it first, only falling
@@ -256,9 +306,68 @@ public static class DetailParser
         {
             desc = SelectByClassContains(root, "div", "text-wrapper-div");
         }
-        return desc is not null
-            ? StructuralExtractor.Normalize(HtmlEntity.DeEntitize(desc.InnerText))
-            : string.Empty;
+        // Uses NormalizeMultiline (not Normalize) so the description keeps its paragraph/line
+        // structure - Normalize collapses ALL whitespace (including newlines) into a single
+        // space, which is exactly what was flattening Mostaql's bullet-style briefs
+        // ("المهام:\n\n...") into one run-on sentence.
+        if (desc is not null)
+        {
+            var text = StructuralExtractor.NormalizeMultiline(desc);
+            if (text.Length > 0)
+            {
+                return text;
+            }
+        }
+
+        // Identifier-blind fallbacks, in descending order of trust - none of which the Python
+        // prototype had. If "text-wrapper-div" ever gets renamed, the description would
+        // previously come back as an empty string with no error at all (a silent data loss).
+        var og = root.SelectSingleNode("//meta[@property='og:description' or @name='description']");
+        var ogText = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(og?.GetAttributeValue("content", string.Empty) ?? string.Empty));
+
+        var densest = FindDensestTextBlock(root);
+        if (densest is not null)
+        {
+            var text = StructuralExtractor.NormalizeMultiline(densest);
+            // Only prefer the heuristic block over og:description when it is meaningfully
+            // richer - og:description is usually a truncated teaser of the real brief.
+            if (text.Length > ogText.Length)
+            {
+                return text;
+            }
+        }
+
+        return ogText;
+    }
+
+    /// <summary>
+    /// Last-resort description heuristic: the element carrying the largest amount of *own*
+    /// prose (paragraph-ish text not attributable to a nested block), which on a project page
+    /// is overwhelmingly the brief itself. Deliberately ignores classes/ids entirely.
+    /// </summary>
+    private static HtmlNode? FindDensestTextBlock(HtmlNode root)
+    {
+        HtmlNode? best = null;
+        var bestLength = 200; // ignore short nav/footer blurbs entirely
+
+        foreach (var node in root.SelectNodes("//div|//article|//section") ?? Enumerable.Empty<HtmlNode>())
+        {
+            // Skip containers that merely wrap other block containers - we want the innermost
+            // element that actually owns the prose.
+            if (node.SelectNodes("./div|./article|./section")?.Count > 2)
+            {
+                continue;
+            }
+
+            var text = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(node.InnerText));
+            if (text.Length > bestLength)
+            {
+                best = node;
+                bestLength = text.Length;
+            }
+        }
+
+        return best;
     }
 
     private static HtmlNode? SelectByClassContains(HtmlNode root, string tag, string classSubstring) =>
@@ -271,31 +380,71 @@ public static class DetailParser
     {
         var skillsList = root.SelectSingleNode("//ul[contains(concat(' ', normalize-space(@class), ' '), ' skills ')]")
                          ?? SelectByClassContains(root, "ul", "skills");
-        if (skillsList is null)
-        {
-            return [];
-        }
 
         var result = new List<ProjectSkill>();
-        foreach (var li in skillsList.SelectNodes("./li") ?? Enumerable.Empty<HtmlNode>())
+        if (skillsList is not null)
         {
-            var name = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(li.InnerText));
-            if (string.IsNullOrEmpty(name))
+            foreach (var li in skillsList.SelectNodes("./li") ?? Enumerable.Empty<HtmlNode>())
+            {
+                var name = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(li.InnerText));
+                if (string.IsNullOrEmpty(name))
+                {
+                    continue;
+                }
+
+                var link = li.SelectSingleNode(".//a");
+                result.Add(new ProjectSkill
+                {
+                    Name = name,
+                    Url = link?.Attributes["href"]?.Value,
+                });
+            }
+        }
+
+        if (result.Count > 0)
+        {
+            return result;
+        }
+
+        // Identifier-blind fallback (not present in the Python prototype, which returned an
+        // empty list the moment "ul.skills" disappeared): every skill on Mostaql is a link
+        // into the skill taxonomy, so recognize them by their href shape rather than by the
+        // class of the list that happens to wrap them today.
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var a in root.SelectNodes("//a[@href]") ?? Enumerable.Empty<HtmlNode>())
+        {
+            var href = a.GetAttributeValue("href", string.Empty);
+            if (!LooksLikeSkillHref(href))
             {
                 continue;
             }
 
-            var link = li.SelectSingleNode(".//a");
-            result.Add(new ProjectSkill
+            var name = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(a.InnerText));
+            if (name.Length == 0 || name.Length > 60 || !seen.Add(name))
             {
-                Name = name,
-                Url = link?.Attributes["href"]?.Value,
-            });
+                continue;
+            }
+
+            result.Add(new ProjectSkill { Name = name, Url = href });
         }
+
         return result;
     }
 
-    private static string? ExtractOwnerName(HtmlNode root)
+    private static bool LooksLikeSkillHref(string href) =>
+        href.Contains("/skills/", StringComparison.OrdinalIgnoreCase)
+        || href.Contains("skill=", StringComparison.OrdinalIgnoreCase)
+        || href.Contains("/tag/", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Resolves the project owner's display name through a fallback chain. The prototype only
+    /// looked for <c>div.profile_card h5.profile__name</c>, so a single class rename blanked
+    /// the whole owner card (the exact symptom reported against this parser). Order: the
+    /// original selector -> any element whose class mentions "profile__name"/"profile-name"
+    /// anywhere on the page -> the identifier-blind "صاحب المشروع" label walk -> the anchor
+    /// text of the first user-profile link (<c>/u/{username}</c>).
+    /// </summary>
+    private static string? ExtractOwnerName(HtmlNode root, Dictionary<string, string> labelDriven)
     {
         var ownerCard = SelectByClassContains(root, "div", "profile_card");
 
@@ -304,11 +453,58 @@ public static class DetailParser
                 .Split(' ', StringSplitOptions.RemoveEmptyEntries)
                 .Any(c => c.Contains("profile__name", StringComparison.OrdinalIgnoreCase)));
 
-        return nameNode is not null
+        var name = nameNode is not null
             ? StructuralExtractor.Normalize(HtmlEntity.DeEntitize(nameNode.InnerText))
+            : string.Empty;
+        if (name.Length > 0)
+        {
+            return name;
+        }
+
+        var anyProfileName = (root.SelectNodes("//*[@class]") ?? Enumerable.Empty<HtmlNode>())
+            .FirstOrDefault(n => n.GetAttributeValue("class", string.Empty)
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Any(c => c.Contains("profile__name", StringComparison.OrdinalIgnoreCase)
+                          || c.Contains("profile-name", StringComparison.OrdinalIgnoreCase)
+                          || c.Contains("owner-name", StringComparison.OrdinalIgnoreCase)));
+        if (anyProfileName is not null)
+        {
+            name = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(anyProfileName.InnerText));
+            if (name.Length > 0)
+            {
+                return name;
+            }
+        }
+
+        var labelled = labelDriven.GetValueOrDefault(StructuralExtractor.NormalizeLabel("صاحب المشروع"));
+        if (!string.IsNullOrEmpty(labelled) && labelled.Length <= 80)
+        {
+            return labelled;
+        }
+
+        var profileLink = (root.SelectNodes("//a[@href]") ?? Enumerable.Empty<HtmlNode>())
+            .FirstOrDefault(a =>
+            {
+                var href = a.GetAttributeValue("href", string.Empty);
+                return href.Contains("/u/", StringComparison.OrdinalIgnoreCase)
+                       && StructuralExtractor.Normalize(HtmlEntity.DeEntitize(a.InnerText)).Length is > 0 and <= 60;
+            });
+
+        return profileLink is not null
+            ? StructuralExtractor.Normalize(HtmlEntity.DeEntitize(profileLink.InnerText))
             : null;
     }
 
+    private static readonly System.Text.RegularExpressions.Regex PercentNumberRegex =
+        new(@"\d+(?:[.,]\d+)?", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
+    /// Parses a percentage like "36.36%" into a rounded whole-number percent (36). Mostaql's
+    /// hire-rate stat is a real decimal (e.g. "36.36%"), so a naive "keep every digit character"
+    /// approach (the previous implementation) mangles it into 3636 - stripping the decimal point
+    /// instead of interpreting it. Matches the leading numeric run (with an optional decimal
+    /// separator) and rounds it to the nearest integer instead.
+    /// </summary>
     private static int? ParsePercent(string? text)
     {
         if (string.IsNullOrEmpty(text))
@@ -316,10 +512,23 @@ public static class DetailParser
             return null;
         }
 
-        var digits = new string(text.Where(char.IsDigit).ToArray());
-        return digits.Length > 0 && int.TryParse(digits, out var value) ? value : null;
+        var match = PercentNumberRegex.Match(StructuralExtractor.ToAsciiDigits(text));
+        if (!match.Success)
+        {
+            return null;
+        }
+
+        var normalized = match.Value.Replace(',', '.');
+        return double.TryParse(normalized, System.Globalization.CultureInfo.InvariantCulture, out var value)
+            ? (int)Math.Round(value, MidpointRounding.AwayFromZero)
+            : null;
     }
 
+    /// <summary>
+    /// First integer appearing in the text, tolerant of Arabic-Indic numerals and of thousands
+    /// separators ("1,250" / "1.250" both read as 1250) - the prototype's plain digit-run scan
+    /// returned 1 for either of those and null for any Arabic-Indic number.
+    /// </summary>
     private static int? ParseLeadingInt(string? text)
     {
         if (string.IsNullOrEmpty(text))
@@ -327,10 +536,17 @@ public static class DetailParser
             return null;
         }
 
-        var digits = new string(text.TakeWhile(c => !char.IsDigit(c)).Any()
-            ? text.SkipWhile(c => !char.IsDigit(c)).TakeWhile(char.IsDigit).ToArray()
-            : text.TakeWhile(char.IsDigit).ToArray());
+        var ascii = StructuralExtractor.ToAsciiDigits(text);
+        var match = GroupedIntRegex.Match(ascii);
+        if (!match.Success)
+        {
+            return null;
+        }
 
-        return digits.Length > 0 && int.TryParse(digits, out var value) ? value : null;
+        var digits = match.Value.Replace(",", string.Empty).Replace(".", string.Empty);
+        return int.TryParse(digits, out var value) ? value : null;
     }
+
+    private static readonly System.Text.RegularExpressions.Regex GroupedIntRegex =
+        new(@"\d{1,3}(?:[.,]\d{3})+|\d+", System.Text.RegularExpressions.RegexOptions.Compiled);
 }

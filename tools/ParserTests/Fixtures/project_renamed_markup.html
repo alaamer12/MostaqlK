@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<!--
+  Fixture 2 of 4: SAME project data as project_current_markup.html, but every class/id has
+  been renamed and every affordance the structural strategy relies on has been removed.
+  This is the "Mostaql shipped a redesign overnight" scenario - the single most likely way a
+  scraper silently starts writing NULLs into the database.
+
+  What is deliberately broken here, and which fallback must cover it:
+    * no <h1> at all                       -> title falls back to og:title / <title>
+    * no #project-meta-panel/.meta-row     -> meta fields fall back to label-driven DOM walk
+    * labels carry a trailing colon        -> NormalizeLabel must strip it
+    * labels use alef/ya/ta-marbuta variants and diacritics -> NormalizeLabel must fold them
+    * numbers written in Arabic-Indic form -> ToAsciiDigits must convert them
+    * label and value are cousins, not siblings -> the grandparent-cell walk must find it
+    * no .profile_card / h5.profile__name  -> owner name falls back to the /u/ profile link
+    * no ul.skills                         -> skills fall back to /skills/ href recognition
+    * no .text-wrapper-div/#projectDetailsTab -> description falls back to densest text block
+    * attachment badge class renamed, no data-file-type -> extension read from the filename
+-->
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>مصمم مبدع ومحترف في Canva - مستقل</title>
+  <meta property="og:title" content="مصمم مبدع ومحترف في Canva - مستقل">
+  <meta property="og:description" content="نبحث عن مصمم مبدع ومحترف في Canva">
+</head>
+<body>
+
+<h2 class="hdr-9f2">مصمم مبدع ومحترف في Canva</h2>
+
+<div class="facts-q7">
+  <div class="fact-line">
+    <div class="k"><span>حالة المشروع:</span></div>
+    <div class="v">مفتوح</div>
+  </div>
+  <div class="fact-line">
+    <div class="k"><span>تاريخ النشر :</span></div>
+    <div class="v">منذ ٤ ساعات</div>
+  </div>
+  <div class="fact-line">
+    <div class="k"><span>الميزانيه:</span></div>
+    <div class="v">$50.00 - $100.00</div>
+  </div>
+  <div class="fact-line">
+    <div class="k"><span>مدة التنفيذ:</span></div>
+    <div class="v">١٠ أيام</div>
+  </div>
+</div>
+
+<div class="brief-body-x1">
+  <p>نبحث عن مصمم مبدع ومحترف في Canva لتصميم وتطوير مجموعة من التصاميم بأسلوب بصري احترافي ومتناسق.</p>
+  <p>المهام:</p>
+  <p>تصميم وتطوير منشورات ومواد بصرية باستخدام Canva.<br>توحيد الهوية البصرية والألوان والخطوط في جميع التصاميم.</p>
+  <p>المتطلبات:</p>
+  <p>خبرة قوية في Canva وحس إبداعي واهتمام بالتفاصيل وخبرة في تصميم محتوى السوشيال ميديا والمواد التعريفية والالتزام بالمواعيد وسرعة التنفيذ.</p>
+</div>
+
+<div class="tagbar-e3">
+  <a href="/skills/photoshop">فوتوشوب</a>
+  <a href="/skills/graphic-design">تصميم جرافيك</a>
+  <a href="/skills/canva">كانفا</a>
+  <a href="/projects?page=2">الصفحة التالية</a>
+</div>
+
+<aside class="side-owner-b8">
+  <a class="who-link" href="/u/abdulrhman">Abdulrhman S.</a>
+  <dl class="who-stats">
+    <div class="stat-pair"><dt><span>تاريخ التسجيل:</span></dt><dd>09 نوفمبر 2020</dd></div>
+    <div class="stat-pair"><dt><span>معدل التوظيف:</span></dt><dd>36.36%</dd></div>
+    <div class="stat-pair"><dt><span>المشاريع المفتوحة:</span></dt><dd>١</dd></div>
+    <div class="stat-pair"><dt><span>مشاريع قيد التنفيذ:</span></dt><dd>١</dd></div>
+    <div class="stat-pair"><dt><span>التواصلات الجارية:</span></dt><dd>٠</dd></div>
+  </dl>
+</aside>
+
+<ul class="files-n4">
+  <li class="file-row">
+    <a href="/register?redirect=file" title="brief.docx">brief.docx</a>
+    <small>(15.99KB)</small>
+  </li>
+</ul>
+
+</body>
+</html>

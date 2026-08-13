@@ -126,33 +126,13 @@ public sealed class AssetDownloadService
     }
 
     /// <summary>
-    /// Reads the optional auth cookie from configuration (env var, or a file path stored in an
-    /// env var) — never from a hardcoded value in code. Mirrors
-    /// <c>get_configured_cookie_header()</c> in the Python prototype exactly.
+    /// Reads the optional auth cookie from configuration — never from a hardcoded value in code.
+    /// Delegates to <see cref="CookieJar"/> so this service, the scraper and the parser test
+    /// harness all understand exactly the same cookie sources and file formats (the previous
+    /// inline version joined raw lines verbatim, so a Netscape-format export or quoted values
+    /// produced a header the server silently rejected).
     /// </summary>
-    private static string? GetConfiguredCookieHeader()
-    {
-        var cookie = Environment.GetEnvironmentVariable("MOSTAQL_COOKIE");
-        if (!string.IsNullOrWhiteSpace(cookie))
-        {
-            return JoinNonEmptyLines(cookie);
-        }
-
-        var cookieFile = Environment.GetEnvironmentVariable("MOSTAQL_COOKIE_FILE");
-        if (!string.IsNullOrWhiteSpace(cookieFile) && File.Exists(cookieFile))
-        {
-            return JoinNonEmptyLines(File.ReadAllText(cookieFile));
-        }
-
-        return null;
-    }
-
-    private static string JoinNonEmptyLines(string raw)
-    {
-        var lines = raw.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(line => line.Length > 0);
-        return string.Join("; ", lines);
-    }
+    private static string? GetConfiguredCookieHeader() => CookieJar.Load();
 
     private static bool LooksLikeHtml(byte[] data)
     {

@@ -134,6 +134,16 @@ public static class ListingParser
     private static bool LooksLikeProposalCount(string text) =>
         text.Contains("عرض") || text.Contains("عروض") || text.Contains("تسليم");
 
+    private static readonly System.Text.RegularExpressions.Regex ProjectIdRegex =
+        new(@"/project/(\d+)", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
+    /// Mostaql project URLs are "/project/{id}-{arabic-slug}". The id is therefore the FIRST
+    /// numeric segment after "/project/", not the last numeric run in the URL - a slug that
+    /// happens to contain a number ("...-canva-2024", "...-logo-3d") used to hijack the id and
+    /// silently key the whole record to the wrong project. Falls back to the first standalone
+    /// numeric segment when the "/project/" prefix is absent (e.g. a relative/redesigned URL).
+    /// </summary>
     private static long ExtractProjectIdFromUrl(string url)
     {
         if (string.IsNullOrEmpty(url))
@@ -141,8 +151,14 @@ public static class ListingParser
             return 0;
         }
 
+        var match = ProjectIdRegex.Match(url);
+        if (match.Success && long.TryParse(match.Groups[1].Value, out var matchedId))
+        {
+            return matchedId;
+        }
+
         var trimmed = url.TrimEnd('/');
-        var lastSegment = trimmed.Split('/', '-').LastOrDefault(s => s.Length > 0 && s.All(char.IsDigit));
-        return lastSegment is not null && long.TryParse(lastSegment, out var id) ? id : 0;
+        var firstSegment = trimmed.Split('/', '-').FirstOrDefault(s => s.Length > 0 && s.All(char.IsDigit));
+        return firstSegment is not null && long.TryParse(firstSegment, out var id) ? id : 0;
     }
 }

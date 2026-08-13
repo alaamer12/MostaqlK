@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<RootNamespace>ParserTests</RootNamespace>
+		<AssemblyName>ParserTests</AssemblyName>
+		<InvariantGlobalization>false</InvariantGlobalization>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="HtmlAgilityPack" Version="1.11.65" />
+	</ItemGroup>
+
+	<!-- The parser is a pure, MAUI-free part of the app, so it is linked in from source rather
+	     than referenced through MostaqlK.csproj: that project targets net10.0-windows and pulls
+	     in the whole MAUI stack, which would make this harness slow to build and impossible to
+	     run headlessly. Only the files the parser actually needs are linked. -->
+	<ItemGroup>
+		<Compile Include="..\..\Infrastructure\Http\Parsers\DetailParser.cs" LinkBase="Parsers" />
+		<Compile Include="..\..\Infrastructure\Http\Parsers\ListingParser.cs" LinkBase="Parsers" />
+		<Compile Include="..\..\Infrastructure\Http\Parsers\StructuralExtractor.cs" LinkBase="Parsers" />
+		<Compile Include="..\..\Infrastructure\Http\Parsers\InferenceEngine.cs" LinkBase="Parsers" />
+		<Compile Include="..\..\Infrastructure\Http\Parsers\ParseErrors.cs" LinkBase="Parsers" />
+		<Compile Include="..\..\Infrastructure\Http\Parsers\ParseException.cs" LinkBase="Parsers" />
+		<Compile Include="..\..\Infrastructure\Http\CookieJar.cs" LinkBase="Http" />
+		<Compile Include="..\..\Models\ProjectDetails.cs" LinkBase="Models" />
+		<Compile Include="..\..\Models\ProjectSummary.cs" LinkBase="Models" />
+		<Compile Include="..\..\Models\Owner.cs" LinkBase="Models" />
+		<Compile Include="..\..\Models\ProjectSkill.cs" LinkBase="Models" />
+		<Compile Include="..\..\Models\Asset.cs" LinkBase="Models" />
+		<Compile Include="..\..\Models\EnrichmentStatus.cs" LinkBase="Models" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
+	</ItemGroup>
+
+</Project>
