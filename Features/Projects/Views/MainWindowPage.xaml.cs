@@ -65,9 +65,9 @@ public partial class MainWindowPage : ContentPage
         await Shell.Current.GoToAsync("//SettingsPanel");
     }
 
-    private async void OnGearTapped(object? sender, TappedEventArgs e)
+    private void OnNotificationsButtonTapped(object? sender, TappedEventArgs e)
     {
-        await Shell.Current.GoToAsync("//SettingsPanel");
+        NotificationsFlyout.IsVisible = !NotificationsFlyout.IsVisible;
     }
 
     private async void OnAboutNavClicked(object? sender, EventArgs e)

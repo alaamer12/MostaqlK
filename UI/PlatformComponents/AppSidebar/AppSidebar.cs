@@ -19,8 +19,6 @@ public partial class AppSidebar : ContentView
         nameof(StatValue), typeof(string), typeof(AppSidebar), "0");
 
     /// <summary>Unread-notification count shown in the blue pill on the التنبيهات row.</summary>
-    public static readonly BindableProperty NotificationCountProperty = BindableProperty.Create(
-        nameof(NotificationCount), typeof(string), typeof(AppSidebar), "0");
 
     public static readonly BindableProperty ActivePageProperty = BindableProperty.Create(
         nameof(ActivePage), typeof(SidebarPage), typeof(AppSidebar), SidebarPage.None,
@@ -32,11 +30,6 @@ public partial class AppSidebar : ContentView
         set => SetValue(StatValueProperty, value);
     }
 
-    public string NotificationCount
-    {
-        get => (string)GetValue(NotificationCountProperty);
-        set => SetValue(NotificationCountProperty, value);
-    }
 
     public SidebarPage ActivePage
     {
@@ -46,7 +39,6 @@ public partial class AppSidebar : ContentView
 
     public event EventHandler? ProjectsClicked;
     public event EventHandler? AdvancedSearchClicked;
-    public event EventHandler? NotificationsClicked;
     public event EventHandler? SettingsClicked;
     public event EventHandler? AboutClicked;
 
@@ -121,12 +113,10 @@ public partial class AppSidebar : ContentView
         var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
         SetRowState(ProjectsButton, ProjectsIcon, ProjectsLabel, ActivePage == SidebarPage.Projects, isDark);
         SetRowState(AdvancedSearchButton, AdvancedSearchIcon, AdvancedSearchLabel, ActivePage == SidebarPage.AdvancedSearch, isDark);
-        SetRowState(NotificationsButton, NotificationsIcon, NotificationsLabel, ActivePage == SidebarPage.Notifications, isDark);
         SetRowState(SettingsButton, SettingsIcon, SettingsLabel, ActivePage == SidebarPage.Settings, isDark);
         SetRowState(AboutButton, AboutIcon, AboutLabel, ActivePage == SidebarPage.About, isDark);
         ProjectsActiveBar.IsVisible = ActivePage == SidebarPage.Projects;
         AdvancedSearchActiveBar.IsVisible = ActivePage == SidebarPage.AdvancedSearch;
-        NotificationsActiveBar.IsVisible = ActivePage == SidebarPage.Notifications;
         SettingsActiveBar.IsVisible = ActivePage == SidebarPage.Settings;
         AboutActiveBar.IsVisible = ActivePage == SidebarPage.About;
     }
@@ -177,21 +167,6 @@ public partial class AppSidebar : ContentView
         }
     }
 
-    [TraceInteraction("Sidebar_NotificationsButton")]
-    [MostaqlK.Core.ErrorOutcome(MostaqlK.Core.ErrorOutcome.Rethrown, Label = "Sidebar_NotificationsButton")]
-    private void OnNotificationsClicked(object? sender, EventArgs e)
-    {
-        using var _ = TraceScope.Begin("Sidebar_NotificationsButton");
-        try
-        {
-            NotificationsClicked?.Invoke(this, EventArgs.Empty);
-        }
-        catch (Exception ex)
-        {
-            _.MarkFaulted(ex);
-            throw;
-        }
-    }
 
     [TraceInteraction("Sidebar_SettingsButton")]
     [MostaqlK.Core.ErrorOutcome(MostaqlK.Core.ErrorOutcome.Rethrown, Label = "Sidebar_SettingsButton")]
@@ -231,7 +206,6 @@ public enum SidebarPage
     None,
     Projects,
     AdvancedSearch,
-    Notifications,
     Settings,
     About
 }

@@ -96,29 +96,6 @@
                 </Grid.Behaviors>
             </Grid>
             <Grid>
-                <Border x:Name="NotificationsButton" Style="{StaticResource SidebarNavRowStyle}">
-                    <Grid ColumnDefinitions="4,Auto,*,Auto" ColumnSpacing="12">
-                        <BoxView x:Name="NotificationsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
-                        <components:AppIcon Grid.Column="1" x:Name="NotificationsIcon" Icon="Bell" FontSize="16" WidthRequest="20" />
-                        <Label Grid.Column="2" x:Name="NotificationsLabel" Text="التنبيهات" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
-                        <!-- `<span class="bg-blue-500 text-white text-xs font-bold w-5 h-5 rounded-full">` -->
-                        <Border Grid.Column="3" x:Name="NotificationsBadge" WidthRequest="20" HeightRequest="20"
-                                StrokeThickness="0" BackgroundColor="#3B82F6" VerticalOptions="Center">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="10" />
-                            </Border.StrokeShape>
-                            <Label Text="{Binding NotificationCount, Source={x:Reference Root}}" FontSize="12" FontFamily="TajawalBold"
-                                   AutomationId="Sidebar_NotificationCountLabel"
-                                   TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
-                        </Border>
-                    </Grid>
-                </Border>
-                <Button AutomationId="Sidebar_NotificationsButton" Style="{StaticResource SidebarNavRowHitTargetStyle}" Clicked="OnNotificationsClicked" />
-                <Grid.Behaviors>
-                    <ds:PressableEffect ApplyHoverHighlight="True" />
-                </Grid.Behaviors>
-            </Grid>
-            <Grid>
                 <Border x:Name="SettingsButton" Style="{StaticResource SidebarNavRowStyle}">
                     <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
                         <BoxView x:Name="SettingsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />

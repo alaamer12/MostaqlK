@@ -19,10 +19,8 @@
         <sidebar:AppSidebar Grid.Column="0"
                              ActivePage="About"
                              StatValue="{Binding GlobalStatus.ProjectsAddedTodayText}"
-                             NotificationCount="{Binding GlobalStatus.UnreadNotificationCountText}"
                              ProjectsClicked="OnProjectsNavClicked"
                              AdvancedSearchClicked="OnAdvancedSearchNavClicked"
-                             NotificationsClicked="OnNotificationsNavClicked"
                              SettingsClicked="OnSettingsNavClicked"
                              AboutClicked="OnAboutNavClicked" />
 

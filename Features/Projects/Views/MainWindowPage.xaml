@@ -32,10 +32,8 @@
         <sidebar:AppSidebar Grid.Column="0"
                             ActivePage="Projects"
                             StatValue="{Binding GlobalStatus.ProjectsAddedTodayText}"
-                            NotificationCount="{Binding GlobalStatus.UnreadNotificationCountText}"
                             ProjectsClicked="OnProjectsNavClicked"
                             AdvancedSearchClicked="OnAdvancedSearchNavClicked"
-                            NotificationsClicked="OnNotificationsNavClicked"
                             SettingsClicked="OnSettingsNavClicked"
                             AboutClicked="OnAboutNavClicked"
                             VerticalOptions="Fill" />
@@ -163,8 +161,8 @@
                             </Border>
 
                             <Border StrokeThickness="0"
-                                    AutomationId="Projects_SettingsGearButton"
-                                    SemanticProperties.Description="إعدادات"
+                                    AutomationId="Projects_NotificationsButton"
+                                    SemanticProperties.Description="التنبيهات"
                                     BackgroundColor="Transparent"
                                     WidthRequest="32"
                                     HeightRequest="32"
@@ -173,12 +171,12 @@
                                     <RoundRectangle CornerRadius="8" />
                                 </Border.StrokeShape>
                                 <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Tapped="OnGearTapped" />
+                                    <TapGestureRecognizer Tapped="OnNotificationsButtonTapped" />
                                 </Border.GestureRecognizers>
                                 <Border.Behaviors>
                                     <design:PressableEffect ApplyHoverHighlight="True" />
                                 </Border.Behaviors>
-                                <components:AppIcon Icon="Gear"
+                                <components:AppIcon Icon="Bell"
                                                      FontSize="14"
                                                      TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
                                                      HorizontalOptions="Center"
