@@ -32,9 +32,20 @@ public sealed class MostaqlScraper : IProjectScraper
 
     [ErrorOutcome(ErrorOutcome.Rethrown, Label = "Propagates GetStringAsync failure via htmlResult.Error")]
     [ErrorOutcome(ErrorOutcome.Handled, Label = "Parse failure wrapped as HttpErrors.ParseFailed")]
-    public async Task<Result<IReadOnlyList<ProjectSummary>>> FetchListingAsync(CancellationToken cancellationToken = default)
+    public async Task<Result<IReadOnlyList<ProjectSummary>>> FetchListingAsync(string? queryParams = null, CancellationToken cancellationToken = default)
     {
-        var htmlResult = await GetStringAsync(ListingUrl, cancellationToken);
+        var url = ListingUrl;
+        if (!string.IsNullOrWhiteSpace(queryParams))
+        {
+            var normalized = queryParams.Trim();
+            if (!normalized.StartsWith("?"))
+            {
+                normalized = "?" + normalized;
+            }
+            url += normalized;
+        }
+
+        var htmlResult = await GetStringAsync(url, cancellationToken);
         if (htmlResult.IsError)
         {
             return Result<IReadOnlyList<ProjectSummary>>.Err(htmlResult.Error);

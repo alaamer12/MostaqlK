@@ -5,6 +5,7 @@ using MostaqlK.Infrastructure.Http;
 using MostaqlK.Services;
 using MostaqlK.Services.Diagnostics;
 using MostaqlK.Services.Pipeline;
+using MostaqlK.Services.Pipeline.WorkerPool;
 using Microsoft.Maui.Storage;
 using Microsoft.Maui.ApplicationModel;
 
@@ -21,6 +22,10 @@ public sealed partial class SettingsViewModel : ObservableObject
 {
     private const string KeyPollIntervalSeconds = "settings_poll_interval_seconds";
     private const string KeyMaxRequestsPerMinute = "settings_max_requests_per_minute";
+    private const string KeyMaxConcurrentDetailFetches = "settings_max_concurrent_detail_fetches";
+    private const string KeyQueryParams = "settings_query_params";
+    private const string KeyIncludeAssets = "settings_include_assets";
+    private const string KeyNotificationGroupingEnabled = "settings_notification_grouping_enabled";
     private const string KeyGroupingMode = "settings_grouping_mode";
     private const string KeyGroupingThreshold = "settings_grouping_threshold";
     private const string KeyIsDarkMode = "settings_is_dark_mode";
@@ -39,6 +44,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private readonly IPollService _pollService;
     private readonly TokenBucketRateLimiter _rateLimiter;
+    private readonly WorkerPool _workerPool;
     private readonly NotificationGrouper _grouper;
     private readonly IProjectRepository _projectRepository;
     private readonly GlobalAppStatusService _globalStatus;
@@ -51,6 +57,18 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SafeRequestsHintText))]
     public partial int RequestsPerMinute { get; set; }
+
+    [ObservableProperty]
+    public partial int MaxConcurrentDetailFetches { get; set; }
+
+    [ObservableProperty]
+    public partial string QueryParams { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool IncludeAssets { get; set; }
+
+    [ObservableProperty]
+    public partial bool NotificationGroupingEnabled { get; set; }
 
     /// <summary>
     /// "الطلبات الآمنة" - when on (the default), <see cref="RequestsPerMinute"/> is enforced exactly
@@ -94,6 +112,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     public SettingsViewModel(
         IPollService pollService,
         TokenBucketRateLimiter rateLimiter,
+        WorkerPool workerPool,
         NotificationGrouper grouper,
         IProjectRepository projectRepository,
         GlobalAppStatusService globalStatus,
@@ -102,6 +121,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _cookieStore = cookieStore;
         _pollService = pollService;
         _rateLimiter = rateLimiter;
+        _workerPool = workerPool;
         _grouper = grouper;
         _projectRepository = projectRepository;
         _globalStatus = globalStatus;
@@ -247,6 +267,10 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         PollIntervalSeconds = Preferences.Get(KeyPollIntervalSeconds, DefaultPollIntervalSeconds);
         RequestsPerMinute = Preferences.Get(KeyMaxRequestsPerMinute, DefaultMaxRequestsPerMinute);
+        MaxConcurrentDetailFetches = Preferences.Get(KeyMaxConcurrentDetailFetches, 2);
+        QueryParams = Preferences.Get(KeyQueryParams, string.Empty);
+        IncludeAssets = Preferences.Get(KeyIncludeAssets, false);
+        NotificationGroupingEnabled = Preferences.Get(KeyNotificationGroupingEnabled, false);
         SafeRequests = Preferences.Get(KeySafeRequests, true);
         GroupingThreshold = Preferences.Get(KeyGroupingThreshold, 5);
         // Seed from the theme the app already resolved at startup (App.xaml.cs, which honours a
@@ -270,7 +294,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         // Apply the loaded values to the live pipeline services right away, so the running
         // instances always reflect whatever was last persisted (e.g. after an app restart).
         ApplyPollSettings();
+        ApplyWorkerSettings();
         ApplyGroupingSettings();
+        ApplyAssetSettings();
     }
 
     private async Task LoadProjectsAddedTodayAsync()
@@ -316,6 +342,40 @@ public sealed partial class SettingsViewModel : ObservableObject
         ClearValidationError();
         Preferences.Set(KeyMaxRequestsPerMinute, value);
         ApplyPollSettings();
+    }
+
+    partial void OnMaxConcurrentDetailFetchesChanged(int value)
+    {
+        if (_isLoading) return;
+        if (value <= 0)
+        {
+            SetValidationError("عدد التوازي يجب أن يكون رقمًا أكبر من صفر.");
+            return;
+        }
+        ClearValidationError();
+        Preferences.Set(KeyMaxConcurrentDetailFetches, value);
+        ApplyWorkerSettings();
+    }
+
+    partial void OnQueryParamsChanged(string value)
+    {
+        if (_isLoading) return;
+        Preferences.Set(KeyQueryParams, value ?? string.Empty);
+        ApplyPollSettings();
+    }
+
+    partial void OnIncludeAssetsChanged(bool value)
+    {
+        if (_isLoading) return;
+        Preferences.Set(KeyIncludeAssets, value);
+        ApplyAssetSettings();
+    }
+
+    partial void OnNotificationGroupingEnabledChanged(bool value)
+    {
+        if (_isLoading) return;
+        Preferences.Set(KeyNotificationGroupingEnabled, value);
+        ApplyGroupingSettings();
     }
 
     partial void OnSafeRequestsChanged(bool value)
@@ -372,6 +432,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private void ApplyPollSettings()
     {
         _pollService.PollIntervalSeconds = PollIntervalSeconds;
+        _pollService.QueryParams = QueryParams;
 
         // The limiter derives capacity, refill and spacing from these two values itself, so the
         // numbers can no longer drift apart from the configured budget.
@@ -382,7 +443,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private void ApplyGroupingSettings()
     {
         _grouper.Mode = GroupingMode;
-        _grouper.Enabled = true;
+        _grouper.Enabled = NotificationGroupingEnabled;
 
         if (GroupingMode == NotificationGroupingMode.AfterMinutes)
         {
@@ -392,6 +453,16 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             _grouper.AfterCountThreshold = Math.Max(1, GroupingThreshold);
         }
+    }
+
+    private void ApplyWorkerSettings()
+    {
+        _workerPool.Reconfigure(MaxConcurrentDetailFetches);
+    }
+
+    private void ApplyAssetSettings()
+    {
+        // TODO: Wire to AssetService/EnrichmentService when implemented
     }
 
     private void ApplyTheme()

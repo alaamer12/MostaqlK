@@ -137,6 +137,31 @@ Naming convention for AutomationIds (added incrementally as pages are catalogued
 `Projects_SearchInput`, `Settings_SaveButton` — set directly on the exact control that owns the
 `TapGestureRecognizer`/`Command`, never on a wrapping container, so `WindowsDriver.FindElementByAccessibilityId` maps 1:1 to the real hit-test target.
 
+## Window close behavior
+
+Location: `Services/CloseBehaviorService.cs`, `Platforms/Windows/CloseConfirmationDialog.cs`,
+`MauiProgram.cs` (`AppWindow.Closing` wiring)
+
+Avast-style "keep running in background": the native window's X button no longer exits the
+process. `AppWindow.Closing` (unlike WinUI's plain, non-cancelable `Window.Closed`) is
+intercepted and always cancelled first; a dedicated native `ContentDialog` — not the `Dialog`
+stand-in behind the `ModalPresenter` Platform Concept above, since it must run from inside the
+WinUI `Closing` handler while the window may already be tearing down and cannot depend on MAUI's
+own Shell/navigation stack — asks the user to either hide to the tray (pipeline keeps running,
+`TrayIconService`'s tray icon stays put) or force-close for real. A "remember my choice" checkbox
+persists the decision so every later X-button click repeats it silently (idempotent, no dialog
+shown again); closing from the tray icon's own "Quit" menu entry always exits directly, unaffected
+by this flow.
+
+| Unit | Type | Purpose | Status |
+|---|---|---|---|
+| `CloseAction` / `CloseBehaviorService` | enum + platform-neutral service (`Services/`) | `CloseAction.MinimizeToTray` \| `Exit`. The service only reads/writes `Preferences` (`close_behavior_remembered`, `close_behavior_action`) — no WinUI dependency, so the persisted decision itself stays testable. `GetRememberedAction()` returns `null` until the user checks "remember my choice" once. | Implemented |
+| `CloseConfirmationDialog` (`Platforms/Windows/`) | static WinUI helper (native `ContentDialog`) | The one-time (per remembered decision) modal: message explaining the background-polling behavior, a `CheckBox` for "remember my choice", and Primary/Secondary buttons mapping to `CloseAction.MinimizeToTray`/`Exit`. Windows-only interop, same reasoning as `TrayIconNativeHost`. | Implemented |
+
+`TrayIconService.RestoreRequested` (raised by the existing "Open" tray/menu action) is what brings
+the window back once it was hidden via `MinimizeToTray` — `MauiProgram` subscribes to it and calls
+`AppWindow.Show()` + `Window.Activate()`.
+
 ## Notifications
 
 Location: `Infrastructure/Notifications/`, `Services/NotificationDispatcher.cs`, `Services/NotificationGrouper.cs`
@@ -172,6 +197,32 @@ Location: `UI/TrayIcon/`
 | Unit | Type | Purpose | Status |
 |---|---|---|---|
 | `TrayIconService` | class | Windows system-tray icon: `TrayIconState` mirrored live from `IPollService.StatusChanged`/`DiscoveryQueue.Count` + right-click menu wired to real commands (Open, Pause/Resume, Check now, Recent notifications, Settings, Quit). Native icon hosting via `Platforms/Windows/TrayIconNativeHost.cs` (`Shell_NotifyIcon`). | Implemented |
+
+`TrayIconNativeHost` originally exposed a public `HandleWindowMessage(uint, nint, nint)` meant to be
+called from "the host window's message loop / subclassed WndProc", but nothing ever actually
+wired it up — no `WndProc` subclass existed anywhere in the app, so `WM_TRAYICON` never reached it
+and left/right-clicking the tray icon silently did nothing. Fixed by having the host install its
+own subclass in its constructor via comctl32's `SetWindowSubclass` (chains safely onto the WinUI3
+window's own WndProc rather than overwriting it via `SetWindowLongPtr(GWLP_WNDPROC)`), forwarding
+`WM_TRAYICON` to the now-private `HandleWindowMessage` and everything else to `DefSubclassProc`;
+`Dispose()` calls `RemoveWindowSubclass` alongside the existing `NIM_DELETE` teardown. The
+`SUBCLASSPROC` delegate is kept as an instance field so the CLR cannot collect it while the native
+subclass is still installed.
+
+Two follow-up bugs found after that fix, both in `TrayIconNativeHost`:
+
+- **Right-click opened the app instead of a menu.** `HandleWindowMessage` treated `WM_LBUTTONUP`
+  and `WM_RBUTTONUP` identically (both ran "Open") — no actual popup menu existed. Fixed by adding
+  `ShowContextMenu()`, a real native context menu (`CreatePopupMenu`/`AppendMenu`/`TrackPopupMenuEx`
+  with `TPM_RETURNCMD`) built from `TrayIconService.MenuItems` and shown at the cursor position on
+  right-click; left-click still runs "Open" directly, unchanged.
+- **Icon still not showing / "cache problem".** The icon was identified only by `hWnd`+`uID`
+  (`NIM_ADD`/`NIM_MODIFY`/`NIM_DELETE`). Since the app's `hWnd` is different on every relaunch,
+  Explorer's own tray-icon cache (keyed by `hWnd`+`uID` for non-GUID icons) can leave a stale/ghost
+  entry behind from a killed/crashed prior run, or fail to surface the current one, until Explorer
+  restarts. Fixed by giving the icon a fixed `guidItem`/`NIF_GUID` (a static `Guid` constant) so its
+  identity is stable across restarts, plus a defensive `NIM_DELETE` of that same GUID on startup to
+  clear any stale entry left by a previous run before the fresh `NIM_ADD`.
 
 ---
 

@@ -245,6 +245,9 @@ public static class MauiProgram
 		// Tray icon
 		builder.Services.AddSingleton<TrayIconService>();
 
+		// X-button close-to-tray confirmation (Avast-style "keep running in background")
+		builder.Services.AddSingleton<CloseBehaviorService>();
+
 		// Global Status
 		builder.Services.AddSingleton<GlobalAppStatusService>();
 
@@ -269,6 +272,12 @@ public static class MauiProgram
 		// time OnWindowCreated actually fires (after the app starts running), it is populated.
 		MauiApp? appRef = null;
 		TrayIconNativeHost? nativeHost = null;
+		// Guards the whole "close to tray vs. exit" flow against re-entrancy: AppWindow.Closing
+		// can fire again while a previous ContentDialog await is still pending (e.g. the user
+		// mashes the X button), and once the user has actually confirmed Exit, that decision
+		// must stick for any further Closing callbacks instead of asking again.
+		var isClosePromptShowing = false;
+		var isExitConfirmed = false;
 		builder.ConfigureLifecycleEvents(events =>
 		{
 			events.AddWindows(windows => windows
@@ -302,6 +311,80 @@ public static class MauiProgram
 					var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
 					var trayIconService = appRef.Services.GetRequiredService<TrayIconService>();
 					nativeHost = new TrayIconNativeHost(trayIconService, hwnd);
+
+					var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
+					var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
+					var closeBehaviorService = appRef.Services.GetRequiredService<CloseBehaviorService>();
+
+					// Bring the window back from the tray when "Open" runs (sidebar/tray menu/tray
+					// icon click), in case a previous X-button click hid it via MinimizeToTray below.
+					trayIconService.RestoreRequested += () =>
+						MainThread.BeginInvokeOnMainThread(() =>
+						{
+							appWindow.Show();
+							window.Activate();
+						});
+
+					// Avast-style "keep running in background": the X button no longer closes the
+					// process outright. AppWindow.Closing (unlike WinUI's plain Window.Closed) is
+					// cancelable, so every click is intercepted here first.
+					appWindow.Closing += async (sender, closingArgs) =>
+					{
+						if (isExitConfirmed)
+						{
+							// The user already chose "force closing" (directly, or via the
+							// remembered decision below) - let this and any further click close
+							// for real; nothing left to ask.
+							return;
+						}
+
+						// Idempotent guard: a second click while the ContentDialog await below is
+						// still pending must not stack a second dialog on top of the first.
+						closingArgs.Cancel = true;
+						if (isClosePromptShowing)
+						{
+							return;
+						}
+
+						var rememberedAction = closeBehaviorService.GetRememberedAction();
+						CloseAction action;
+						if (rememberedAction is { } remembered)
+						{
+							// "the click should be idempotent": once remembered, every subsequent
+							// X-button click silently repeats the same action, no dialog shown.
+							action = remembered;
+						}
+						else
+						{
+							isClosePromptShowing = true;
+							try
+							{
+								var (chosenAction, remember) = await CloseConfirmationDialog.ShowAsync(window);
+								action = chosenAction;
+								if (remember)
+								{
+									closeBehaviorService.RememberAction(action);
+								}
+							}
+							finally
+							{
+								isClosePromptShowing = false;
+							}
+						}
+
+						if (action == CloseAction.Exit)
+						{
+							isExitConfirmed = true;
+							appWindow.Destroy();
+						}
+						else
+						{
+							// Hide, not minimize: no taskbar entry, same as Avast - the pipeline
+							// (PollService/WorkerPool) keeps running untouched and the tray icon
+							// stays put; "Open" (tray menu/click) restores it via RestoreRequested.
+							appWindow.Hide();
+						}
+					};
 				})
 				.OnClosed((window, args) =>
 				{

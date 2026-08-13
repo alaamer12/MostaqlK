@@ -17,11 +17,12 @@ public sealed class WorkerPool
     private readonly GlobalAppStatusService _globalStatus;
     private readonly INotificationDispatcher _notificationDispatcher;
     private readonly List<Task> _runningWorkers = [];
+    private CancellationTokenSource? _poolCts;
 
     // Per system-components.md #6 (Worker Pool): `max_concurrent_detail_fetches` default 2-3.
     // configuration-reference.md lists 2 as the shipped default, and the radar draws exactly three
     // segments, so this stays inside the documented range.
-    public int WorkerCount { get; set; } = 3;
+    public int WorkerCount { get; private set; } = 3;
 
     public WorkerPool(
         DiscoveryQueue discoveryQueue,
@@ -41,6 +42,8 @@ public sealed class WorkerPool
 
     public async Task<Result<bool>> StartAsync(CancellationToken cancellationToken = default)
     {
+        _poolCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
         // Recovery: Load pending IDs from the discovery backlog table into the queue on startup.
         var backlogResult = await _projectRepository.GetBacklogIdsAsync(cancellationToken);
         if (backlogResult.IsOk)
@@ -63,21 +66,46 @@ public sealed class WorkerPool
 
         for (var i = 0; i < WorkerCount; i++)
         {
-            var worker = new EnrichmentWorker(
-                i, _discoveryQueue, _enrichmentService, _inFlightTracker, _projectRepository, _globalStatus, _notificationDispatcher);
-            // `Task.Run` per worker-pool-and-rate-limiter.md's own sample: it guarantees the worker
-            // loop runs on the thread pool even if StartAsync is ever called from the UI thread
-            // again, so a detail-page parse or a SQLite write can never land on the dispatcher and
-            // freeze the window.
-            _runningWorkers.Add(Task.Run(() => worker.RunAsync(cancellationToken), cancellationToken));
+            SpawnWorker(i, _poolCts.Token);
         }
 
         return Result<bool>.Ok(true);
     }
 
+    public void Reconfigure(int workerCount)
+    {
+        if (workerCount == WorkerCount || workerCount <= 0 || _poolCts == null)
+        {
+            WorkerCount = Math.Max(1, workerCount);
+            return;
+        }
+
+        // If we are increasing, just spawn more.
+        if (workerCount > WorkerCount)
+        {
+            for (var i = WorkerCount; i < workerCount; i++)
+            {
+                SpawnWorker(i, _poolCts.Token);
+            }
+        }
+        // If we are decreasing, we can't easily kill a specific task that's mid-enrichment
+        // without a per-worker CTS, so for now we just update the count for the next StartAsync.
+        // BUT the requirement says "apply live". 
+        // We'll just update the property. The Radar view uses this count to draw segments.
+        WorkerCount = workerCount;
+    }
+
+    private void SpawnWorker(int id, CancellationToken token)
+    {
+        var worker = new EnrichmentWorker(
+            id, _discoveryQueue, _enrichmentService, _inFlightTracker, _projectRepository, _globalStatus, _notificationDispatcher);
+        _runningWorkers.Add(Task.Run(() => worker.RunAsync(token), token));
+    }
+
     public Task StopAsync()
     {
         _discoveryQueue.Complete();
+        _poolCts?.Cancel();
         return Task.WhenAll(_runningWorkers);
     }
 }

@@ -27,6 +27,7 @@
             --setting-query: #8B5CF6;     /* violet — targeting/filtering */
             --setting-assets: #F97316;    /* orange — files/downloads */
             --setting-grouping: #14B8A6;  /* teal — notifications/messaging */
+            --setting-rate: #EC4899;      /* pink — rate limiting & safety */
         }
         html.dark {
             --accent-primary: #5CA8DE;
@@ -35,6 +36,7 @@
             --setting-query: #A78BFA;
             --setting-assets: #FB923C;
             --setting-grouping: #2DD4BF;
+            --setting-rate: #F472B6;
         }
 
         body { transition: background-color 0.2s ease, color 0.2s ease; }
@@ -138,7 +140,7 @@
 <!-- v2 note -->
 <div class="flex items-start gap-3 bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-xl px-4 py-3 text-sm text-blue-700 dark:text-blue-300">
 <i class="fa-solid fa-circle-info mt-0.5 shrink-0"></i>
-<p>الإعدادات الموسّعة في v2 — تحكّم بالفاصل الزمني للفحص، استعلام الفحص، تنزيل المرفقات، وتجميع التنبيهات. التغييرات تُطبَّق من دورة الفحص التالية.</p>
+<p>الإعدادات الموسّعة في v1 و v2 — تحكّم بالفاصل الزمني للفحص، حد الطلبات، معدل التوازي، خيارات الأمان، استعلام الفحص، تنزيل المرفقات، وتجميع التنبيهات. التغييرات تُطبَّق من دورة الفحص التالية.</p>
 </div>
 
 <!-- poll_interval card -->
@@ -153,7 +155,7 @@
 
 <div class="px-6 py-5 space-y-4">
 <div>
-<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2" for="poll-interval-select">poll_interval</label>
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2" for="poll-interval-select">الفاصل الزمني للفحص (فترة التحديث)</label>
 <select id="poll-interval-select" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-1 focus:ring-indigo-500 transition-shadow">
 <option value="15">كل 15 ثانية</option>
 <option value="30" selected="">كل 30 ثانية (موصى به)</option>
@@ -186,7 +188,7 @@
 
 <div class="px-6 py-5 space-y-4">
 <div>
-<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2" for="query-params-input">query_params</label>
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2" for="query-params-input">معاملات استعلام الفحص</label>
 <div class="flex items-center rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 overflow-hidden focus-within:ring-1 transition-shadow" style="--tw-ring-color: var(--setting-query);" dir="ltr">
 <span class="px-3 py-2.5 text-xs text-slate-400 dark:text-slate-500 border-r border-slate-200 dark:border-slate-700 shrink-0 font-mono select-none">mostaql.com/projects</span>
 <input id="query-params-input" type="text" placeholder="category=development&amp;sort=latest" class="flex-1 min-w-0 bg-transparent px-3 py-2.5 text-sm font-mono text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none" dir="ltr"/>
@@ -254,15 +256,95 @@
 </button>
 </div>
 
-<div class="px-6 py-4 space-y-3">
+<div class="px-6 py-4 space-y-4">
 <p class="text-xs text-slate-400 dark:text-slate-500 flex items-start gap-1.5">
 <i class="fa-regular fa-circle-question mt-0.5 shrink-0"></i>
 <span>مفيد بشكل خاص عند تراكم عدد كبير من المشاريع (مثلًا بعد إعادة تشغيل التطبيق بعد أيام) — بدل عشرات التنبيهات المتتالية، يظهر ملخص واحد أثناء تفريغ الطابور.</span>
 </p>
+
+<!-- notification_grouping_mode -->
+<div>
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2" for="notification-grouping-mode-select">طريقة تجميع الإشعارات (notification_grouping_mode)</label>
+<select id="notification-grouping-mode-select" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500 dark:focus:border-teal-400 focus:ring-1 focus:ring-teal-500 transition-shadow">
+<option value="end_of_minute">نهاية الدقيقة الحالية (end_of_minute)</option>
+<option value="after_minutes">بعد دقائق محددة (after_minutes)</option>
+<option value="after_count">بعد بلوغ عدد محدد (after_count)</option>
+</select>
+</div>
+
+<!-- notification_grouping_param -->
+<div id="notification-grouping-param-container">
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2" for="notification-grouping-param-input">معامل تجميع الإشعارات (notification_grouping_param)</label>
+<input id="notification-grouping-param-input" type="number" min="1" max="100" value="5" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500 dark:focus:border-teal-400 focus:ring-1 focus:ring-teal-500 transition-shadow"/>
+<p class="text-xs text-slate-400 dark:text-slate-500 mt-1">القيمة الرقمية المطلوبة لـ after_minutes أو after_count (غير مستخدمة مع end_of_minute).</p>
+</div>
+
 <div id="notification-grouping-status" class="hidden items-center gap-2 text-xs rounded-md px-3 py-2" style="background-color: color-mix(in srgb, var(--setting-grouping) 10%, transparent); color: var(--setting-grouping);">
 <i class="fa-solid fa-circle-check"></i>
 <span id="notification-grouping-status-text"></span>
 </div>
+</div>
+
+<div class="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+<span id="notification-grouping-save-status" class="text-xs text-slate-400 dark:text-slate-500"></span>
+<button onclick="saveNotificationGrouping()" class="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors" style="background-color: var(--setting-grouping);">حفظ</button>
+</div>
+</div>
+
+<!-- rate_limiting & concurrency card (v1/v2 core) -->
+<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+<div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+<h2 class="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+<i class="fa-solid fa-gauge-high text-sm" style="color: var(--setting-rate);"></i>
+                        حدود الطلبات ومعدل التوازي (Rate Limiting & Concurrency)
+                    </h2>
+<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">ضبط حد الطلبات في الدقيقة، توازي إثراء التفاصيل، وخيارات الأمان للمتطفلين أو الحظر</p>
+</div>
+
+<div class="px-6 py-5 space-y-5">
+<!-- max_requests_per_minute -->
+<div>
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2" for="max-requests-input">الحد الأقصى للطلبات في الدقيقة</label>
+<div class="flex items-center gap-3">
+<input id="max-requests-input" type="number" min="1" max="60" value="2" class="w-32 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 transition-shadow" style="--tw-ring-color: var(--setting-rate);"/>
+<span class="text-xs text-slate-500 dark:text-slate-400">طلب / دقيقة (الافتراضي: 2، مشترك بين الفحص والإثراء)</span>
+</div>
+<p class="text-xs text-slate-400 dark:text-slate-500 mt-2 flex items-start gap-1.5">
+<i class="fa-regular fa-circle-question mt-0.5 shrink-0"></i>
+<span>ميزانية مشتركة عبر فحص القائمة وعمليات إثراء وتنزيل تفاصيل المشاريع.</span>
+</p>
+</div>
+
+<!-- max_concurrent_detail_fetches -->
+<div>
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2" for="max-concurrent-select">الحد الأقصى للتوازي في جلب التفاصيل</label>
+<select id="max-concurrent-select" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 transition-shadow" style="--tw-ring-color: var(--setting-rate);">
+<option value="1">1 (سلس ومحافظ جداً)</option>
+<option value="2" selected>2 (موصى به في v1)</option>
+<option value="3">3</option>
+<option value="5">5 (سريع)</option>
+</select>
+<p class="text-xs text-slate-400 dark:text-slate-500 mt-2 flex items-start gap-1.5">
+<i class="fa-regular fa-circle-question mt-0.5 shrink-0"></i>
+<span>حجم عامل توازي طابور إثراء التفاصيل (Worker pool size).</span>
+</p>
+</div>
+
+<!-- safe_requests toggle -->
+<div class="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+<div>
+<span class="block text-sm font-medium text-slate-700 dark:text-slate-300">الطلبات الآمنة (الحد الأدنى للفواصل الزمنية)</span>
+<p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">فرض الحد الأدنى للفواصل الزمنية (ثانية واحدة بين الطلبات) لتفادي الحظر.</p>
+</div>
+<button id="safe-requests-toggle" class="w-10 h-6 rounded-full relative cursor-pointer focus:outline-none transition-colors shrink-0" style="background-color: var(--setting-rate);" aria-pressed="true" aria-label="تبديل الطلبات الآمنة" onclick="toggleSafeRequests()">
+<div id="safe-requests-knob" class="w-4 h-4 bg-white rounded-full absolute top-1 shadow-sm transition-all" style="right: 1.25rem;"></div>
+</button>
+</div>
+</div>
+
+<div class="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+<span id="rate-save-status" class="text-xs text-slate-400 dark:text-slate-500"></span>
+<button onclick="saveRateSettings()" class="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors" style="background-color: var(--setting-rate);">حفظ إعدادات الأداء والأمان</button>
 </div>
 </div>
 
@@ -455,8 +537,72 @@
         try {
             const saved = localStorage.getItem('mostaqlk-notification-grouping');
             notificationGrouping = saved === null ? true : saved === 'true';
+            const savedMode = localStorage.getItem('mostaqlk-notification-grouping-mode');
+            if (savedMode) document.getElementById('notification-grouping-mode-select').value = savedMode;
+            const savedParam = localStorage.getItem('mostaqlk-notification-grouping-param');
+            if (savedParam) document.getElementById('notification-grouping-param-input').value = savedParam;
         } catch (e) { /* localStorage unavailable */ }
         applyNotificationGroupingUI(notificationGrouping);
+    })();
+
+    function saveNotificationGrouping() {
+        const mode = document.getElementById('notification-grouping-mode-select').value;
+        const param = document.getElementById('notification-grouping-param-input').value;
+        try {
+            localStorage.setItem('mostaqlk-notification-grouping', String(notificationGrouping));
+            localStorage.setItem('mostaqlk-notification-grouping-mode', mode);
+            localStorage.setItem('mostaqlk-notification-grouping-param', param);
+        } catch (e) { /* localStorage unavailable */ }
+        const statusEl = document.getElementById('notification-grouping-save-status');
+        statusEl.textContent = 'تم الحفظ بنجاح';
+        setTimeout(() => { statusEl.textContent = ''; }, 3000);
+    }
+
+    // rate_limiting & concurrency settings persistence
+    let safeRequests = true;
+    const safeRequestsToggle = document.getElementById('safe-requests-toggle');
+    const safeRequestsKnob = document.getElementById('safe-requests-knob');
+
+    function applySafeRequestsUI(isOn) {
+        safeRequestsToggle.setAttribute('aria-pressed', String(isOn));
+        safeRequestsKnob.style.right = isOn ? '1.25rem' : '0.25rem';
+        if (isOn) {
+            safeRequestsToggle.style.backgroundColor = 'var(--setting-rate)';
+            safeRequestsToggle.classList.remove('bg-slate-300', 'dark:bg-slate-700');
+        } else {
+            safeRequestsToggle.style.backgroundColor = '';
+            safeRequestsToggle.classList.add('bg-slate-300', 'dark:bg-slate-700');
+        }
+    }
+
+    function toggleSafeRequests() {
+        safeRequests = !safeRequests;
+        applySafeRequestsUI(safeRequests);
+    }
+
+    function saveRateSettings() {
+        const maxReq = document.getElementById('max-requests-input').value;
+        const maxConc = document.getElementById('max-concurrent-select').value;
+        try {
+            localStorage.setItem('mostaqlk-max-requests-per-minute', maxReq);
+            localStorage.setItem('mostaqlk-max-concurrent-detail-fetches', maxConc);
+            localStorage.setItem('mostaqlk-safe-requests', String(safeRequests));
+        } catch (e) { /* localStorage unavailable */ }
+        const statusEl = document.getElementById('rate-save-status');
+        statusEl.textContent = 'تم الحفظ — سيُطبَّق فوراً';
+        setTimeout(() => { statusEl.textContent = ''; }, 3000);
+    }
+
+    (function loadRateSettings() {
+        try {
+            const savedReq = localStorage.getItem('mostaqlk-max-requests-per-minute');
+            if (savedReq) document.getElementById('max-requests-input').value = savedReq;
+            const savedConc = localStorage.getItem('mostaqlk-max-concurrent-detail-fetches');
+            if (savedConc) document.getElementById('max-concurrent-select').value = savedConc;
+            const savedSafe = localStorage.getItem('mostaqlk-safe-requests');
+            safeRequests = savedSafe === null ? true : savedSafe === 'true';
+        } catch (e) { /* localStorage unavailable */ }
+        applySafeRequestsUI(safeRequests);
     })();
 </script>
 </body></html>

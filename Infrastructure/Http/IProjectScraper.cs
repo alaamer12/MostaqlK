@@ -9,7 +9,7 @@ namespace MostaqlK.Infrastructure.Http;
 /// </summary>
 public interface IProjectScraper
 {
-    Task<Result<IReadOnlyList<ProjectSummary>>> FetchListingAsync(CancellationToken cancellationToken = default);
+    Task<Result<IReadOnlyList<ProjectSummary>>> FetchListingAsync(string? queryParams = null, CancellationToken cancellationToken = default);
 
     Task<Result<ProjectDetails>> FetchProjectDetailsAsync(long projectId, CancellationToken cancellationToken = default);
 }

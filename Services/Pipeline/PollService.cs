@@ -37,6 +37,12 @@ public sealed class PollService : IPollService
     /// <summary>Whether the periodic loop is currently paused (manually, via the tray icon).</summary>
     public bool IsPaused => _isPaused;
 
+    /// <summary>
+    /// Optional query parameters (e.g. category=development&amp;sort=latest) appended to
+    /// the mostaql.com/projects URL. Settable at runtime.
+    /// </summary>
+    public string QueryParams { get; set; } = string.Empty;
+
     public PollService(
         IProjectScraper scraper,
         DiffEngine.DiffEngine diffEngine,
@@ -132,7 +138,7 @@ public sealed class PollService : IPollService
             await _rateLimiter.WaitForTokenAsync(cancellationToken);
 
             _globalStatus.DiscoveryProgress = 0.3;
-            var listingResult = await _scraper.FetchListingAsync(cancellationToken);
+            var listingResult = await _scraper.FetchListingAsync(QueryParams, cancellationToken);
 
             // The temporary debug delay that used to sit here has been removed: it only ever
             // delayed the *listing* fetch, never the enrichment workers' detail fetches, which is

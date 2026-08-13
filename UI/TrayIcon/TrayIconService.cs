@@ -50,6 +50,13 @@ public class TrayIconService
     public event Action<TrayIconState>? StateChanged;
 
     /// <summary>
+    /// Raised whenever the "Open" action runs (sidebar/tray menu/tray click), so the native
+    /// window host can restore visibility if the window is currently hidden to the tray (see
+    /// <c>CloseBehaviorService.CloseAction.MinimizeToTray</c>).
+    /// </summary>
+    public event Action? RestoreRequested;
+
+    /// <summary>
     /// The right-click menu, in display order: Open window, Pause/Resume polling, Check now,
     /// Recent notifications, Settings, Quit.
     /// </summary>
@@ -104,8 +111,10 @@ public class TrayIconService
     {
         // Bring the main window back to the foreground rather than exiting the process on
         // close, per spec (see system-components.md § 13.1). The actual native
-        // activate/restore-from-tray call lives in TrayIconNativeHost (Windows-only interop);
-        // this just makes sure the app navigates back to the projects feed.
+        // activate/restore-from-tray call lives in MauiProgram's Windows lifecycle wiring
+        // (subscribed to RestoreRequested); this just makes sure the app navigates back to the
+        // projects feed.
+        RestoreRequested?.Invoke();
         MainThread.BeginInvokeOnMainThread(() => Shell.Current?.GoToAsync($"//{nameof(MainWindowPage)}"));
     }
 

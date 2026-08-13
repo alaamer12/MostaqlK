@@ -36,4 +36,10 @@ public interface IPollService
 
     /// <summary>Forces an immediate poll cycle outside of the regular timer, without waiting for the next tick.</summary>
     void RequestCheckNow();
+
+    /// <summary>
+    /// Optional query parameters (e.g. category=development&amp;sort=latest) appended to
+    /// the mostaql.com/projects URL. Settable at runtime.
+    /// </summary>
+    string QueryParams { get; set; }
 }
