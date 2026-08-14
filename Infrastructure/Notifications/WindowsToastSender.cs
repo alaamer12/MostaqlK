@@ -1,34 +1,34 @@
-using Microsoft.Windows.AppNotifications;
-using Microsoft.Windows.AppNotifications.Builder;
 using MostaqlK.Core;
 using MostaqlK.Models;
+using MostaqlK.Services;
 using MostaqlK.Services.Diagnostics;
+using Microsoft.Windows.AppNotifications;
 
 namespace MostaqlK.Infrastructure.Notifications;
 
 /// <summary>
-/// Sends Windows toast notifications for newly discovered/enriched projects.
-/// Windows-specific by nature; Android will get its own implementation in V3.
-/// Uses the Windows App SDK's <see cref="AppNotificationManager"/> (the modern, native toast API
-/// for WinUI3 apps), which this project already brings in transitively via
-/// <c>MauiWinUIApplication</c> — no extra package reference needed.
+/// Dual-variation toast handler that orchestrates between modern Windows App SDK
+/// notifications and robust WinRT fallbacks.
+/// Part of the "winToast-handler" logic mapping.
 /// </summary>
 public sealed class WindowsToastSender
 {
-    private static readonly object RegisterLock = new();
-    private static bool _registered;
+    private static readonly object InitializeLock = new();
+    private static IToastVariation? _activeVariation;
+    private static bool _initialized;
+
+    private readonly AppLifecycleService _appLifecycleService;
+
+    public WindowsToastSender(AppLifecycleService appLifecycleService)
+    {
+        _appLifecycleService = appLifecycleService;
+    }
 
     /// <summary>
-    /// FIX ("not a single notification, ever"): registration used to happen lazily, the first
-    /// time <see cref="SendAsync"/> ran - which for the default EndOfMinute grouping mode could
-    /// be minutes after launch, on a background worker thread, and (per Microsoft's documented
-    /// unpackaged-app flow) *after* the app could have already asked for/handled its own
-    /// activation args. Call this once, as early as possible in the app's startup path (see
-    /// <c>App.xaml.cs</c>'s constructor), so the AUMID + Start Menu shortcut + COM registration
-    /// are in place well before the first real toast is ever attempted. Still safe/idempotent to
-    /// call again from <see cref="SendAsync"/> itself in case startup registration is ever skipped.
+    /// Ensures the appropriate notification backend is selected and registered.
+    /// Performs a one-time check on startup to see if Windows App SDK is supported.
     /// </summary>
-    public static void EnsureRegisteredEagerly() => EnsureRegistered();
+    public static void EnsureRegisteredEagerly() => Initialize();
 
     [ErrorOutcome(ErrorOutcome.Handled, Label = "Toast delivery failure surfaced as Result<bool>.Err")]
     public Task<Result<bool>> SendAsync(IReadOnlyList<ProjectSummary> projects, CancellationToken cancellationToken = default)
@@ -38,151 +38,59 @@ public sealed class WindowsToastSender
             return Task.FromResult(Result<bool>.Ok(true));
         }
 
-        try
+        Initialize();
+
+        var isInBackground = _appLifecycleService.IsInBackground;
+        var isReady = _appLifecycleService.IsReadyToNotify;
+
+        if (!isReady || !isInBackground)
         {
-            EnsureRegistered();
-
-            // FIX ("not a single notification, ever"): Show() used to run unconditionally even
-            // when Windows itself has notifications turned off for this app/user/machine, in
-            // which case Show() neither throws nor returns a failure - it just no-ops. That made
-            // "disabled" and "delivered" indistinguishable from this class's point of view. Now
-            // logged explicitly (via the InteractionLogger fix that stopped this from being
-            // compiled out of Release builds) so a disabled setting is finally diagnosable
-            // instead of looking identical to a silent bug.
-            var setting = AppNotificationManager.Default.Setting;
-            if (setting != AppNotificationSetting.Enabled)
-            {
-                InteractionLogger.Mark("WindowsToastSender.SendAsync", "B", new { Reason = "notifications-disabled", Setting = setting.ToString(), Count = projects.Count });
-                return Task.FromResult(Result<bool>.Err(NotificationErrors.ToastDeliveryFailed(
-                    new InvalidOperationException($"App notifications are disabled (AppNotificationManager.Default.Setting = {setting})."))));
-            }
-
-            var builder = projects.Count == 1
-                ? BuildIndividualToast(projects[0])
-                : BuildGroupedToast(projects);
-
-            AppNotificationManager.Default.Show(builder.BuildNotification());
-
-            InteractionLogger.Mark("WindowsToastSender.SendAsync", "A", new { Count = projects.Count });
-
+            InteractionLogger.Mark("WindowsToastSender.SendAsync", "C", new 
+            { 
+                Reason = "skip-not-in-background-or-not-ready", 
+                IsReady = isReady, 
+                IsInBackground = isInBackground,
+                Count = projects.Count 
+            });
             return Task.FromResult(Result<bool>.Ok(true));
         }
-        catch (Exception ex)
-        {
-            // Surfaced clearly per the "no silently swallowed toast failures" requirement — the
-            // caller (NotificationDispatcher.HandleFlush) fires this off without awaiting, so this
-            // Fault log is the only place a failed toast delivery becomes visible.
-            InteractionLogger.Fault("WindowsToastSender.SendAsync", ex, new { Count = projects.Count });
-            return Task.FromResult(Result<bool>.Err(NotificationErrors.ToastDeliveryFailed(ex)));
-        }
+
+        return _activeVariation!.SendAsync(projects);
     }
 
-    private static void EnsureRegistered()
+    private static void Initialize()
     {
-        if (_registered)
-        {
-            return;
-        }
+        if (_initialized) return;
 
-        lock (RegisterLock)
+        lock (InitializeLock)
         {
-            if (_registered)
+            if (_initialized) return;
+
+            // Attempt to use WinAppSdk first. We check IsSupported and Setting.
+            // If Setting is Unsupported, it means the Singleton package is missing/broken.
+            try
             {
-                return;
+                var sdkSetting = AppNotificationManager.Default.Setting;
+                if (sdkSetting != AppNotificationSetting.Unsupported)
+                {
+                    InteractionLogger.Mark("WindowsToastSender.Initialize", "A", new { Backend = "WinAppSdk", Setting = sdkSetting.ToString() });
+                    _activeVariation = new WinAppSdkVariation();
+                }
+                else
+                {
+                    InteractionLogger.Mark("WindowsToastSender.Initialize", "B", new { Backend = "WinRt", Reason = "WinAppSdkUnsupported" });
+                    _activeVariation = new WinRtVariation();
+                }
+            }
+            catch (Exception ex)
+            {
+                // Catching initialization failures (e.g. missing DLLs) to ensure fallback.
+                InteractionLogger.Fault("WindowsToastSender.Initialize", ex, new { BackendFallback = "WinRt" });
+                _activeVariation = new WinRtVariation();
             }
 
-            // Unpackaged (WindowsPackageType=None) apps have no package identity, so
-            // AppNotificationManager.Register() alone registers only the COM activation server —
-            // without an explicit AUMID + a Start Menu shortcut carrying it, Windows silently
-            // drops the toast instead of showing it. See ToastAumidRegistrar for details.
-            ToastAumidRegistrar.EnsureRegistered();
-
-            // Per Microsoft's documented app-notifications flow, NotificationInvoked must be
-            // subscribed BEFORE calling Register() - this was previously never subscribed at all,
-            // so a clicked toast had no in-process handler to reactivate/focus the window.
-            AppNotificationManager.Default.NotificationInvoked += OnNotificationInvoked;
-            AppNotificationManager.Default.Register();
-            _registered = true;
-
-            InteractionLogger.Mark("WindowsToastSender.EnsureRegistered", "A", new { Setting = AppNotificationManager.Default.Setting.ToString() });
+            _activeVariation.EnsureRegistered();
+            _initialized = true;
         }
-    }
-
-    /// <summary>
-    /// Brings the window back to the foreground when the user clicks a delivered toast. Windows
-    /// launches/reactivates the process and raises this on the notification's own thread; no
-    /// deep-link routing yet (see the TODOs on <see cref="BuildIndividualToast"/>/
-    /// <see cref="BuildGroupedToast"/> for the args already carried for that future step).
-    /// </summary>
-    private static void OnNotificationInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args)
-    {
-        InteractionLogger.Mark("WindowsToastSender.OnNotificationInvoked", "A", new { Arguments = args.Arguments });
-    }
-
-    /// <summary>
-    /// Per system-components.md #12: title, owner name, time posted, proposal count (budget/category
-    /// are added once <see cref="ProjectSummary"/> carries them through from enrichment).
-    /// </summary>
-    private static AppNotificationBuilder BuildIndividualToast(ProjectSummary project)
-    {
-        var builder = new AppNotificationBuilder()
-            .AddText(project.Title)
-            .AddText(BuildIndividualSubtitle(project))
-            // TODO: deep-link into the main window scrolled/filtered to this project once
-            // Features/UI routing exists (a later step) — for now the argument is carried on the
-            // notification so that hook can be wired without touching this class again.
-            .AddArgument("projectId", project.ProjectId.ToString());
-
-        if (!string.IsNullOrWhiteSpace(project.Url))
-        {
-            builder.AddArgument("url", project.Url);
-        }
-
-        return builder;
-    }
-
-    private static string BuildIndividualSubtitle(ProjectSummary project)
-    {
-        var parts = new List<string>();
-
-        if (!string.IsNullOrWhiteSpace(project.ClientName))
-        {
-            parts.Add(project.ClientName);
-        }
-
-        if (!string.IsNullOrWhiteSpace(project.PostedRelative))
-        {
-            parts.Add(project.PostedRelative);
-        }
-
-        if (project.ProposalCount > 0)
-        {
-            parts.Add($"{project.ProposalCount} عرض");
-        }
-
-        return string.Join(" · ", parts);
-    }
-
-    /// <summary>
-    /// Per configuration-reference.md § Notification grouping / ui-ux-design.md § Notification
-    /// grouping (UX side): "There are N new projects — check them here", clicking opens the
-    /// window pre-filtered to unread.
-    /// </summary>
-    private static AppNotificationBuilder BuildGroupedToast(IReadOnlyList<ProjectSummary> projects)
-    {
-        var builder = new AppNotificationBuilder()
-            .AddText($"يوجد {projects.Count} مشاريع جديدة — تفقدها هنا")
-            // TODO: deep-link into the unread-filtered (`is_read = false`) project feed once
-            // Features/UI routing exists — see the individual-toast TODO above for the same hook.
-            .AddArgument("filter", "unread");
-
-        // AppNotificationBuilder caps a toast at 3 text elements total; the header above already
-        // uses one, so at most 2 project titles can be listed alongside it.
-        foreach (var project in projects.Take(2))
-        {
-            builder.AddText(project.Title);
-        }
-
-        return builder;
     }
 }

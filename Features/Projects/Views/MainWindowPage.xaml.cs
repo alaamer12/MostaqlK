@@ -7,12 +7,17 @@ public partial class MainWindowPage : ContentPage
 {
     private readonly ProjectFeedViewModel _viewModel;
     private readonly NotificationCenterViewModel _notificationCenterViewModel;
+    private readonly Services.AppLifecycleService _appLifecycleService;
 
-    public MainWindowPage(ProjectFeedViewModel viewModel, NotificationCenterViewModel notificationCenterViewModel)
+    public MainWindowPage(
+        ProjectFeedViewModel viewModel, 
+        NotificationCenterViewModel notificationCenterViewModel,
+        Services.AppLifecycleService appLifecycleService)
     {
         InitializeComponent();
         _viewModel = viewModel;
         _notificationCenterViewModel = notificationCenterViewModel;
+        _appLifecycleService = appLifecycleService;
         BindingContext = _viewModel;
         NotificationsFlyout.BindingContext = notificationCenterViewModel;
         NotificationsFlyout.CloseRequested += OnNotificationsFlyoutCloseRequested;
@@ -51,6 +56,7 @@ public partial class MainWindowPage : ContentPage
     {
         base.OnAppearing();
         await _viewModel.LoadAsync();
+        _appLifecycleService.IsReadyToNotify = true;
     }
 
     /// <summary>

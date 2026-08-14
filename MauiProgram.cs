@@ -250,6 +250,7 @@ public static class MauiProgram
 
 		// Global Status
 		builder.Services.AddSingleton<GlobalAppStatusService>();
+		builder.Services.AddSingleton<AppLifecycleService>();
 
 		// Features: Projects
 		builder.Services.AddTransient<ProjectFeedViewModel>();
@@ -310,6 +311,7 @@ public static class MauiProgram
 
 					var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
 					var trayIconService = appRef.Services.GetRequiredService<TrayIconService>();
+					var appLifecycleService = appRef.Services.GetRequiredService<AppLifecycleService>();
 					nativeHost = new TrayIconNativeHost(trayIconService, hwnd);
 
 					var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
@@ -323,6 +325,7 @@ public static class MauiProgram
 						{
 							appWindow.Show();
 							window.Activate();
+							appLifecycleService.IsInBackground = false;
 						});
 
 					// Avast-style "keep running in background": the X button no longer closes the
@@ -383,6 +386,7 @@ public static class MauiProgram
 							// (PollService/WorkerPool) keeps running untouched and the tray icon
 							// stays put; "Open" (tray menu/click) restores it via RestoreRequested.
 							appWindow.Hide();
+							appLifecycleService.IsInBackground = true;
 						}
 					};
 				})

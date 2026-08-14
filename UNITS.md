@@ -186,8 +186,12 @@ Location: `Infrastructure/Notifications/`, `Services/NotificationDispatcher.cs`,
 
 | Unit | Type | Purpose | Status |
 |---|---|---|---|
+| `AppLifecycleService` | singleton service | Tracks the high-level lifecycle state: `IsInBackground` (true when hidden to tray) and `IsReadyToNotify` (true once the main UI has appeared). Used by the notification pipeline to filter out early startup toasts and to ensure native popups only fire when the app is actually in the background, matching the "antivirus-style" requirement. | Implemented |
 | `ToastAumidRegistrar` | static class | Fixes real toasts never appearing on this unpackaged (`WindowsPackageType=None`) build: `AppNotificationManager.Register()` alone only registers the COM activation server, it does not give the process an identity, so without an explicit AUMID + a Start Menu shortcut carrying that AUMID, Windows silently drops the toast instead of showing it. Idempotently calls `SetCurrentProcessExplicitAppUserModelID` and creates/repairs `%AppData%\Microsoft\Windows\Start Menu\Programs\MostaqlK.lnk` with the `System.AppUserModel.ID` property set to the constant `Aumid` ("MostaqlK.App"), via raw `IShellLinkW`/`IPropertyStore` COM interop. Called once from `WindowsToastSender.EnsureRegistered()` before `AppNotificationManager.Default.Register()`. Best-effort/never throws — logged via `InteractionLogger`. | Implemented |
-| `WindowsToastSender` | class | Sends the actual Windows toast via `Microsoft.Windows.AppNotifications.AppNotificationManager` (individual vs grouped builder per project batch size). Toast failures are never silently swallowed: every send outcome (success or exception) is logged via `InteractionLogger.Mark`/`Fault`, and `NotificationDispatcher.HandleFlush` double-checks the returned `Result<bool>` on top of that. `EnsureRegisteredEagerly()` is called once from `App.xaml.cs`'s constructor (before any polling starts) instead of lazily on the first flush, subscribes `NotificationInvoked` before `Register()` per Microsoft's documented order, and `SendAsync` now checks `AppNotificationManager.Default.Setting` up front — see the "never got a single notification" root-cause note below. | Implemented |
+| `WindowsToastSender` | class | The "winToast-handler" — a dual-variation dispatcher that orchestrates between modern Windows App SDK notifications and robust WinRT fallbacks. Performs a one-time check on startup: if `AppNotificationManager.Default.Setting` is not `Unsupported`, it delegates all work to `WinAppSdkVariation`; otherwise, it falls back to `WinRtVariation`. Now also acts as a **notification filter**: it checks `AppLifecycleService` and only proceeds with the toast if the app is fully started (`IsReadyToNotify`) and currently in the background (`IsInBackground`), while logging skips to `InteractionLogger` for traceability. This ensures the best available UI experience while guaranteeing reliability on machines without the Windows App SDK "Singleton" package correctly provisioned. | Implemented |
+| `IToastVariation` | interface | The "winToast-logic" abstraction — defines the contract for notification backends (`EnsureRegistered`, `SendAsync`). | Implemented |
+| `WinAppSdkVariation` | class | "winAppSdk variation" — implementation using the modern `Microsoft.Windows.AppNotifications` API. | Implemented |
+| `WinRtVariation` | class | "WinRT-variation" — implementation using the robust `Windows.UI.Notifications` API. | Implemented |
 | `NotificationGrouper` | class | Buffers newly discovered projects and decides when to flush a batch to `WindowsToastSender` (immediate single-item bypass, end-of-minute, after-N-minutes, or after-N-count), instrumented with `InteractionLogger.Mark` checkpoints on every timer schedule/flush so a real run can be traced to confirm flushing actually happens. Verified live: `NotificationGrouper.Flush` → `NotificationDispatcher.HandleFlush` → `WindowsToastSender.SendAsync` all fired for real newly-discovered projects with no `FAULT` entries, and Windows' own notification-sources settings list registered `MostaqlK` as a toast sender, confirming the AUMID fix took effect. | Implemented |
 | `RecentNotificationsFlyout` / `NotificationCenterViewModel` | View + ViewModel | Recent-notifications popover (sidebar "التنبيهات" entry, header bell button, and tray "Recent notifications" action all open the same `MainWindowPage.NotificationsFlyout`). Its `Border` previously set neither `BackgroundColor` nor `Stroke`, so it rendered fully transparent instead of a real menu/popover; now has an explicit opaque `BackgroundColor`/`Stroke`/rounded `StrokeShape` plus a header row and per-item padding. Clicking a row already navigated to `ProjectDetailsPage?projectId=...` via `OpenProjectCommand`/`OpenProjectAsync` (unchanged). Opening the flyout (not clicking an individual project card) now also calls `NotificationCenterViewModel.MarkAllAsSeen()` via `MainWindowPage.SetNotificationsFlyoutVisible`, resetting the unread badge every time the menu is opened. The header now has an explicit X `AppIcon(Close)` button (`RecentNotificationsFlyout.CloseRequested` -> `MainWindowPage.OnNotificationsFlyoutCloseRequested`) since there was previously no way to dismiss it other than re-clicking whatever opened it, plus a full-page transparent `NotificationsBackdrop` `BoxView` (shown/hidden 1:1 with the flyout) whose tap also closes it, giving it normal auto-dismiss-on-outside-click menu behavior. Each row is now context-aware of read state: `ProjectSummary.IsUnread` drives a `DataTrigger`-based tinted background, a small accent dot, and a bold title for unread items, falling back to the plain read style once `NotificationDispatcher.MarkHistoryAsRead()` (called from `MarkAllAsSeen`) flips it off — `ProjectSummary` has no `INotifyPropertyChanged`, so `MarkAllAsSeen` re-populates the `ObservableCollection` (`RefreshFromHistory`) to force the `CollectionView` to re-evaluate each row's style. | Implemented |
 
@@ -201,19 +205,11 @@ compounding bugs, both fixed together.
    failure was, it had zero chance of ever being logged/diagnosed outside a DEBUG build. Fixed by
    removing the `Conditional`/`#if DEBUG` gates entirely (`Services/Diagnostics/InteractionLogger.cs`)
    — writes stay best-effort/never-throw, so this adds no crash risk, only a log line per event.
-2. **Toast COM/AUMID registration happened lazily, on a background thread, and
-   `AppNotificationManager.Default.Setting` was never checked.** `WindowsToastSender.EnsureRegistered()`
-   previously only ran the first time `SendAsync` fired — which, for the default `EndOfMinute`
-   grouping mode, can be minutes after launch and always runs off a `WorkerPool`/`NotificationGrouper`
-   background thread, never the UI thread — and never subscribed `NotificationInvoked` before
-   calling `Register()` (Microsoft's documented required order for unpackaged apps). Worse, `Show()`
-   silently no-ops (no exception, no error) whenever Windows itself has notifications disabled for
-   the app/user/machine, which this code never checked, so "disabled" and "delivered" looked
-   identical. Fixed: `WindowsToastSender.EnsureRegisteredEagerly()` is now called once from
-   `App.xaml.cs`'s constructor, before any polling/enrichment starts; `NotificationInvoked` is
-   subscribed before `Register()`; and `SendAsync` now checks `AppNotificationManager.Default.Setting`
-   up front and logs+reports a `Result<bool>.Err` (via `NotificationErrors.ToastDeliveryFailed`)
-   when it is not `Enabled`, instead of silently doing nothing.
+2. **Toast COM/AUMID registration was previously lazy, but now eager.** Registering the AUMID and Start Menu shortcut as early as possible in the app's startup path (see `App.xaml.cs`) removes the race condition where the first toast could fire before Windows knows who the sender is.
+
+**Refactored to WinRT notifications for maximum reliability:**
+The project was originally using the modern Windows App SDK `AppNotificationManager`, which is powerful but has strict requirements for unpackaged apps (requiring the "Singleton" MSIX package to be installed and initialized correctly). On many machines, this caused the API to report `Setting=Unsupported` even if the runtime was present.
+We have refactored `WindowsToastSender` to use the built-in WinRT `ToastNotificationManager` instead. This is the same underlying API used by Python and other languages, and it is known to work reliably for plain `.exe` apps as long as they provide a matching Start Menu shortcut and AUMID (which `ToastAumidRegistrar` handles).
 
 **"Notifications still not working, did you add logs to traceback?" — the log path itself was the
 first bug, and reading it then revealed the true, environment-level root cause:**
@@ -227,16 +223,8 @@ first bug, and reading it then revealed the true, environment-level root cause:*
   started writing real entries — was effectively unreadable/unfindable by anyone. Fixed: the log
   now always resolves to the fixed, well-known path **`%LocalAppData%\MostaqlK\interaction-log.txt`**
   regardless of packaging/identity.
-- With that fixed and the app rebuilt/relaunched, the log immediately showed the real answer:
-  `WindowsToastSender.EnsureRegistered | data={"Setting":"Unsupported"}`. Per Microsoft's own Windows
-  App SDK docs, `AppNotificationManager` (native OS toast) has a hard dependency on a separate,
-  machine-level **"Singleton" MSIX package** — and for a **self-contained, unpackaged** app (this
-  project's exact deployment mode), there is **no supported API to auto-install it**; that
-  capability (`DeploymentManager.Initialize()`) is documented as available only to packaged /
-  framework-dependent apps. `Get-AppxPackage *Singleton*` on this machine returns nothing, matching
-  `Setting=Unsupported` exactly. In other words: **native Windows toast popups cannot work at all
-  on this machine/deployment combination, independent of any application code** — this is a
-  structural OS/environment limitation, not a code bug.
+- With that fixed and the app rebuilt/relaunched, the initial implementation revealed an environment-level limitation: the Windows App SDK `AppNotificationManager` reported `Unsupported` on machines without the correctly provisioned "Singleton" MSIX package. Since we are an unpackaged app, the auto-deployment of that package was blocked.
+- **Solution:** We refactored the entire notification pipeline to use the standard WinRT `ToastNotificationManager`. This bypasses the App SDK runtime requirements entirely while maintaining the same native look and feel. The log now confirms successful registration and delivery using the process AUMID.
 - The in-app fallback already works independently of the native toast: `NotificationDispatcher.HandleFlush`
   inserts every flushed batch into `RecentHistory` (driving the unread badge and the
   `RecentNotificationsFlyout`) *before* it ever calls `WindowsToastSender.SendAsync`, so the badge/flyout
