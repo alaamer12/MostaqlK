@@ -124,17 +124,18 @@ public static class InteractionLogger
 
     private static string ResolveLogFilePath()
     {
-        string directory;
-        try
-        {
-            directory = Microsoft.Maui.Storage.FileSystem.AppDataDirectory;
-        }
-        catch
-        {
-            // Not running inside a MAUI host (e.g. a unit test or console tool) — fall back to temp.
-            directory = Path.Combine(Path.GetTempPath(), "MostaqlK");
-        }
-
+        // FIX ("still no notification, did you add logs to traceback?"): this used to resolve
+        // via Microsoft.Maui.Storage.FileSystem.AppDataDirectory, which on an UNPACKAGED
+        // (WindowsPackageType=None) Windows build resolves through WinRT's ApplicationData API —
+        // that API requires package identity, and while it doesn't always throw outright on this
+        // app's Windows App SDK unpackaged setup, it can silently resolve to a different/virtualized
+        // folder per run (or, in a non-MAUI-hosted context, an exception here used to fall back to
+        // %TEMP%\MostaqlK). Either way the effective path was NOT reliably discoverable: manual
+        // checks under %LOCALAPPDATA%, %APPDATA%, %LOCALAPPDATA%\Packages and %TEMP%\MostaqlK all
+        // came back empty even while the app was confirmed running, meaning nobody — including this
+        // agent — could actually find and read the log to diagnose anything. Now pinned to a fixed,
+        // well-known, always-writable location regardless of packaging/identity: %LocalAppData%\MostaqlK.
+        var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MostaqlK");
         Directory.CreateDirectory(directory);
         return Path.Combine(directory, "interaction-log.txt");
     }

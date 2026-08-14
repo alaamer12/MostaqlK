@@ -215,6 +215,37 @@ compounding bugs, both fixed together.
    up front and logs+reports a `Result<bool>.Err` (via `NotificationErrors.ToastDeliveryFailed`)
    when it is not `Enabled`, instead of silently doing nothing.
 
+**"Notifications still not working, did you add logs to traceback?" — the log path itself was the
+first bug, and reading it then revealed the true, environment-level root cause:**
+
+- `InteractionLogger.ResolveLogFilePath()` previously resolved its directory via
+  `Microsoft.Maui.Storage.FileSystem.AppDataDirectory`, which goes through WinRT's
+  `ApplicationData` API. On this unpackaged (`WindowsPackageType=None`) build that path is not
+  reliably discoverable — a live check (with the app actually running, `Get-Process MostaqlK`
+  confirmed) found **no** `interaction-log.txt` anywhere under `%LOCALAPPDATA%`, `%APPDATA%`,
+  `%LOCALAPPDATA%\Packages`, or the `%TEMP%\MostaqlK` fallback, meaning the log — even once it
+  started writing real entries — was effectively unreadable/unfindable by anyone. Fixed: the log
+  now always resolves to the fixed, well-known path **`%LocalAppData%\MostaqlK\interaction-log.txt`**
+  regardless of packaging/identity.
+- With that fixed and the app rebuilt/relaunched, the log immediately showed the real answer:
+  `WindowsToastSender.EnsureRegistered | data={"Setting":"Unsupported"}`. Per Microsoft's own Windows
+  App SDK docs, `AppNotificationManager` (native OS toast) has a hard dependency on a separate,
+  machine-level **"Singleton" MSIX package** — and for a **self-contained, unpackaged** app (this
+  project's exact deployment mode), there is **no supported API to auto-install it**; that
+  capability (`DeploymentManager.Initialize()`) is documented as available only to packaged /
+  framework-dependent apps. `Get-AppxPackage *Singleton*` on this machine returns nothing, matching
+  `Setting=Unsupported` exactly. In other words: **native Windows toast popups cannot work at all
+  on this machine/deployment combination, independent of any application code** — this is a
+  structural OS/environment limitation, not a code bug.
+- The in-app fallback already works independently of the native toast: `NotificationDispatcher.HandleFlush`
+  inserts every flushed batch into `RecentHistory` (driving the unread badge and the
+  `RecentNotificationsFlyout`) *before* it ever calls `WindowsToastSender.SendAsync`, so the badge/flyout
+  update regardless of whether the native toast succeeds. If native toasts are required, the two
+  options are (a) install the Windows App SDK Runtime redistributable on the target machine so the
+  Singleton package is present system-wide, or (b) change the app's deployment mode away from
+  self-contained+unpackaged so `DeploymentManager.Initialize()` can deploy it automatically — neither
+  was done here since both are deployment/environment decisions outside this fix's scope.
+
 ## Secrets & session cookie
 
 Location: `Infrastructure/Security/`, `Infrastructure/Database/SecretRepository.cs`, `Services/CookieStore.cs`, `Infrastructure/Http/CookieJar.cs`

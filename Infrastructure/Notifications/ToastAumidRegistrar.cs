@@ -83,7 +83,19 @@ public static class ToastAumidRegistrar
             return;
         }
 
-        if (File.Exists(shortcutPath) && ShortcutHasAumid(shortcutPath))
+        // FIX ("still no notification after installing the Singleton package"): this used to
+        // skip recreating the shortcut whenever the AUMID property already matched, WITHOUT ever
+        // checking whether the shortcut's *target exe path* was still correct. Across dev
+        // iterations (Debug/Release rebuilds, publish to a different output folder, moving the
+        // install directory, etc.) it is entirely possible for a stale shortcut - created by an
+        // earlier run of this exact app from a different path - to keep the right AUMID but point
+        // at an exe that no longer exists or isn't the one actually running. Windows' Action
+        // Center resolves the app identity (icon, display name, per-app notification toggle in
+        // Settings > Notifications) from that Start Menu shortcut, so a stale target can leave the
+        // app effectively "unregistered" from the user's point of view even though
+        // AppNotificationManager itself reports success. Now the target path is also verified and
+        // the shortcut is rewritten whenever it drifts.
+        if (File.Exists(shortcutPath) && ShortcutMatches(shortcutPath, exePath))
         {
             InteractionLogger.Mark("ToastAumidRegistrar.EnsureShortcut", "A", "already-present");
             return;
@@ -91,10 +103,10 @@ public static class ToastAumidRegistrar
 
         Directory.CreateDirectory(Path.GetDirectoryName(shortcutPath)!);
         CreateShortcutWithAumid(shortcutPath, exePath, Aumid);
-        InteractionLogger.Mark("ToastAumidRegistrar.EnsureShortcut", "A", new { shortcutPath });
+        InteractionLogger.Mark("ToastAumidRegistrar.EnsureShortcut", "A", new { shortcutPath, exePath, Recreated = File.Exists(shortcutPath) });
     }
 
-    private static bool ShortcutHasAumid(string shortcutPath)
+    private static bool ShortcutMatches(string shortcutPath, string expectedExePath)
     {
         try
         {
@@ -103,7 +115,15 @@ public static class ToastAumidRegistrar
             var store = (IPropertyStore)link;
             store.GetValue(ref PKEY_AppUserModelID, out var value);
             var existingAumid = value.pwszVal != IntPtr.Zero ? Marshal.PtrToStringUni(value.pwszVal) : null;
-            return string.Equals(existingAumid, Aumid, StringComparison.Ordinal);
+            if (!string.Equals(existingAumid, Aumid, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var targetBuilder = new StringBuilder(260);
+            link.GetPath(targetBuilder, targetBuilder.Capacity, IntPtr.Zero, 0);
+            var existingTarget = targetBuilder.ToString();
+            return string.Equals(existingTarget, expectedExePath, StringComparison.OrdinalIgnoreCase);
         }
         catch
         {
