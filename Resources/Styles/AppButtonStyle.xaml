@@ -61,4 +61,12 @@
         </Setter>
     </Style>
 
+    <!-- Transparent button with accent text, used for secondary or auxiliary actions. -->
+    <Style x:Key="GhostButtonStyle" TargetType="Button" BasedOn="{StaticResource AppButtonBase}">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource AccentPrimary}, Dark={StaticResource AccentPrimaryDark}}" />
+        <Setter Property="BorderWidth" Value="1" />
+        <Setter Property="BorderColor" Value="{AppThemeBinding Light={StaticResource AccentPrimary}, Dark={StaticResource AccentPrimaryDark}}" />
+    </Style>
+
 </ResourceDictionary>

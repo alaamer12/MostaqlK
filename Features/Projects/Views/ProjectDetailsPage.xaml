@@ -6,6 +6,7 @@
              xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem"
              xmlns:vm="clr-namespace:MostaqlK.Features.Projects.ViewModels"
              xmlns:models="clr-namespace:MostaqlK.Models"
+             xmlns:converters="clr-namespace:MostaqlK.UI.DesignSystem.Converters"
              xmlns:sidebar="clr-namespace:MostaqlK.UI.PlatformComponents.AppSidebar"
              x:Class="MostaqlK.Features.Projects.Views.ProjectDetailsPage"
              x:DataType="vm:ProjectDetailsViewModel"
@@ -13,6 +14,12 @@
              Shell.NavBarIsVisible="False"
              FlowDirection="RightToLeft"
              BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
 
     <!-- Mirrors project-details.html: shared sidebar (AppSidebar) + title/description, skills
          chips, budget/duration/owner stats, and an attachments list with per-item download
@@ -113,11 +120,25 @@
                             <Grid ColumnDefinitions="*,Auto" Padding="0,8" RowDefinitions="Auto,Auto">
                                 <Label Grid.Row="0" Grid.Column="0" Text="{Binding FileName}" FontSize="14" TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" FontFamily="Tajawal" />
                                 <Label Grid.Row="1" Grid.Column="0" Text="{Binding StatusMessage}" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" LineBreakMode="WordWrap" FontFamily="Tajawal" />
-                                <components:AppButton Grid.Row="0" Grid.RowSpan="2" Grid.Column="1"
-                                                       Text="تحميل"
-                                                       AutomationId="Details_AttachmentResolveButton"
-                                                       Command="{Binding ResolveCommand}"
-                                                       FontFamily="Tajawal" />
+                                <HorizontalStackLayout Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                                    <components:AppButton Text="تصفح"
+                                                           AutomationId="Details_AttachmentBrowseButton"
+                                                           Command="{Binding BrowseCommand}"
+                                                           FontFamily="Tajawal"
+                                                           Style="{StaticResource GhostButtonStyle}" />
+                                    
+                                    <components:AppButton Text="تحميل"
+                                                           AutomationId="Details_AttachmentResolveButton"
+                                                           Command="{Binding ResolveCommand}"
+                                                           FontFamily="Tajawal"
+                                                           IsVisible="{Binding IsDownloaded, Converter={StaticResource InvertedBoolConverter}}" />
+
+                                    <components:AppButton Text="إظهار في المجلد"
+                                                           AutomationId="Details_AttachmentRevealButton"
+                                                           Command="{Binding RevealCommand}"
+                                                           FontFamily="Tajawal"
+                                                           IsVisible="{Binding IsDownloaded}" />
+                                </HorizontalStackLayout>
                             </Grid>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>

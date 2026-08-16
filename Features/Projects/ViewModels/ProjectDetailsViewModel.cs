@@ -30,10 +30,57 @@ public sealed partial class AttachmentItemViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsResolving { get; set; }
 
+    [ObservableProperty]
+    public partial bool IsDownloaded { get; set; }
+
+    private string? _localPath;
+
     public AttachmentItemViewModel(Asset asset, AssetDownloadService assetDownloadService)
     {
         Asset = asset;
         _assetDownloadService = assetDownloadService;
+        
+        // Initial state: if Asset already has a LocalPath, it's downloaded.
+        if (!string.IsNullOrEmpty(asset.LocalPath) && File.Exists(asset.LocalPath))
+        {
+            IsDownloaded = true;
+            _localPath = asset.LocalPath;
+        }
+    }
+
+    [RelayCommand]
+    public async Task BrowseAsync()
+    {
+        var url = Asset.RawUrl ?? Asset.Url;
+        if (!string.IsNullOrEmpty(url))
+        {
+            await Microsoft.Maui.ApplicationModel.Launcher.Default.OpenAsync(url);
+        }
+    }
+
+    [RelayCommand]
+    public async Task RevealAsync()
+    {
+        if (string.IsNullOrEmpty(_localPath) || !File.Exists(_localPath)) return;
+
+        try
+        {
+#if WINDOWS
+            // Reveal in Explorer: opens the folder and selects the file.
+            System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{_localPath}\"");
+#else
+            // Fallback for other platforms: open the folder.
+            var folder = Path.GetDirectoryName(_localPath);
+            if (!string.IsNullOrEmpty(folder))
+            {
+                await Microsoft.Maui.ApplicationModel.Launcher.Default.OpenAsync($"file://{folder}");
+            }
+#endif
+        }
+        catch (Exception ex)
+        {
+            InteractionLogger.Mark("AttachmentItem.RevealFailed", "E", new { FileName, Error = ex.Message });
+        }
     }
 
     [TraceInteraction("ResolveCommand")]
@@ -57,6 +104,9 @@ public sealed partial class AttachmentItemViewModel : ObservableObject
             }
             else if (resolution.Status == AttachmentStatus.Downloaded && !string.IsNullOrEmpty(resolution.LocalPath))
             {
+                IsDownloaded = true;
+                _localPath = resolution.LocalPath;
+                
                 // On Windows, we can open the file directly.
                 await Microsoft.Maui.ApplicationModel.Launcher.Default.OpenAsync(new Microsoft.Maui.ApplicationModel.OpenFileRequest
                 {
