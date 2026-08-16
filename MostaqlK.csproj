@@ -43,19 +43,24 @@
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
 		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
+		<EnableDefaultWinUICustomMain Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">false</EnableDefaultWinUICustomMain>
+		<DefineConstants Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
 	</PropertyGroup>
 
 
 
 	<ItemGroup>
 		<!-- App Icon -->
-		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
+		<MauiIcon Include="Resources\Images\logo.png" />
 
 		<!-- Splash Screen -->
-		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
+		<MauiSplashScreen Include="Resources\Images\logo.png" Color="#512BD4" BaseSize="128,128" />
 
 		<!-- Images -->
-		<MauiImage Include="Resources\Images\*" />
+		<MauiImage Include="Resources\Images\*" Exclude="Resources\Images\logo.png" />
+		<None Include="Resources\Images\logo.png">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
 		<MauiImage Update="Resources\Images\dotnet_bot.png" Resize="True" BaseSize="300,185" />
 		
 		<!-- Custom Fonts -->

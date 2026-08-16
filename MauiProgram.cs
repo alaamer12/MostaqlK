@@ -414,38 +414,6 @@ public static class MauiProgram
 		// Start background time updates.
 		app.Services.GetRequiredService<PublishedTimeUpdateService>().Start();
 
-		// [TEMPORARY VERIFICATION] Export data to JSON after 70 seconds.
-		_ = Task.Run(async () =>
-		{
-			await Task.Delay(10000); // Wait for first projects to be saved
-			var repo = app.Services.GetRequiredService<IProjectRepository>();
-			var recent = await repo.GetRecentAsync(50);
-			if (recent.IsOk && recent.Value.Count > 0)
-			{
-				// Simulate old projects for testing the update service
-				var projectToUpdate = recent.Value[0];
-				using var connection = app.Services.GetRequiredService<SqliteConnectionFactory>().CreateConnection();
-				using var cmd = connection.CreateCommand();
-				cmd.CommandText = "UPDATE projects SET discovered_at = @date WHERE project_id = @id";
-				cmd.Parameters.AddWithValue("@date", DateTimeOffset.UtcNow.AddHours(-2).AddMinutes(-5).ToString("O"));
-				cmd.Parameters.AddWithValue("@id", projectToUpdate.ProjectId);
-				cmd.ExecuteNonQuery();
-			}
-
-			await Task.Delay(65000); // Total ~75s, ensures PublishedTimeUpdateService runs at least once
-			
-			recent = await repo.GetRecentAsync(50);
-			if (recent.IsOk)
-			{
-				var json = System.Text.Json.JsonSerializer.Serialize(recent.Value, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-				Directory.CreateDirectory("scratch");
-				File.WriteAllText("scratch/exported_data.json", json);
-				
-				// Exit app after verification
-				Environment.Exit(0);
-			}
-		});
-
 #if WINDOWS
 		appRef = app;
 #endif

@@ -50,10 +50,6 @@ public sealed class PublishedTimeUpdateService : IDisposable
             return;
         }
 
-        var log = new System.Text.StringBuilder();
-        log.AppendLine($"--- Update Cycle: {DateTimeOffset.UtcNow:O} ---");
-        log.AppendLine($"Found {result.Value.Count} projects.");
-
         foreach (var (projectId, discoveredAt) in result.Value)
         {
             if (cancellationToken.IsCancellationRequested)
@@ -62,16 +58,8 @@ public sealed class PublishedTimeUpdateService : IDisposable
             }
 
             var (number, text) = ArabicRelativeTime.GetRelative(discoveredAt);
-            log.AppendLine($"Project {projectId}: Discovered {discoveredAt:O}, Elapsed {DateTimeOffset.UtcNow - discoveredAt}, Result: {number} | {text}");
             await _projectRepository.UpdatePublishedTimeAsync(projectId, number, text, cancellationToken);
         }
-
-        try
-        {
-            Directory.CreateDirectory("scratch");
-            File.AppendAllText("scratch/service_log.txt", log.ToString());
-        }
-        catch { }
     }
 
     public void Dispose()

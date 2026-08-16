@@ -71,11 +71,14 @@ public sealed class WinRtVariation : IToastVariation
         <action content='عرض على مستقل' 
                 arguments='openUrl={Uri.EscapeDataString(project.Url)}' />
     </actions>";
+        
+        var logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Images", "logo.png");
 
         var toastXmlString = $@"
 <toast lang='ar-SA' launch='projectId={project.ProjectId}'>
     <visual lang='ar-SA'>
         <binding template='ToastGeneric'>
+            <image placement='appLogoOverride' src='file:///{logoPath}' />
             <text>{System.Security.SecurityElement.Escape(project.Title)}</text>
             <text>{System.Security.SecurityElement.Escape(description)}</text>
         </binding>
@@ -101,10 +104,13 @@ public sealed class WinRtVariation : IToastVariation
                 arguments='openUrl={Uri.EscapeDataString(firstUrl!)}' />
     </actions>";
 
+        var logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Images", "logo.png");
+
         var toastXmlString = $@"
 <toast lang='ar-SA' launch='filter=unread'>
     <visual lang='ar-SA'>
         <binding template='ToastGeneric'>
+            <image placement='appLogoOverride' src='file:///{logoPath}' />
             <text>{System.Security.SecurityElement.Escape(header)}</text>
         </binding>
     </visual>

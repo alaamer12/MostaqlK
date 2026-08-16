@@ -3,6 +3,9 @@ using MostaqlK.Infrastructure.Database;
 using MostaqlK.Services;
 using MostaqlK.Services.Pipeline;
 using MostaqlK.Services.Pipeline.WorkerPool;
+using System.Linq;
+using System.IO;
+using Microsoft.Maui.ApplicationModel;
 
 namespace MostaqlK;
 
@@ -116,6 +119,12 @@ public partial class App : Application
 			var isPollingActive = Microsoft.Maui.Storage.Preferences.Get("settings_is_polling_active", false);
 			pollService.SetPaused(!isPollingActive);
 
+			// If debug-via-json is requested, force-enable polling to ensure we have data to export.
+			if (Environment.GetCommandLineArgs().Contains("--debug-via-json"))
+			{
+				pollService.SetPaused(false);
+			}
+
 			var pipelineToken = _pipelineCts.Token;
 			_ = Task.Run(() => pollService.StartAsync(pipelineToken), pipelineToken);
 			_ = Task.Run(() => workerPool.StartAsync(pipelineToken), pipelineToken);
@@ -125,6 +134,56 @@ public partial class App : Application
 		{
 			MostaqlK.Services.Diagnostics.InteractionLogger.Mark("App.Startup.PipelineSkipped", "B");
 		}
+
+		HandleDebugJsonArgument(services, Environment.GetCommandLineArgs());
+	}
+
+	private void HandleDebugJsonArgument(IServiceProvider services, string[] args)
+	{
+#if DEBUG
+		if (!args.Contains("--debug-via-json")) return;
+
+		Task.Run(async () =>
+		{
+			// Wait for 15 seconds to allow polling and enrichment to happen.
+			await Task.Delay(15000);
+
+			var projectRepo = services.GetRequiredService<IProjectRepository>();
+			var ownerRepo = services.GetRequiredService<IOwnerRepository>();
+
+			var projectsResult = await projectRepo.GetAllDetailsAsync();
+			var ownersResult = await ownerRepo.GetAllAsync();
+
+			if (projectsResult.IsOk && ownersResult.IsOk)
+			{
+				var exportData = new
+				{
+					ExportedAt = DateTimeOffset.UtcNow,
+					Projects = projectsResult.Value,
+					Owners = ownersResult.Value
+				};
+
+				var json = System.Text.Json.JsonSerializer.Serialize(exportData, new System.Text.Json.JsonSerializerOptions
+				{
+					WriteIndented = true
+				});
+
+				var scratchPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "scratch");
+				if (!Directory.Exists(scratchPath)) Directory.CreateDirectory(scratchPath);
+
+				var filePath = Path.Combine(scratchPath, "exported_data.json");
+				await File.WriteAllTextAsync(filePath, json);
+
+				MostaqlK.Services.Diagnostics.InteractionLogger.Mark("App.Debug.JsonExported", "A", new { filePath });
+			}
+
+			// Shutdown the app after export.
+			MainThread.BeginInvokeOnMainThread(() =>
+			{
+				Application.Current?.Quit();
+			});
+		});
+#endif
 	}
 
 	/// <summary>

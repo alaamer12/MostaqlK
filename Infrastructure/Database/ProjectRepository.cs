@@ -249,7 +249,7 @@ public sealed class ProjectRepository : IProjectRepository
             command.CommandText = """
                 SELECT p.project_id, p.title, p.url, p.client_name, p.publish_time_number, p.publish_time_text,
                        p.proposal_count, p.description, p.budget, p.delivery_days,
-                       p.is_unread, p.enrichment_status, p.discovered_at,
+                       p.is_unread, p.enrichment_status, p.discovered_at, p.project_status,
                        COALESCE((SELECT group_concat(name, ', ') FROM project_skills s WHERE s.project_id = p.project_id), '')
                 FROM projects p
                 ORDER BY p.discovered_at DESC
@@ -696,6 +696,107 @@ public sealed class ProjectRepository : IProjectRepository
         }
     }
 
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result.Err")]
+    public async Task<Result<IReadOnlyList<ProjectDetails>>> GetAllDetailsAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            var results = new List<ProjectDetails>();
+
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = """
+                    SELECT p.project_id, p.title, p.url, p.description, p.budget, p.delivery_days,
+                           p.enrichment_status, p.enriched_at, p.project_status,
+                           p.publish_time_number, p.publish_time_text,
+                           o.owner_id, o.name, o.profile_url, o.avatar_url, o.rating,
+                           o.completed_projects_count, o.hiring_rate_percent,
+                           o.registered_at, o.open_projects_count, o.in_progress_projects_count,
+                           o.ongoing_communications_count
+                    FROM projects p
+                    LEFT JOIN owners o ON o.owner_id = p.owner_id;
+                    """;
+
+                using var reader = await command.ExecuteReaderAsync(cancellationToken);
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    results.Add(new ProjectDetails
+                    {
+                        ProjectId = reader.GetInt64(0),
+                        Title = reader.GetString(1),
+                        Url = reader.GetString(2),
+                        Description = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
+                        Budget = reader.IsDBNull(4) ? null : reader.GetString(4),
+                        DeliveryDays = reader.IsDBNull(5) ? null : reader.GetInt32(5),
+                        EnrichmentStatus = Enum.Parse<EnrichmentStatus>(reader.GetString(6)),
+                        EnrichedAt = reader.IsDBNull(7) ? null : DateTimeOffset.Parse(reader.GetString(7)),
+                        ProjectStatus = reader.IsDBNull(8) ? null : reader.GetString(8),
+                        PublishTimeNumber = reader.IsDBNull(9) ? 0 : reader.GetInt32(9),
+                        PublishTimeText = reader.IsDBNull(10) ? string.Empty : reader.GetString(10),
+                        Owner = reader.IsDBNull(11)
+                            ? new Owner()
+                            : new Owner
+                            {
+                                OwnerId = reader.GetInt64(11),
+                                Name = reader.IsDBNull(12) ? string.Empty : reader.GetString(12),
+                                ProfileUrl = reader.IsDBNull(13) ? null : reader.GetString(13),
+                                AvatarUrl = reader.IsDBNull(14) ? null : reader.GetString(14),
+                                Rating = reader.IsDBNull(15) ? null : reader.GetDouble(15),
+                                CompletedProjectsCount = reader.IsDBNull(16) ? null : reader.GetInt32(16),
+                                HiringRatePercent = reader.IsDBNull(17) ? null : reader.GetInt32(17),
+                                RegisteredAt = reader.IsDBNull(18) ? null : reader.GetString(18),
+                                OpenProjectsCount = reader.IsDBNull(19) ? null : reader.GetInt32(19),
+                                InProgressProjectsCount = reader.IsDBNull(20) ? null : reader.GetInt32(20),
+                                OngoingCommunicationsCount = reader.IsDBNull(21) ? null : reader.GetInt32(21),
+                            },
+                    });
+                }
+            }
+
+            // Fetch skills and attachments for all projects
+            foreach (var details in results)
+            {
+                using (var skillsCommand = connection.CreateCommand())
+                {
+                    skillsCommand.CommandText = "SELECT name, url FROM project_skills WHERE project_id = @project_id;";
+                    skillsCommand.Parameters.AddWithValue("@project_id", details.ProjectId);
+                    using var reader = await skillsCommand.ExecuteReaderAsync(cancellationToken);
+                    while (await reader.ReadAsync(cancellationToken))
+                    {
+                        details.Skills.Add(new ProjectSkill
+                        {
+                            Name = reader.GetString(0),
+                            Url = reader.IsDBNull(1) ? null : reader.GetString(1),
+                        });
+                    }
+                }
+
+                using (var assetsCommand = connection.CreateCommand())
+                {
+                    assetsCommand.CommandText = """
+                        SELECT asset_id, project_id, file_name, url, raw_url, local_path, size_bytes,
+                               extension, requires_auth, size_text
+                        FROM assets
+                        WHERE project_id = @project_id;
+                        """;
+                    assetsCommand.Parameters.AddWithValue("@project_id", details.ProjectId);
+                    using var reader = await assetsCommand.ExecuteReaderAsync(cancellationToken);
+                    while (await reader.ReadAsync(cancellationToken))
+                    {
+                        details.Attachments.Add(ReadAsset(reader));
+                    }
+                }
+            }
+
+            return Result<IReadOnlyList<ProjectDetails>>.Ok(results);
+        }
+        catch (SqliteException ex)
+        {
+            return Result<IReadOnlyList<ProjectDetails>>.Err(DatabaseErrors.QueryFailed(nameof(GetAllDetailsAsync), ex));
+        }
+    }
+
     private static ProjectSummary ReadSummary(SqliteDataReader reader) => new()
     {
         ProjectId = reader.GetInt64(0),
@@ -711,7 +812,8 @@ public sealed class ProjectRepository : IProjectRepository
         IsUnread = !reader.IsDBNull(10) && reader.GetInt64(10) != 0,
         EnrichmentStatus = Enum.Parse<EnrichmentStatus>(reader.GetString(11)),
         DiscoveredAt = DateTimeOffset.Parse(reader.GetString(12)),
-        SkillsText = reader.IsDBNull(13) ? string.Empty : reader.GetString(13),
+        ProjectStatus = reader.IsDBNull(13) ? null : reader.GetString(13),
+        SkillsText = reader.IsDBNull(14) ? string.Empty : reader.GetString(14),
     };
 
     private static Asset ReadAsset(SqliteDataReader reader) => new()

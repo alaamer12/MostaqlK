@@ -107,6 +107,15 @@ public class TrayIconService
         StateChanged?.Invoke(state);
     }
 
+    /// <summary>
+    /// Explicitly requests the native window host to restore visibility (e.g. when a second
+    /// instance is launched and redirected here).
+    /// </summary>
+    public void RequestRestore()
+    {
+        OnOpen();
+    }
+
     public void OnOpen()
     {
         // Bring the main window back to the foreground rather than exiting the process on

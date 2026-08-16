@@ -18,4 +18,9 @@ public interface IOwnerRepository
     /// <c>DesignDataSeeder.PurgeSeededRowsAsync</c> to strip leftover seed owners.
     /// </summary>
     Task<Result<int>> DeleteByIdRangeAsync(long minOwnerId, long maxOwnerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fetches all owners for debugging/export.
+    /// </summary>
+    Task<Result<IReadOnlyList<Owner>>> GetAllAsync(CancellationToken cancellationToken = default);
 }

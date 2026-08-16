@@ -122,6 +122,7 @@ public sealed class WinAppSdkVariation : IToastVariation
         });
 
         var builder = new AppNotificationBuilder()
+            .SetAppLogoOverride(new Uri(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Images", "logo.png")))
             .AddText(project.Title, new AppNotificationTextProperties().SetMaxLines(1))
             .AddText(description)
             .AddArgument("projectId", project.ProjectId.ToString());
@@ -140,6 +141,7 @@ public sealed class WinAppSdkVariation : IToastVariation
     {
         var header = $"يوجد {projects.Count} مشاريع جديدة — تفقدها هنا";
         var builder = new AppNotificationBuilder()
+            .SetAppLogoOverride(new Uri(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Images", "logo.png")))
             .AddText(header)
             .AddArgument("filter", "unread");
 

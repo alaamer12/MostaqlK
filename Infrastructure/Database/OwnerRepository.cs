@@ -128,4 +128,45 @@ public sealed class OwnerRepository : IOwnerRepository
             return Result<int>.Err(DatabaseErrors.QueryFailed(nameof(DeleteByIdRangeAsync), ex));
         }
     }
+
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result.Err")]
+    public async Task<Result<IReadOnlyList<Owner>>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                SELECT owner_id, name, profile_url, avatar_url, rating, completed_projects_count, hiring_rate_percent,
+                       registered_at, open_projects_count, in_progress_projects_count, ongoing_communications_count
+                FROM owners;
+                """;
+
+            var results = new List<Owner>();
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                results.Add(new Owner
+                {
+                    OwnerId = reader.GetInt64(0),
+                    Name = reader.GetString(1),
+                    ProfileUrl = reader.IsDBNull(2) ? null : reader.GetString(2),
+                    AvatarUrl = reader.IsDBNull(3) ? null : reader.GetString(3),
+                    Rating = reader.IsDBNull(4) ? null : reader.GetDouble(4),
+                    CompletedProjectsCount = reader.IsDBNull(5) ? null : reader.GetInt32(5),
+                    HiringRatePercent = reader.IsDBNull(6) ? null : reader.GetInt32(6),
+                    RegisteredAt = reader.IsDBNull(7) ? null : reader.GetString(7),
+                    OpenProjectsCount = reader.IsDBNull(8) ? null : reader.GetInt32(8),
+                    InProgressProjectsCount = reader.IsDBNull(9) ? null : reader.GetInt32(9),
+                    OngoingCommunicationsCount = reader.IsDBNull(10) ? null : reader.GetInt32(10),
+                });
+            }
+
+            return Result<IReadOnlyList<Owner>>.Ok(results);
+        }
+        catch (SqliteException ex)
+        {
+            return Result<IReadOnlyList<Owner>>.Err(DatabaseErrors.QueryFailed(nameof(GetAllAsync), ex));
+        }
+    }
 }

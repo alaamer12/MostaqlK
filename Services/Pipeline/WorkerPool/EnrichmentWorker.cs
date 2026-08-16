@@ -188,6 +188,7 @@ public sealed class EnrichmentWorker
             ClientName = details.Owner?.Name ?? string.Empty,
             PublishTimeNumber = number,
             PublishTimeText = text,
+            ProjectStatus = details.ProjectStatus,
             Budget = details.Budget,
             DeliveryDays = details.DeliveryDays,
             DiscoveredAt = DateTimeOffset.UtcNow,

@@ -25,6 +25,8 @@ public sealed class ProjectSummary
 
     public string Description { get; set; } = string.Empty;
 
+    public string? ProjectStatus { get; set; }
+
     public bool IsUnread { get; set; } = true;
 
     public EnrichmentStatus EnrichmentStatus { get; set; } = EnrichmentStatus.Pending;

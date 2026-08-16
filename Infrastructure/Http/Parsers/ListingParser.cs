@@ -129,6 +129,14 @@ public static class ListingParser
                         else if (text.Contains("دقيقتان")) publishTimeNumber = 2;
                         else if (text.Contains("لحظات")) publishTimeNumber = 0;
                     }
+                    else if (text.Contains("عرض") || text.Contains("عروض") || text.Contains("تسليم"))
+                    {
+                        var numMatch = System.Text.RegularExpressions.Regex.Match(text, @"\d+");
+                        if (numMatch.Success && int.TryParse(numMatch.Value, out var num))
+                        {
+                            proposalCount = num;
+                        }
+                    }
                 }
             }
         }

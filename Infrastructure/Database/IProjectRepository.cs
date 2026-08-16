@@ -92,4 +92,9 @@ public interface IProjectRepository
     /// Fetches all project IDs and their discovery timestamps.
     /// </summary>
     Task<Result<IReadOnlyList<(long ProjectId, DateTimeOffset DiscoveredAt)>>> GetAllProjectTimestampsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fetches all enriched project details for debugging/export.
+    /// </summary>
+    Task<Result<IReadOnlyList<ProjectDetails>>> GetAllDetailsAsync(CancellationToken cancellationToken = default);
 }
