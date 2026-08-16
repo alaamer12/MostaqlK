@@ -191,27 +191,12 @@
             </Grid>
 
             <!-- "عرض في مستقل" - opens the project's live listing on mostaql.com in the OS browser.
-                 A Border-based "outline chip" (not a Button) so it can host an icon + label pair;
-                 OutlineChipButtonStyle (Resources/Styles/AppButtonStyle.xaml) already carries the
-                 PressableEffect hover/press feedback shared with the rest of the design system. -->
-            <ds:PressableBorder Style="{StaticResource OutlineChipButtonStyle}"
+                 Reusable MostaqlLinkButton (UI/PlatformComponents/MostaqlLinkButton) replaces the
+                 previous inline PressableBorder implementation. -->
+            <components:MostaqlLinkButton
+                    Command="{Binding OpenOnMostaqlCommand}"
                     Margin="0,16,0,0"
-                    AutomationId="ProjectCard_OpenOnMostaqlButton">
-                <ds:PressableBorder.GestureRecognizers>
-                    <TapGestureRecognizer Command="{Binding OpenOnMostaqlCommand}" />
-                </ds:PressableBorder.GestureRecognizers>
-                <HorizontalStackLayout Spacing="6" InputTransparent="True">
-                    <components:AppIcon Icon="Link"
-                                        FontSize="12"
-                                        TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}"
-                                        VerticalOptions="Center" />
-                    <Label Text="عرض في مستقل"
-                           FontSize="12"
-                           FontFamily="TajawalBold"
-                           VerticalOptions="Center"
-                           TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" />
-                </HorizontalStackLayout>
-            </ds:PressableBorder>
+                    AutomationId="ProjectCard_OpenOnMostaqlButton" />
 
         </VerticalStackLayout>
     </components:AppCard>

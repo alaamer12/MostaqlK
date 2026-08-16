@@ -58,6 +58,7 @@ public static class ToastAumidRegistrar
                 }
 
                 EnsureShortcut();
+                EnsureActivatorRegistryEntry();
             }
             catch (Exception ex)
             {
@@ -68,6 +69,25 @@ public static class ToastAumidRegistrar
                 _done = true;
             }
         }
+    }
+
+    /// <summary>
+    /// Writes <c>HKCU\Software\Classes\CLSID\{ToastActivator.ClsidString}\LocalServer32</c> so Windows
+    /// knows which exe to launch/talk to for <see cref="ToastActivator"/>'s COM activation when the
+    /// toast body is clicked. Best-effort/idempotent — re-writing the same value is harmless.
+    /// </summary>
+    private static void EnsureActivatorRegistryEntry()
+    {
+        var exePath = Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName;
+        if (string.IsNullOrWhiteSpace(exePath))
+        {
+            return;
+        }
+
+        using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(
+            $@"Software\Classes\CLSID\{{{ToastActivator.ClsidString}}}\LocalServer32");
+        key.SetValue(null, $"\"{exePath}\"");
+        InteractionLogger.Mark("ToastAumidRegistrar.EnsureActivatorRegistryEntry", "A", new { exePath });
     }
 
     private static void EnsureShortcut()
@@ -101,6 +121,10 @@ public static class ToastAumidRegistrar
             return;
         }
 
+        // Note: any pre-existing shortcut created before ToastActivatorCLSID support was added
+        // will fail ShortcutMatches below (missing/mismatched CLSID) and get rewritten here, which
+        // is required for toast body clicks to start working retroactively for existing installs.
+
         Directory.CreateDirectory(Path.GetDirectoryName(shortcutPath)!);
         CreateShortcutWithAumid(shortcutPath, exePath, Aumid);
         InteractionLogger.Mark("ToastAumidRegistrar.EnsureShortcut", "A", new { shortcutPath, exePath, Recreated = File.Exists(shortcutPath) });
@@ -116,6 +140,15 @@ public static class ToastAumidRegistrar
             store.GetValue(ref PKEY_AppUserModelID, out var value);
             var existingAumid = value.pwszVal != IntPtr.Zero ? Marshal.PtrToStringUni(value.pwszVal) : null;
             if (!string.Equals(existingAumid, Aumid, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            store.GetValue(ref PKEY_ToastActivatorCLSID, out var clsidValue);
+            var existingClsid = clsidValue.pwszVal != IntPtr.Zero
+                ? Marshal.PtrToStructure<Guid>(clsidValue.pwszVal)
+                : (Guid?)null;
+            if (existingClsid != new Guid(ToastActivator.ClsidString))
             {
                 return false;
             }
@@ -140,8 +173,15 @@ public static class ToastAumidRegistrar
         var store = (IPropertyStore)link;
         var propVariant = new PropVariant { vt = VT_LPWSTR, pwszVal = Marshal.StringToCoTaskMemUni(aumid) };
         store.SetValue(ref PKEY_AppUserModelID, ref propVariant);
+
+        var clsidPtr = Marshal.AllocCoTaskMem(16);
+        Marshal.StructureToPtr(new Guid(ToastActivator.ClsidString), clsidPtr, false);
+        var clsidVariant = new PropVariant { vt = VT_CLSID, pwszVal = clsidPtr };
+        store.SetValue(ref PKEY_ToastActivatorCLSID, ref clsidVariant);
+
         store.Commit();
         Marshal.FreeCoTaskMem(propVariant.pwszVal);
+        Marshal.FreeCoTaskMem(clsidPtr);
 
         ((IPersistFile)link).Save(shortcutPath, true);
     }
@@ -150,9 +190,13 @@ public static class ToastAumidRegistrar
     private static extern int SetCurrentProcessExplicitAppUserModelID(string appId);
 
     private const short VT_LPWSTR = 31;
+    private const short VT_CLSID = 72;
 
     private static PropertyKey PKEY_AppUserModelID = new(
         new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3"), 5);
+
+    private static PropertyKey PKEY_ToastActivatorCLSID = new(
+        new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3"), 26);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct PropertyKey

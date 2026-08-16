@@ -120,6 +120,11 @@
                         <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" />
                         <Label Text="{Binding Details.Owner.HiringRatePercent, StringFormat='معدل التوظيف: {0}%'}" FontSize="13" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
                         <Label Text="{Binding Details.Owner.CompletedProjectsCount, StringFormat='{0} مشروع منجز'}" FontSize="13" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
+                        
+                        <components:MostaqlLinkButton 
+                            Command="{Binding OpenOnMostaqlCommand}"
+                            Margin="0,8,0,0"
+                            AutomationId="Details_OpenOnMostaqlButton" />
                     </VerticalStackLayout>
                 </Border>
             </Grid>

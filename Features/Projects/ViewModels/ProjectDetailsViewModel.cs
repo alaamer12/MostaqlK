@@ -101,6 +101,32 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     }
 
     [RelayCommand]
+    public async Task OpenOnMostaqlAsync()
+    {
+        var url = Details?.Url;
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            if (Details?.ProjectId > 0)
+            {
+                url = $"https://mostaql.com/project/{Details.ProjectId}";
+            }
+            else
+            {
+                return;
+            }
+        }
+
+        try
+        {
+            await Launcher.Default.OpenAsync(url);
+        }
+        catch (Exception ex)
+        {
+            MostaqlK.Services.Diagnostics.InteractionLogger.Fault("ProjectDetailsViewModel.OpenOnMostaqlAsync", ex);
+        }
+    }
+
+    [RelayCommand]
     public async Task LoadAsync(long projectId)
     {
         IsLoading = true;

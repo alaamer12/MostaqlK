@@ -173,7 +173,10 @@ public sealed class EnrichmentWorker
         ProjectId = details.ProjectId,
         Title = details.Title,
         Url = details.Url,
+        Description = details.Description,
         ClientName = details.Owner?.Name ?? string.Empty,
+        Budget = details.Budget,
+        DeliveryDays = details.DeliveryDays,
         DiscoveredAt = DateTimeOffset.UtcNow,
     };
 }

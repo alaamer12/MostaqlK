@@ -3,6 +3,7 @@ using Microsoft.Windows.AppNotifications.Builder;
 using MostaqlK.Core;
 using MostaqlK.Models;
 using MostaqlK.Services.Diagnostics;
+using Microsoft.Maui;
 
 namespace MostaqlK.Infrastructure.Notifications;
 
@@ -32,6 +33,38 @@ public sealed class WinAppSdkVariation : IToastVariation
     private static void OnNotificationInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args)
     {
         InteractionLogger.Mark("WinAppSdkVariation.OnNotificationInvoked", "A", new { Arguments = args.Arguments });
+
+        if (args.Arguments.TryGetValue("openUrl", out var url) && !string.IsNullOrWhiteSpace(url))
+        {
+            NotificationUrlLauncher.OpenUrl(url, "WinAppSdkVariation.OnNotificationInvoked");
+            return;
+        }
+
+        if (args.Arguments.TryGetValue("projectId", out var projectIdStr) && long.TryParse(projectIdStr, out var projectId))
+        {
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                try
+                {
+                    var services = IPlatformApplication.Current?.Services;
+
+                    // Restore window if needed
+                    var appLifecycleService = services?.GetService<Services.AppLifecycleService>();
+                    if (appLifecycleService is { IsInBackground: true })
+                    {
+                        // Raise restore requested via TrayIconService
+                        var trayService = services?.GetService<UI.TrayIcon.TrayIconService>();
+                        trayService?.OnOpen();
+                    }
+
+                    await Shell.Current.GoToAsync($"ProjectDetailsPage?projectId={projectId}");
+                }
+                catch (Exception ex)
+                {
+                    InteractionLogger.Fault("WinAppSdkVariation.NavigateToProject", ex, new { ProjectId = projectId });
+                }
+            });
+        }
     }
 
     public Task<Result<bool>> SendAsync(IReadOnlyList<ProjectSummary> projects)
@@ -50,7 +83,19 @@ public sealed class WinAppSdkVariation : IToastVariation
                 ? BuildIndividualToast(projects[0])
                 : BuildGroupedToast(projects);
 
-            AppNotificationManager.Default.Show(builder.BuildNotification());
+            // AppNotificationBuilder doesn't have a direct Lang property in the builder, 
+            // but we can ensure the XML carries it for proper RTL layout.
+            var notification = builder.BuildNotification();
+            var xml = notification.Payload;
+            if (!xml.Contains("lang="))
+            {
+                // Inject lang attribute into the toast and visual tags
+                xml = xml.Replace("<toast", "<toast lang='ar-SA'");
+                xml = xml.Replace("<visual", "<visual lang='ar-SA'");
+                notification = new AppNotification(xml);
+            }
+
+            AppNotificationManager.Default.Show(notification);
 
             InteractionLogger.Mark("WinAppSdkVariation.SendAsync", "A", new { Count = projects.Count });
             return Task.FromResult(Result<bool>.Ok(true));
@@ -64,27 +109,32 @@ public sealed class WinAppSdkVariation : IToastVariation
 
     private static AppNotificationBuilder BuildIndividualToast(ProjectSummary project)
     {
+        var originalDescription = project.Description ?? string.Empty;
+        var description = originalDescription.Length > 200 
+            ? originalDescription.Substring(0, 197) + "..." 
+            : originalDescription;
+
+        InteractionLogger.Mark("WinAppSdkVariation.BuildIndividualToast", "A", new 
+        { 
+            TitleLength = project.Title?.Length ?? 0,
+            DescriptionLength = originalDescription.Length,
+            TruncatedLength = description.Length
+        });
+
         var builder = new AppNotificationBuilder()
-            .AddText(project.Title)
-            .AddText(BuildIndividualSubtitle(project))
+            .AddText(project.Title, new AppNotificationTextProperties().SetMaxLines(1))
+            .AddText(description)
             .AddArgument("projectId", project.ProjectId.ToString());
 
         if (!string.IsNullOrWhiteSpace(project.Url))
         {
-            builder.AddArgument("url", project.Url);
+            builder.AddButton(new AppNotificationButton("عرض على مستقل")
+                .AddArgument("openUrl", project.Url));
         }
 
         return builder;
     }
 
-    private static string BuildIndividualSubtitle(ProjectSummary project)
-    {
-        var parts = new List<string>();
-        if (!string.IsNullOrWhiteSpace(project.ClientName)) parts.Add(project.ClientName);
-        if (!string.IsNullOrWhiteSpace(project.PostedRelative)) parts.Add(project.PostedRelative);
-        if (project.ProposalCount > 0) parts.Add($"{project.ProposalCount} عرض");
-        return string.Join(" · ", parts);
-    }
 
     private static AppNotificationBuilder BuildGroupedToast(IReadOnlyList<ProjectSummary> projects)
     {
@@ -93,9 +143,11 @@ public sealed class WinAppSdkVariation : IToastVariation
             .AddText(header)
             .AddArgument("filter", "unread");
 
-        foreach (var project in projects.Take(2))
+        var firstUrl = projects.Select(p => p.Url).FirstOrDefault(u => !string.IsNullOrWhiteSpace(u));
+        if (!string.IsNullOrWhiteSpace(firstUrl))
         {
-            builder.AddText(project.Title);
+            builder.AddButton(new AppNotificationButton("عرض على مستقل")
+                .AddArgument("openUrl", firstUrl));
         }
 
         return builder;

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:components="clr-namespace:MostaqlK.UI.PlatformComponents"
+             xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem"
+             x:Class="MostaqlK.UI.PlatformComponents.MostaqlLinkButton"
+             FlowDirection="RightToLeft">
+
+    <ds:PressableBorder Style="{StaticResource OutlineChipButtonStyle}">
+        <ds:PressableBorder.GestureRecognizers>
+            <TapGestureRecognizer Command="{Binding Command, Source={RelativeSource AncestorType={x:Type components:MostaqlLinkButton}}}" />
+        </ds:PressableBorder.GestureRecognizers>
+        <HorizontalStackLayout Spacing="6" InputTransparent="True">
+            <components:AppIcon Icon="Link"
+                                FontSize="12"
+                                TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}"
+                                VerticalOptions="Center" />
+            <Label Text="عرض في مستقل"
+                   FontSize="12"
+                   FontFamily="TajawalBold"
+                   VerticalOptions="Center"
+                   TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" />
+        </HorizontalStackLayout>
+    </ds:PressableBorder>
+</ContentView>

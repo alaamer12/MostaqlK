@@ -107,7 +107,7 @@ public class TrayIconService
         StateChanged?.Invoke(state);
     }
 
-    private void OnOpen()
+    public void OnOpen()
     {
         // Bring the main window back to the foreground rather than exiting the process on
         // close, per spec (see system-components.md § 13.1). The actual native

@@ -21,6 +21,10 @@ public sealed class WinRtVariation : IToastVariation
         // Unpackaged apps MUST have a Start Menu shortcut with a matching AUMID for 
         // ToastNotificationManager to accept the notification.
         ToastAumidRegistrar.EnsureRegistered();
+
+        // Classic WinRT toasts have no built-in click event for Win32 apps; without this COM
+        // activator registered, clicking the toast body silently does nothing (see ToastActivator).
+        ToastActivator.Register();
         _registered = true;
         
         InteractionLogger.Mark("WinRtVariation.EnsureRegistered", "A", new { Aumid = ToastAumidRegistrar.Aumid });
@@ -49,14 +53,34 @@ public sealed class WinRtVariation : IToastVariation
 
     private static XmlDocument BuildIndividualToastXml(ProjectSummary project)
     {
+        var originalDescription = project.Description ?? string.Empty;
+        var description = originalDescription.Length > 200 
+            ? originalDescription.Substring(0, 197) + "..." 
+            : originalDescription;
+
+        InteractionLogger.Mark("WinRtVariation.BuildIndividualToastXml", "A", new 
+        { 
+            TitleLength = project.Title?.Length ?? 0,
+            DescriptionLength = originalDescription.Length,
+            TruncatedLength = description.Length
+        });
+
+        var actionsXml = string.IsNullOrWhiteSpace(project.Url)
+            ? string.Empty
+            : $@"<actions>
+        <action content='عرض على مستقل' 
+                arguments='openUrl={Uri.EscapeDataString(project.Url)}' />
+    </actions>";
+
         var toastXmlString = $@"
-<toast>
-    <visual>
+<toast lang='ar-SA' launch='projectId={project.ProjectId}'>
+    <visual lang='ar-SA'>
         <binding template='ToastGeneric'>
             <text>{System.Security.SecurityElement.Escape(project.Title)}</text>
-            <text>{System.Security.SecurityElement.Escape(BuildIndividualSubtitle(project))}</text>
+            <text>{System.Security.SecurityElement.Escape(description)}</text>
         </binding>
     </visual>
+    {actionsXml}
 </toast>";
 
         var xml = new XmlDocument();
@@ -64,28 +88,27 @@ public sealed class WinRtVariation : IToastVariation
         return xml;
     }
 
-    private static string BuildIndividualSubtitle(ProjectSummary project)
-    {
-        var parts = new List<string>();
-        if (!string.IsNullOrWhiteSpace(project.ClientName)) parts.Add(project.ClientName);
-        if (!string.IsNullOrWhiteSpace(project.PostedRelative)) parts.Add(project.PostedRelative);
-        if (project.ProposalCount > 0) parts.Add($"{project.ProposalCount} عرض");
-        return string.Join(" · ", parts);
-    }
 
     private static XmlDocument BuildGroupedToastXml(IReadOnlyList<ProjectSummary> projects)
     {
         var header = $"يوجد {projects.Count} مشاريع جديدة — تفقدها هنا";
-        var titles = string.Join("\n", projects.Take(2).Select(p => p.Title));
+
+        var firstUrl = projects.Select(p => p.Url).FirstOrDefault(u => !string.IsNullOrWhiteSpace(u));
+        var actionsXml = string.IsNullOrWhiteSpace(firstUrl)
+            ? string.Empty
+            : $@"<actions>
+        <action content='عرض على مستقل' 
+                arguments='openUrl={Uri.EscapeDataString(firstUrl!)}' />
+    </actions>";
 
         var toastXmlString = $@"
-<toast>
-    <visual>
+<toast lang='ar-SA' launch='filter=unread'>
+    <visual lang='ar-SA'>
         <binding template='ToastGeneric'>
             <text>{System.Security.SecurityElement.Escape(header)}</text>
-            <text>{System.Security.SecurityElement.Escape(titles)}</text>
         </binding>
     </visual>
+    {actionsXml}
 </toast>";
 
         var xml = new XmlDocument();

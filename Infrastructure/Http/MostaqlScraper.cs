@@ -76,6 +76,7 @@ public sealed class MostaqlScraper : IProjectScraper
         try
         {
             var details = DetailParser.Parse(projectId, htmlResult.Value);
+            details.Url = url;
             return Result<ProjectDetails>.Ok(details);
         }
         catch (ParseException ex)
