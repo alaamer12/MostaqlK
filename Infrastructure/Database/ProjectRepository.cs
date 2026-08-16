@@ -30,16 +30,17 @@ public sealed class ProjectRepository : IProjectRepository
                 // Write-once: a project row is never overwritten once it exists (no-update policy).
                 command.CommandText = """
                     INSERT OR IGNORE INTO projects
-                        (project_id, title, url, client_name, publish_time_number, publish_time_text,
+                        (project_id, title, url, client_name, description, publish_time_number, publish_time_text,
                          proposal_count, proposal_count_text, is_unread, enrichment_status, discovered_at)
                     VALUES
-                        (@project_id, @title, @url, @client_name, @publish_time_number, @publish_time_text,
+                        (@project_id, @title, @url, @client_name, @description, @publish_time_number, @publish_time_text,
                          @proposal_count, @proposal_count_text, @is_unread, @enrichment_status, @discovered_at);
                     """;
                 command.Parameters.AddWithValue("@project_id", project.ProjectId);
                 command.Parameters.AddWithValue("@title", project.Title);
                 command.Parameters.AddWithValue("@url", project.Url);
                 command.Parameters.AddWithValue("@client_name", project.ClientName);
+                command.Parameters.AddWithValue("@description", project.Description);
                 command.Parameters.AddWithValue("@publish_time_number", project.PublishTimeNumber);
                 command.Parameters.AddWithValue("@publish_time_text", project.PublishTimeText);
                 command.Parameters.AddWithValue("@proposal_count", project.ProposalCount);
@@ -61,10 +62,11 @@ public sealed class ProjectRepository : IProjectRepository
                 insertFtsCommand.Transaction = transaction;
                 insertFtsCommand.CommandText = """
                     INSERT INTO projects_fts (project_id, title, description, skills)
-                    VALUES (@project_id, @title, '', '');
+                    VALUES (@project_id, @title, @description, '');
                     """;
                 insertFtsCommand.Parameters.AddWithValue("@project_id", project.ProjectId);
                 insertFtsCommand.Parameters.AddWithValue("@title", project.Title);
+                insertFtsCommand.Parameters.AddWithValue("@description", project.Description);
                 await insertFtsCommand.ExecuteNonQueryAsync(cancellationToken);
             }
 

@@ -113,6 +113,14 @@ public static class ListingParser
         int publishTimeNumber = 0;
         int proposalCount = 0;
         string proposalCountText = string.Empty;
+        string description = string.Empty;
+
+        var briefNode = row.SelectSingleNode(".//p[contains(@class, 'project__brief')]/a") 
+                         ?? row.SelectSingleNode(".//p[contains(@class, 'project__brief')]");
+        if (briefNode is not null)
+        {
+            description = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(briefNode.InnerText));
+        }
 
         if (meta is not null)
         {
@@ -175,6 +183,7 @@ public static class ListingParser
             PublishTimeText = publishTimeText,
             ProposalCount = proposalCount,
             ProposalCountText = proposalCountText,
+            Description = description,
             DiscoveredAt = DateTimeOffset.UtcNow,
         };
     }

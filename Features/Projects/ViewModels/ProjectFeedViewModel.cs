@@ -257,10 +257,43 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
                 return;
             }
 
-            Projects.Clear();
-            foreach (var project in result.Value)
+            var existingById = Projects.ToDictionary(p => p.Project.ProjectId);
+            
+            // 1. Remove items no longer in the result set (or to be re-ordered)
+            var newIds = result.Value.Select(p => p.ProjectId).ToHashSet();
+            for (int i = Projects.Count - 1; i >= 0; i--)
             {
-                Projects.Add(new ProjectCardViewModel(project, card => _ = SelectProjectAsync(card)));
+                if (!newIds.Contains(Projects[i].Project.ProjectId))
+                {
+                    Projects.RemoveAt(i);
+                }
+            }
+
+            // 2. Add or Move items to match the result set order
+            for (int i = 0; i < result.Value.Count; i++)
+            {
+                var project = result.Value[i];
+                if (existingById.TryGetValue(project.ProjectId, out var existing))
+                {
+                    // Update the data regardless of position
+                    existing.Project = project;
+
+                    var currentIndex = Projects.IndexOf(existing);
+                    if (currentIndex != i && currentIndex != -1)
+                    {
+                        Projects.Move(currentIndex, i);
+                    }
+                    else if (currentIndex == -1)
+                    {
+                        // Was removed in step 1 by mistake if it was somehow duplicate?
+                        // Or if it was missing from the HashSet check.
+                        Projects.Insert(i, existing);
+                    }
+                }
+                else
+                {
+                    Projects.Insert(i, new ProjectCardViewModel(project, card => _ = SelectProjectAsync(card)));
+                }
             }
 
             if (IsSearchActive)

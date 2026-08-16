@@ -200,6 +200,10 @@ public sealed class PollService : IPollService
                 // Add to persistent backlog before enqueuing in memory.
                 await _projectRepository.AddToBacklogAsync(projectId, cancellationToken);
 
+                // FIX: Discovery summarizes must be persisted immediately, otherwise they only
+                // hit the DB after enrichment (which might be minutes later or never).
+                await _projectRepository.InsertSummaryAsync(summary, cancellationToken);
+
                 await _discoveryQueue.EnqueueAsync(projectId, cancellationToken);
                 // Radar: detection pulse -> token -> queue slot; the ring grows on arrival.
                 _globalStatus.NotifyProjectDiscovered(

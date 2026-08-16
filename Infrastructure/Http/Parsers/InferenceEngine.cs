@@ -272,6 +272,13 @@ public static class InferenceEngine
             UnitHints = MonthNames,
             RequiresUnit = false,
         },
+        ["proposal_count"] = new FieldProfile
+        {
+            CoreStems = [Stem("عدد"), Stem("المقترحات"), Stem("عروض"), Stem("مقترحات")],
+            ExpectedTypes = ["NUMBER"],
+            UnitHints = ["عرض", "عروض", "عرضان", "عرضين"],
+            RequiresUnit = false,
+        },
     };
 
     // -----------------------------------------------------------------
@@ -304,6 +311,13 @@ public static class InferenceEngine
     /// (not nested children's text) into whitespace tokens. This word-level flattening is what
     /// defeats "every word in its own span" / "split words across nested elements" tricks.
     /// </summary>
+    // Elements whose raw text content is never meant to be read as page prose: inline
+    // script/style source, template fragments, and form controls whose value/placeholder
+    // text (e.g. jQuery-validate rule strings like "min_length[200]|max_length[10000]")
+    // is machine config, not a fact a human would read on the rendered page.
+    private static readonly HashSet<string> NonContentElements =
+        new(StringComparer.OrdinalIgnoreCase) { "script", "style", "noscript", "template", "textarea", "option", "select" };
+
     private static List<Token> Flatten(HtmlNode root)
     {
         var tokens = new List<Token>();
@@ -311,6 +325,11 @@ public static class InferenceEngine
         var elements = root.SelectNodes(".//*") ?? Enumerable.Empty<HtmlNode>();
         foreach (var el in elements)
         {
+            if (NonContentElements.Contains(el.Name) || el.Ancestors().Any(a => NonContentElements.Contains(a.Name)))
+            {
+                continue;
+            }
+
             var sb = new StringBuilder();
             foreach (var child in el.ChildNodes)
             {
@@ -584,11 +603,16 @@ public static class InferenceEngine
             }
 
             // --- type compatibility signal ---
-            if (candidate.Types.Overlaps(profile.ExpectedTypes))
+            // A decimal (FLOAT) candidate must never satisfy a field profile that only lists
+            // whole-number NUMBER as expected: without this guard, unrelated decimal values
+            // (e.g. a "4.9" client rating, or a trailing-dot artifact like "2.") would earn the
+            // same type score as a genuine integer count and could outrank it by proximity alone.
+            var isFloatMismatch = candidate.Types.Contains("FLOAT") && !profile.ExpectedTypes.Contains("FLOAT");
+            if (!isFloatMismatch && candidate.Types.Overlaps(profile.ExpectedTypes))
             {
                 score += TypeWeight;
             }
-            else if (candidate.Types.Overlaps(profile.ExpectedTypesWeak))
+            else if (!isFloatMismatch && candidate.Types.Overlaps(profile.ExpectedTypesWeak))
             {
                 score += TypeWeight * 0.25;
             }

@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using HtmlAgilityPack;
 using MostaqlK.Infrastructure.Http.Parsers;
 
 namespace MostaqlK.Core.Formatting;
@@ -21,7 +22,12 @@ public static class ArabicProposalParser
             return (0, string.Empty);
         }
 
-        var text = input.Trim();
+        // 0. Clean input from HTML tags and common surrounding symbols/quotes that might
+        // leak from attribute-heavy or redesigned markup.
+        var text = HtmlEntity.DeEntitize(input).Trim();
+        text = Regex.Replace(text, "<.*?>", string.Empty);
+        text = text.Trim('"', '\'', ' ', '\t', '\r', '\n');
+
         var normalizedText = StructuralExtractor.NormalizeLabel(text);
         var asciiText = StructuralExtractor.ToAsciiDigits(normalizedText);
 

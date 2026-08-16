@@ -189,7 +189,6 @@ public sealed class EnrichmentWorker
 
     private static Models.ProjectSummary ToSummary(ProjectDetails details)
     {
-        var (number, text) = ArabicRelativeTime.GetRelative(details.EnrichedAt ?? DateTimeOffset.UtcNow);
         return new()
         {
             ProjectId = details.ProjectId,
@@ -197,8 +196,8 @@ public sealed class EnrichmentWorker
             Url = details.Url,
             Description = details.Description,
             ClientName = details.Owner?.Name ?? string.Empty,
-            PublishTimeNumber = number,
-            PublishTimeText = text,
+            PublishTimeNumber = details.PublishTimeNumber,
+            PublishTimeText = details.PublishTimeText,
             ProposalCount = details.ProposalCount,
             ProposalCountText = details.ProposalCountText,
             ProjectStatus = details.ProjectStatus,

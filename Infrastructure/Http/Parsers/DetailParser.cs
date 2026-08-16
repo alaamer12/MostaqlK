@@ -40,6 +40,16 @@ public static class DetailParser
             .GroupBy(kv => kv.Value)
             .ToDictionary(group => group.Key, group => group.First().Value);
 
+    // Some fields have more than one Arabic label synonym on the page (e.g. proposal_count is
+    // labeled "عدد العروض" on some layouts and "عدد المقترحات" on others). The label-presence
+    // check must accept ANY of a field's known labels, not just the first one that happened to
+    // be inserted into FieldToLabel, otherwise a page using the other synonym gets wrongly
+    // treated as "label absent".
+    private static readonly Dictionary<string, string[]> FieldToLabels =
+        LabelToField
+            .GroupBy(kv => kv.Value)
+            .ToDictionary(group => group.Key, group => group.Select(kv => kv.Key).ToArray());
+
     private static readonly HashSet<string> CompletedOnlyFields = ["started_since", "deal_date", "delivery_date"];
     private const string CompletedStatusText = "مكتمل";
 
@@ -149,6 +159,29 @@ public static class DetailParser
             }
         }
 
+        // Real Mostaql project detail pages (as of this writing) never render an "عدد العروض"/
+        // "عدد المقترحات" label anywhere in the DOM - the count only exists implicitly as the
+        // number of bid rows under the "العروض المقدمة" (submitted proposals) panel. Because
+        // that label text genuinely isn't present, ANY text-based resolution for this field -
+        // structural (e.g. a selector coincidentally grabbing an unrelated rating-stars "5.0"
+        // value) or inferred (guessing from unrelated numbers/years/ratings) - is untrustworthy.
+        // So proposal_count always prefers the deterministic DOM fact (actual bid rows counted),
+        // and only keeps a text-derived value when the real label genuinely is present on the
+        // page and there are no bid rows to count (future-proofing against a layout that does
+        // add an explicit counter).
+        var proposalLabels = FieldToLabels.GetValueOrDefault("proposal_count")?.Select(StructuralExtractor.NormalizeLabel).ToArray()
+            ?? [];
+        var proposalLabelPresent = proposalLabels.Any(l => pageText.Contains(l, StringComparison.Ordinal));
+        var bidCount = CountBidItems(root);
+        if (bidCount > 0)
+        {
+            fields["proposal_count"] = new FieldResolution($"{bidCount} عروض", "structural", 1.0);
+        }
+        else if (!proposalLabelPresent)
+        {
+            fields["proposal_count"] = new FieldResolution(null, "none", 0.0);
+        }
+
         // (2) Regardless of (1), these fields are only meaningful when the project is
         // actually completed.
         var statusValue = fields.GetValueOrDefault("project_status")?.Value;
@@ -247,6 +280,15 @@ public static class DetailParser
     /// <summary>Mirrors pipeline.py's _is_placeholder.</summary>
     private static bool IsPlaceholder(string? value) =>
         value is not null && NotCalculatedMarkers.Any(value.Contains);
+
+    /// <summary>
+    /// Counts the actual bid rows rendered under the "العروض المقدمة" (submitted proposals)
+    /// panel by counting elements carrying a <c>data-bid-item</c> attribute - each real bid row
+    /// on Mostaql's detail page carries a unique <c>data-bid-item="&lt;id&gt;"</c> attribute, so
+    /// this is a deterministic DOM fact rather than a text-pattern guess.
+    /// </summary>
+    private static int CountBidItems(HtmlNode root) =>
+        root.SelectNodes("//*[@data-bid-item]")?.Count ?? 0;
 
     /// <summary>Mirrors pipeline.py's _values_agree.</summary>
     private static bool ValuesAgree(string? a, string? b)

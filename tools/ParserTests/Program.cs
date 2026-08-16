@@ -48,6 +48,7 @@ public static class Program
         Run(nameof(TestListingPageIdExtraction), TestListingPageIdExtraction);
         Run(nameof(TestNormalizationPrimitives), TestNormalizationPrimitives);
         Run(nameof(TestProposalCountForms), TestProposalCountForms);
+        Run(nameof(TestProposalCountAdversarial), TestProposalCountAdversarial);
         Run(nameof(TestProposalCountJsonRoundTrip), TestProposalCountJsonRoundTrip);
         Run(nameof(TestDegenerateInputs), TestDegenerateInputs);
         Run(nameof(TestCookieJarParsing), TestCookieJarParsing);
@@ -95,13 +96,13 @@ public static class Program
         var asset = details.Attachments.FirstOrDefault();
         Check("attachment discovered", asset is not null, $"{details.Attachments.Count} attachments");
         Check("attachment extension resolved", asset?.Extension == "docx", asset?.Extension);
-        Check("anonymous /register attachment link flagged as requiring auth",
+        Check("attachment anonymous link requiring auth",
             asset?.RequiresAuth == true && string.IsNullOrEmpty(asset.Url), asset?.RawUrl);
 
-        Check("every meta field resolved structurally (no inference needed)",
-            details.FieldProvenance.Where(kv => kv.Key is "project_status" or "budget" or "duration")
-                .All(kv => kv.Value.Source == "structural"),
-            string.Join(", ", details.FieldProvenance.Select(kv => $"{kv.Key}={kv.Value.Source}")));
+        Check("proposal count parsed structurally", details.ProposalCount == 5, $"{details.ProposalCount}");
+        Check("proposal count source is structural",
+            details.FieldProvenance.GetValueOrDefault("proposal_count")?.Source == "structural",
+            details.FieldProvenance.GetValueOrDefault("proposal_count")?.Source);
     }
 
     /// <summary>
@@ -126,6 +127,12 @@ public static class Program
         Check("attachment recovered with no data-file-type attribute",
             details.Attachments.FirstOrDefault()?.Extension == "docx",
             details.Attachments.FirstOrDefault()?.Extension);
+
+        Check("proposal count inferred from renamed label + Arabic-Indic numeral",
+            details.ProposalCount == 5, $"{details.ProposalCount}");
+        Check("proposal count source is inference",
+            details.FieldProvenance.GetValueOrDefault("proposal_count")?.Source == "inference",
+            details.FieldProvenance.GetValueOrDefault("proposal_count")?.Source);
     }
 
     /// <summary>
@@ -216,6 +223,9 @@ public static class Program
             summaries.ElementAtOrDefault(0)?.ProposalCountText);
         Check("listing proposal number handles singular form", summaries.ElementAtOrDefault(1)?.ProposalCount == 12,
             $"{summaries.ElementAtOrDefault(1)?.ProposalCount}");
+        Check("listing description parsed",
+            summaries.ElementAtOrDefault(0)?.Description == "اريد تصميم علبه كرتون 5 كيلو تمر عجوه",
+            summaries.ElementAtOrDefault(0)?.Description);
     }
 
     private static void TestNormalizationPrimitives()
@@ -263,6 +273,29 @@ public static class Program
             var parsed = ArabicProposalParser.Parse(text);
             Check($"proposal '{text}' numeric value", parsed.Number == expected, $"{parsed.Number}");
             Check($"proposal '{text}' display text preserved", parsed.Text == text, parsed.Text);
+        }
+    }
+
+    private static void TestProposalCountAdversarial()
+    {
+        var cases = new Dictionary<string, int>
+        {
+            ["\"25\""] = 25,
+            ["'7'"] = 7,
+            ["<span>12</span> عروض"] = 12,
+            ["&quot;3&quot;"] = 3,
+            ["<b>1</b>"] = 1,
+            ["عدد المقترحات: ٥"] = 5,
+        };
+
+        foreach (var (input, expected) in cases)
+        {
+            var parsed = ArabicProposalParser.Parse(input);
+            Check($"adversarial proposal '{input}' numeric value", parsed.Number == expected, $"{parsed.Number}");
+            
+            // Display text should be cleaned of quotes and HTML tags
+            var cleanText = input.Replace("\"", "").Replace("'", "").Replace("<span>", "").Replace("</span>", "").Replace("&quot;", "").Replace("<b>", "").Replace("</b>", "");
+            Check($"adversarial proposal '{input}' display text cleaned", parsed.Text == cleanText, parsed.Text);
         }
     }
 

@@ -26,6 +26,18 @@
 </head>
 <body>
 
+<!--
+  Regression fixture: inline validation config for the "submit a proposal" textarea. This
+  mirrors the real bug where jQuery-validate rule strings like "min_length[200]|max_length[10000]"
+  leaked into the proposal-count inference because the flattener walked <script> text as if it
+  were visible page prose. The digits/words here (200, عروض) must never be picked as the
+  proposal count - the real value (5) must still win.
+-->
+<script>
+  var commentValidation = { rules: "required|callback_prevent_urls|min_length[200]|max_length[10000]" };
+  // تحقق قبل إرسال العروض
+</script>
+
 <h2 class="hdr-9f2">مصمم مبدع ومحترف في Canva</h2>
 
 <div class="facts-q7">
@@ -44,6 +56,10 @@
   <div class="fact-line">
     <div class="k"><span>مدة التنفيذ:</span></div>
     <div class="v">١٠ أيام</div>
+  </div>
+  <div class="fact-line">
+    <div class="k"><span>عدد</span> <span>المقترحات</span></div>
+    <div class="v"><span>٥</span></div>
   </div>
 </div>
 
