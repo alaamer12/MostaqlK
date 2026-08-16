@@ -1,5 +1,7 @@
 using HtmlAgilityPack;
+using MostaqlK.Core.Formatting;
 using MostaqlK.Models;
+using MostaqlK.Services.Diagnostics;
 
 namespace MostaqlK.Infrastructure.Http.Parsers;
 
@@ -85,6 +87,7 @@ public static class ListingParser
         string publishTimeText = string.Empty;
         int publishTimeNumber = 0;
         int proposalCount = 0;
+        string proposalCountText = string.Empty;
 
         if (meta is not null)
         {
@@ -92,8 +95,8 @@ public static class ListingParser
             if (metaItems is not null)
             {
                 // ASSUMPTION: metaItems commonly appear in the order [client name, posted
-                // relative time, proposal count] as separate <li> entries; adapt defensively
-                // since the exact order/count is not guaranteed across page variants.
+                // relative time, proposal count] as separate <li> entries. 
+                // We use heuristics to identify them since the order can vary.
                 foreach (var li in metaItems)
                 {
                     var text = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(li.InnerText));
@@ -102,17 +105,15 @@ public static class ListingParser
                         continue;
                     }
 
-                    var digitsOnly = new string(text.Where(char.IsDigit).ToArray());
-                    if (digitsOnly.Length > 0 && int.TryParse(digitsOnly, out var count)
-                        && !string.IsNullOrEmpty(clientName) && proposalCount == 0 && LooksLikeProposalCount(text))
+                    InteractionLogger.Mark("ListingParser.MetaItem", "D", new { ProjectId = projectId, Text = text });
+
+                    if (LooksLikeProposalCount(text))
                     {
-                        proposalCount = count;
+                        var (num, txt) = ArabicProposalParser.Parse(text);
+                        proposalCount = num;
+                        proposalCountText = txt;
                     }
-                    else if (string.IsNullOrEmpty(clientName))
-                    {
-                        clientName = text;
-                    }
-                    else if (string.IsNullOrEmpty(publishTimeText))
+                    else if (text.Contains("منذ") || text.Contains("ساعة") || text.Contains("يوم") || text.Contains("لحظات"))
                     {
                         publishTimeText = text;
                         // Extract number from relative time text (e.g. "منذ 7 دقائق" -> 7)
@@ -129,13 +130,9 @@ public static class ListingParser
                         else if (text.Contains("دقيقتان")) publishTimeNumber = 2;
                         else if (text.Contains("لحظات")) publishTimeNumber = 0;
                     }
-                    else if (text.Contains("عرض") || text.Contains("عروض") || text.Contains("تسليم"))
+                    else if (string.IsNullOrEmpty(clientName))
                     {
-                        var numMatch = System.Text.RegularExpressions.Regex.Match(text, @"\d+");
-                        if (numMatch.Success && int.TryParse(numMatch.Value, out var num))
-                        {
-                            proposalCount = num;
-                        }
+                        clientName = text;
                     }
                 }
             }
@@ -150,12 +147,13 @@ public static class ListingParser
             PublishTimeNumber = publishTimeNumber,
             PublishTimeText = publishTimeText,
             ProposalCount = proposalCount,
+            ProposalCountText = proposalCountText,
             DiscoveredAt = DateTimeOffset.UtcNow,
         };
     }
 
     private static bool LooksLikeProposalCount(string text) =>
-        text.Contains("عرض") || text.Contains("عروض") || text.Contains("تسليم");
+        text.Contains("عرض") || text.Contains("عروض");
 
     private static readonly System.Text.RegularExpressions.Regex ProjectIdRegex =
         new(@"/project/(\d+)", System.Text.RegularExpressions.RegexOptions.Compiled);

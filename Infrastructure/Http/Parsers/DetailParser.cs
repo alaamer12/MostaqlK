@@ -1,4 +1,5 @@
 using HtmlAgilityPack;
+using MostaqlK.Core.Formatting;
 using MostaqlK.Models;
 
 namespace MostaqlK.Infrastructure.Http.Parsers;
@@ -30,6 +31,7 @@ public static class DetailParser
         ["بدأ تنفيذه منذ"] = "started_since",
         ["تاريخ الصفقة"] = "deal_date",
         ["موعد التسليم"] = "delivery_date",
+        ["عدد العروض"] = "proposal_count",
     };
 
     private static readonly Dictionary<string, string> FieldToLabel =
@@ -39,7 +41,7 @@ public static class DetailParser
     private const string CompletedStatusText = "مكتمل";
 
     private static readonly HashSet<string> NumericFields =
-        ["hire_rate", "budget", "duration", "open_projects_count", "in_progress_count", "completed_projects_count", "ongoing_conversations"];
+        ["hire_rate", "budget", "duration", "open_projects_count", "in_progress_count", "completed_projects_count", "ongoing_conversations", "proposal_count"];
 
     // Mirrors analyzer.NOT_CALCULATED_MARKERS / ARABIC_DIGIT_RE used by pipeline.py's
     // _is_placeholder/_sanity_ok.
@@ -183,6 +185,9 @@ public static class DetailParser
             SizeText = a.SizeText,
         }).ToList();
 
+        var proposalText = fields.GetValueOrDefault("proposal_count")?.Value;
+        var (proposalNum, proposalTxt) = ArabicProposalParser.Parse(proposalText);
+
         return new ProjectDetails
         {
             ProjectId = projectId,
@@ -194,6 +199,8 @@ public static class DetailParser
             ProjectStatus = fields.GetValueOrDefault("project_status")?.Value,
             PublishTimeText = fields.GetValueOrDefault("published_date")?.Value ?? string.Empty,
             PublishTimeNumber = ParseLeadingInt(fields.GetValueOrDefault("published_date")?.Value) ?? 0,
+            ProposalCount = proposalNum,
+            ProposalCountText = proposalTxt,
             Skills = skills,
             Owner = owner,
             Attachments = attachments,

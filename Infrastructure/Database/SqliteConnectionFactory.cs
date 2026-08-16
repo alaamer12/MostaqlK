@@ -164,6 +164,7 @@ public sealed class SqliteConnectionFactory
             publish_time_number INTEGER,
             publish_time_text TEXT,
             proposal_count INTEGER,
+            proposal_count_text TEXT,
             description TEXT,
             budget TEXT,
             delivery_days INTEGER,

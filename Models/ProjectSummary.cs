@@ -16,6 +16,7 @@ public sealed class ProjectSummary
     public int PublishTimeNumber { get; set; }
     public string PublishTimeText { get; set; } = string.Empty;
     public int ProposalCount { get; set; }
+    public string ProposalCountText { get; set; } = string.Empty;
 
     public string? Budget { get; set; }
 

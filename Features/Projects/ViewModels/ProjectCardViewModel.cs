@@ -148,7 +148,9 @@ public sealed partial class ProjectCardViewModel : ObservableObject
 
     public int ProposalCount => Project.ProposalCount;
 
-    public string ProposalCountText => $"{ProposalCount} عرض";
+    public string ProposalCountText => string.IsNullOrWhiteSpace(Project.ProposalCountText)
+        ? $"{ProposalCount} عرض"
+        : Project.ProposalCountText;
 
     /// <summary>Budget in the mockup's presentation form ("2,500 - 5,500 ر.س"), not the raw scraped string.</summary>
     public string Budget => BudgetFormatter.Format(Project.Budget);

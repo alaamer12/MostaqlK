@@ -30,10 +30,10 @@ public sealed class ProjectRepository : IProjectRepository
                 command.CommandText = """
                     INSERT OR IGNORE INTO projects
                         (project_id, title, url, client_name, publish_time_number, publish_time_text,
-                         proposal_count, is_unread, enrichment_status, discovered_at)
+                         proposal_count, proposal_count_text, is_unread, enrichment_status, discovered_at)
                     VALUES
                         (@project_id, @title, @url, @client_name, @publish_time_number, @publish_time_text,
-                         @proposal_count, @is_unread, @enrichment_status, @discovered_at);
+                         @proposal_count, @proposal_count_text, @is_unread, @enrichment_status, @discovered_at);
                     """;
                 command.Parameters.AddWithValue("@project_id", project.ProjectId);
                 command.Parameters.AddWithValue("@title", project.Title);
@@ -42,6 +42,7 @@ public sealed class ProjectRepository : IProjectRepository
                 command.Parameters.AddWithValue("@publish_time_number", project.PublishTimeNumber);
                 command.Parameters.AddWithValue("@publish_time_text", project.PublishTimeText);
                 command.Parameters.AddWithValue("@proposal_count", project.ProposalCount);
+                command.Parameters.AddWithValue("@proposal_count_text", project.ProposalCountText);
                 command.Parameters.AddWithValue("@is_unread", project.IsUnread ? 1 : 0);
                 command.Parameters.AddWithValue("@enrichment_status", project.EnrichmentStatus.ToString());
                 command.Parameters.AddWithValue("@discovered_at", project.DiscoveredAt.ToString("O"));
@@ -94,10 +95,12 @@ public sealed class ProjectRepository : IProjectRepository
                     INSERT INTO projects
                         (project_id, title, url, client_name, description, budget, delivery_days,
                          project_status, publish_time_number, publish_time_text,
+                         proposal_count, proposal_count_text,
                          owner_id, enrichment_status, discovered_at, enriched_at)
                     VALUES
                         (@project_id, @title, @url, @client_name, @description, @budget, @delivery_days,
                          @project_status, @publish_time_number, @publish_time_text,
+                         @proposal_count, @proposal_count_text,
                          @owner_id, @enrichment_status, @discovered_at, @enriched_at)
                     ON CONFLICT(project_id) DO UPDATE SET
                         title = excluded.title,
@@ -109,6 +112,8 @@ public sealed class ProjectRepository : IProjectRepository
                         project_status = excluded.project_status,
                         publish_time_number = excluded.publish_time_number,
                         publish_time_text = excluded.publish_time_text,
+                        proposal_count = excluded.proposal_count,
+                        proposal_count_text = excluded.proposal_count_text,
                         owner_id = excluded.owner_id,
                         enrichment_status = excluded.enrichment_status,
                         enriched_at = excluded.enriched_at;
@@ -123,6 +128,8 @@ public sealed class ProjectRepository : IProjectRepository
                 upsertCommand.Parameters.AddWithValue("@project_status", details.ProjectStatus is null ? DBNull.Value : details.ProjectStatus);
                 upsertCommand.Parameters.AddWithValue("@publish_time_number", details.PublishTimeNumber);
                 upsertCommand.Parameters.AddWithValue("@publish_time_text", details.PublishTimeText);
+                upsertCommand.Parameters.AddWithValue("@proposal_count", details.ProposalCount);
+                upsertCommand.Parameters.AddWithValue("@proposal_count_text", details.ProposalCountText);
                 upsertCommand.Parameters.AddWithValue("@owner_id", details.Owner.OwnerId == 0 ? DBNull.Value : details.Owner.OwnerId);
                 upsertCommand.Parameters.AddWithValue("@enrichment_status", details.EnrichmentStatus.ToString());
                 upsertCommand.Parameters.AddWithValue("@discovered_at", DateTimeOffset.UtcNow.ToString("O"));
@@ -248,7 +255,7 @@ public sealed class ProjectRepository : IProjectRepository
             using var command = connection.CreateCommand();
             command.CommandText = """
                 SELECT p.project_id, p.title, p.url, p.client_name, p.publish_time_number, p.publish_time_text,
-                       p.proposal_count, p.description, p.budget, p.delivery_days,
+                       p.proposal_count, p.proposal_count_text, p.description, p.budget, p.delivery_days,
                        p.is_unread, p.enrichment_status, p.discovered_at, p.project_status,
                        COALESCE((SELECT group_concat(name, ', ') FROM project_skills s WHERE s.project_id = p.project_id), '')
                 FROM projects p
@@ -312,6 +319,7 @@ public sealed class ProjectRepository : IProjectRepository
                     SELECT p.project_id, p.title, p.url, p.description, p.budget, p.delivery_days,
                            p.enrichment_status, p.enriched_at, p.project_status,
                            p.publish_time_number, p.publish_time_text,
+                           p.proposal_count, p.proposal_count_text,
                            o.owner_id, o.name, o.profile_url, o.avatar_url, o.rating,
                            o.completed_projects_count, o.hiring_rate_percent,
                            o.registered_at, o.open_projects_count, o.in_progress_projects_count,
@@ -338,21 +346,23 @@ public sealed class ProjectRepository : IProjectRepository
                         ProjectStatus = reader.IsDBNull(8) ? null : reader.GetString(8),
                         PublishTimeNumber = reader.IsDBNull(9) ? 0 : reader.GetInt32(9),
                         PublishTimeText = reader.IsDBNull(10) ? string.Empty : reader.GetString(10),
-                        Owner = reader.IsDBNull(11)
+                        ProposalCount = reader.IsDBNull(11) ? 0 : reader.GetInt32(11),
+                        ProposalCountText = reader.IsDBNull(12) ? string.Empty : reader.GetString(12),
+                        Owner = reader.IsDBNull(13)
                             ? new Owner()
                             : new Owner
                             {
-                                OwnerId = reader.GetInt64(11),
-                                Name = reader.IsDBNull(12) ? string.Empty : reader.GetString(12),
-                                ProfileUrl = reader.IsDBNull(13) ? null : reader.GetString(13),
-                                AvatarUrl = reader.IsDBNull(14) ? null : reader.GetString(14),
-                                Rating = reader.IsDBNull(15) ? null : reader.GetDouble(15),
-                                CompletedProjectsCount = reader.IsDBNull(16) ? null : reader.GetInt32(16),
-                                HiringRatePercent = reader.IsDBNull(17) ? null : reader.GetInt32(17),
-                                RegisteredAt = reader.IsDBNull(18) ? null : reader.GetString(18),
-                                OpenProjectsCount = reader.IsDBNull(19) ? null : reader.GetInt32(19),
-                                InProgressProjectsCount = reader.IsDBNull(20) ? null : reader.GetInt32(20),
-                                OngoingCommunicationsCount = reader.IsDBNull(21) ? null : reader.GetInt32(21),
+                                OwnerId = reader.GetInt64(13),
+                                Name = reader.IsDBNull(14) ? string.Empty : reader.GetString(14),
+                                ProfileUrl = reader.IsDBNull(15) ? null : reader.GetString(15),
+                                AvatarUrl = reader.IsDBNull(16) ? null : reader.GetString(16),
+                                Rating = reader.IsDBNull(17) ? null : reader.GetDouble(17),
+                                CompletedProjectsCount = reader.IsDBNull(18) ? null : reader.GetInt32(18),
+                                HiringRatePercent = reader.IsDBNull(19) ? null : reader.GetInt32(19),
+                                RegisteredAt = reader.IsDBNull(20) ? null : reader.GetString(20),
+                                OpenProjectsCount = reader.IsDBNull(21) ? null : reader.GetInt32(21),
+                                InProgressProjectsCount = reader.IsDBNull(22) ? null : reader.GetInt32(22),
+                                OngoingCommunicationsCount = reader.IsDBNull(23) ? null : reader.GetInt32(23),
                             },
                     };
                 }
@@ -710,6 +720,7 @@ public sealed class ProjectRepository : IProjectRepository
                     SELECT p.project_id, p.title, p.url, p.description, p.budget, p.delivery_days,
                            p.enrichment_status, p.enriched_at, p.project_status,
                            p.publish_time_number, p.publish_time_text,
+                           p.proposal_count, p.proposal_count_text,
                            o.owner_id, o.name, o.profile_url, o.avatar_url, o.rating,
                            o.completed_projects_count, o.hiring_rate_percent,
                            o.registered_at, o.open_projects_count, o.in_progress_projects_count,
@@ -734,21 +745,23 @@ public sealed class ProjectRepository : IProjectRepository
                         ProjectStatus = reader.IsDBNull(8) ? null : reader.GetString(8),
                         PublishTimeNumber = reader.IsDBNull(9) ? 0 : reader.GetInt32(9),
                         PublishTimeText = reader.IsDBNull(10) ? string.Empty : reader.GetString(10),
-                        Owner = reader.IsDBNull(11)
+                        ProposalCount = reader.IsDBNull(11) ? 0 : reader.GetInt32(11),
+                        ProposalCountText = reader.IsDBNull(12) ? string.Empty : reader.GetString(12),
+                        Owner = reader.IsDBNull(13)
                             ? new Owner()
                             : new Owner
                             {
-                                OwnerId = reader.GetInt64(11),
-                                Name = reader.IsDBNull(12) ? string.Empty : reader.GetString(12),
-                                ProfileUrl = reader.IsDBNull(13) ? null : reader.GetString(13),
-                                AvatarUrl = reader.IsDBNull(14) ? null : reader.GetString(14),
-                                Rating = reader.IsDBNull(15) ? null : reader.GetDouble(15),
-                                CompletedProjectsCount = reader.IsDBNull(16) ? null : reader.GetInt32(16),
-                                HiringRatePercent = reader.IsDBNull(17) ? null : reader.GetInt32(17),
-                                RegisteredAt = reader.IsDBNull(18) ? null : reader.GetString(18),
-                                OpenProjectsCount = reader.IsDBNull(19) ? null : reader.GetInt32(19),
-                                InProgressProjectsCount = reader.IsDBNull(20) ? null : reader.GetInt32(20),
-                                OngoingCommunicationsCount = reader.IsDBNull(21) ? null : reader.GetInt32(21),
+                                OwnerId = reader.GetInt64(13),
+                                Name = reader.IsDBNull(14) ? string.Empty : reader.GetString(14),
+                                ProfileUrl = reader.IsDBNull(15) ? null : reader.GetString(15),
+                                AvatarUrl = reader.IsDBNull(16) ? null : reader.GetString(16),
+                                Rating = reader.IsDBNull(17) ? null : reader.GetDouble(17),
+                                CompletedProjectsCount = reader.IsDBNull(18) ? null : reader.GetInt32(18),
+                                HiringRatePercent = reader.IsDBNull(19) ? null : reader.GetInt32(19),
+                                RegisteredAt = reader.IsDBNull(20) ? null : reader.GetString(20),
+                                OpenProjectsCount = reader.IsDBNull(21) ? null : reader.GetInt32(21),
+                                InProgressProjectsCount = reader.IsDBNull(22) ? null : reader.GetInt32(22),
+                                OngoingCommunicationsCount = reader.IsDBNull(23) ? null : reader.GetInt32(23),
                             },
                     });
                 }
@@ -806,14 +819,15 @@ public sealed class ProjectRepository : IProjectRepository
         PublishTimeNumber = reader.IsDBNull(4) ? 0 : reader.GetInt32(4),
         PublishTimeText = reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
         ProposalCount = reader.IsDBNull(6) ? 0 : reader.GetInt32(6),
-        Description = reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
-        Budget = reader.IsDBNull(8) ? null : reader.GetString(8),
-        DeliveryDays = reader.IsDBNull(9) ? null : reader.GetInt32(9),
-        IsUnread = !reader.IsDBNull(10) && reader.GetInt64(10) != 0,
-        EnrichmentStatus = Enum.Parse<EnrichmentStatus>(reader.GetString(11)),
-        DiscoveredAt = DateTimeOffset.Parse(reader.GetString(12)),
-        ProjectStatus = reader.IsDBNull(13) ? null : reader.GetString(13),
-        SkillsText = reader.IsDBNull(14) ? string.Empty : reader.GetString(14),
+        ProposalCountText = reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
+        Description = reader.IsDBNull(8) ? string.Empty : reader.GetString(8),
+        Budget = reader.IsDBNull(9) ? null : reader.GetString(9),
+        DeliveryDays = reader.IsDBNull(10) ? null : reader.GetInt32(10),
+        IsUnread = !reader.IsDBNull(11) && reader.GetInt64(11) != 0,
+        EnrichmentStatus = Enum.Parse<EnrichmentStatus>(reader.GetString(12)),
+        DiscoveredAt = DateTimeOffset.Parse(reader.GetString(13)),
+        ProjectStatus = reader.IsDBNull(14) ? null : reader.GetString(14),
+        SkillsText = reader.IsDBNull(15) ? string.Empty : reader.GetString(15),
     };
 
     private static Asset ReadAsset(SqliteDataReader reader) => new()
