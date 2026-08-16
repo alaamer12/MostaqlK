@@ -1,5 +1,6 @@
 using MostaqlK.Core;
 using MostaqlK.Models;
+using MostaqlK.Services.Diagnostics;
 
 namespace MostaqlK.Infrastructure.Http;
 
@@ -61,23 +62,21 @@ public sealed class AssetDownloadService
     [ErrorOutcome(ErrorOutcome.Handled, Label = "Auth/network failure downloading the asset surfaced as AttachmentStatus.AuthFailed")]
     public async Task<AttachmentResolution> ResolveAsync(Asset asset, CancellationToken cancellationToken = default)
     {
-        if (!asset.RequiresAuth)
-        {
-            return new AttachmentResolution(AttachmentStatus.ReadyUrl, asset.Url, null, null);
-        }
-
-        if (string.IsNullOrWhiteSpace(asset.RawUrl))
-        {
-            return new AttachmentResolution(
-                AttachmentStatus.ManualDownloadRequired,
-                null,
-                null,
-                $"No URL captured for '{asset.FileName}'; nothing to download.");
-        }
-
         var cookieHeader = GetConfiguredCookieHeader();
-        if (string.IsNullOrWhiteSpace(cookieHeader))
+        InteractionLogger.Mark("AssetDownloadService.CookieSource", "A", new { Source = CookieJar.LastSource, HasCookie = !string.IsNullOrEmpty(cookieHeader) });
+
+        // If it's explicitly marked as requiring auth but we have no cookie, we can't even try.
+        if (asset.RequiresAuth && string.IsNullOrWhiteSpace(cookieHeader))
         {
+            if (string.IsNullOrWhiteSpace(asset.RawUrl))
+            {
+                return new AttachmentResolution(
+                    AttachmentStatus.ManualDownloadRequired,
+                    null,
+                    null,
+                    $"No URL captured for '{asset.FileName}'; nothing to download.");
+            }
+
             return new AttachmentResolution(
                 AttachmentStatus.ManualDownloadRequired,
                 null,
@@ -87,12 +86,28 @@ public sealed class AssetDownloadService
                 $"Please open this link in your own logged-in browser and download it manually: {asset.RawUrl}");
         }
 
+        // If we have a cookie, or if it doesn't explicitly require auth, we try to download it.
+        // We prefer downloading even for "public" links to ensure they are saved locally 
+        // and opened from disk, which avoids the browser "inline" disposition issue.
+        var targetUrl = asset.RawUrl ?? asset.Url;
+        if (string.IsNullOrWhiteSpace(targetUrl))
+        {
+            return new AttachmentResolution(
+                AttachmentStatus.ManualDownloadRequired,
+                null,
+                null,
+                $"No URL available for '{asset.FileName}'.");
+        }
+
         byte[] data;
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, asset.RawUrl);
-            request.Headers.TryAddWithoutValidation("Cookie", cookieHeader);
-            request.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0");
+            using var request = new HttpRequestMessage(HttpMethod.Get, targetUrl);
+            if (!string.IsNullOrWhiteSpace(cookieHeader))
+            {
+                request.Headers.TryAddWithoutValidation("Cookie", cookieHeader);
+            }
+            request.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
 
             using var response = await _httpClient.SendAsync(request, cancellationToken);
             response.EnsureSuccessStatusCode();
@@ -100,21 +115,29 @@ public sealed class AssetDownloadService
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
+            // If we tried with a cookie and failed, or if it's marked as public but failed,
+            // we might want to return ReadyUrl as a fallback if it was supposed to be public.
+            if (!asset.RequiresAuth)
+            {
+                return new AttachmentResolution(AttachmentStatus.ReadyUrl, asset.Url, null, null);
+            }
+
             return new AttachmentResolution(
                 AttachmentStatus.AuthFailed,
                 null,
                 null,
-                $"Download attempt for '{asset.FileName}' failed: {ex.Message}. Manual link: {asset.RawUrl}");
+                $"Download attempt for '{asset.FileName}' failed: {ex.Message}. Manual link: {targetUrl}");
         }
 
-        if (LooksLikeHtml(data))
+        if (LooksLikeHtml(data) && targetUrl.Contains("mostaql.com"))
         {
+            // If we got HTML from mostaql.com, it's almost certainly a login redirect.
             return new AttachmentResolution(
                 AttachmentStatus.AuthFailed,
                 null,
                 null,
                 $"Configured cookie was not accepted for '{asset.FileName}' (received an HTML page instead of a " +
-                $"file — likely an expired/invalid session). Manual link: {asset.RawUrl}");
+                $"file — likely an expired/invalid session). Manual link: {targetUrl}");
         }
 
         var destDir = Path.Combine(FileSystem.CacheDirectory, "attachments");

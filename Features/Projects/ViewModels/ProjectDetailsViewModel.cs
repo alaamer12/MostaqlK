@@ -43,11 +43,31 @@ public sealed partial class AttachmentItemViewModel : ObservableObject
     {
         using var _ = TraceScope.Begin("ResolveCommand", new { FileName });
         IsResolving = true;
+        StatusMessage = "جارٍ التحميل...";
         try
         {
             var resolution = await _assetDownloadService.ResolveAsync(Asset);
             Status = resolution.Status;
             StatusMessage = resolution.Message ?? resolution.LocalPath ?? resolution.Url;
+
+            // Actually act on the resolution: open the URL or the downloaded file.
+            if (resolution.Status == AttachmentStatus.ReadyUrl && !string.IsNullOrEmpty(resolution.Url))
+            {
+                await Microsoft.Maui.ApplicationModel.Launcher.Default.OpenAsync(resolution.Url);
+            }
+            else if (resolution.Status == AttachmentStatus.Downloaded && !string.IsNullOrEmpty(resolution.LocalPath))
+            {
+                // On Windows, we can open the file directly.
+                await Microsoft.Maui.ApplicationModel.Launcher.Default.OpenAsync(new Microsoft.Maui.ApplicationModel.OpenFileRequest
+                {
+                    File = new Microsoft.Maui.Storage.ReadOnlyFile(resolution.LocalPath)
+                });
+            }
+            else if (resolution.Status == AttachmentStatus.ManualDownloadRequired && !string.IsNullOrEmpty(Asset.RawUrl))
+            {
+                // If manual download is required, we still want to help the user by opening the link.
+                await Microsoft.Maui.ApplicationModel.Launcher.Default.OpenAsync(Asset.RawUrl);
+            }
         }
         catch (Exception ex)
         {

@@ -145,8 +145,8 @@ public partial class App : Application
 
 		Task.Run(async () =>
 		{
-			// Wait for 15 seconds to allow polling and enrichment to happen.
-			await Task.Delay(15000);
+			// Wait for 30 seconds to allow polling and enrichment to happen.
+			await Task.Delay(30000);
 
 			var projectRepo = services.GetRequiredService<IProjectRepository>();
 			var ownerRepo = services.GetRequiredService<IOwnerRepository>();

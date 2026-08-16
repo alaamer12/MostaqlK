@@ -20,19 +20,34 @@ public sealed class FtsQueryService
     [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result.Err")]
     public async Task<Result<IReadOnlyList<ProjectSummary>>> SearchAsync(string query, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return Result<IReadOnlyList<ProjectSummary>>.Ok(new List<ProjectSummary>());
+        }
+
         try
         {
+            // Professional search: support prefix matching for each term.
+            // Transforms "تصمي" to "تصمي*" and "تصميم موقع" to "تصميم* موقع*".
+            var terms = query.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                             .Select(t => t.Trim().Replace("\"", "\"\""))
+                             .Where(t => !string.IsNullOrEmpty(t))
+                             .Select(t => $"\"{t}\"*");
+            var enhancedQuery = string.Join(" ", terms);
+
             using var connection = _connectionFactory.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = """
                 SELECT p.project_id, p.title, p.url, p.client_name, p.publish_time_number, p.publish_time_text, p.proposal_count,
-                       p.is_unread, p.enrichment_status, p.discovered_at
+                       p.is_unread, p.enrichment_status, p.discovered_at, p.description, p.budget, p.delivery_days,
+                       p.project_status,
+                       COALESCE((SELECT group_concat(name, ', ') FROM project_skills s WHERE s.project_id = p.project_id), '')
                 FROM projects_fts f
                 JOIN projects p ON p.project_id = f.project_id
                 WHERE f.projects_fts MATCH @query
                 ORDER BY rank;
                 """;
-            command.Parameters.AddWithValue("@query", query);
+            command.Parameters.AddWithValue("@query", enhancedQuery);
 
             var results = new List<ProjectSummary>();
             using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -50,6 +65,11 @@ public sealed class FtsQueryService
                     IsUnread = !reader.IsDBNull(7) && reader.GetInt64(7) != 0,
                     EnrichmentStatus = Enum.Parse<EnrichmentStatus>(reader.GetString(8)),
                     DiscoveredAt = DateTimeOffset.Parse(reader.GetString(9)),
+                    Description = reader.IsDBNull(10) ? string.Empty : reader.GetString(10),
+                    Budget = reader.IsDBNull(11) ? null : reader.GetString(11),
+                    DeliveryDays = reader.IsDBNull(12) ? null : reader.GetInt32(12),
+                    ProjectStatus = reader.IsDBNull(13) ? null : reader.GetString(13),
+                    SkillsText = reader.IsDBNull(14) ? string.Empty : reader.GetString(14),
                 });
             }
 

@@ -722,7 +722,8 @@ private static readonly HashSet<string> KnownFileExtensions = new(StringComparer
             }
         }
 
-        var requiresAuth = !string.IsNullOrEmpty(url) && (url.Contains("/register") || url.Contains("/login"));
+        var requiresAuth = !string.IsNullOrEmpty(url) && 
+            (url.Contains("/register") || url.Contains("/login") || url.Contains("/download/") || url.Contains("mostaql.com/attachments/"));
 
         return new AttachmentCandidate(
             Filename: filename,
