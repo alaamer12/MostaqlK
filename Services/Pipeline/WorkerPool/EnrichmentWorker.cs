@@ -199,6 +199,8 @@ public sealed class EnrichmentWorker
             ClientName = details.Owner?.Name ?? string.Empty,
             PublishTimeNumber = number,
             PublishTimeText = text,
+            ProposalCount = details.ProposalCount,
+            ProposalCountText = details.ProposalCountText,
             ProjectStatus = details.ProjectStatus,
             Budget = details.Budget,
             DeliveryDays = details.DeliveryDays,

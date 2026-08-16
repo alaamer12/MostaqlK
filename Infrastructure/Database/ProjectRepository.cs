@@ -113,8 +113,19 @@ public sealed class ProjectRepository : IProjectRepository
                         project_status = excluded.project_status,
                         publish_time_number = excluded.publish_time_number,
                         publish_time_text = excluded.publish_time_text,
-                        proposal_count = excluded.proposal_count,
-                        proposal_count_text = excluded.proposal_count_text,
+                        -- The listing is the authoritative source for proposal counts. Mostaql's
+                        -- detail page often has no proposal-count row, which the parser represents
+                        -- as (0, ''). Do not erase a nonzero listing snapshot in that case.
+                        proposal_count = CASE
+                            WHEN @proposal_count_text IS NULL OR @proposal_count_text = ''
+                            THEN projects.proposal_count
+                            ELSE excluded.proposal_count
+                        END,
+                        proposal_count_text = CASE
+                            WHEN @proposal_count_text IS NULL OR @proposal_count_text = ''
+                            THEN projects.proposal_count_text
+                            ELSE excluded.proposal_count_text
+                        END,
                         owner_id = excluded.owner_id,
                         enrichment_status = excluded.enrichment_status,
                         enriched_at = excluded.enriched_at;

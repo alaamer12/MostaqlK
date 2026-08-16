@@ -48,6 +48,7 @@ public static class Program
         Run(nameof(TestListingPageIdExtraction), TestListingPageIdExtraction);
         Run(nameof(TestNormalizationPrimitives), TestNormalizationPrimitives);
         Run(nameof(TestProposalCountForms), TestProposalCountForms);
+        Run(nameof(TestProposalCountJsonRoundTrip), TestProposalCountJsonRoundTrip);
         Run(nameof(TestDegenerateInputs), TestDegenerateInputs);
         Run(nameof(TestCookieJarParsing), TestCookieJarParsing);
 
@@ -208,6 +209,13 @@ public static class Program
             $"{summaries.ElementAtOrDefault(2)?.ProjectId}");
         Check("listing title parsed", summaries.ElementAtOrDefault(0)?.Title == "مصمم مبدع ومحترف في Canva",
             summaries.ElementAtOrDefault(0)?.Title);
+        Check("listing proposal number parsed", summaries.ElementAtOrDefault(0)?.ProposalCount == 7,
+            $"{summaries.ElementAtOrDefault(0)?.ProposalCount}");
+        Check("listing proposal display text preserved",
+            summaries.ElementAtOrDefault(0)?.ProposalCountText == "7 عروض",
+            summaries.ElementAtOrDefault(0)?.ProposalCountText);
+        Check("listing proposal number handles singular form", summaries.ElementAtOrDefault(1)?.ProposalCount == 12,
+            $"{summaries.ElementAtOrDefault(1)?.ProposalCount}");
     }
 
     private static void TestNormalizationPrimitives()
@@ -256,6 +264,25 @@ public static class Program
             Check($"proposal '{text}' numeric value", parsed.Number == expected, $"{parsed.Number}");
             Check($"proposal '{text}' display text preserved", parsed.Text == text, parsed.Text);
         }
+    }
+
+    private static void TestProposalCountJsonRoundTrip()
+    {
+        var original = new ProjectSummary
+        {
+            ProjectId = 123,
+            Title = "اختبار JSON",
+            ProposalCount = 7,
+            ProposalCountText = "7 عروض",
+        };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(original);
+        var restored = System.Text.Json.JsonSerializer.Deserialize<ProjectSummary>(json);
+
+        Check("JSON keeps proposal number", restored?.ProposalCount == 7,
+            restored?.ProposalCount.ToString() ?? "null");
+        Check("JSON keeps proposal display text", restored?.ProposalCountText == "7 عروض",
+            restored?.ProposalCountText);
     }
 
     /// <summary>Degenerate inputs must fail loudly and predictably, never silently.</summary>
