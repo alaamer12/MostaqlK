@@ -201,6 +201,12 @@
                            HorizontalOptions="End"
                            VerticalOptions="Start"
                            AutomationId="ProjectCard_NewRibbon" />
+
+        <!-- Diagonal light-reflection sweep, active only while this project's enrichment is
+             still running - stops immediately and cleanly once enrichment completes (or fails),
+             at which point the card returns to its plain appearance and the feed re-sorts it. -->
+        <ds:EnrichmentShimmerOverlay IsActive="{Binding IsEnriching}"
+                                     AutomationId="ProjectCard_EnrichmentShimmer" />
     </Grid>
 
 </ContentView>

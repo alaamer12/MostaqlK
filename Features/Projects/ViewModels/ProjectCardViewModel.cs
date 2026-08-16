@@ -44,6 +44,7 @@ public sealed partial class ProjectCardViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(EnrichmentBadgeBackground))]
     [NotifyPropertyChangedFor(nameof(EnrichmentBadgeForeground))]
     [NotifyPropertyChangedFor(nameof(EnrichmentBadgeIcon))]
+    [NotifyPropertyChangedFor(nameof(IsEnriching))]
     public partial ProjectSummary Project { get; set; }
 
     /// <summary>Bound by <c>ProjectCard.xaml</c>'s tap gesture; delegates back to the owning feed's select handler.</summary>
@@ -233,6 +234,15 @@ public sealed partial class ProjectCardViewModel : ObservableObject
         EnrichmentStatus.Enriched => AppIconGlyph.CircleCheck,
         _ => AppIconGlyph.Clock,
     };
+
+    /// <summary>
+    /// True while the project's enrichment process is still running (queued or in-flight) —
+    /// drives the card's <c>EnrichmentShimmerOverlay</c> sweep. Only <see cref="EnrichmentStatus.Pending"/>
+    /// counts as "still enriching": both <see cref="EnrichmentStatus.Enriched"/> and
+    /// <see cref="EnrichmentStatus.Failed"/> are terminal states, so the shimmer stops the
+    /// instant enrichment actually finishes (successfully or not) rather than lingering.
+    /// </summary>
+    public bool IsEnriching => Project.EnrichmentStatus == EnrichmentStatus.Pending;
 
     public void MarkAsRead()
     {

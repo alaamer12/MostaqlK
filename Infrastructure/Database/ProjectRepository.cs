@@ -277,9 +277,17 @@ public sealed class ProjectRepository : IProjectRepository
                 SELECT p.project_id, p.title, p.url, p.client_name, p.publish_time_number, p.publish_time_text,
                        p.proposal_count, p.proposal_count_text, p.description, p.budget, p.delivery_days,
                        p.is_unread, p.enrichment_status, p.discovered_at, p.project_status,
-                       COALESCE((SELECT group_concat(name, ', ') FROM project_skills s WHERE s.project_id = p.project_id), '')
+                       COALESCE((SELECT group_concat(name, ', ') FROM project_skills s WHERE s.project_id = p.project_id), ''),
+                       p.enriched_at
                 FROM projects p
-                ORDER BY p.discovered_at DESC
+                -- Sort by enrichment *completion*, not discovery time: the most recently fully
+                -- enriched project must land at the top, while projects still pending/being
+                -- enriched (enriched_at IS NULL) stay below every completed one, ordered among
+                -- themselves by discovery recency. Two rows completing at the "same" instant are
+                -- simply ordered by their (distinct, high-precision "O"-formatted) enriched_at
+                -- values - no special tie-break is needed, and neither completion blocks or
+                -- overwrites the other since each is an independent UPDATE.
+                ORDER BY (p.enriched_at IS NULL) ASC, p.enriched_at DESC, p.discovered_at DESC
                 LIMIT @limit;
                 """;
             command.Parameters.AddWithValue("@limit", limit);
@@ -848,6 +856,7 @@ public sealed class ProjectRepository : IProjectRepository
         DiscoveredAt = DateTimeOffset.Parse(reader.GetString(13)),
         ProjectStatus = reader.IsDBNull(14) ? null : reader.GetString(14),
         SkillsText = reader.IsDBNull(15) ? string.Empty : reader.GetString(15),
+        EnrichedAt = reader.IsDBNull(16) ? null : DateTimeOffset.Parse(reader.GetString(16)),
     };
 
     private static Asset ReadAsset(SqliteDataReader reader) => new()

@@ -204,6 +204,10 @@ public sealed class EnrichmentWorker
             Budget = details.Budget,
             DeliveryDays = details.DeliveryDays,
             DiscoveredAt = DateTimeOffset.UtcNow,
+            // The moment enrichment actually completed (stamped by DetailParser), not this
+            // notification's dispatch time - this is what the feed's ORDER BY sorts on, so a
+            // project only moves to the top once its enrichment has genuinely finished.
+            EnrichedAt = details.EnrichedAt,
         };
     }
 }
