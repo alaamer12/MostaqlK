@@ -2,6 +2,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Maui.LifecycleEvents;
 using MostaqlK.Features.Notifications.ViewModels;
+using MostaqlK.Features.Onboarding.ViewModels;
+using MostaqlK.Features.Onboarding.Views;
 using MostaqlK.Features.Projects.ViewModels;
 using MostaqlK.Features.Projects.Views;
 using MostaqlK.Features.Settings.ViewModels;
@@ -10,6 +12,7 @@ using MostaqlK.Infrastructure.Database;
 using MostaqlK.Infrastructure.Http;
 using MostaqlK.Infrastructure.Notifications;
 using MostaqlK.Services;
+using MostaqlK.Services.Onboarding;
 using MostaqlK.Services.Pipeline;
 using MostaqlK.Services.Pipeline.DiffEngine;
 using MostaqlK.Services.Pipeline.WorkerPool;
@@ -237,6 +240,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IEnrichmentService, EnrichmentService>();
 		builder.Services.AddSingleton<IPollService, PollService>();
 		builder.Services.AddSingleton<WorkerPool>();
+		builder.Services.AddSingleton<OnboardingStateService>();
 
 		// Notifications
 		builder.Services.AddSingleton<NotificationGrouper>();
@@ -268,6 +272,10 @@ public static class MauiProgram
 		builder.Services.AddTransient<SettingsViewModel>();
 		builder.Services.AddTransient<SettingsPanel>();
 
+		// Features: Onboarding
+		builder.Services.AddTransient<OnboardingViewModel>();
+		builder.Services.AddTransient<OnboardingPage>();
+
 #if WINDOWS
 		// Hosts the native Shell_NotifyIcon tray icon once the main WinUI window is created,
 		// and tears it down when it closes. `appRef` is set right after Build() below; by the
@@ -293,6 +301,21 @@ public static class MauiProgram
 					// restores the fully native, OS-drawn title bar and caption buttons, themed to
 					// match the app's current light/dark mode.
 					RestoreNativeTitleBar(window);
+					if ((Microsoft.Maui.Controls.Application.Current as App)?.IsOnboardingWindowPending == true)
+					{
+						var onboardingHwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+						var onboardingId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(onboardingHwnd);
+						var onboardingAppWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(onboardingId);
+						if (onboardingAppWindow?.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter)
+						{
+							presenter.IsResizable = false;
+							presenter.IsMaximizable = false;
+						}
+					}
+					if ((Microsoft.Maui.Controls.Application.Current as App)?.IsOnboardingWindowPending == true)
+					{
+						return;
+					}
 					// MAUI's own Window handler re-applies ExtendsContentIntoTitleBar after
 					// OnWindowCreated fires (e.g. when the platform view finishes loading), so a
 					// single assignment here can get silently overwritten. Re-assert once the

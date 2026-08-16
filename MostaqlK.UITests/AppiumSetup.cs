@@ -81,6 +81,24 @@ public class AppiumSetup
         // Connect to WinAppDriver running locally on port 4723
         Driver = new WindowsDriver<WindowsElement>(new Uri("http://127.0.0.1:4723"), options);
         Driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(5);
+
+        // Existing UI scenarios exercise the main Shell. Complete first-run onboarding when a
+        // fresh preference store presents it, while leaving already-completed launches untouched.
+        try
+        {
+            var onboardingSkip = Driver.FindElementByAccessibilityId("onboarding-top-skip");
+            onboardingSkip.Click();
+            System.Threading.Thread.Sleep(750);
+            var handles = Driver.WindowHandles;
+            if (handles.Count > 0)
+            {
+                Driver.SwitchTo().Window(handles[^1]);
+            }
+        }
+        catch (OpenQA.Selenium.WebDriverException)
+        {
+            // The completion preference is already set; the main Shell is the expected surface.
+        }
     }
 
     private static void StartWinAppDriver()

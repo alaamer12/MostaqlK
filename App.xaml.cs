@@ -3,6 +3,8 @@ using MostaqlK.Infrastructure.Database;
 using MostaqlK.Services;
 using MostaqlK.Services.Pipeline;
 using MostaqlK.Services.Pipeline.WorkerPool;
+using MostaqlK.Services.Onboarding;
+using MostaqlK.Features.Onboarding.Views;
 using System.Linq;
 using System.IO;
 using Microsoft.Maui.ApplicationModel;
@@ -24,10 +26,16 @@ public partial class App : Application
 	private const int WindowsFrameInset = 8;
 
 	private readonly CancellationTokenSource _pipelineCts = new();
+	private readonly IServiceProvider _services;
+	private Window? _onboardingWindow;
+	private bool _mainWindowOpened;
 
 	public App(IServiceProvider services)
 	{
+		_services = services;
 		InitializeComponent();
+		services.GetRequiredService<OnboardingStateService>().Completed += OnboardingCompleted;
+		services.GetRequiredService<OnboardingStateService>().ApplySavedQuery();
 
 		// Windows-specific style overrides (BasedOn AppButtonBase, etc.) are merged only on the
 		// Windows target framework, per Mechanism 1 in cross-platform-ui-conventions.md. Built in
@@ -53,9 +61,12 @@ public partial class App : Application
 		// of the mockups' light-theme default (per projects.html, dark mode starts OFF).
 		// A `--theme=light|dark` startup argument overrides the stored preference so each page can be
 		// captured deterministically in both themes during design-parity verification.
-		UserAppTheme = StartupNavigation.ResolveTheme(
-			Environment.GetCommandLineArgs(),
-			Microsoft.Maui.Storage.Preferences.Get("settings_is_dark_mode", false));
+		var onboardingIsPending = !services.GetRequiredService<OnboardingStateService>().IsCompleted;
+		UserAppTheme = onboardingIsPending
+			? StartupNavigation.ResolveExplicitTheme(Environment.GetCommandLineArgs())
+			: StartupNavigation.ResolveTheme(
+				Environment.GetCommandLineArgs(),
+				Microsoft.Maui.Storage.Preferences.Get("settings_is_dark_mode", false));
 
 #if WINDOWS
 		// FIX ("not a single notification, ever since day one"): AUMID + Start Menu shortcut +
@@ -247,6 +258,24 @@ public partial class App : Application
 
 	protected override Window CreateWindow(IActivationState? activationState)
 	{
+		var onboarding = _services.GetRequiredService<OnboardingStateService>();
+		if (!onboarding.IsCompleted)
+		{
+			_onboardingWindow = new Window(_services.GetRequiredService<OnboardingPage>());
+			var display = DeviceDisplay.MainDisplayInfo;
+			var workWidth = display.Width / display.Density;
+			var workHeight = display.Height / display.Density;
+			var scale = Math.Clamp(Math.Min((workWidth - 48) / 920d, (workHeight - 96) / 720d), 0.65d, 1.25d);
+			_onboardingWindow.Width = Math.Round(920 * scale);
+			_onboardingWindow.Height = Math.Round(720 * scale) + WindowsCaptionHeight + WindowsFrameInset;
+			return _onboardingWindow;
+		}
+
+		return CreateMainWindow();
+	}
+
+	private Window CreateMainWindow()
+	{
 		var window = new Window(new AppShell(StartupNavigation.FromArguments(Environment.GetCommandLineArgs())));
 
 		// The mockups are authored against a fixed 1280x800 desktop viewport, so the window opens
@@ -257,5 +286,27 @@ public partial class App : Application
 		window.Height = 800 + WindowsCaptionHeight + WindowsFrameInset;
 
 		return window;
+	}
+
+	internal bool IsOnboardingWindowPending => _onboardingWindow is not null && !_mainWindowOpened;
+
+	private void OnboardingCompleted(object? sender, EventArgs e)
+	{
+		if (_mainWindowOpened)
+		{
+			return;
+		}
+
+		_mainWindowOpened = true;
+		MainThread.BeginInvokeOnMainThread(() =>
+		{
+			var mainWindow = CreateMainWindow();
+			OpenWindow(mainWindow);
+			if (_onboardingWindow is { } onboardingWindow)
+			{
+				CloseWindow(onboardingWindow);
+				_onboardingWindow = null;
+			}
+		});
 	}
 }

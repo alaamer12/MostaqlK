@@ -84,4 +84,16 @@ public sealed record StartupNavigation(StartupPage DefaultPage, long? ProjectId)
 
 		return storedIsDarkMode ? AppTheme.Dark : AppTheme.Light;
 	}
+
+	public static AppTheme ResolveExplicitTheme(string[] args)
+	{
+		foreach (var arg in args)
+		{
+			if (!arg.StartsWith("--theme=", StringComparison.OrdinalIgnoreCase)) continue;
+			if (arg[8..].Equals("dark", StringComparison.OrdinalIgnoreCase)) return AppTheme.Dark;
+			if (arg[8..].Equals("light", StringComparison.OrdinalIgnoreCase)) return AppTheme.Light;
+		}
+
+		return AppTheme.Unspecified;
+	}
 }
