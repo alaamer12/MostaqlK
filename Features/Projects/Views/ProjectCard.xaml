@@ -129,18 +129,6 @@
                            TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
                            FontFamily="Tajawal" />
                 </VerticalStackLayout>
-
-                <!-- Relative timestamp — `fa-regular fa-clock` then the text, `gap-1.5`. -->
-                <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
-                    <components:AppIcon Icon="Clock"
-                                        FontSize="12"
-                                        VerticalOptions="Center" />
-                    <Label Text="{Binding PublishTimeText}"
-                           FontSize="11"
-                           TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
-                           VerticalOptions="Center"
-                           FontFamily="Tajawal" />
-                </HorizontalStackLayout>
             </Grid>
 
             <!-- Divider — the stats block's `border-t` followed by its `pt-4` (16px). -->
@@ -151,23 +139,28 @@
                  and pushes the unread marker to the far end via `justify-between` — not four equal
                  columns, which spread the labels ~200px apart from the mockup. Each label is
                  `mb-1` (4px) above its value. -->
-            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*" ColumnSpacing="24">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*" ColumnSpacing="24">
                 <VerticalStackLayout Grid.Column="0" Spacing="4">
+                    <Label Text="تاريخ النشر" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
+                    <Label Text="{Binding PublishTimeText}" FontSize="13" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Grid.Column="1" Spacing="4">
                     <Label Text="الميزانية" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
                     <Label Text="{Binding Budget}" FontSize="13" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#16A34A, Dark=#4ADE80}" />
                 </VerticalStackLayout>
 
-                <VerticalStackLayout Grid.Column="1" Spacing="4">
+                <VerticalStackLayout Grid.Column="2" Spacing="4">
                     <Label Text="مدة التسليم" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
                     <Label Text="{Binding Delivery}" FontSize="13" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
                 </VerticalStackLayout>
 
-                <VerticalStackLayout Grid.Column="2" Spacing="4">
+                <VerticalStackLayout Grid.Column="3" Spacing="4">
                     <Label Text="مدة التنفيذ" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
                     <Label Text="{Binding Execution}" AutomationId="ProjectCard_ExecutionLabel" FontSize="13" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
                 </VerticalStackLayout>
 
-                <VerticalStackLayout Grid.Column="3" Spacing="4">
+                <VerticalStackLayout Grid.Column="4" Spacing="4">
                     <Label Text="عدد المقترحات" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
                     <!-- The proposals value is the only stat with a leading icon (`fa-users`, `gap-1`). -->
                     <HorizontalStackLayout Spacing="4">
@@ -176,7 +169,7 @@
                     </HorizontalStackLayout>
                 </VerticalStackLayout>
 
-                <HorizontalStackLayout Grid.Column="4"
+                <HorizontalStackLayout Grid.Column="5"
                                        Spacing="6"
                                        HorizontalOptions="End"
                                        VerticalOptions="End"
