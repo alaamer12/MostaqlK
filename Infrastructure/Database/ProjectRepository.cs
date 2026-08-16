@@ -1,6 +1,7 @@
 using Microsoft.Data.Sqlite;
 using MostaqlK.Core;
 using MostaqlK.Models;
+using MostaqlK.Services.Diagnostics;
 
 namespace MostaqlK.Infrastructure.Database;
 
@@ -218,7 +219,13 @@ public sealed class ProjectRepository : IProjectRepository
         }
         catch (SqliteException ex)
         {
+            InteractionLogger.Failure(nameof(UpsertDetailsAsync), DatabaseErrors.QueryFailed(nameof(UpsertDetailsAsync), ex), new { details.ProjectId, ex.Message, ex.StackTrace });
             return Result<bool>.Err(DatabaseErrors.QueryFailed(nameof(UpsertDetailsAsync), ex));
+        }
+        catch (Exception ex)
+        {
+            InteractionLogger.Fault(nameof(UpsertDetailsAsync), ex, new { details.ProjectId });
+            throw;
         }
     }
 

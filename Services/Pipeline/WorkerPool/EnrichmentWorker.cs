@@ -106,10 +106,12 @@ public sealed class EnrichmentWorker
 
         for (var attempt = 1; attempt <= RetryDelays.Length; attempt++)
         {
+            InteractionLogger.Mark("EnrichmentWorker.AttemptStart", "D", new { projectId, attempt });
             var result = await _enrichmentService.EnrichAsync(projectId, cancellationToken);
             if (result.IsOk)
             {
                 details = result.Value;
+                InteractionLogger.Mark("EnrichmentWorker.FetchSuccess", "D", new { projectId, title = details.Title });
                 break;
             }
 
@@ -155,7 +157,16 @@ public sealed class EnrichmentWorker
             {
                 await _ownerRepository.UpsertAsync(details.Owner, cancellationToken);
             }
-            await _projectRepository.UpsertDetailsAsync(details, cancellationToken);
+            InteractionLogger.Mark("EnrichmentWorker.UpsertStart", "D", new { projectId });
+            var upsertResult = await _projectRepository.UpsertDetailsAsync(details, cancellationToken);
+            if (!upsertResult.IsOk)
+            {
+                InteractionLogger.Failure("EnrichmentWorker.UpsertFailed", upsertResult.Error, new { projectId });
+            }
+            else
+            {
+                InteractionLogger.Mark("EnrichmentWorker.UpsertSuccess", "D", new { projectId });
+            }
         }
         catch (NotImplementedException)
         {

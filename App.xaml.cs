@@ -138,8 +138,8 @@ public partial class App : Application
 		HandleDebugJsonArgument(services, Environment.GetCommandLineArgs());
 	}
 
-	private void HandleDebugJsonArgument(IServiceProvider services, string[] args)
-	{
+    private void HandleDebugJsonArgument(IServiceProvider services, string[] args)
+    {
 #if DEBUG
 		if (!args.Contains("--debug-via-json")) return;
 

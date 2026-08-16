@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using MostaqlK.Infrastructure.Http.Parsers;
 
 namespace MostaqlK.Core.Formatting;
 
@@ -21,26 +22,28 @@ public static class ArabicProposalParser
         }
 
         var text = input.Trim();
-        
+        var normalizedText = StructuralExtractor.NormalizeLabel(text);
+        var asciiText = StructuralExtractor.ToAsciiDigits(normalizedText);
+
         // 1. Check for specific non-numeric markers
-        if (text.Contains("أضف أول عرض"))
+        if (normalizedText.Contains("اضف اول عرض"))
         {
             return (0, text);
         }
 
         // 2. Check for singular/dual words
-        if (text.Contains("عرض واحد"))
+        if (normalizedText.Contains("عرض واحد") || normalizedText == "عرض")
         {
             return (1, text);
         }
 
-        if (text.Contains("عرضان") || text.Contains("عرضين"))
+        if (normalizedText.Contains("عرضان") || normalizedText.Contains("عرضين"))
         {
             return (2, text);
         }
 
         // 3. Extract digits for cases like "5 عروض" or "10 عرض"
-        var match = DigitRegex.Match(text);
+        var match = DigitRegex.Match(asciiText);
         if (match.Success && int.TryParse(match.Value, out var number))
         {
             return (number, text);

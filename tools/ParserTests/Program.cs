@@ -1,5 +1,6 @@
 using System.Text;
 using HtmlAgilityPack;
+using MostaqlK.Core.Formatting;
 using MostaqlK.Infrastructure.Http;
 using MostaqlK.Infrastructure.Http.Parsers;
 using MostaqlK.Models;
@@ -46,6 +47,7 @@ public static class Program
         Run(nameof(TestAdversarialPageStillParses), TestAdversarialPageStillParses);
         Run(nameof(TestListingPageIdExtraction), TestListingPageIdExtraction);
         Run(nameof(TestNormalizationPrimitives), TestNormalizationPrimitives);
+        Run(nameof(TestProposalCountForms), TestProposalCountForms);
         Run(nameof(TestDegenerateInputs), TestDegenerateInputs);
         Run(nameof(TestCookieJarParsing), TestCookieJarParsing);
 
@@ -233,6 +235,27 @@ public static class Program
         var multiline = StructuralExtractor.NormalizeMultiline(doc.DocumentNode.SelectSingleNode("//div"));
         Check("NormalizeMultiline turns block boundaries into real line breaks",
             multiline == "سطر أول\nسطر ثان\nسطر ثالث", multiline.Replace("\n", "\\n"));
+    }
+
+    private static void TestProposalCountForms()
+    {
+        var cases = new Dictionary<string, int>
+        {
+            ["عرض واحد"] = 1,
+            ["عرضان"] = 2,
+            ["عرضين"] = 2,
+            ["2 عرض"] = 2,
+            ["2 عروض"] = 2,
+            ["٣ عروض"] = 3,
+            ["أضف أول عرض"] = 0,
+        };
+
+        foreach (var (text, expected) in cases)
+        {
+            var parsed = ArabicProposalParser.Parse(text);
+            Check($"proposal '{text}' numeric value", parsed.Number == expected, $"{parsed.Number}");
+            Check($"proposal '{text}' display text preserved", parsed.Text == text, parsed.Text);
+        }
     }
 
     /// <summary>Degenerate inputs must fail loudly and predictably, never silently.</summary>

@@ -101,17 +101,7 @@ public sealed class MostaqlScraper : IProjectScraper
             }
 
             using var response = await _httpClient.SendAsync(request, timeoutCts.Token);
-
-            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-            {
-                return Result<string>.Err(HttpErrors.NotFound(url));
-            }
-
-            if (!response.IsSuccessStatusCode)
-            {
-                return Result<string>.Err(HttpErrors.UnexpectedStatusCode(url, (int)response.StatusCode));
-            }
-
+            response.EnsureSuccessStatusCode();
             var html = await response.Content.ReadAsStringAsync(timeoutCts.Token);
             return Result<string>.Ok(html);
         }

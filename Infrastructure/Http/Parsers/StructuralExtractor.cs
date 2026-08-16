@@ -44,6 +44,8 @@ public static class StructuralExtractor
         "تاريخ الصفقة",
         "موعد التسليم",
         "صاحب المشروع",
+        "عدد العروض",
+        "عدد المقترحات",
     ];
 
     /// <summary>

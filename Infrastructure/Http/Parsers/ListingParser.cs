@@ -1,7 +1,6 @@
 using HtmlAgilityPack;
 using MostaqlK.Core.Formatting;
 using MostaqlK.Models;
-using MostaqlK.Services.Diagnostics;
 
 namespace MostaqlK.Infrastructure.Http.Parsers;
 
@@ -53,9 +52,35 @@ public static class ListingParser
                     }
                 }
             }
+
         }
 
-        if (summaries.Count == 0 && rows is null)
+        if (summaries.Count == 0)
+        {
+            // A redesign may remove both row/card class names while retaining canonical
+            // /project/{id} links. Keep discovery alive with the visible title; enrichment
+            // obtains the full detail page later.
+            var seenIds = new HashSet<long>();
+            foreach (var link in root.SelectNodes("//a[contains(@href, '/project/')]") ?? Enumerable.Empty<HtmlNode>())
+            {
+                var id = ExtractProjectIdFromUrl(link.GetAttributeValue("href", string.Empty));
+                var title = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(link.InnerText));
+                if (id <= 0 || string.IsNullOrWhiteSpace(title) || !seenIds.Add(id))
+                {
+                    continue;
+                }
+
+                summaries.Add(new ProjectSummary
+                {
+                    ProjectId = id,
+                    Title = title,
+                    Url = link.GetAttributeValue("href", string.Empty),
+                    DiscoveredAt = DateTimeOffset.UtcNow,
+                });
+            }
+        }
+
+        if (summaries.Count == 0)
         {
             // Neither shape found at all - likely not a listing page / structure changed drastically.
             throw ParseErrors.NoProjectRows();
@@ -105,9 +130,11 @@ public static class ListingParser
                         continue;
                     }
 
-                    InteractionLogger.Mark("ListingParser.MetaItem", "D", new { ProjectId = projectId, Text = text });
+                    // Check for the proposal icon as a stronger signal than just text content.
+                    var hasProposalIcon = li.SelectSingleNode(".//span[contains(@class, 'hsoub-file-signature-icon')]") != null
+                                          || li.SelectSingleNode(".//i[contains(@class, 'fa-users')]") != null;
 
-                    if (LooksLikeProposalCount(text))
+                    if (hasProposalIcon || LooksLikeProposalCount(text))
                     {
                         var (num, txt) = ArabicProposalParser.Parse(text);
                         proposalCount = num;

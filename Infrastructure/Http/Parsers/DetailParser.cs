@@ -32,10 +32,13 @@ public static class DetailParser
         ["تاريخ الصفقة"] = "deal_date",
         ["موعد التسليم"] = "delivery_date",
         ["عدد العروض"] = "proposal_count",
+        ["عدد المقترحات"] = "proposal_count",
     };
 
     private static readonly Dictionary<string, string> FieldToLabel =
-        LabelToField.ToDictionary(kv => kv.Value, kv => kv.Key);
+        LabelToField
+            .GroupBy(kv => kv.Value)
+            .ToDictionary(group => group.Key, group => group.First().Value);
 
     private static readonly HashSet<string> CompletedOnlyFields = ["started_since", "deal_date", "delivery_date"];
     private const string CompletedStatusText = "مكتمل";

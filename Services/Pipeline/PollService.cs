@@ -176,20 +176,21 @@ public sealed class PollService : IPollService
             }
 
             _globalStatus.DiscoveryProgress = 0.9;
-
-            // The listing row already carries the project's title, and it is the *only* place a
-            // title exists before enrichment (no project row is written at discovery time). Passing
-            // it on is what lets the radar and the pipeline panel name a project instead of showing
-            // a bare `#1267826`.
-            var titles = new Dictionary<long, string>(listingResult.Value.Count);
-            foreach (var summary in listingResult.Value)
-            {
-                titles[summary.ProjectId] = summary.Title ?? string.Empty;
-            }
+            
+            var summariesById = listingResult.Value
+                .Where(summary => summary.ProjectId > 0)
+                .GroupBy(summary => summary.ProjectId)
+                .ToDictionary(group => group.Key, group => group.First());
 
             var enqueued = 0;
             foreach (var projectId in diffResult.Value.NewProjectIds)
             {
+                if (!summariesById.TryGetValue(projectId, out var summary))
+                {
+                    InteractionLogger.Mark("PollService.MissingSummary", "B", new { projectId });
+                    continue;
+                }
+
                 if (!_inFlightTracker.TryMarkInFlight(projectId))
                 {
                     // Race with another poll cycle/worker - already claimed, skip.
@@ -203,7 +204,7 @@ public sealed class PollService : IPollService
                 // Radar: detection pulse -> token -> queue slot; the ring grows on arrival.
                 _globalStatus.NotifyProjectDiscovered(
                     projectId,
-                    titles.TryGetValue(projectId, out var title) ? title : string.Empty);
+                    summary.Title ?? string.Empty);
                 _globalStatus.UpdateQueueCount(_discoveryQueue.Count);
                 enqueued++;
             }
@@ -212,7 +213,7 @@ public sealed class PollService : IPollService
             _globalStatus.DiscoveryProgress = 1.0;
             // "Saw 41 projects, 0 of them new" is a completely different story from "the request
             // failed", and the UI could not tell them apart before.
-            _globalStatus.NotifyScanSucceeded(listingResult.Value.Count, enqueued);
+            _globalStatus.NotifyScanSucceeded(summariesById.Count, enqueued);
             _ = Task.Delay(1000).ContinueWith(_ =>
             {
                 _globalStatus.DiscoveryProgress = 0;
