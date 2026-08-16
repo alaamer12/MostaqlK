@@ -13,9 +13,8 @@ public sealed class ProjectSummary
     public string Url { get; set; } = string.Empty;
 
     public string ClientName { get; set; } = string.Empty;
-
-    public string PostedRelative { get; set; } = string.Empty;
-
+    public int PublishTimeNumber { get; set; }
+    public string PublishTimeText { get; set; } = string.Empty;
     public int ProposalCount { get; set; }
 
     public string? Budget { get; set; }

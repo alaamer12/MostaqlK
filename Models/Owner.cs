@@ -16,6 +16,10 @@ public sealed class Owner
     public double? Rating { get; set; }
 
     public int? CompletedProjectsCount { get; set; }
-
     public int? HiringRatePercent { get; set; }
+
+    public string? RegisteredAt { get; set; }
+    public int? OpenProjectsCount { get; set; }
+    public int? InProgressProjectsCount { get; set; }
+    public int? OngoingCommunicationsCount { get; set; }
 }

@@ -4,14 +4,21 @@ namespace MostaqlK.Core.Formatting;
 
 /// <summary>
 /// Arabic relative-time and day-count wording used by the project cards ("منذ 3 دقائق", "7 أيام").
-/// The scraper stores the source relative string in <c>projects.posted_relative</c>; when that
-/// column is empty this rebuilds an equivalent phrase from the absolute discovery timestamp so
-/// the card never falls back to a bare placeholder.
+/// The scraper stores the numeric value and formatted string in <c>projects.publish_time_number</c>
+/// and <c>projects.publish_time_text</c>. The <c>PublishedTimeUpdateService</c> periodically
+/// rebuilds these from the absolute discovery timestamp so the feed stays live.
 /// </summary>
 public static class ArabicRelativeTime
 {
     /// <summary>Formats "time since <paramref name="timestamp"/>" the way projects.html words it.</summary>
     public static string Since(DateTimeOffset timestamp, DateTimeOffset? now = null)
+    {
+        var (number, text) = GetRelative(timestamp, now);
+        return text;
+    }
+
+    /// <summary>Calculates both the numeric component and the full Arabic string for a relative time.</summary>
+    public static (int Number, string Text) GetRelative(DateTimeOffset timestamp, DateTimeOffset? now = null)
     {
         var elapsed = (now ?? DateTimeOffset.UtcNow) - timestamp;
         if (elapsed < TimeSpan.Zero)
@@ -21,20 +28,23 @@ public static class ArabicRelativeTime
 
         if (elapsed.TotalMinutes < 1)
         {
-            return "منذ لحظات";
+            return (0, "منذ لحظات");
         }
 
         if (elapsed.TotalHours < 1)
         {
-            return $"منذ {Count((int)elapsed.TotalMinutes, "دقيقة", "دقيقتان", "دقائق", "دقيقة")}";
+            var count = (int)elapsed.TotalMinutes;
+            return (count, $"منذ {Count(count, "دقيقة", "دقيقتان", "دقائق", "دقيقة")}");
         }
 
         if (elapsed.TotalDays < 1)
         {
-            return $"منذ {Count((int)elapsed.TotalHours, "ساعة", "ساعتان", "ساعات", "ساعة")}";
+            var count = (int)elapsed.TotalHours;
+            return (count, $"منذ {Count(count, "ساعة", "ساعتان", "ساعات", "ساعة")}");
         }
 
-        return $"منذ {Days((int)elapsed.TotalDays)}";
+        var days = (int)elapsed.TotalDays;
+        return (days, $"منذ {Days(days)}");
     }
 
     /// <summary>Formats a day count ("20 يوم", "7 أيام") the way the stats row words it.</summary>

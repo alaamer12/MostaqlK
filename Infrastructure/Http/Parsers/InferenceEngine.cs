@@ -235,6 +235,13 @@ public static class InferenceEngine
             UnitHints = [],
             RequiresUnit = false,
         },
+        ["completed_projects_count"] = new FieldProfile
+        {
+            CoreStems = [Stem("مشاريع"), Stem("منجزة")],
+            ExpectedTypes = ["NUMBER"],
+            UnitHints = [],
+            RequiresUnit = false,
+        },
         ["ongoing_conversations"] = new FieldProfile
         {
             CoreStems = [Stem("تواصلات"), Stem("جارية")],

@@ -1,4 +1,5 @@
 using MostaqlK.Core;
+using MostaqlK.Core.Formatting;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Models;
 using MostaqlK.Services;
@@ -27,6 +28,7 @@ public sealed class EnrichmentWorker
     private readonly IEnrichmentService _enrichmentService;
     private readonly InFlightTracker _inFlightTracker;
     private readonly IProjectRepository _projectRepository;
+    private readonly IOwnerRepository _ownerRepository;
     private readonly GlobalAppStatusService _globalStatus;
     private readonly INotificationDispatcher _notificationDispatcher;
 
@@ -36,6 +38,7 @@ public sealed class EnrichmentWorker
         IEnrichmentService enrichmentService,
         InFlightTracker inFlightTracker,
         IProjectRepository projectRepository,
+        IOwnerRepository ownerRepository,
         GlobalAppStatusService globalStatus,
         INotificationDispatcher notificationDispatcher)
     {
@@ -44,6 +47,7 @@ public sealed class EnrichmentWorker
         _enrichmentService = enrichmentService;
         _inFlightTracker = inFlightTracker;
         _projectRepository = projectRepository;
+        _ownerRepository = ownerRepository;
         _globalStatus = globalStatus;
         _notificationDispatcher = notificationDispatcher;
     }
@@ -147,6 +151,10 @@ public sealed class EnrichmentWorker
 
         try
         {
+            if (details.Owner.Name.Length > 0 || details.Owner.OwnerId > 0)
+            {
+                await _ownerRepository.UpsertAsync(details.Owner, cancellationToken);
+            }
             await _projectRepository.UpsertDetailsAsync(details, cancellationToken);
         }
         catch (NotImplementedException)
@@ -168,15 +176,21 @@ public sealed class EnrichmentWorker
         }
     }
 
-    private static Models.ProjectSummary ToSummary(ProjectDetails details) => new()
+    private static Models.ProjectSummary ToSummary(ProjectDetails details)
     {
-        ProjectId = details.ProjectId,
-        Title = details.Title,
-        Url = details.Url,
-        Description = details.Description,
-        ClientName = details.Owner?.Name ?? string.Empty,
-        Budget = details.Budget,
-        DeliveryDays = details.DeliveryDays,
-        DiscoveredAt = DateTimeOffset.UtcNow,
-    };
+        var (number, text) = ArabicRelativeTime.GetRelative(details.EnrichedAt ?? DateTimeOffset.UtcNow);
+        return new()
+        {
+            ProjectId = details.ProjectId,
+            Title = details.Title,
+            Url = details.Url,
+            Description = details.Description,
+            ClientName = details.Owner?.Name ?? string.Empty,
+            PublishTimeNumber = number,
+            PublishTimeText = text,
+            Budget = details.Budget,
+            DeliveryDays = details.DeliveryDays,
+            DiscoveredAt = DateTimeOffset.UtcNow,
+        };
+    }
 }

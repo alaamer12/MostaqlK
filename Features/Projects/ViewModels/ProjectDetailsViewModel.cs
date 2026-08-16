@@ -6,6 +6,7 @@ using MostaqlK.Infrastructure.Http;
 using MostaqlK.Models;
 using MostaqlK.Services;
 using MostaqlK.Services.Diagnostics;
+using MostaqlK.UI.PlatformComponents;
 
 namespace MostaqlK.Features.Projects.ViewModels;
 
@@ -77,6 +78,11 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     public ObservableCollection<AttachmentItemViewModel> Attachments { get; } = [];
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EnrichmentStatus))]
+    [NotifyPropertyChangedFor(nameof(EnrichmentBadgeText))]
+    [NotifyPropertyChangedFor(nameof(EnrichmentBadgeBackground))]
+    [NotifyPropertyChangedFor(nameof(EnrichmentBadgeForeground))]
+    [NotifyPropertyChangedFor(nameof(EnrichmentBadgeIcon))]
     public partial ProjectDetails? Details { get; set; }
 
     [ObservableProperty]
@@ -92,6 +98,35 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     public bool ShowDetails => !IsLoading && !HasError && Details is not null;
 
     public GlobalAppStatusService GlobalStatus => _globalStatus;
+    
+    public EnrichmentStatus EnrichmentStatus => Details?.EnrichmentStatus ?? EnrichmentStatus.Pending;
+
+    public string EnrichmentBadgeText => EnrichmentStatus switch
+    {
+        EnrichmentStatus.Enriched => "تم الإثراء",
+        EnrichmentStatus.Failed => "فشل الإثراء",
+        _ => "قيد الإثراء",
+    };
+
+    public string EnrichmentBadgeBackground => EnrichmentStatus switch
+    {
+        EnrichmentStatus.Enriched => "#ECFDF5",
+        EnrichmentStatus.Failed => "#FEF2F2",
+        _ => "#FFFBEB",
+    };
+
+    public string EnrichmentBadgeForeground => EnrichmentStatus switch
+    {
+        EnrichmentStatus.Enriched => "#2E9E6B",
+        EnrichmentStatus.Failed => "#DC2626",
+        _ => "#D97706",
+    };
+
+    public AppIconGlyph EnrichmentBadgeIcon => EnrichmentStatus switch
+    {
+        EnrichmentStatus.Enriched => AppIconGlyph.CircleCheck,
+        _ => AppIconGlyph.Clock,
+    };
 
     public ProjectDetailsViewModel(IProjectRepository projectRepository, AssetDownloadService assetDownloadService, GlobalAppStatusService globalStatus)
     {

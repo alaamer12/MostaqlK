@@ -82,7 +82,8 @@ public static class ListingParser
         var meta = row.SelectSingleNode(".//ul[contains(concat(' ', normalize-space(@class), ' '), ' project__meta ')]");
 
         string clientName = string.Empty;
-        string postedRelative = string.Empty;
+        string publishTimeText = string.Empty;
+        int publishTimeNumber = 0;
         int proposalCount = 0;
 
         if (meta is not null)
@@ -111,9 +112,22 @@ public static class ListingParser
                     {
                         clientName = text;
                     }
-                    else if (string.IsNullOrEmpty(postedRelative))
+                    else if (string.IsNullOrEmpty(publishTimeText))
                     {
-                        postedRelative = text;
+                        publishTimeText = text;
+                        // Extract number from relative time text (e.g. "منذ 7 دقائق" -> 7)
+                        var numMatch = System.Text.RegularExpressions.Regex.Match(text, @"\d+");
+                        if (numMatch.Success && int.TryParse(numMatch.Value, out var num))
+                        {
+                            publishTimeNumber = num;
+                        }
+                        else if (text.Contains("ساعة")) publishTimeNumber = 1;
+                        else if (text.Contains("ساعتين")) publishTimeNumber = 2;
+                        else if (text.Contains("يوم")) publishTimeNumber = 1;
+                        else if (text.Contains("يومان")) publishTimeNumber = 2;
+                        else if (text.Contains("دقيقة")) publishTimeNumber = 1;
+                        else if (text.Contains("دقيقتان")) publishTimeNumber = 2;
+                        else if (text.Contains("لحظات")) publishTimeNumber = 0;
                     }
                 }
             }
@@ -125,7 +139,8 @@ public static class ListingParser
             Title = title,
             Url = url,
             ClientName = clientName,
-            PostedRelative = postedRelative,
+            PublishTimeNumber = publishTimeNumber,
+            PublishTimeText = publishTimeText,
             ProposalCount = proposalCount,
             DiscoveredAt = DateTimeOffset.UtcNow,
         };

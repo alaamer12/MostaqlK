@@ -161,11 +161,13 @@ public sealed class SqliteConnectionFactory
             title TEXT NOT NULL,
             url TEXT NOT NULL,
             client_name TEXT,
-            posted_relative TEXT,
+            publish_time_number INTEGER,
+            publish_time_text TEXT,
             proposal_count INTEGER,
             description TEXT,
             budget TEXT,
             delivery_days INTEGER,
+            project_status TEXT,
             owner_id INTEGER,
             is_unread INTEGER NOT NULL DEFAULT 1,
             enrichment_status TEXT NOT NULL DEFAULT 'Pending',
@@ -181,6 +183,10 @@ public sealed class SqliteConnectionFactory
             rating REAL,
             completed_projects_count INTEGER,
             hiring_rate_percent INTEGER,
+            registered_at TEXT,
+            open_projects_count INTEGER,
+            in_progress_projects_count INTEGER,
+            ongoing_communications_count INTEGER,
             last_seen_at TEXT NOT NULL
         );
 

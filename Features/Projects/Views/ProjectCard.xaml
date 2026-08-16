@@ -135,7 +135,7 @@
                     <components:AppIcon Icon="Clock"
                                         FontSize="12"
                                         VerticalOptions="Center" />
-                    <Label Text="{Binding PostedRelative}"
+                    <Label Text="{Binding PublishTimeText}"
                            FontSize="11"
                            TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
                            VerticalOptions="Center"

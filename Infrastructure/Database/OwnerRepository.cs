@@ -27,15 +27,21 @@ public sealed class OwnerRepository : IOwnerRepository
             command.CommandText = """
                 INSERT INTO owners
                     (owner_id, name, profile_url, avatar_url, rating, completed_projects_count,
-                     hiring_rate_percent, last_seen_at)
+                     hiring_rate_percent, registered_at, open_projects_count, 
+                     in_progress_projects_count, ongoing_communications_count, last_seen_at)
                 VALUES
                     (@owner_id, @name, @profile_url, @avatar_url, @rating, @completed_projects_count,
-                     @hiring_rate_percent, @last_seen_at)
+                     @hiring_rate_percent, @registered_at, @open_projects_count, 
+                     @in_progress_projects_count, @ongoing_communications_count, @last_seen_at)
                 ON CONFLICT(owner_id) DO UPDATE SET
                     last_seen_at = excluded.last_seen_at,
                     rating = excluded.rating,
                     completed_projects_count = excluded.completed_projects_count,
-                    hiring_rate_percent = excluded.hiring_rate_percent;
+                    hiring_rate_percent = excluded.hiring_rate_percent,
+                    registered_at = excluded.registered_at,
+                    open_projects_count = excluded.open_projects_count,
+                    in_progress_projects_count = excluded.in_progress_projects_count,
+                    ongoing_communications_count = excluded.ongoing_communications_count;
                 """;
             command.Parameters.AddWithValue("@owner_id", owner.OwnerId);
             command.Parameters.AddWithValue("@name", owner.Name);
@@ -44,6 +50,10 @@ public sealed class OwnerRepository : IOwnerRepository
             command.Parameters.AddWithValue("@rating", owner.Rating is null ? DBNull.Value : owner.Rating);
             command.Parameters.AddWithValue("@completed_projects_count", owner.CompletedProjectsCount is null ? DBNull.Value : owner.CompletedProjectsCount);
             command.Parameters.AddWithValue("@hiring_rate_percent", owner.HiringRatePercent is null ? DBNull.Value : owner.HiringRatePercent);
+            command.Parameters.AddWithValue("@registered_at", owner.RegisteredAt is null ? DBNull.Value : owner.RegisteredAt);
+            command.Parameters.AddWithValue("@open_projects_count", owner.OpenProjectsCount is null ? DBNull.Value : owner.OpenProjectsCount);
+            command.Parameters.AddWithValue("@in_progress_projects_count", owner.InProgressProjectsCount is null ? DBNull.Value : owner.InProgressProjectsCount);
+            command.Parameters.AddWithValue("@ongoing_communications_count", owner.OngoingCommunicationsCount is null ? DBNull.Value : owner.OngoingCommunicationsCount);
             command.Parameters.AddWithValue("@last_seen_at", DateTimeOffset.UtcNow.ToString("O"));
 
             await command.ExecuteNonQueryAsync(cancellationToken);
@@ -63,7 +73,8 @@ public sealed class OwnerRepository : IOwnerRepository
             using var connection = _connectionFactory.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = """
-                SELECT owner_id, name, profile_url, avatar_url, rating, completed_projects_count, hiring_rate_percent
+                SELECT owner_id, name, profile_url, avatar_url, rating, completed_projects_count, hiring_rate_percent,
+                       registered_at, open_projects_count, in_progress_projects_count, ongoing_communications_count
                 FROM owners
                 WHERE owner_id = @owner_id;
                 """;
@@ -84,6 +95,10 @@ public sealed class OwnerRepository : IOwnerRepository
                 Rating = reader.IsDBNull(4) ? null : reader.GetDouble(4),
                 CompletedProjectsCount = reader.IsDBNull(5) ? null : reader.GetInt32(5),
                 HiringRatePercent = reader.IsDBNull(6) ? null : reader.GetInt32(6),
+                RegisteredAt = reader.IsDBNull(7) ? null : reader.GetString(7),
+                OpenProjectsCount = reader.IsDBNull(8) ? null : reader.GetInt32(8),
+                InProgressProjectsCount = reader.IsDBNull(9) ? null : reader.GetInt32(9),
+                OngoingCommunicationsCount = reader.IsDBNull(10) ? null : reader.GetInt32(10),
             };
 
             return Result<Owner?>.Ok(owner);

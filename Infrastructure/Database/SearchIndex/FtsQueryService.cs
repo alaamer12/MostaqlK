@@ -25,7 +25,7 @@ public sealed class FtsQueryService
             using var connection = _connectionFactory.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = """
-                SELECT p.project_id, p.title, p.url, p.client_name, p.posted_relative, p.proposal_count,
+                SELECT p.project_id, p.title, p.url, p.client_name, p.publish_time_number, p.publish_time_text, p.proposal_count,
                        p.is_unread, p.enrichment_status, p.discovered_at
                 FROM projects_fts f
                 JOIN projects p ON p.project_id = f.project_id
@@ -44,11 +44,12 @@ public sealed class FtsQueryService
                     Title = reader.GetString(1),
                     Url = reader.GetString(2),
                     ClientName = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
-                    PostedRelative = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
-                    ProposalCount = reader.IsDBNull(5) ? 0 : reader.GetInt32(5),
-                    IsUnread = !reader.IsDBNull(6) && reader.GetInt64(6) != 0,
-                    EnrichmentStatus = Enum.Parse<EnrichmentStatus>(reader.GetString(7)),
-                    DiscoveredAt = DateTimeOffset.Parse(reader.GetString(8)),
+                    PublishTimeNumber = reader.IsDBNull(4) ? 0 : reader.GetInt32(4),
+                    PublishTimeText = reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
+                    ProposalCount = reader.IsDBNull(6) ? 0 : reader.GetInt32(6),
+                    IsUnread = !reader.IsDBNull(7) && reader.GetInt64(7) != 0,
+                    EnrichmentStatus = Enum.Parse<EnrichmentStatus>(reader.GetString(8)),
+                    DiscoveredAt = DateTimeOffset.Parse(reader.GetString(9)),
                 });
             }
 

@@ -29,7 +29,7 @@ public sealed partial class ProjectCardViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(ClientName))]
     [NotifyPropertyChangedFor(nameof(ClientInitials))]
     [NotifyPropertyChangedFor(nameof(ClientMeta))]
-    [NotifyPropertyChangedFor(nameof(PostedRelative))]
+    [NotifyPropertyChangedFor(nameof(PublishTimeText))]
     [NotifyPropertyChangedFor(nameof(ProposalCount))]
     [NotifyPropertyChangedFor(nameof(ProposalCountText))]
     [NotifyPropertyChangedFor(nameof(Budget))]
@@ -142,9 +142,9 @@ public sealed partial class ProjectCardViewModel : ObservableObject
     /// omits it for some cards, which used to leave the slot showing a bare placeholder) fall
     /// back to the same phrase rebuilt from the absolute <c>discovered_at</c> timestamp.
     /// </summary>
-    public string PostedRelative => string.IsNullOrWhiteSpace(Project.PostedRelative)
+    public string PublishTimeText => string.IsNullOrWhiteSpace(Project.PublishTimeText)
         ? ArabicRelativeTime.Since(Project.DiscoveredAt)
-        : Project.PostedRelative;
+        : Project.PublishTimeText;
 
     public int ProposalCount => Project.ProposalCount;
 

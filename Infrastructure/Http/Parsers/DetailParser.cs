@@ -25,6 +25,7 @@ public static class DetailParser
         ["معدل التوظيف"] = "hire_rate",
         ["المشاريع المفتوحة"] = "open_projects_count",
         ["مشاريع قيد التنفيذ"] = "in_progress_count",
+        ["مشاريع منجزة"] = "completed_projects_count",
         ["التواصلات الجارية"] = "ongoing_conversations",
         ["بدأ تنفيذه منذ"] = "started_since",
         ["تاريخ الصفقة"] = "deal_date",
@@ -38,7 +39,7 @@ public static class DetailParser
     private const string CompletedStatusText = "مكتمل";
 
     private static readonly HashSet<string> NumericFields =
-        ["hire_rate", "budget", "duration", "open_projects_count", "in_progress_count", "ongoing_conversations"];
+        ["hire_rate", "budget", "duration", "open_projects_count", "in_progress_count", "completed_projects_count", "ongoing_conversations"];
 
     // Mirrors analyzer.NOT_CALCULATED_MARKERS / ARABIC_DIGIT_RE used by pipeline.py's
     // _is_placeholder/_sanity_ok.
@@ -159,9 +160,15 @@ public static class DetailParser
 
         var owner = new Owner
         {
+            OwnerId = ExtractOwnerId(root),
             Name = ExtractOwnerName(root, labelDriven) ?? string.Empty,
+            ProfileUrl = ExtractOwnerProfileUrl(root),
             HiringRatePercent = ParsePercent(fields.GetValueOrDefault("hire_rate")?.Value),
-            CompletedProjectsCount = ParseLeadingInt(fields.GetValueOrDefault("in_progress_count")?.Value),
+            CompletedProjectsCount = ParseLeadingInt(fields.GetValueOrDefault("completed_projects_count")?.Value),
+            RegisteredAt = fields.GetValueOrDefault("registration_date")?.Value,
+            OpenProjectsCount = ParseLeadingInt(fields.GetValueOrDefault("open_projects_count")?.Value),
+            InProgressProjectsCount = ParseLeadingInt(fields.GetValueOrDefault("in_progress_count")?.Value),
+            OngoingCommunicationsCount = ParseLeadingInt(fields.GetValueOrDefault("ongoing_conversations")?.Value),
         };
 
         var attachmentCandidates = StructuralExtractor.ExtractAttachments(root);
@@ -184,6 +191,9 @@ public static class DetailParser
             Description = description,
             Budget = fields.GetValueOrDefault("budget")?.Value,
             DeliveryDays = ParseLeadingInt(fields.GetValueOrDefault("duration")?.Value),
+            ProjectStatus = fields.GetValueOrDefault("project_status")?.Value,
+            PublishTimeText = fields.GetValueOrDefault("published_date")?.Value ?? string.Empty,
+            PublishTimeNumber = ParseLeadingInt(fields.GetValueOrDefault("published_date")?.Value) ?? 0,
             Skills = skills,
             Owner = owner,
             Attachments = attachments,
@@ -249,23 +259,28 @@ public static class DetailParser
     /// </summary>
     private static string ExtractTitle(HtmlNode root)
     {
+        // 1. Structural: The main project header inside the details section.
         var h1 = root.SelectSingleNode("//h1");
         if (h1 is not null)
         {
             var text = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(h1.InnerText));
             if (text.Length > 0)
             {
-                return text;
+                var stripped = StripSiteSuffix(text);
+                if (!string.IsNullOrEmpty(stripped)) return stripped;
             }
         }
 
+        // 2. OpenGraph: Usually contains the project title.
         var og = root.SelectSingleNode("//meta[@property='og:title' or @name='og:title']");
         var ogTitle = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(og?.GetAttributeValue("content", string.Empty) ?? string.Empty));
         if (ogTitle.Length > 0)
         {
-            return StripSiteSuffix(ogTitle);
+            var stripped = StripSiteSuffix(ogTitle);
+            if (!string.IsNullOrEmpty(stripped)) return stripped;
         }
 
+        // 3. Fallback: The <title> tag.
         var titleTag = root.SelectSingleNode("//title");
         var docTitle = titleTag is not null
             ? StructuralExtractor.Normalize(HtmlEntity.DeEntitize(titleTag.InnerText))
@@ -274,17 +289,33 @@ public static class DetailParser
     }
 
     private static readonly string[] SiteSuffixSeparators = [" - ", " | ", " – "];
+    private static readonly string[] SiteKeywords = ["مستقل", "Mostaql", "Mostaqlk"];
 
     private static string StripSiteSuffix(string title)
     {
+        // Remove common site name suffixes from the end
         foreach (var sep in SiteSuffixSeparators)
         {
             var idx = title.LastIndexOf(sep, StringComparison.Ordinal);
-            if (idx > 0 && title[(idx + sep.Length)..].Contains("مستقل", StringComparison.Ordinal))
+            if (idx > 0)
             {
-                return title[..idx].Trim();
+                var suffix = title[(idx + sep.Length)..];
+                if (SiteKeywords.Any(k => suffix.Contains(k, StringComparison.OrdinalIgnoreCase)))
+                {
+                    title = title[..idx].Trim();
+                }
             }
         }
+
+        // Also handle cases where the keyword is just part of the string without a separator
+        foreach (var keyword in SiteKeywords)
+        {
+            if (title.EndsWith(keyword, StringComparison.OrdinalIgnoreCase))
+            {
+                title = title[..^keyword.Length].Trim();
+            }
+        }
+
         return title;
     }
 
@@ -446,53 +477,176 @@ public static class DetailParser
     /// </summary>
     private static string? ExtractOwnerName(HtmlNode root, Dictionary<string, string> labelDriven)
     {
-        var ownerCard = SelectByClassContains(root, "div", "profile_card");
+        // 1. Look specifically within the profile card/owner section
+        var ownerCard = StructuralExtractor.FindOwnerCard(root);
 
-        var nameNode = ownerCard?.SelectNodes(".//h5")
-            ?.FirstOrDefault(n => (n.GetAttributeValue("class", string.Empty))
-                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                .Any(c => c.Contains("profile__name", StringComparison.OrdinalIgnoreCase)));
-
-        var name = nameNode is not null
-            ? StructuralExtractor.Normalize(HtmlEntity.DeEntitize(nameNode.InnerText))
-            : string.Empty;
-        if (name.Length > 0)
+        if (ownerCard is not null)
         {
-            return name;
-        }
-
-        var anyProfileName = (root.SelectNodes("//*[@class]") ?? Enumerable.Empty<HtmlNode>())
-            .FirstOrDefault(n => n.GetAttributeValue("class", string.Empty)
-                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                .Any(c => c.Contains("profile__name", StringComparison.OrdinalIgnoreCase)
-                          || c.Contains("profile-name", StringComparison.OrdinalIgnoreCase)
-                          || c.Contains("owner-name", StringComparison.OrdinalIgnoreCase)));
-        if (anyProfileName is not null)
-        {
-            name = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(anyProfileName.InnerText));
-            if (name.Length > 0)
+            // The name is typically in an h5 or h3 or inside a link.
+            var nameNode = ownerCard.SelectSingleNode(".//h5[contains(@class, 'name')]")
+                        ?? ownerCard.SelectSingleNode(".//h3[contains(@class, 'name')]")
+                        ?? ownerCard.SelectSingleNode(".//a[contains(@href, '/u/')]")
+                        ?? ownerCard.SelectSingleNode(".//h5")
+                        ?? ownerCard.SelectSingleNode(".//h3");
+            
+            if (nameNode is not null)
             {
-                return name;
+                var text = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(nameNode.InnerText));
+                if (text.Length > 0) return text;
             }
         }
 
+        // 2. Fallback to the label-driven approach if identified as "صاحب المشروع"
         var labelled = labelDriven.GetValueOrDefault(StructuralExtractor.NormalizeLabel("صاحب المشروع"));
         if (!string.IsNullOrEmpty(labelled) && labelled.Length <= 80)
         {
             return labelled;
         }
 
-        var profileLink = (root.SelectNodes("//a[@href]") ?? Enumerable.Empty<HtmlNode>())
-            .FirstOrDefault(a =>
+        // 3. Last resort: find any link to a user profile within the details area and take its text
+        var detailsArea = root.SelectSingleNode("//*[@id='projectDetailsTab']") 
+                       ?? root.SelectSingleNode("//div[contains(@class, 'project-details')]")
+                       ?? root.SelectSingleNode("//article");
+
+        var profileLink = ((detailsArea ?? root).SelectNodes(".//a[contains(@href, '/u/')]") ?? Enumerable.Empty<HtmlNode>())
+            .FirstOrDefault(a => 
             {
-                var href = a.GetAttributeValue("href", string.Empty);
-                return href.Contains("/u/", StringComparison.OrdinalIgnoreCase)
-                       && StructuralExtractor.Normalize(HtmlEntity.DeEntitize(a.InnerText)).Length is > 0 and <= 60;
+                var text = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(a.InnerText));
+                return text.Length is > 0 and <= 60;
             });
 
         return profileLink is not null
             ? StructuralExtractor.Normalize(HtmlEntity.DeEntitize(profileLink.InnerText))
             : null;
+    }
+
+    /// <summary>
+    /// Extracts the owner's Profile URL from the project page.
+    /// Mostaql profile URLs typically follow the pattern https://mostaql.com/u/username.
+    /// </summary>
+    private static string? ExtractOwnerProfileUrl(HtmlNode root)
+    {
+        var ownerCard = StructuralExtractor.FindOwnerCard(root);
+        if (ownerCard is not null)
+        {
+            var profileLink = ownerCard.SelectSingleNode(".//a[contains(@href, '/u/')]");
+            if (profileLink is not null)
+            {
+                var url = profileLink.GetAttributeValue("href", string.Empty);
+                if (!string.IsNullOrEmpty(url))
+                {
+                    if (!url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                    {
+                        url = "https://mostaql.com" + (url.StartsWith('/') ? "" : "/") + url;
+                    }
+                    return url;
+                }
+            }
+        }
+
+        // Fallback: search anywhere for /u/ links if owner card lookup failed, but scoped to details
+        var detailsArea = root.SelectSingleNode("//*[@id='projectDetailsTab']") 
+                       ?? root.SelectSingleNode("//div[contains(@class, 'project-details')]")
+                       ?? root.SelectSingleNode("//article")
+                       ?? root;
+
+        var anyProfileLink = detailsArea.SelectSingleNode(".//a[contains(@href, '/u/')]");
+        var fallbackUrl = anyProfileLink?.GetAttributeValue("href", string.Empty);
+        if (!string.IsNullOrEmpty(fallbackUrl) && !fallbackUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+        {
+             fallbackUrl = "https://mostaql.com" + (fallbackUrl.StartsWith('/') ? "" : "/") + fallbackUrl;
+        }
+        return string.IsNullOrEmpty(fallbackUrl) ? null : fallbackUrl;
+    }
+
+    /// <summary>
+    /// Extracts a unique numeric ID for the owner if available.
+    /// Mostaql uses usernames in URLs, but some data-attributes might contain a numeric ID.
+    /// If not found, we might need a fallback or use a hash of the username if the DB requires an INT.
+    /// </summary>
+    private static long ExtractOwnerId(HtmlNode root)
+    {
+        var ownerCard = StructuralExtractor.FindOwnerCard(root);
+        string? username = null;
+
+        if (ownerCard is not null)
+        {
+            // Look for data-user-id or similar attributes
+            var idAttr = ownerCard.GetAttributeValue("data-user-id", string.Empty);
+            if (string.IsNullOrEmpty(idAttr))
+            {
+                idAttr = ownerCard.SelectSingleNode(".//*[@data-user-id]")?.GetAttributeValue("data-user-id", string.Empty);
+            }
+            
+            if (long.TryParse(idAttr, out var id)) return id;
+
+            // Try to find it in links
+            var profileLink = ownerCard.SelectSingleNode(".//a[contains(@href, '/u/')]");
+            var href = profileLink?.GetAttributeValue("href", string.Empty) ?? string.Empty;
+            if (!string.IsNullOrEmpty(href))
+            {
+                // Mostaql URLs are usually /u/username
+                var parts = href.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                var uIdx = Array.IndexOf(parts, "u");
+                if (uIdx >= 0 && uIdx + 1 < parts.Length)
+                {
+                    username = parts[uIdx + 1];
+                }
+            }
+        }
+
+        if (username == null)
+        {
+            // Fallback: search within the project details area, NOT the whole root which includes header/nav
+            var detailsArea = root.SelectSingleNode("//*[@id='projectDetailsTab']") 
+                           ?? root.SelectSingleNode("//div[contains(@class, 'project-details')]")
+                           ?? root.SelectSingleNode("//article")
+                           ?? root;
+            
+            var anyProfileLink = detailsArea.SelectSingleNode(".//a[contains(@href, '/u/')]");
+            var href = anyProfileLink?.GetAttributeValue("href", string.Empty) ?? string.Empty;
+            if (!string.IsNullOrEmpty(href))
+            {
+                var parts = href.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                var uIdx = Array.IndexOf(parts, "u");
+                if (uIdx >= 0 && uIdx + 1 < parts.Length)
+                {
+                    username = parts[uIdx + 1];
+                }
+            }
+        }
+
+        if (username != null)
+        {
+            // Generate a stable hash for the username to use as a numeric ID if none found.
+            // Using a simple Fowler-Noll-Vo hash or similar stable numeric reduction.
+            long hash = 0;
+            foreach (char c in username)
+            {
+                hash = (hash * 31) + c;
+            }
+            return Math.Abs(hash);
+        }
+
+        // Last resort: if we have a name, hash it
+        var nameNode = (StructuralExtractor.FindOwnerCard(root) ?? root).SelectSingleNode(".//h5[contains(@class, 'name')]")
+                    ?? (StructuralExtractor.FindOwnerCard(root) ?? root).SelectSingleNode(".//h3[contains(@class, 'name')]")
+                    ?? (StructuralExtractor.FindOwnerCard(root) ?? root).SelectSingleNode(".//a[contains(@href, '/u/')]")
+                    ?? (StructuralExtractor.FindOwnerCard(root) ?? root).SelectSingleNode(".//h5")
+                    ?? (StructuralExtractor.FindOwnerCard(root) ?? root).SelectSingleNode(".//h3");
+        
+        var ownerName = nameNode != null ? StructuralExtractor.Normalize(HtmlEntity.DeEntitize(nameNode.InnerText)) : null;
+        if (!string.IsNullOrEmpty(ownerName))
+        {
+            long hash = 0;
+            foreach (char c in ownerName)
+            {
+                hash = (hash * 31) + c;
+            }
+            return Math.Abs(hash);
+        }
+
+        return 0;
     }
 
     private static readonly System.Text.RegularExpressions.Regex PercentNumberRegex =

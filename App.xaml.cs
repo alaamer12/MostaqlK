@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using MostaqlK.Infrastructure.Database;
+using MostaqlK.Services;
 using MostaqlK.Services.Pipeline;
 using MostaqlK.Services.Pipeline.WorkerPool;
 
@@ -176,6 +177,12 @@ public partial class App : Application
 		{
 			MostaqlK.Services.Diagnostics.InteractionLogger.Mark("App.Shutdown.PipelineCancelled", "A");
 			_pipelineCts.Cancel();
+
+			// Also dispose the published time update service to stop its timer.
+			if (Handler?.MauiContext?.Services.GetService<PublishedTimeUpdateService>() is { } service)
+			{
+				service.Dispose();
+			}
 		}
 	}
 

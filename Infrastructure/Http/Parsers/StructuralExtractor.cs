@@ -38,6 +38,7 @@ public static class StructuralExtractor
         "معدل التوظيف",
         "المشاريع المفتوحة",
         "مشاريع قيد التنفيذ",
+        "مشاريع منجزة",
         "التواصلات الجارية",
         "بدأ تنفيذه منذ",
         "تاريخ الصفقة",
@@ -308,7 +309,7 @@ private static readonly HashSet<string> KnownFileExtensions = new(StringComparer
             }
         }
 
-        var ownerCard = SelectByClassContains(root, "div", "profile_card").FirstOrDefault();
+        var ownerCard = FindOwnerCard(root);
         if (ownerCard is not null)
         {
             var ownerStats = SelectByClassContains(ownerCard, "table", "table").FirstOrDefault();
@@ -324,9 +325,135 @@ private static readonly HashSet<string> KnownFileExtensions = new(StringComparer
                     }
                 }
             }
+            else
+            {
+                // REDESIGN: Mostaql moved away from <table> for profile stats to a flex/grid
+                // of div.justify-between or similar. Find all elements that look like 
+                // label-value pairs inside the profile card.
+                foreach (var row in ownerCard.SelectNodes(".//*[contains(@class, 'justify-between')]") ?? Enumerable.Empty<HtmlNode>())
+                {
+                    // Find all element children. If we have exactly 2, it's likely [label, value].
+                    // If more or less, try a different heuristic.
+                    var children = row.ChildNodes.Where(n => n.NodeType == HtmlNodeType.Element).ToList();
+                    if (children.Count == 2)
+                    {
+                        var label = GetText(children[0]);
+                        var value = GetText(children[1]);
+                        if (!string.IsNullOrEmpty(label) && !string.IsNullOrEmpty(value))
+                        {
+                            results[NormalizeLabel(label)] = value;
+                        }
+                    }
+                    else if (children.Count == 0)
+                    {
+                        // Some structures might put label and value in the same element's text but with spans inside.
+                        // Or if children are empty but there is text, it's not a pair.
+                    }
+                }
+
+                // SECONDARY HEURISTIC: Sometimes the labels are not direct children of justify-between,
+                // or they are concatenated with their values in the same node's text.
+                // We always run this to fill in any missing labels that the primary heuristic missed.
+                foreach (var node in ownerCard.SelectNodes(".//*") ?? Enumerable.Empty<HtmlNode>())
+                {
+                    var text = GetText(node);
+                    if (string.IsNullOrEmpty(text)) continue;
+
+                    // Check for exact matches of labels
+                    var norm = NormalizeLabel(text);
+                    if (KnownLabels.Any(l => NormalizeLabel(l) == norm))
+                    {
+                        if (!results.ContainsKey(norm))
+                        {
+                            // This node is a label. Its value is likely the next sibling element or parent's second child.
+                            var next = NextSiblingElement(node);
+                            if (next != null)
+                            {
+                                results[norm] = GetText(next);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Check for concatenated label + value (e.g. "معدل التوظيف15.38%")
+                        foreach (var label in KnownLabels)
+                        {
+                            var normalizedLabel = NormalizeLabel(label);
+                            var normalizedText = NormalizeLabel(text);
+                            
+                            if (!results.ContainsKey(normalizedLabel) && normalizedText.StartsWith(normalizedLabel) && normalizedText.Length > normalizedLabel.Length)
+                            {
+                                // Try to extract the value from the remaining text
+                                var rawText = text.Trim();
+                                // Find where the label ends in the raw text. 
+                                // This is tricky with Arabic, so we'll just take the part that isn't the label.
+                                if (rawText.Contains(label))
+                                {
+                                     var value = rawText.Replace(label, "").Trim(LabelTrimChars);
+                                     if (!string.IsNullOrEmpty(value))
+                                     {
+                                         results[normalizedLabel] = value;
+                                     }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         return results;
+    }
+
+    /// <summary>
+    /// Attempts to locate the owner profile card/section on the page using both class-based
+    /// and label-driven heuristics.
+    /// </summary>
+    public static HtmlNode? FindOwnerCard(HtmlNode root)
+    {
+        // 1. Structural: Mostaql sometimes uses specific classes.
+        var card = SelectByClassContains(root, "div", "profile_card").FirstOrDefault()
+                   ?? SelectByClassContains(root, "div", "profile-card").FirstOrDefault();
+        if (card is not null) return card;
+
+        // 2. Semantic: Look for the "صاحب المشروع" (Project Owner) section header.
+        var labels = FindLabelElements(root, "صاحب المشروع");
+        foreach (var label in labels)
+        {
+            // Walk up to find a container that has siblings (the stats).
+            // Usually it's the immediate parent div in the new design.
+            var candidate = label.Ancestors("div").FirstOrDefault();
+            if (candidate != null)
+            {
+                // Ensure this container actually has content other than the label
+                var descendantCount = candidate.SelectNodes(".//*")?.Count ?? 0;
+                if (descendantCount > 1)
+                {
+                    return candidate;
+                }
+            }
+        }
+
+        // 3. Last resort: If we're inside the project details area, and there's a card 
+        // that looks like a profile, use it.
+        var detailsArea = root.SelectSingleNode("//*[@id='projectDetailsTab']") 
+                       ?? root.SelectSingleNode("//div[contains(@class, 'project-details')]")
+                       ?? root.SelectSingleNode("//article");
+        
+        if (detailsArea != null)
+        {
+            var profileLink = detailsArea.SelectSingleNode(".//a[contains(@href, '/u/')]");
+            if (profileLink != null)
+            {
+                // Walk up to find the card wrapping this link
+                var cardCandidate = profileLink.Ancestors("div")
+                    .FirstOrDefault(d => d.GetAttributeValue("class", "").Contains("card") 
+                                      || d.GetAttributeValue("class", "").Contains("box"));
+                if (cardCandidate != null) return cardCandidate;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Finds descendants (self included) of the given tag whose class attribute contains the given substring.</summary>

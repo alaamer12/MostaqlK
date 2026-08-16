@@ -14,6 +14,7 @@ public sealed class WorkerPool
     private readonly IEnrichmentService _enrichmentService;
     private readonly InFlightTracker _inFlightTracker;
     private readonly IProjectRepository _projectRepository;
+    private readonly IOwnerRepository _ownerRepository;
     private readonly GlobalAppStatusService _globalStatus;
     private readonly INotificationDispatcher _notificationDispatcher;
     private readonly List<Task> _runningWorkers = [];
@@ -29,6 +30,7 @@ public sealed class WorkerPool
         IEnrichmentService enrichmentService,
         InFlightTracker inFlightTracker,
         IProjectRepository projectRepository,
+        IOwnerRepository ownerRepository,
         GlobalAppStatusService globalStatus,
         INotificationDispatcher notificationDispatcher)
     {
@@ -36,6 +38,7 @@ public sealed class WorkerPool
         _enrichmentService = enrichmentService;
         _inFlightTracker = inFlightTracker;
         _projectRepository = projectRepository;
+        _ownerRepository = ownerRepository;
         _globalStatus = globalStatus;
         _notificationDispatcher = notificationDispatcher;
     }
@@ -98,7 +101,7 @@ public sealed class WorkerPool
     private void SpawnWorker(int id, CancellationToken token)
     {
         var worker = new EnrichmentWorker(
-            id, _discoveryQueue, _enrichmentService, _inFlightTracker, _projectRepository, _globalStatus, _notificationDispatcher);
+            id, _discoveryQueue, _enrichmentService, _inFlightTracker, _projectRepository, _ownerRepository, _globalStatus, _notificationDispatcher);
         _runningWorkers.Add(Task.Run(() => worker.RunAsync(token), token));
     }
 

@@ -82,4 +82,14 @@ public interface IProjectRepository
     /// rows out of an otherwise-live store without touching real scraped rows outside the range.
     /// </summary>
     Task<Result<int>> DeleteByProjectIdRangeAsync(long minProjectId, long maxProjectId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates the published time fields for a project.
+    /// </summary>
+    Task<Result<bool>> UpdatePublishedTimeAsync(long projectId, int number, string text, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fetches all project IDs and their discovery timestamps.
+    /// </summary>
+    Task<Result<IReadOnlyList<(long ProjectId, DateTimeOffset DiscoveredAt)>>> GetAllProjectTimestampsAsync(CancellationToken cancellationToken = default);
 }
