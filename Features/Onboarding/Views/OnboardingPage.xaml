@@ -47,7 +47,7 @@
                                 <Label Text="{Binding BadgeText}" FontFamily="TajawalBold" FontSize="13" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#168F42, Dark=#FFFFFF}" VerticalOptions="Center" />
                             </HorizontalStackLayout>
                         </Border>
-                        <Label x:Name="HeadingLabel" FontAttributes="Bold" FontSize="34" LineHeight="1.35" HorizontalTextAlignment="Center" AutomationId="onboarding-heading">
+                        <Label x:Name="HeadingLabel" FontAttributes="Bold" FontSize="34" LineHeight="1.35" HorizontalTextAlignment="Center" AutomationId="onboarding-heading" FontFamily="TajawalBold">
                             <Label.FormattedText>
                                 <FormattedString>
                                     <Span Text="{Binding TitleBefore}" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#172033, Dark=#FFFFFF}" />
@@ -57,7 +57,7 @@
                             </Label.FormattedText>
                         </Label>
                         <Label x:Name="DescriptionLabel" Text="{Binding CurrentDescription}" FontFamily="Tajawal" FontSize="18" LineHeight="1.45" HorizontalTextAlignment="Center" MaximumWidthRequest="680" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" />
-                        <VerticalStackLayout x:Name="QueryPanel" IsVisible="{Binding IsQueryStep}" Spacing="8" Margin="0,4,0,0" MaximumWidthRequest="600">
+                        <VerticalStackLayout x:Name="QueryPanel" IsVisible="{Binding IsQueryStep}" Spacing="6" Margin="0,0,0,0" MaximumWidthRequest="600">
                             <Grid ColumnDefinitions="*,Auto">
                                 <Label Text="استعلام المشاريع" FontFamily="TajawalBold" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#172033, Dark=#FFFFFF}" />
                                 <Label Grid.Column="1" Text="يمكنك تغييره لاحقًا" FontFamily="Tajawal" FontSize="13" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" />

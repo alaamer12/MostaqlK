@@ -68,7 +68,7 @@
                             Text=""
                             Padding="0"
                             Margin="0"
-                            Clicked="OnToggleClicked" />
+                            Clicked="OnToggleClicked" FontFamily="TajawalMedium" />
                     <Grid.Behaviors>
                         <ds:PressableEffect ApplyHoverHighlight="True" />
                     </Grid.Behaviors>
@@ -169,7 +169,7 @@
                                 </VerticalStackLayout>
                                 <Label x:Name="Worker0TimeLabel" Grid.Column="2" Style="{StaticResource DashValueLabelStyle}" VerticalOptions="Center" />
                             </Grid>
-                            <Button AutomationId="Pipeline_Worker1Button" BackgroundColor="Transparent" BorderWidth="0" Text="" Padding="0" Margin="0" Clicked="OnWorker0Clicked" />
+                            <Button AutomationId="Pipeline_Worker1Button" BackgroundColor="Transparent" BorderWidth="0" Text="" Padding="0" Margin="0" Clicked="OnWorker0Clicked" FontFamily="TajawalMedium" />
                             <Grid.Behaviors>
                                 <ds:PressableEffect ApplyHoverHighlight="True" />
                             </Grid.Behaviors>
@@ -186,7 +186,7 @@
                                 </VerticalStackLayout>
                                 <Label x:Name="Worker1TimeLabel" Grid.Column="2" Style="{StaticResource DashValueLabelStyle}" VerticalOptions="Center" />
                             </Grid>
-                            <Button AutomationId="Pipeline_Worker2Button" BackgroundColor="Transparent" BorderWidth="0" Text="" Padding="0" Margin="0" Clicked="OnWorker1Clicked" />
+                            <Button AutomationId="Pipeline_Worker2Button" BackgroundColor="Transparent" BorderWidth="0" Text="" Padding="0" Margin="0" Clicked="OnWorker1Clicked" FontFamily="TajawalMedium" />
                             <Grid.Behaviors>
                                 <ds:PressableEffect ApplyHoverHighlight="True" />
                             </Grid.Behaviors>
@@ -203,7 +203,7 @@
                                 </VerticalStackLayout>
                                 <Label x:Name="Worker2TimeLabel" Grid.Column="2" Style="{StaticResource DashValueLabelStyle}" VerticalOptions="Center" />
                             </Grid>
-                            <Button AutomationId="Pipeline_Worker3Button" BackgroundColor="Transparent" BorderWidth="0" Text="" Padding="0" Margin="0" Clicked="OnWorker2Clicked" />
+                            <Button AutomationId="Pipeline_Worker3Button" BackgroundColor="Transparent" BorderWidth="0" Text="" Padding="0" Margin="0" Clicked="OnWorker2Clicked" FontFamily="TajawalMedium" />
                             <Grid.Behaviors>
                                 <ds:PressableEffect ApplyHoverHighlight="True" />
                             </Grid.Behaviors>
@@ -250,7 +250,7 @@
                         Text=""
                         Padding="0"
                         Margin="0"
-                        Clicked="OnToggleClicked" />
+                        Clicked="OnToggleClicked" FontFamily="TajawalMedium" />
                 <Grid.Behaviors>
                     <ds:PressableEffect ApplyHoverHighlight="True" />
                 </Grid.Behaviors>

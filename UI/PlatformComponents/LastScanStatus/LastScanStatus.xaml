@@ -33,7 +33,7 @@
                     Text=""
                     Padding="0"
                     Margin="0"
-                    Clicked="OnRefreshClicked" />
+                    Clicked="OnRefreshClicked" FontFamily="TajawalMedium" />
             <Grid.Behaviors>
                 <ds:PressableEffect ApplyHoverHighlight="True" />
             </Grid.Behaviors>

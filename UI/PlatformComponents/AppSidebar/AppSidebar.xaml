@@ -77,7 +77,7 @@
                         <Label Grid.Column="2" x:Name="ProjectsLabel" Text="المشاريع" FontSize="14" FontFamily="TajawalBold" VerticalOptions="Center" />
                     </Grid>
                 </Border>
-                <Button AutomationId="Sidebar_ProjectsButton" Style="{StaticResource SidebarNavRowHitTargetStyle}" Clicked="OnProjectsClicked" />
+                <Button AutomationId="Sidebar_ProjectsButton" Style="{StaticResource SidebarNavRowHitTargetStyle}" Clicked="OnProjectsClicked" FontFamily="TajawalMedium" />
                 <Grid.Behaviors>
                     <ds:PressableEffect ApplyHoverHighlight="True" />
                 </Grid.Behaviors>
@@ -90,7 +90,7 @@
                         <Label Grid.Column="2" x:Name="AdvancedSearchLabel" Text="البحث المتقدم" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
                     </Grid>
                 </Border>
-                <Button AutomationId="Sidebar_AdvancedSearchButton" Style="{StaticResource SidebarNavRowHitTargetStyle}" Clicked="OnAdvancedSearchClicked" />
+                <Button AutomationId="Sidebar_AdvancedSearchButton" Style="{StaticResource SidebarNavRowHitTargetStyle}" Clicked="OnAdvancedSearchClicked" FontFamily="TajawalMedium" />
                 <Grid.Behaviors>
                     <ds:PressableEffect ApplyHoverHighlight="True" />
                 </Grid.Behaviors>
@@ -103,7 +103,7 @@
                         <Label Grid.Column="2" x:Name="SettingsLabel" Text="الإعدادات" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
                     </Grid>
                 </Border>
-                <Button AutomationId="Sidebar_SettingsButton" Style="{StaticResource SidebarNavRowHitTargetStyle}" Clicked="OnSettingsClicked" />
+                <Button AutomationId="Sidebar_SettingsButton" Style="{StaticResource SidebarNavRowHitTargetStyle}" Clicked="OnSettingsClicked" FontFamily="TajawalMedium" />
                 <Grid.Behaviors>
                     <ds:PressableEffect ApplyHoverHighlight="True" />
                 </Grid.Behaviors>
@@ -116,7 +116,7 @@
                         <Label Grid.Column="2" x:Name="AboutLabel" Text="حول التطبيق" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
                     </Grid>
                 </Border>
-                <Button AutomationId="Sidebar_AboutButton" Style="{StaticResource SidebarNavRowHitTargetStyle}" Clicked="OnAboutClicked" />
+                <Button AutomationId="Sidebar_AboutButton" Style="{StaticResource SidebarNavRowHitTargetStyle}" Clicked="OnAboutClicked" FontFamily="TajawalMedium" />
                 <Grid.Behaviors>
                     <ds:PressableEffect ApplyHoverHighlight="True" />
                 </Grid.Behaviors>
