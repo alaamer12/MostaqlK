@@ -20,13 +20,13 @@
                 <Shadow Brush="Black" Opacity="0.15" Radius="30" Offset="0,10" />
             </Border.Shadow>
             <Grid RowDefinitions="Auto,*,Auto,Auto">
-                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" FlowDirection="LeftToRight" Margin="0,0,0,6">
-                    <Label Text="مستقلك" FontSize="20" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#172033, Dark=#FFFFFF}" />
-                    <Button Grid.Column="1" Text="تخطي" Command="{Binding SkipCommand}" AutomationId="onboarding-top-skip" BackgroundColor="Transparent" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" FontSize="14" />
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" FlowDirection="LeftToRight" Margin="0,0,0,12">
+                    <Label Text="مستقلك" FontFamily="TajawalBold" FontSize="20" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#172033, Dark=#FFFFFF}" />
+                    <Button Grid.Column="1" Text="تخطي" FontFamily="TajawalMedium" Command="{Binding SkipCommand}" AutomationId="onboarding-top-skip" BackgroundColor="Transparent" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" FontSize="14" />
                 </Grid>
                 <Grid Grid.Row="1">
-                    <VerticalStackLayout Spacing="12" HorizontalOptions="Center" VerticalOptions="Center" FlowDirection="RightToLeft">
-                        <Border x:Name="ImageWrapper" Padding="0" StrokeThickness="0" WidthRequest="260" HeightRequest="260"
+                    <VerticalStackLayout Spacing="22" HorizontalOptions="Center" VerticalOptions="Center" FlowDirection="RightToLeft">
+                        <Border x:Name="ImageWrapper" Padding="0" StrokeThickness="0" WidthRequest="340" HeightRequest="340"
                                 BackgroundColor="{AppThemeBinding Light=#FBF3E3, Dark=#18233B}">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="24" />
@@ -34,7 +34,7 @@
                             <Border.Shadow>
                                 <Shadow Brush="Black" Opacity="0.10" Radius="18" Offset="0,6" />
                             </Border.Shadow>
-                            <Image x:Name="Illustration" Source="{Binding CurrentIllustration}" Aspect="AspectFit" Margin="12" AutomationId="onboarding-illustration" />
+                            <Image x:Name="Illustration" Source="{Binding CurrentIllustration}" Aspect="AspectFit" Margin="20" AutomationId="onboarding-illustration" />
                         </Border>
                         <Border x:Name="BadgeBorder" IsVisible="{Binding IsBadgeVisible}" HorizontalOptions="Center" Padding="14,6" StrokeThickness="1"
                                 Stroke="{AppThemeBinding Light=#BBF0CE, Dark=#2E3B5C}"
@@ -44,23 +44,23 @@
                             </Border.StrokeShape>
                             <HorizontalStackLayout Spacing="6" HorizontalOptions="Center">
                                 <ui:AppIcon Icon="Bolt" WidthRequest="14" HeightRequest="14" TextColor="{AppThemeBinding Light=#168F42, Dark=#FFFFFF}" VerticalOptions="Center" />
-                                <Label Text="{Binding BadgeText}" FontSize="13" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#168F42, Dark=#FFFFFF}" VerticalOptions="Center" />
+                                <Label Text="{Binding BadgeText}" FontFamily="TajawalBold" FontSize="13" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#168F42, Dark=#FFFFFF}" VerticalOptions="Center" />
                             </HorizontalStackLayout>
                         </Border>
                         <Label x:Name="HeadingLabel" FontAttributes="Bold" FontSize="34" LineHeight="1.35" HorizontalTextAlignment="Center" AutomationId="onboarding-heading">
                             <Label.FormattedText>
                                 <FormattedString>
-                                    <Span Text="{Binding TitleBefore}" TextColor="{AppThemeBinding Light=#172033, Dark=#FFFFFF}" />
-                                    <Span Text="{Binding TitleAccent}" TextColor="#22C55E" />
-                                    <Span Text="{Binding TitleAfter}" TextColor="{AppThemeBinding Light=#172033, Dark=#FFFFFF}" />
+                                    <Span Text="{Binding TitleBefore}" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#172033, Dark=#FFFFFF}" />
+                                    <Span Text="{Binding TitleAccent}" FontFamily="TajawalBold" TextColor="#22C55E" />
+                                    <Span Text="{Binding TitleAfter}" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#172033, Dark=#FFFFFF}" />
                                 </FormattedString>
                             </Label.FormattedText>
                         </Label>
-                        <Label x:Name="DescriptionLabel" Text="{Binding CurrentDescription}" FontSize="18" LineHeight="1.45" HorizontalTextAlignment="Center" MaximumWidthRequest="680" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" />
+                        <Label x:Name="DescriptionLabel" Text="{Binding CurrentDescription}" FontFamily="Tajawal" FontSize="18" LineHeight="1.45" HorizontalTextAlignment="Center" MaximumWidthRequest="680" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" />
                         <VerticalStackLayout x:Name="QueryPanel" IsVisible="{Binding IsQueryStep}" Spacing="8" Margin="0,4,0,0" MaximumWidthRequest="600">
                             <Grid ColumnDefinitions="*,Auto">
-                                <Label Text="استعلام المشاريع" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#172033, Dark=#FFFFFF}" />
-                                <Label Grid.Column="1" Text="يمكنك تغييره لاحقًا" FontSize="13" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" />
+                                <Label Text="استعلام المشاريع" FontFamily="TajawalBold" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#172033, Dark=#FFFFFF}" />
+                                <Label Grid.Column="1" Text="يمكنك تغييره لاحقًا" FontFamily="Tajawal" FontSize="13" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" />
                             </Grid>
                             <!--
                             Mirrors the mockup's `.query-setup` row: the input box (flex-1) and the
@@ -70,31 +70,31 @@
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                 <Border StrokeThickness="1" Stroke="#D7E0EE" StrokeShape="RoundRectangle 16" Padding="12,0" BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#18233B}">
                                     <Grid ColumnDefinitions="Auto,*" FlowDirection="LeftToRight">
-                                        <Label Text="projects?" VerticalOptions="Center" FontSize="14" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" />
-                                        <Entry Grid.Column="1" Text="{Binding QueryParams}" Placeholder="category=development&amp;sort=latest" FontSize="16" FlowDirection="LeftToRight" AutomationId="onboarding-query-input" />
+                                        <Label Text="projects?" FontFamily="Tajawal" VerticalOptions="Center" FontSize="14" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" />
+                                        <Entry Grid.Column="1" Text="{Binding QueryParams}" Placeholder="category=development&amp;sort=latest" FontFamily="Tajawal" FontSize="16" FlowDirection="LeftToRight" AutomationId="onboarding-query-input" />
                                     </Grid>
                                 </Border>
                                 <Grid Grid.Column="1">
-                                    <Button Text="{Binding SaveButtonLabel}" Command="{Binding SaveCommand}" IsEnabled="{Binding IsTransitioning, Converter={StaticResource InvertedBoolConverter}}" AutomationId="onboarding-query-save" BackgroundColor="#168F42" TextColor="White" WidthRequest="140" />
+                                    <Button Text="{Binding SaveButtonLabel}" FontFamily="TajawalMedium" Command="{Binding SaveCommand}" IsEnabled="{Binding IsTransitioning, Converter={StaticResource InvertedBoolConverter}}" AutomationId="onboarding-query-save" BackgroundColor="#168F42" TextColor="White" WidthRequest="140" />
                                     <ui:AppIcon x:Name="SaveSpinnerIcon" Icon="Refresh" WidthRequest="16" HeightRequest="16" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding IsSaving}" InputTransparent="True" />
                                     <ui:AppIcon x:Name="SaveCheckIcon" Icon="CircleCheck" WidthRequest="18" HeightRequest="18" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding IsSaved}" InputTransparent="True" />
                                 </Grid>
                             </Grid>
-                            <Label Text="استخدم الفواصل بين القيم، وسنرتب النتائج حسب اهتماماتك." FontSize="13" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" />
+                            <Label Text="استخدم الفواصل بين القيم، وسنرتب النتائج حسب اهتماماتك." FontFamily="Tajawal" FontSize="13" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" />
                             <!--
                             Mirrors the mockup's preset chips exactly: تطوير / الذكاء الاصطناعي / كل
                             المشاريع (no "الأحدث" preset and no separate skip button in this panel -
                             neither exists in the mockup's query-setup step).
                             -->
                             <HorizontalStackLayout Spacing="8">
-                                <Button Text="تطوير" CommandParameter="category=development&amp;sort=latest" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-development" />
-                                <Button Text="الذكاء الاصطناعي" CommandParameter="category=ai-machine-learning&amp;sort=latest" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-ai" />
-                                <Button Text="كل المشاريع" CommandParameter="" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-all" />
+                                <Button Text="تطوير" FontFamily="TajawalMedium" CommandParameter="category=development&amp;sort=latest" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-development" />
+                                <Button Text="الذكاء الاصطناعي" FontFamily="TajawalMedium" CommandParameter="category=ai-machine-learning&amp;sort=latest" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-ai" />
+                                <Button Text="كل المشاريع" FontFamily="TajawalMedium" CommandParameter="" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-all" />
                             </HorizontalStackLayout>
                         </VerticalStackLayout>
                     </VerticalStackLayout>
                 </Grid>
-                <HorizontalStackLayout Grid.Row="2" HorizontalOptions="Center" Spacing="12" Margin="0,8,0,4" FlowDirection="RightToLeft">
+                <HorizontalStackLayout Grid.Row="2" HorizontalOptions="Center" Spacing="12" Margin="0,16,0,10" FlowDirection="RightToLeft">
                     <Grid>
                         <!--
                         NOTE: two static, pre-baked icon buttons toggled by IsVisible instead of a
@@ -115,11 +115,11 @@
                         a plain text-only Button, exactly like the NextSpinnerIcon/SaveSpinnerIcon
                         overlays below, which have always rendered correctly on first paint.
                         -->
-                        <Button AutomationId="onboarding-next-button" ZIndex="0" BackgroundColor="#168F42" TextColor="White" FontAttributes="Bold" FontSize="16" CornerRadius="14" Padding="24,12,54,12" Command="{Binding NextCommand}" IsEnabled="{Binding IsTransitioning, Converter={StaticResource InvertedBoolConverter}}"
+                        <Button AutomationId="onboarding-next-button" ZIndex="0" BackgroundColor="#168F42" TextColor="White" FontFamily="TajawalBold" FontAttributes="Bold" FontSize="16" CornerRadius="14" Padding="24,12,54,12" Command="{Binding NextCommand}" IsEnabled="{Binding IsTransitioning, Converter={StaticResource InvertedBoolConverter}}"
                                 IsVisible="{Binding IsFinalStep, Converter={StaticResource InvertedBoolConverter}}"
                                 Text="{Binding NextLabel}">
                         </Button>
-                        <Button AutomationId="onboarding-next-button-final" ZIndex="0" BackgroundColor="#168F42" TextColor="White" FontAttributes="Bold" FontSize="16" CornerRadius="14" Padding="24,12,54,12" Command="{Binding NextCommand}" IsEnabled="{Binding IsTransitioning, Converter={StaticResource InvertedBoolConverter}}"
+                        <Button AutomationId="onboarding-next-button-final" ZIndex="0" BackgroundColor="#168F42" TextColor="White" FontFamily="TajawalBold" FontAttributes="Bold" FontSize="16" CornerRadius="14" Padding="24,12,54,12" Command="{Binding NextCommand}" IsEnabled="{Binding IsTransitioning, Converter={StaticResource InvertedBoolConverter}}"
                                 IsVisible="{Binding IsFinalStep}"
                                 Text="{Binding NextLabel}">
                         </Button>
@@ -143,7 +143,7 @@
                              top purely by XAML declaration order. -->
                         <ui:AppIcon x:Name="NextSpinnerIcon" ZIndex="1" Icon="Refresh" WidthRequest="16" HeightRequest="16" TextColor="White" HorizontalOptions="End" VerticalOptions="Center" Margin="0,0,22,0" IsVisible="{Binding IsTransitioning}" InputTransparent="True" />
                     </Grid>
-                    <Button Text="رجوع" Command="{Binding BackCommand}" IsVisible="{Binding CanGoBack}" AutomationId="onboarding-back-button" BackgroundColor="Transparent" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" FontSize="16" />
+                    <Button Text="رجوع" FontFamily="TajawalMedium" Command="{Binding BackCommand}" IsVisible="{Binding CanGoBack}" AutomationId="onboarding-back-button" BackgroundColor="Transparent" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" FontSize="16" />
                 </HorizontalStackLayout>
                 <HorizontalStackLayout Grid.Row="3" HorizontalOptions="Center" Spacing="6" Margin="0,0,0,0" AutomationId="onboarding-step-dots">
                     <BoxView x:Name="StepDot0" WidthRequest="8" HeightRequest="8" CornerRadius="4" VerticalOptions="Center" />
