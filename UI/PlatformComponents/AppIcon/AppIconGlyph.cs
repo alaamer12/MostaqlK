@@ -116,4 +116,7 @@ public enum AppIconGlyph
 
     /// <summary>About page "platform" fact-row icon. Brands <c>fa-windows</c> (f17a).</summary>
     Windows,
+    
+    /// <summary>Onboarding badge lightning icon. Solid <c>fa-bolt</c> (f0e7).</summary>
+    Bolt,
 }

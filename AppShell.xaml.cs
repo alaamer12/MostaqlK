@@ -9,6 +9,7 @@ public partial class AppShell : Shell
 
 	public AppShell(StartupNavigation startup)
 	{
+		MostaqlK.Services.Diagnostics.InteractionLogger.Mark("AppShell.Ctor", "A");
 		_startup = startup;
 		InitializeComponent();
 

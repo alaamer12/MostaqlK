@@ -300,12 +300,25 @@ public partial class App : Application
 		_mainWindowOpened = true;
 		MainThread.BeginInvokeOnMainThread(() =>
 		{
-			var mainWindow = CreateMainWindow();
-			OpenWindow(mainWindow);
-			if (_onboardingWindow is { } onboardingWindow)
+			// FIX (WinUI window swap crash 0xc000027b): instead of closing the onboarding window
+			// and opening a new one (which triggers process shutdown in MAUI WinUI), we
+			// REUSE the existing window and swap its root content.
+			if (_onboardingWindow is { } window)
 			{
-				CloseWindow(onboardingWindow);
-				_onboardingWindow = null;
+				var shell = new AppShell(StartupNavigation.FromArguments(Environment.GetCommandLineArgs()));
+				
+				// Pre-size the window to the main shell's expected dimensions before swapping content
+				window.Width = 1280;
+				window.Height = 800 + WindowsCaptionHeight + WindowsFrameInset;
+				
+				// Swap the content
+				window.Page = shell;
+			}
+			else
+			{
+				// Fallback if window was somehow not tracked
+				var mainWindow = CreateMainWindow();
+				OpenWindow(mainWindow);
 			}
 		});
 	}

@@ -57,7 +57,7 @@
 		<MauiSplashScreen Include="Resources\Images\logo.png" Color="#512BD4" BaseSize="128,128" />
 
 		<!-- Images -->
-		<MauiImage Include="Resources\Images\*" Exclude="Resources\Images\logo.png" />
+		<MauiImage Include="Resources\Images\**\*.png;Resources\Images\**\*.jpg;Resources\Images\**\*.jpeg;Resources\Images\**\*.svg" Exclude="Resources\Images\logo.png" />
 		<None Include="Resources\Images\logo.png">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>

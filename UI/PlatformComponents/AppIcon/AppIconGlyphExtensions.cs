@@ -69,6 +69,7 @@ public static class AppIconGlyphExtensions
         AppIconGlyph.Archive => "icon_box_archive",
         AppIconGlyph.Language => "icon_language",
         AppIconGlyph.List => "icon_list",
+        AppIconGlyph.Bolt => "icon_bolt",
         _ => "icon_circle_info",
     };
 

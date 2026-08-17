@@ -71,6 +71,7 @@ ICONS_TO_INSTALL = [
     ('box-archive', 'solid', 'icon_box_archive', []),
     ('language', 'solid', 'icon_language', []),
     ('list', 'solid', 'icon_list', []),
+    ('bolt', 'solid', 'icon_bolt', ['white']),
 ]
 
 COLOR_MAP = {

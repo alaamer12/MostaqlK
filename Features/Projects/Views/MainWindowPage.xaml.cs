@@ -14,6 +14,7 @@ public partial class MainWindowPage : ContentPage
         NotificationCenterViewModel notificationCenterViewModel,
         Services.AppLifecycleService appLifecycleService)
     {
+        MostaqlK.Services.Diagnostics.InteractionLogger.Mark("MainWindowPage.Ctor", "A");
         InitializeComponent();
         _viewModel = viewModel;
         _notificationCenterViewModel = notificationCenterViewModel;

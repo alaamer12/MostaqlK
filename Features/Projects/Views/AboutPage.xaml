@@ -136,7 +136,7 @@
                                     <Ellipse Fill="{AppThemeBinding Light=#2E9E6B, Dark=#4FBF8C}" WidthRequest="8" HeightRequest="8" VerticalOptions="Center" />
                                     <Label Text="v1 — الإصدار الحالي (MVP)" FontSize="13" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" />
                                 </HorizontalStackLayout>
-                                <Label Text="فحص ← اكتشاف ← إثراء ← تخزين ← تنبيه، مع نافذة أساسية وشريط مهام. الإعداد الوحيد المتاح حاليًا هو استعلام الفحص (query_params)."
+                                <Label Text="فحص &gt; اكتشاف &gt; إثراء &gt; تخزين &gt; تنبيه، مع نافذة أساسية وشريط مهام. الإعداد الوحيد المتاح حاليًا هو استعلام الفحص (query_params)."
                                        FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" Margin="16,0,0,0"
                                        FontFamily="Tajawal" />
                             </VerticalStackLayout>

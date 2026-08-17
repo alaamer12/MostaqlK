@@ -484,7 +484,7 @@ public partial class PipelineDashboardPanel : ContentView
             ToolTipProperties.SetText(_workerProjectLabels[i], project);
             Assign(_workerTimeLabels[i], state == RadarWorkerState.Processing
                 ? $"{Format(telemetry?.ElapsedSeconds ?? 0)} ث"
-                : $"{telemetry?.CompletedCount ?? 0} ✓");
+                : $"{telemetry?.CompletedCount ?? 0} مكتمل");
         }
     }
 

@@ -64,4 +64,7 @@ def main():
     print(f"Total potential icons found: {count}")
 
 if __name__ == "__main__":
+    if sys.stdout.encoding != 'utf-8':
+        import io
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     main()

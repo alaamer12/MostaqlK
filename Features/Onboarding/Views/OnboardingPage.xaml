@@ -1,49 +1,111 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:ui="clr-namespace:MostaqlK.UI.PlatformComponents"
+             xmlns:conv="clr-namespace:MostaqlK.UI.DesignSystem.Converters"
              x:Class="MostaqlK.Features.Onboarding.Views.OnboardingPage"
-             BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#202B46}"
+             BackgroundColor="{AppThemeBinding Light=#EEF1F6, Dark=#0B1424}"
              Title="MostaqlK">
-    <Grid x:Name="Root" AutomationId="onboarding-page" Padding="28" RowDefinitions="Auto,*,Auto,Auto">
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" FlowDirection="LeftToRight" Margin="0,0,0,12">
-            <Label Text="MostaqlK" FontSize="20" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#172033, Dark=#FFFFFF}" />
-            <Button Grid.Column="1" Text="تخطي" Command="{Binding SkipCommand}" AutomationId="onboarding-top-skip" BackgroundColor="Transparent" />
-        </Grid>
-        <ScrollView Grid.Row="1" VerticalScrollBarVisibility="Never">
-            <VerticalStackLayout Spacing="12" HorizontalOptions="Center" FlowDirection="RightToLeft">
-                <Image x:Name="Illustration" Source="{Binding CurrentIllustration}" Aspect="AspectFit" HeightRequest="280" WidthRequest="440" AutomationId="onboarding-illustration" />
-                <Label Text="{Binding CurrentTitle}" FontAttributes="Bold" FontSize="34" LineHeight="1.35" HorizontalTextAlignment="Center" TextColor="{AppThemeBinding Light=#172033, Dark=#FFFFFF}" AutomationId="onboarding-heading" />
-                <Label Text="{Binding CurrentDescription}" FontSize="18" LineHeight="1.45" HorizontalTextAlignment="Center" MaximumWidthRequest="680" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" />
-                <VerticalStackLayout IsVisible="{Binding IsQueryStep}" Spacing="10" Margin="0,12,0,0" MaximumWidthRequest="600">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <Label Text="استعلام المشاريع" FontAttributes="Bold" FontSize="16" />
-                        <Label Grid.Column="1" Text="يمكنك تغييره لاحقًا" FontSize="13" />
+    <ContentPage.Resources>
+        <ui:AppIconConverter x:Key="IconConverter" />
+        <conv:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+    </ContentPage.Resources>
+    <Grid Padding="8">
+        <Border x:Name="Root" AutomationId="onboarding-page" Padding="20"
+                StrokeThickness="0"
+                BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#0B1424}">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="28" />
+            </Border.StrokeShape>
+            <Border.Shadow>
+                <Shadow Brush="Black" Opacity="0.15" Radius="30" Offset="0,10" />
+            </Border.Shadow>
+            <Grid RowDefinitions="Auto,*,Auto,Auto">
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" FlowDirection="LeftToRight" Margin="0,0,0,12">
+                    <Label Text="مستقلك" FontSize="20" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#172033, Dark=#FFFFFF}" />
+                    <Button Grid.Column="1" Text="تخطي" Command="{Binding SkipCommand}" AutomationId="onboarding-top-skip" BackgroundColor="Transparent" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" FontSize="14" />
+                </Grid>
+                <Grid Grid.Row="1">
+                    <VerticalStackLayout Spacing="22" HorizontalOptions="Center" VerticalOptions="Center" FlowDirection="RightToLeft">
+                        <Border x:Name="ImageWrapper" Padding="0" StrokeThickness="0" WidthRequest="340" HeightRequest="340"
+                                BackgroundColor="{AppThemeBinding Light=#FBF3E3, Dark=#18233B}">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="24" />
+                            </Border.StrokeShape>
+                            <Border.Shadow>
+                                <Shadow Brush="Black" Opacity="0.10" Radius="18" Offset="0,6" />
+                            </Border.Shadow>
+                            <Image x:Name="Illustration" Source="{Binding CurrentIllustration}" Aspect="AspectFit" Margin="20" AutomationId="onboarding-illustration" />
+                        </Border>
+                        <Border x:Name="BadgeBorder" IsVisible="{Binding IsBadgeVisible}" HorizontalOptions="Center" Padding="14,6" StrokeThickness="1"
+                                Stroke="{AppThemeBinding Light=#BBF0CE, Dark=#2E3B5C}"
+                                BackgroundColor="{AppThemeBinding Light=#EAFBF1, Dark=#2A3655}">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="16" />
+                            </Border.StrokeShape>
+                            <HorizontalStackLayout Spacing="6" HorizontalOptions="Center">
+                                <ui:AppIcon Icon="Bolt" WidthRequest="14" HeightRequest="14" TextColor="{AppThemeBinding Light=#168F42, Dark=#FFFFFF}" VerticalOptions="Center" />
+                                <Label Text="{Binding BadgeText}" FontSize="13" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#168F42, Dark=#FFFFFF}" VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+                        </Border>
+                        <Label x:Name="HeadingLabel" FontAttributes="Bold" FontSize="34" LineHeight="1.35" HorizontalTextAlignment="Center" AutomationId="onboarding-heading">
+                            <Label.FormattedText>
+                                <FormattedString>
+                                    <Span Text="{Binding TitleBefore}" TextColor="{AppThemeBinding Light=#172033, Dark=#FFFFFF}" />
+                                    <Span Text="{Binding TitleAccent}" TextColor="#22C55E" />
+                                    <Span Text="{Binding TitleAfter}" TextColor="{AppThemeBinding Light=#172033, Dark=#FFFFFF}" />
+                                </FormattedString>
+                            </Label.FormattedText>
+                        </Label>
+                        <Label x:Name="DescriptionLabel" Text="{Binding CurrentDescription}" FontSize="18" LineHeight="1.45" HorizontalTextAlignment="Center" MaximumWidthRequest="680" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" />
+                        <VerticalStackLayout x:Name="QueryPanel" IsVisible="{Binding IsQueryStep}" Spacing="10" Margin="0,12,0,0" MaximumWidthRequest="600">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Text="استعلام المشاريع" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#172033, Dark=#FFFFFF}" />
+                                <Label Grid.Column="1" Text="يمكنك تغييره لاحقًا" FontSize="13" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" />
+                            </Grid>
+                            <Border StrokeThickness="1" Stroke="#D7E0EE" StrokeShape="RoundRectangle 16" Padding="12,0" BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#18233B}">
+                                <Grid ColumnDefinitions="Auto,*" FlowDirection="LeftToRight">
+                                    <Label Text="projects?" VerticalOptions="Center" FontSize="14" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" />
+                                    <Entry Grid.Column="1" Text="{Binding QueryParams}" Placeholder="category=development&amp;sort=latest" FontSize="16" FlowDirection="LeftToRight" AutomationId="onboarding-query-input" />
+                                </Grid>
+                            </Border>
+                            <HorizontalStackLayout Spacing="8">
+                                <Button Text="تطوير" CommandParameter="category=development&amp;sort=latest" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-development" />
+                                <Button Text="الأحدث" CommandParameter="sort=latest" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-latest" />
+                                <Button Text="كل المشاريع" CommandParameter="" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-all" />
+                            </HorizontalStackLayout>
+                            <Label Text="استخدم الفواصل بين القيم، وسنرتب النتائج حسب اهتماماتك." FontSize="13" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" />
+                            <HorizontalStackLayout HorizontalOptions="End" Spacing="12">
+                                <Button Text="تخطي والبدء" Command="{Binding SkipCommand}" AutomationId="onboarding-query-skip" BackgroundColor="Transparent" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" />
+                                <Grid>
+                                    <Button Text="{Binding SaveButtonLabel}" Command="{Binding SaveCommand}" IsEnabled="{Binding IsTransitioning, Converter={StaticResource InvertedBoolConverter}}" AutomationId="onboarding-query-save" BackgroundColor="#168F42" TextColor="White" WidthRequest="140" />
+                                    <ui:AppIcon x:Name="SaveSpinnerIcon" Icon="Refresh" WidthRequest="16" HeightRequest="16" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding IsSaving}" InputTransparent="True" />
+                                    <ui:AppIcon x:Name="SaveCheckIcon" Icon="CircleCheck" WidthRequest="18" HeightRequest="18" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding IsSaved}" InputTransparent="True" />
+                                </Grid>
+                            </HorizontalStackLayout>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Grid>
+                <HorizontalStackLayout Grid.Row="2" HorizontalOptions="Center" Spacing="12" Margin="0,16,0,10" FlowDirection="RightToLeft">
+                    <Grid>
+                        <Button AutomationId="onboarding-next-button" BackgroundColor="#168F42" TextColor="White" FontAttributes="Bold" FontSize="16" CornerRadius="14" Padding="24,12" Command="{Binding NextCommand}" IsEnabled="{Binding IsTransitioning, Converter={StaticResource InvertedBoolConverter}}"
+                                ImageSource="{Binding NextIcon, Converter={StaticResource IconConverter}, ConverterParameter='#FFFFFF'}"
+                                Text="{Binding NextLabel}"
+                                ContentLayout="Right,10">
+                        </Button>
+                        <ui:AppIcon x:Name="NextSpinnerIcon" Icon="Refresh" WidthRequest="16" HeightRequest="16" TextColor="White" HorizontalOptions="End" VerticalOptions="Center" Margin="0,0,22,0" IsVisible="{Binding IsTransitioning}" InputTransparent="True" />
                     </Grid>
-                    <Border StrokeThickness="1" Stroke="#D7E0EE" StrokeShape="RoundRectangle 16" Padding="12,0" BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#18233B}">
-                        <Grid ColumnDefinitions="Auto,*" FlowDirection="LeftToRight">
-                            <Label Text="projects?" VerticalOptions="Center" FontSize="14" />
-                            <Entry Grid.Column="1" Text="{Binding QueryParams}" Placeholder="category=development&amp;sort=latest" FontSize="16" FlowDirection="LeftToRight" AutomationId="onboarding-query-input" />
-                        </Grid>
-                    </Border>
-                    <HorizontalStackLayout Spacing="8">
-                        <Button Text="تطوير" CommandParameter="category=development&amp;sort=latest" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-development" />
-                        <Button Text="الأحدث" CommandParameter="sort=latest" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-latest" />
-                        <Button Text="كل المشاريع" CommandParameter="" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-all" />
-                    </HorizontalStackLayout>
-                    <Label Text="استخدم الفواصل بين القيم، وسنرتب النتائج حسب اهتماماتك." FontSize="13" />
-                    <HorizontalStackLayout HorizontalOptions="End" Spacing="12">
-                        <Button Text="تخطي والبدء" Command="{Binding SkipCommand}" AutomationId="onboarding-query-skip" />
-                        <Button Text="حفظ والبدء" Command="{Binding SaveCommand}" AutomationId="onboarding-query-save" BackgroundColor="#168F42" TextColor="White" />
-                    </HorizontalStackLayout>
-                </VerticalStackLayout>
-            </VerticalStackLayout>
-        </ScrollView>
-        <HorizontalStackLayout Grid.Row="2" HorizontalOptions="Center" Spacing="8" Margin="0,14,0,14">
-            <Label Text="{Binding CurrentStep, StringFormat='{0}/6'}" FontSize="14" />
-        </HorizontalStackLayout>
-        <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" FlowDirection="RightToLeft">
-            <Button Text="{Binding NextLabel}" Command="{Binding NextCommand}" AutomationId="onboarding-next-button" BackgroundColor="#168F42" TextColor="White" FontAttributes="Bold" FontSize="16" Padding="24,12" />
-            <Button Grid.Column="2" Text="رجوع" Command="{Binding BackCommand}" IsVisible="{Binding CanGoBack}" AutomationId="onboarding-back-button" BackgroundColor="Transparent" FontSize="16" />
-        </Grid>
+                    <Button Text="رجوع" Command="{Binding BackCommand}" IsVisible="{Binding CanGoBack}" AutomationId="onboarding-back-button" BackgroundColor="Transparent" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" FontSize="16" />
+                </HorizontalStackLayout>
+                <HorizontalStackLayout Grid.Row="3" HorizontalOptions="Center" Spacing="6" Margin="0,0,0,0" AutomationId="onboarding-step-dots">
+                    <BoxView x:Name="StepDot0" WidthRequest="8" HeightRequest="8" CornerRadius="4" VerticalOptions="Center" />
+                    <BoxView x:Name="StepDot1" WidthRequest="8" HeightRequest="8" CornerRadius="4" VerticalOptions="Center" />
+                    <BoxView x:Name="StepDot2" WidthRequest="8" HeightRequest="8" CornerRadius="4" VerticalOptions="Center" />
+                    <BoxView x:Name="StepDot3" WidthRequest="8" HeightRequest="8" CornerRadius="4" VerticalOptions="Center" />
+                    <BoxView x:Name="StepDot4" WidthRequest="8" HeightRequest="8" CornerRadius="4" VerticalOptions="Center" />
+                    <BoxView x:Name="StepDot5" WidthRequest="8" HeightRequest="8" CornerRadius="4" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+            </Grid>
+        </Border>
     </Grid>
 </ContentPage>
