@@ -1,7 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MostaqlK.Services.Onboarding;
-using MostaqlK.UI.PlatformComponents;
 
 namespace MostaqlK.Features.Onboarding.ViewModels;
 
@@ -43,7 +42,6 @@ public sealed partial class OnboardingViewModel : ObservableObject
     public bool CanGoBack => CurrentStep > 0;
     public bool IsBadgeVisible => !IsFinalStep;
     public string NextLabel => IsFinalStep ? "ابدأ الاستخدام" : CurrentStep == 4 ? "تخطي والبدء" : "التالي";
-    public AppIconGlyph NextIcon => IsFinalStep ? AppIconGlyph.CircleCheck : AppIconGlyph.ChevronLeft;
     public string CurrentIllustration => CurrentStep < 4 ? $"step{CurrentStep + 1}.png" : "step5.png";
 
     public string BadgeText => CurrentStep switch
@@ -183,7 +181,6 @@ public sealed partial class OnboardingViewModel : ObservableObject
         OnPropertyChanged(nameof(TitleAfter));
         OnPropertyChanged(nameof(CurrentDescription));
         OnPropertyChanged(nameof(NextLabel));
-        OnPropertyChanged(nameof(NextIcon));
         OnPropertyChanged(nameof(BadgeText));
         OnPropertyChanged(nameof(IsBadgeVisible));
     }

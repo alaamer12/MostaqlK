@@ -62,6 +62,9 @@ public partial class OnboardingPage : ContentPage
             case nameof(OnboardingViewModel.IsSaved):
                 if (viewModel.IsSaved) PlaySaveCheckPop();
                 break;
+            case nameof(OnboardingViewModel.IsTransitioning):
+                UpdateNextSpinner(viewModel.IsTransitioning);
+                break;
         }
     }
 
@@ -137,6 +140,40 @@ public partial class OnboardingPage : ContentPage
         var animation = new Animation(v => SaveSpinnerIcon.Rotation = v, 0, 360);
         animation.Commit(SaveSpinnerIcon, SpinnerAnimationName, 16, 700, Easing.Linear,
             repeat: () => SaveSpinnerIcon.IsVisible);
+    }
+
+    /// <summary>Mirrors the mockup's `.next-spinner` continuous rotation (`animation: next-spin
+    /// 0.6s linear infinite`) while the step transition (`.is-loading`) is in flight, and its
+    /// icon-stack swap (icon scales/rotates away while the spinner scales/fades in).</summary>
+    private void UpdateNextSpinner(bool isTransitioning)
+    {
+        NextSpinnerIcon.AbortAnimation(SpinnerAnimationName);
+
+        if (MotionPreferences.IsReducedMotionRequested)
+        {
+            NextSpinnerIcon.Rotation = 0;
+            NextSpinnerIcon.Scale = isTransitioning ? 1 : 0.5;
+            NextSpinnerIcon.Opacity = isTransitioning ? 1 : 0;
+            return;
+        }
+
+        if (isTransitioning)
+        {
+            NextSpinnerIcon.Rotation = 0;
+            _ = Task.WhenAll(
+                NextSpinnerIcon.ScaleToAsync(1, 250, Easing.SpringOut),
+                NextSpinnerIcon.FadeToAsync(1, 200, Easing.CubicOut));
+
+            var animation = new Animation(v => NextSpinnerIcon.Rotation = v, 0, 360);
+            animation.Commit(NextSpinnerIcon, SpinnerAnimationName, 16, 600, Easing.Linear,
+                repeat: () => NextSpinnerIcon.IsVisible);
+        }
+        else
+        {
+            _ = Task.WhenAll(
+                NextSpinnerIcon.ScaleToAsync(0.5, 200, Easing.CubicIn),
+                NextSpinnerIcon.FadeToAsync(0, 200, Easing.CubicIn));
+        }
     }
 
     /// <summary>Mirrors the mockup's `check-pop` keyframe (scale/rotate overshoot) once the save

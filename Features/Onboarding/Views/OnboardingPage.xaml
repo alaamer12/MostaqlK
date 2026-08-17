@@ -7,7 +7,6 @@
              BackgroundColor="{AppThemeBinding Light=#EEF1F6, Dark=#0B1424}"
              Title="MostaqlK">
     <ContentPage.Resources>
-        <ui:AppIconConverter x:Key="IconConverter" />
         <conv:InvertedBoolConverter x:Key="InvertedBoolConverter" />
     </ContentPage.Resources>
     <Grid Padding="8">
@@ -21,13 +20,13 @@
                 <Shadow Brush="Black" Opacity="0.15" Radius="30" Offset="0,10" />
             </Border.Shadow>
             <Grid RowDefinitions="Auto,*,Auto,Auto">
-                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" FlowDirection="LeftToRight" Margin="0,0,0,12">
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" FlowDirection="LeftToRight" Margin="0,0,0,6">
                     <Label Text="مستقلك" FontSize="20" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#172033, Dark=#FFFFFF}" />
                     <Button Grid.Column="1" Text="تخطي" Command="{Binding SkipCommand}" AutomationId="onboarding-top-skip" BackgroundColor="Transparent" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" FontSize="14" />
                 </Grid>
                 <Grid Grid.Row="1">
-                    <VerticalStackLayout Spacing="22" HorizontalOptions="Center" VerticalOptions="Center" FlowDirection="RightToLeft">
-                        <Border x:Name="ImageWrapper" Padding="0" StrokeThickness="0" WidthRequest="340" HeightRequest="340"
+                    <VerticalStackLayout Spacing="12" HorizontalOptions="Center" VerticalOptions="Center" FlowDirection="RightToLeft">
+                        <Border x:Name="ImageWrapper" Padding="0" StrokeThickness="0" WidthRequest="260" HeightRequest="260"
                                 BackgroundColor="{AppThemeBinding Light=#FBF3E3, Dark=#18233B}">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="24" />
@@ -35,7 +34,7 @@
                             <Border.Shadow>
                                 <Shadow Brush="Black" Opacity="0.10" Radius="18" Offset="0,6" />
                             </Border.Shadow>
-                            <Image x:Name="Illustration" Source="{Binding CurrentIllustration}" Aspect="AspectFit" Margin="20" AutomationId="onboarding-illustration" />
+                            <Image x:Name="Illustration" Source="{Binding CurrentIllustration}" Aspect="AspectFit" Margin="12" AutomationId="onboarding-illustration" />
                         </Border>
                         <Border x:Name="BadgeBorder" IsVisible="{Binding IsBadgeVisible}" HorizontalOptions="Center" Padding="14,6" StrokeThickness="1"
                                 Stroke="{AppThemeBinding Light=#BBF0CE, Dark=#2E3B5C}"
@@ -58,42 +57,91 @@
                             </Label.FormattedText>
                         </Label>
                         <Label x:Name="DescriptionLabel" Text="{Binding CurrentDescription}" FontSize="18" LineHeight="1.45" HorizontalTextAlignment="Center" MaximumWidthRequest="680" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" />
-                        <VerticalStackLayout x:Name="QueryPanel" IsVisible="{Binding IsQueryStep}" Spacing="10" Margin="0,12,0,0" MaximumWidthRequest="600">
+                        <VerticalStackLayout x:Name="QueryPanel" IsVisible="{Binding IsQueryStep}" Spacing="8" Margin="0,4,0,0" MaximumWidthRequest="600">
                             <Grid ColumnDefinitions="*,Auto">
                                 <Label Text="استعلام المشاريع" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#172033, Dark=#FFFFFF}" />
                                 <Label Grid.Column="1" Text="يمكنك تغييره لاحقًا" FontSize="13" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" />
                             </Grid>
-                            <Border StrokeThickness="1" Stroke="#D7E0EE" StrokeShape="RoundRectangle 16" Padding="12,0" BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#18233B}">
-                                <Grid ColumnDefinitions="Auto,*" FlowDirection="LeftToRight">
-                                    <Label Text="projects?" VerticalOptions="Center" FontSize="14" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" />
-                                    <Entry Grid.Column="1" Text="{Binding QueryParams}" Placeholder="category=development&amp;sort=latest" FontSize="16" FlowDirection="LeftToRight" AutomationId="onboarding-query-input" />
-                                </Grid>
-                            </Border>
-                            <HorizontalStackLayout Spacing="8">
-                                <Button Text="تطوير" CommandParameter="category=development&amp;sort=latest" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-development" />
-                                <Button Text="الأحدث" CommandParameter="sort=latest" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-latest" />
-                                <Button Text="كل المشاريع" CommandParameter="" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-all" />
-                            </HorizontalStackLayout>
-                            <Label Text="استخدم الفواصل بين القيم، وسنرتب النتائج حسب اهتماماتك." FontSize="13" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" />
-                            <HorizontalStackLayout HorizontalOptions="End" Spacing="12">
-                                <Button Text="تخطي والبدء" Command="{Binding SkipCommand}" AutomationId="onboarding-query-skip" BackgroundColor="Transparent" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" />
-                                <Grid>
+                            <!--
+                            Mirrors the mockup's `.query-setup` row: the input box (flex-1) and the
+                            "حفظ والبدء" save button sit side-by-side in the SAME row, not the input
+                            alone followed by a separate save row below (as previously implemented).
+                            -->
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Border StrokeThickness="1" Stroke="#D7E0EE" StrokeShape="RoundRectangle 16" Padding="12,0" BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#18233B}">
+                                    <Grid ColumnDefinitions="Auto,*" FlowDirection="LeftToRight">
+                                        <Label Text="projects?" VerticalOptions="Center" FontSize="14" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" />
+                                        <Entry Grid.Column="1" Text="{Binding QueryParams}" Placeholder="category=development&amp;sort=latest" FontSize="16" FlowDirection="LeftToRight" AutomationId="onboarding-query-input" />
+                                    </Grid>
+                                </Border>
+                                <Grid Grid.Column="1">
                                     <Button Text="{Binding SaveButtonLabel}" Command="{Binding SaveCommand}" IsEnabled="{Binding IsTransitioning, Converter={StaticResource InvertedBoolConverter}}" AutomationId="onboarding-query-save" BackgroundColor="#168F42" TextColor="White" WidthRequest="140" />
                                     <ui:AppIcon x:Name="SaveSpinnerIcon" Icon="Refresh" WidthRequest="16" HeightRequest="16" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding IsSaving}" InputTransparent="True" />
                                     <ui:AppIcon x:Name="SaveCheckIcon" Icon="CircleCheck" WidthRequest="18" HeightRequest="18" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding IsSaved}" InputTransparent="True" />
                                 </Grid>
+                            </Grid>
+                            <Label Text="استخدم الفواصل بين القيم، وسنرتب النتائج حسب اهتماماتك." FontSize="13" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" />
+                            <!--
+                            Mirrors the mockup's preset chips exactly: تطوير / الذكاء الاصطناعي / كل
+                            المشاريع (no "الأحدث" preset and no separate skip button in this panel -
+                            neither exists in the mockup's query-setup step).
+                            -->
+                            <HorizontalStackLayout Spacing="8">
+                                <Button Text="تطوير" CommandParameter="category=development&amp;sort=latest" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-development" />
+                                <Button Text="الذكاء الاصطناعي" CommandParameter="category=ai-machine-learning&amp;sort=latest" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-ai" />
+                                <Button Text="كل المشاريع" CommandParameter="" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-all" />
                             </HorizontalStackLayout>
                         </VerticalStackLayout>
                     </VerticalStackLayout>
                 </Grid>
-                <HorizontalStackLayout Grid.Row="2" HorizontalOptions="Center" Spacing="12" Margin="0,16,0,10" FlowDirection="RightToLeft">
+                <HorizontalStackLayout Grid.Row="2" HorizontalOptions="Center" Spacing="12" Margin="0,8,0,4" FlowDirection="RightToLeft">
                     <Grid>
-                        <Button AutomationId="onboarding-next-button" BackgroundColor="#168F42" TextColor="White" FontAttributes="Bold" FontSize="16" CornerRadius="14" Padding="24,12" Command="{Binding NextCommand}" IsEnabled="{Binding IsTransitioning, Converter={StaticResource InvertedBoolConverter}}"
-                                ImageSource="{Binding NextIcon, Converter={StaticResource IconConverter}, ConverterParameter='#FFFFFF'}"
-                                Text="{Binding NextLabel}"
-                                ContentLayout="Right,10">
+                        <!--
+                        NOTE: two static, pre-baked icon buttons toggled by IsVisible instead of a
+                        single button whose ImageSource used to be re-resolved at runtime on every
+                        step change (AppIconGlyph.ChevronLeft <-> CircleCheck via AppIconConverter).
+                        That runtime resolution (ImageSource.FromFile on the UI thread, firing
+                        together with several other bound properties during the step transition)
+                        was the root cause of the crash documented in
+                        docs/reports/onboarding-icon-crash-report.md. See
+                        scripts/generate_onboarding_icons.py for how the white icon variants below
+                        were generated.
+
+                        Button.ImageSource is NOT used here on purpose: on Windows (WinUI), an
+                        image assigned directly to a Button's ImageSource is a known rendering gap
+                        - it stays invisible on first paint and only appears after some other
+                        layout pass is forced (e.g. clicking the button, resizing the window).
+                        Instead, each icon is a separate InputTransparent Image overlaid on top of
+                        a plain text-only Button, exactly like the NextSpinnerIcon/SaveSpinnerIcon
+                        overlays below, which have always rendered correctly on first paint.
+                        -->
+                        <Button AutomationId="onboarding-next-button" ZIndex="0" BackgroundColor="#168F42" TextColor="White" FontAttributes="Bold" FontSize="16" CornerRadius="14" Padding="24,12,54,12" Command="{Binding NextCommand}" IsEnabled="{Binding IsTransitioning, Converter={StaticResource InvertedBoolConverter}}"
+                                IsVisible="{Binding IsFinalStep, Converter={StaticResource InvertedBoolConverter}}"
+                                Text="{Binding NextLabel}">
                         </Button>
-                        <ui:AppIcon x:Name="NextSpinnerIcon" Icon="Refresh" WidthRequest="16" HeightRequest="16" TextColor="White" HorizontalOptions="End" VerticalOptions="Center" Margin="0,0,22,0" IsVisible="{Binding IsTransitioning}" InputTransparent="True" />
+                        <Button AutomationId="onboarding-next-button-final" ZIndex="0" BackgroundColor="#168F42" TextColor="White" FontAttributes="Bold" FontSize="16" CornerRadius="14" Padding="24,12,54,12" Command="{Binding NextCommand}" IsEnabled="{Binding IsTransitioning, Converter={StaticResource InvertedBoolConverter}}"
+                                IsVisible="{Binding IsFinalStep}"
+                                Text="{Binding NextLabel}">
+                        </Button>
+                        <!--
+                        AppIcon (not a plain Image) is used here on purpose: plain XAML `Image`
+                        elements share the same WinUI first-paint invisibility bug that
+                        Button.ImageSource had (stays invisible until some other layout pass is
+                        forced, e.g. a click). AppIcon sets its Image.Source in code-behind
+                        (AppIcon.cs constructor) rather than via XAML markup, which is the same
+                        mechanism NextSpinnerIcon/SaveSpinnerIcon below use and which has always
+                        rendered correctly on first paint.
+                        -->
+                        <ui:AppIcon ZIndex="1" Icon="ChevronLeft" FontSize="16" TextColor="White" HorizontalOptions="End" VerticalOptions="Center" Margin="0,0,22,0" InputTransparent="True"
+                                    IsVisible="{Binding IsFinalStep, Converter={StaticResource InvertedBoolConverter}}" />
+                        <ui:AppIcon ZIndex="1" Icon="CircleCheck" FontSize="16" TextColor="White" HorizontalOptions="End" VerticalOptions="Center" Margin="0,0,22,0" InputTransparent="True"
+                                    IsVisible="{Binding IsFinalStep}" />
+                        <!-- Explicit ZIndex guarantees this stays on top of the two toggled Button
+                             siblings above: on Windows (WinUI), a sibling whose IsVisible flips at
+                             runtime can be re-inserted into the native children collection, which
+                             silently changes paint order and can cover elements that used to be on
+                             top purely by XAML declaration order. -->
+                        <ui:AppIcon x:Name="NextSpinnerIcon" ZIndex="1" Icon="Refresh" WidthRequest="16" HeightRequest="16" TextColor="White" HorizontalOptions="End" VerticalOptions="Center" Margin="0,0,22,0" IsVisible="{Binding IsTransitioning}" InputTransparent="True" />
                     </Grid>
                     <Button Text="رجوع" Command="{Binding BackCommand}" IsVisible="{Binding CanGoBack}" AutomationId="onboarding-back-button" BackgroundColor="Transparent" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" FontSize="16" />
                 </HorizontalStackLayout>
