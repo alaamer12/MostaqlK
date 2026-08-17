@@ -101,18 +101,43 @@ public partial class App : Application
 		// MAUI has no ASP.NET-style `IHostedService`, so the pipeline subsystem (Poll Service +
 		// Worker Pool) is started here as fire-and-forget background loops off the app's own
 		// lifetime token. Both are registered as singletons in `MauiProgram`, so this simply
-		// kicks off their already-implemented `StartAsync` loops once, at process startup.
-		// Only THIS launch's explicit --seed-design-data argument keeps the pipeline offline —
-		// a persisted preference from a previous run can no longer do so (see fix note above).
-		//
-		// FIX (whole-window freeze while a fresh database was being filled): this constructor runs
-		// on the UI thread, so it carries WinUI's SynchronizationContext. Calling StartAsync
-		// directly meant every `await` inside `PollService.RunLoopAsync` and inside each
-		// `EnrichmentWorker.RunAsync` resumed *on the UI thread* - so the ~165 KB listing parse,
-		// every detail-page parse and every SQLite write for the whole backlog executed on the
-		// dispatcher and the window stopped responding until the queue drained. `Task.Run` starts
-		// both loops on the thread pool with no captured context; UI-bound state still reaches the
-		// UI safely because `GlobalAppStatusService` marshals its own PropertyChanged.
+		// kicks off their already-implemented `StartAsync` loops once.
+		// FIX (pipeline working before onboarding finished): background polling/enrichment must not
+		// begin while the onboarding window is still up - the user hasn't chosen a query yet and the
+		// Start/Pause button on the main page should still reflect its persisted default state the
+		// moment it appears, not "already ticking" from work that began seconds earlier. So the
+		// pipeline is only started once onboarding has actually completed; if it's still pending,
+		// starting is deferred to the same `Completed` event that swaps in the main shell below.
+		var onboardingStateService = services.GetRequiredService<OnboardingStateService>();
+		if (onboardingStateService.IsCompleted)
+		{
+			StartPipeline(services, explicitlySeededThisLaunch);
+		}
+		else
+		{
+			onboardingStateService.Completed += (_, _) => StartPipeline(services, explicitlySeededThisLaunch);
+		}
+
+		HandleDebugJsonArgument(services, Environment.GetCommandLineArgs());
+	}
+
+	/// <summary>
+	/// Starts the Poll Service + Worker Pool background loops. Only THIS launch's explicit
+	/// --seed-design-data argument keeps the pipeline offline — a persisted preference from a
+	/// previous run can no longer do so (see fix note above `explicitlySeededThisLaunch`).
+	///
+	/// FIX (whole-window freeze while a fresh database was being filled): this used to be called
+	/// directly from the constructor, which runs on the UI thread and carries WinUI's
+	/// SynchronizationContext. Calling StartAsync directly meant every `await` inside
+	/// `PollService.RunLoopAsync` and inside each `EnrichmentWorker.RunAsync` resumed *on the UI
+	/// thread* - so the ~165 KB listing parse, every detail-page parse and every SQLite write for
+	/// the whole backlog executed on the dispatcher and the window stopped responding until the
+	/// queue drained. `Task.Run` starts both loops on the thread pool with no captured context;
+	/// UI-bound state still reaches the UI safely because `GlobalAppStatusService` marshals its own
+	/// PropertyChanged.
+	/// </summary>
+	private void StartPipeline(IServiceProvider services, bool explicitlySeededThisLaunch)
+	{
 		if (!explicitlySeededThisLaunch)
 		{
 			var pollService = services.GetRequiredService<IPollService>();
@@ -145,8 +170,6 @@ public partial class App : Application
 		{
 			MostaqlK.Services.Diagnostics.InteractionLogger.Mark("App.Startup.PipelineSkipped", "B");
 		}
-
-		HandleDebugJsonArgument(services, Environment.GetCommandLineArgs());
 	}
 
     private void HandleDebugJsonArgument(IServiceProvider services, string[] args)

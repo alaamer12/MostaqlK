@@ -310,6 +310,23 @@ public static class MauiProgram
 						{
 							presenter.IsResizable = false;
 							presenter.IsMaximizable = false;
+
+							// FIX (main window stuck non-resizable after onboarding): this same
+							// native window is REUSED for the main shell once onboarding
+							// completes (App.OnboardingCompleted swaps window.Page instead of
+							// opening a brand-new window), so the presenter lockdown above must be
+							// undone once onboarding is actually done - otherwise the main window
+							// silently inherits the onboarding window's "not resizable/not
+							// maximizable" presenter forever.
+							if (appRef?.Services.GetService<OnboardingStateService>() is { } onboardingStateService)
+							{
+								onboardingStateService.Completed += (_, _) =>
+									MainThread.BeginInvokeOnMainThread(() =>
+									{
+										presenter.IsResizable = true;
+										presenter.IsMaximizable = true;
+									});
+							}
 						}
 					}
 					if ((Microsoft.Maui.Controls.Application.Current as App)?.IsOnboardingWindowPending == true)

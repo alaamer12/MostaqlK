@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:ui="clr-namespace:MostaqlK.UI.PlatformComponents"
+             xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem"
              xmlns:conv="clr-namespace:MostaqlK.UI.DesignSystem.Converters"
              x:Class="MostaqlK.Features.Onboarding.Views.OnboardingPage"
              BackgroundColor="{AppThemeBinding Light=#EEF1F6, Dark=#0B1424}"
@@ -22,7 +23,11 @@
             <Grid RowDefinitions="Auto,*,Auto,Auto">
                 <Grid Grid.Row="0" ColumnDefinitions="*,Auto" FlowDirection="LeftToRight" Margin="0,0,0,12">
                     <Label Text="مستقلك" FontFamily="TajawalBold" FontSize="20" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#172033, Dark=#FFFFFF}" />
-                    <Button Grid.Column="1" Text="تخطي" FontFamily="TajawalMedium" Command="{Binding SkipCommand}" AutomationId="onboarding-top-skip" BackgroundColor="Transparent" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" FontSize="14" />
+                    <Button Grid.Column="1" Text="تخطي" FontFamily="TajawalMedium" Command="{Binding SkipCommand}" AutomationId="onboarding-top-skip" BackgroundColor="Transparent" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" FontSize="14">
+                        <Button.Behaviors>
+                            <ds:PressableEffect ApplyHoverHighlight="False" />
+                        </Button.Behaviors>
+                    </Button>
                 </Grid>
                 <Grid Grid.Row="1">
                     <VerticalStackLayout Spacing="22" HorizontalOptions="Center" VerticalOptions="Center" FlowDirection="RightToLeft">
@@ -75,7 +80,11 @@
                                     </Grid>
                                 </Border>
                                 <Grid Grid.Column="1">
-                                    <Button Text="{Binding SaveButtonLabel}" FontFamily="TajawalMedium" Command="{Binding SaveCommand}" IsEnabled="{Binding IsTransitioning, Converter={StaticResource InvertedBoolConverter}}" AutomationId="onboarding-query-save" BackgroundColor="#168F42" TextColor="White" WidthRequest="140" />
+                                    <Button Text="{Binding SaveButtonLabel}" FontFamily="TajawalMedium" Command="{Binding SaveCommand}" IsEnabled="{Binding IsTransitioning, Converter={StaticResource InvertedBoolConverter}}" AutomationId="onboarding-query-save" BackgroundColor="#168F42" TextColor="White" WidthRequest="140">
+                                        <Button.Behaviors>
+                                            <ds:PressableEffect ApplyHoverHighlight="False" />
+                                        </Button.Behaviors>
+                                    </Button>
                                     <ui:AppIcon x:Name="SaveSpinnerIcon" Icon="Refresh" WidthRequest="16" HeightRequest="16" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding IsSaving}" InputTransparent="True" />
                                     <ui:AppIcon x:Name="SaveCheckIcon" Icon="CircleCheck" WidthRequest="18" HeightRequest="18" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding IsSaved}" InputTransparent="True" />
                                 </Grid>
@@ -87,9 +96,21 @@
                             neither exists in the mockup's query-setup step).
                             -->
                             <HorizontalStackLayout Spacing="8">
-                                <Button Text="تطوير" FontFamily="TajawalMedium" CommandParameter="category=development&amp;sort=latest" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-development" />
-                                <Button Text="الذكاء الاصطناعي" FontFamily="TajawalMedium" CommandParameter="category=ai-machine-learning&amp;sort=latest" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-ai" />
-                                <Button Text="كل المشاريع" FontFamily="TajawalMedium" CommandParameter="" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-all" />
+                                <Button Text="تطوير" FontFamily="TajawalMedium" CommandParameter="category=development&amp;sort=latest" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-development">
+                                    <Button.Behaviors>
+                                        <ds:PressableEffect ApplyHoverHighlight="False" />
+                                    </Button.Behaviors>
+                                </Button>
+                                <Button Text="الذكاء الاصطناعي" FontFamily="TajawalMedium" CommandParameter="category=ai-machine-learning&amp;sort=latest" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-ai">
+                                    <Button.Behaviors>
+                                        <ds:PressableEffect ApplyHoverHighlight="False" />
+                                    </Button.Behaviors>
+                                </Button>
+                                <Button Text="كل المشاريع" FontFamily="TajawalMedium" CommandParameter="" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-all">
+                                    <Button.Behaviors>
+                                        <ds:PressableEffect ApplyHoverHighlight="False" />
+                                    </Button.Behaviors>
+                                </Button>
                             </HorizontalStackLayout>
                         </VerticalStackLayout>
                     </VerticalStackLayout>
@@ -118,10 +139,16 @@
                         <Button AutomationId="onboarding-next-button" ZIndex="0" BackgroundColor="#168F42" TextColor="White" FontFamily="TajawalBold" FontAttributes="Bold" FontSize="16" CornerRadius="14" Padding="24,12,54,12" Command="{Binding NextCommand}" IsEnabled="{Binding IsTransitioning, Converter={StaticResource InvertedBoolConverter}}"
                                 IsVisible="{Binding IsFinalStep, Converter={StaticResource InvertedBoolConverter}}"
                                 Text="{Binding NextLabel}">
+                            <Button.Behaviors>
+                                <ds:PressableEffect ApplyHoverHighlight="False" />
+                            </Button.Behaviors>
                         </Button>
                         <Button AutomationId="onboarding-next-button-final" ZIndex="0" BackgroundColor="#168F42" TextColor="White" FontFamily="TajawalBold" FontAttributes="Bold" FontSize="16" CornerRadius="14" Padding="24,12,54,12" Command="{Binding NextCommand}" IsEnabled="{Binding IsTransitioning, Converter={StaticResource InvertedBoolConverter}}"
                                 IsVisible="{Binding IsFinalStep}"
                                 Text="{Binding NextLabel}">
+                            <Button.Behaviors>
+                                <ds:PressableEffect ApplyHoverHighlight="False" />
+                            </Button.Behaviors>
                         </Button>
                         <!--
                         AppIcon (not a plain Image) is used here on purpose: plain XAML `Image`
@@ -143,7 +170,11 @@
                              top purely by XAML declaration order. -->
                         <ui:AppIcon x:Name="NextSpinnerIcon" ZIndex="1" Icon="Refresh" WidthRequest="16" HeightRequest="16" TextColor="White" HorizontalOptions="End" VerticalOptions="Center" Margin="0,0,22,0" IsVisible="{Binding IsTransitioning}" InputTransparent="True" />
                     </Grid>
-                    <Button Text="رجوع" FontFamily="TajawalMedium" Command="{Binding BackCommand}" IsVisible="{Binding CanGoBack}" AutomationId="onboarding-back-button" BackgroundColor="Transparent" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" FontSize="16" />
+                    <Button Text="رجوع" FontFamily="TajawalMedium" Command="{Binding BackCommand}" IsVisible="{Binding CanGoBack}" AutomationId="onboarding-back-button" BackgroundColor="Transparent" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" FontSize="16">
+                        <Button.Behaviors>
+                            <ds:PressableEffect ApplyHoverHighlight="False" />
+                        </Button.Behaviors>
+                    </Button>
                 </HorizontalStackLayout>
                 <HorizontalStackLayout Grid.Row="3" HorizontalOptions="Center" Spacing="6" Margin="0,0,0,0" AutomationId="onboarding-step-dots">
                     <BoxView x:Name="StepDot0" WidthRequest="8" HeightRequest="8" CornerRadius="4" VerticalOptions="Center" />
