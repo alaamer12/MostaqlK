@@ -1,9 +1,28 @@
 # Deploy / Publish production build
-Write-Host "Publishing production build for MostaqlK (Windows)..." -ForegroundColor Cyan
-dotnet publish MostaqlK.csproj -f net10.0-windows10.0.19041.0 -c Release -p:PublishReadyToRun=true
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "Publish successful! Check bin/Release/net10.0-windows10.0.19041.0/win10-x64/publish/" -ForegroundColor Green
-} else {
-    Write-Host "Publish failed!" -ForegroundColor Red
-    exit $LASTEXITCODE
+param (
+    [Parameter(Mandatory=$false)]
+    [ValidateSet("Windows", "macOS", "Android", "iOS", "Mobile")]
+    [string]$Platform = "Windows",
+
+    [Parameter(Mandatory=$false)]
+    [ValidateSet("Portable", "Directory")]
+    [string]$Type = "Directory"
+)
+
+switch ($Platform) {
+    "Windows" {
+        & "$PSScriptRoot\release-windows.ps1" -Type $Type
+    }
+    "macOS" {
+        & "$PSScriptRoot\release-macos.ps1"
+    }
+    "Android" {
+        & "$PSScriptRoot\release-mobile.ps1" -Platform "Android"
+    }
+    "iOS" {
+        & "$PSScriptRoot\release-mobile.ps1" -Platform "iOS"
+    }
+    "Mobile" {
+        & "$PSScriptRoot\release-mobile.ps1" -Platform "Both"
+    }
 }

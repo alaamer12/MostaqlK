@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFrameworks>net10.0-windows10.0.19041.0</TargetFrameworks>
+		<TargetFrameworks>net10.0-windows10.0.19041.0;net10.0-android;net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
+		<SatelliteResourceLanguages>ar</SatelliteResourceLanguages>
 
 		<!-- Note for MacCatalyst:
 		The default runtime is maccatalyst-x64, except in Release config, in which case the default is maccatalyst-x64;maccatalyst-arm64.
@@ -68,7 +69,20 @@
 
 		<!-- Raw Assets (also remove the "Resources\Raw" prefix) -->
 		<MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+		
+		<!-- Additional Assets to preserve directory structure -->
+		<Content Include="Assets\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 	</ItemGroup>
+
+	<!-- Target to clean up unwanted localization folders in Windows publish -->
+	<Target Name="CleanupUnwantedLocales" AfterTargets="Publish" Condition="'$(RuntimeIdentifier.StartsWith(&quot;win&quot;))' == 'true'">
+		<ItemGroup>
+			<_UnwantedLocaleFolders Include="$([System.IO.Directory]::GetDirectories('$(PublishDir)'))" />
+			<UnwantedLocaleFolders Include="@(_UnwantedLocaleFolders)" Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('$([System.IO.Path]::GetFileName(&quot;%(Identity)&quot;))', '^[a-z]{2,3}(-[a-zA-Z0-9-]+)?$')) and '$([System.IO.Path]::GetFileName(&quot;%(Identity)&quot;))' != 'ar' and !$([System.String]::new('$([System.IO.Path]::GetFileName(&quot;%(Identity)&quot;))').StartsWith('ar-'))" />
+		</ItemGroup>
+		<Message Text="Removing unwanted locale folder: %(UnwantedLocaleFolders.Identity)" Importance="high" />
+		<RemoveDir Directories="@(UnwantedLocaleFolders)" />
+	</Target>
 
 	<ItemGroup>
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />

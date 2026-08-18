@@ -1,0 +1,112 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          
+      - name: Install MAUI Workloads
+        run: dotnet workload install maui-windows
+        
+      - name: Build Windows
+        run: pwsh ./scripts/build.ps1 -Platform Windows
+        
+      - name: Release Windows (Directory)
+        run: pwsh ./scripts/deploy.ps1 -Platform Windows -Type Directory
+        
+      - name: Release Windows (Portable)
+        run: pwsh ./scripts/deploy.ps1 -Platform Windows -Type Portable
+        
+      - name: Upload Windows Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: MostaqlK-Windows
+          path: bin/Release/net10.0-windows10.0.19041.0/**/publish/
+
+  build-android:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          
+      - name: Install MAUI Workloads
+        run: dotnet workload install maui-android
+        
+      - name: Build Android
+        run: pwsh ./scripts/build.ps1 -Platform Android
+        
+      - name: Release Android
+        run: pwsh ./scripts/deploy.ps1 -Platform Android
+        
+      - name: Upload Android Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: MostaqlK-Android
+          path: bin/Release/net10.0-android/**/publish/
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          
+      - name: Install MAUI Workloads
+        run: dotnet workload install maui-maccatalyst
+        
+      - name: Build macOS
+        run: pwsh ./scripts/build.ps1 -Platform macOS
+        
+      - name: Release macOS
+        run: pwsh ./scripts/deploy.ps1 -Platform macOS
+        
+      - name: Upload macOS Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: MostaqlK-macOS
+          path: bin/Release/net10.0-maccatalyst/**/publish/
+
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          
+      - name: Install MAUI Workloads
+        run: dotnet workload install maui-ios
+        
+      - name: Build iOS
+        run: pwsh ./scripts/build.ps1 -Platform iOS
+        
+      - name: Release iOS
+        run: pwsh ./scripts/deploy.ps1 -Platform iOS
+        
+      - name: Upload iOS Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: MostaqlK-iOS
+          path: bin/Release/net10.0-ios/**/publish/
