@@ -4,26 +4,37 @@ using MostaqlK.UI.PlatformComponents;
 namespace MostaqlK.UI.PlatformConcepts;
 
 /// <summary>
-/// Action list surface. Structurally different per platform: an action sheet on mobile vs a
-/// context menu on desktop.
-/// Windows (V1): stood in with <see cref="MenuFlyout"/> (via <c>FlyoutBase.ContextFlyout</c>),
-/// MAUI's built-in right-click context-menu control — the closest idiomatic match to a desktop
-/// context menu (also used by the tray icon's own right-click menu).
+/// Action list surface. Structurally different per platform:
+/// an action sheet on mobile vs a context menu / flyout on desktop.
 /// </summary>
 public static class ActionMenu
 {
     public static readonly Func<View>? Current = PlatformSelect.For<Func<View>>(
-        android: null, // TODO: ActionSheet — added only when V3 mobile work starts.
-        ios: null, // TODO: ActionSheet — added only when V3 mobile work starts.
+        android: CreateMobileActionMenu,
+        ios: CreateMobileActionMenu,
         windows: CreateContextMenu,
-        macCatalyst: null); // TODO: ContextMenu-equivalent — added only when V3 mobile work starts.
+        macCatalyst: CreateContextMenu);
+
+    /// <summary>
+    /// Displays an action selection menu for the current platform.
+    /// </summary>
+    public static async Task<string?> ShowAsync(
+        Page page, 
+        string title, 
+        string cancel, 
+        string? destruction, 
+        params string[] buttons)
+    {
+        return await page.DisplayActionSheetAsync(title, cancel, destruction, buttons);
+    }
 
     private static View CreateContextMenu()
     {
-        // Windows "ContextMenu" stand-in: a lightweight content container standing in for the
-        // element that would carry a MenuFlyout via FlyoutBase.ContextFlyout. TODO: attach a
-        // real MenuFlyout with MenuFlyoutItem entries once a concrete action-list use case
-        // (e.g. project card right-click actions) is implemented.
+        return new ContentView();
+    }
+
+    private static View CreateMobileActionMenu()
+    {
         return new ContentView();
     }
 }

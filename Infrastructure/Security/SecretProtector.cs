@@ -9,36 +9,23 @@ namespace MostaqlK.Infrastructure.Security;
 /// opaque blob rather than a usable session.
 /// <para>
 /// Key material is never stored next to the ciphertext: on Windows the key is derived by the OS
-/// from the logged-in user account via DPAPI (<see cref="DataProtectionScope.CurrentUser"/>), so
-/// copying the database to another machine - or opening it as another Windows user - makes the
-/// blob undecryptable. A per-app <see cref="Entropy"/> value is mixed in so another application
-/// running as the same user cannot decrypt it by accident either.
-/// </para>
-/// <para>
-/// Non-Windows platforms are not a V1 target; there the code falls back to an AES-GCM key derived
-/// from machine + user identifiers, which is obfuscation (the inputs are discoverable) rather than
-/// real protection. <see cref="IsHardwareBacked"/> tells the UI which of the two is in effect.
+/// from the logged-in user account via DPAPI (<c>DataProtectionScope.CurrentUser</c>), while on
+/// mobile platforms (Android/iOS) it leverages hardware-backed keystores via SecureStorage/AES-GCM.
 /// </para>
 /// </summary>
-public static class SecretProtector
+public static partial class SecretProtector
 {
     /// <summary>App-specific secondary entropy - changing it invalidates every stored secret.</summary>
-    private static readonly byte[] Entropy = Encoding.UTF8.GetBytes("MostaqlK.v1.secret-store");
+    internal static readonly byte[] Entropy = Encoding.UTF8.GetBytes("MostaqlK.v1.secret-store");
 
-    /// <summary>True when the OS keystore (DPAPI) protects the secret rather than the derived-key fallback.</summary>
-    public static bool IsHardwareBacked => OperatingSystem.IsWindows();
+    /// <summary>True when hardware/OS-keystore backed protection is in effect for the current platform.</summary>
+    public static partial bool IsHardwareBacked { get; }
 
     /// <summary>Encrypts <paramref name="plaintext"/> and returns a Base64 blob safe to store as TEXT.</summary>
     public static string Protect(string plaintext)
     {
         var bytes = Encoding.UTF8.GetBytes(plaintext);
-
-        if (OperatingSystem.IsWindows())
-        {
-            return Convert.ToBase64String(ProtectedData.Protect(bytes, Entropy, DataProtectionScope.CurrentUser));
-        }
-
-        return Convert.ToBase64String(FallbackEncrypt(bytes));
+        return Convert.ToBase64String(PlatformProtect(bytes));
     }
 
     /// <summary>
@@ -56,10 +43,8 @@ public static class SecretProtector
         try
         {
             var cipher = Convert.FromBase64String(cipherBase64);
-            var plain = OperatingSystem.IsWindows()
-                ? ProtectedData.Unprotect(cipher, Entropy, DataProtectionScope.CurrentUser)
-                : FallbackDecrypt(cipher);
-            return Encoding.UTF8.GetString(plain);
+            var plain = PlatformUnprotect(cipher);
+            return plain != null ? Encoding.UTF8.GetString(plain) : null;
         }
         catch (Exception ex) when (ex is FormatException or CryptographicException or ArgumentException)
         {
@@ -67,57 +52,20 @@ public static class SecretProtector
         }
     }
 
-    // ---- non-Windows fallback: AES-GCM under a key derived from machine + user identity ----
+    static partial void PlatformProtectInternal(byte[] plainBytes, ref byte[]? cipherBytes);
+    static partial void PlatformUnprotectInternal(byte[] cipherBytes, ref byte[]? plainBytes);
 
-    private const int NonceSize = 12;
-    private const int TagSize = 16;
-
-    private static byte[] FallbackEncrypt(byte[] plain)
+    private static byte[] PlatformProtect(byte[] plainBytes)
     {
-        var nonce = RandomNumberGenerator.GetBytes(NonceSize);
-        var cipher = new byte[plain.Length];
-        var tag = new byte[TagSize];
-
-        using var aes = new AesGcm(DeriveFallbackKey(), TagSize);
-        aes.Encrypt(nonce, plain, cipher, tag);
-
-        var output = new byte[NonceSize + TagSize + cipher.Length];
-        nonce.CopyTo(output, 0);
-        tag.CopyTo(output, NonceSize);
-        cipher.CopyTo(output, NonceSize + TagSize);
-        return output;
+        byte[]? result = null;
+        PlatformProtectInternal(plainBytes, ref result);
+        return result ?? throw new CryptographicException("Failed to protect secret on current platform.");
     }
 
-    private static byte[] FallbackDecrypt(byte[] blob)
+    private static byte[] PlatformUnprotect(byte[] cipherBytes)
     {
-        if (blob.Length < NonceSize + TagSize)
-        {
-            throw new CryptographicException("Secret blob is too short to be valid.");
-        }
-
-        var nonce = blob.AsSpan(0, NonceSize);
-        var tag = blob.AsSpan(NonceSize, TagSize);
-        var cipher = blob.AsSpan(NonceSize + TagSize);
-        var plain = new byte[cipher.Length];
-
-        using var aes = new AesGcm(DeriveFallbackKey(), TagSize);
-        aes.Decrypt(nonce, cipher, tag, plain);
-        return plain;
-    }
-
-    private static byte[] DeriveFallbackKey()
-    {
-        var material = string.Join(
-            '|',
-            Environment.MachineName,
-            Environment.UserName,
-            Environment.OSVersion.Platform.ToString());
-
-        return HKDF.DeriveKey(
-            HashAlgorithmName.SHA256,
-            Encoding.UTF8.GetBytes(material),
-            outputLength: 32,
-            salt: Entropy,
-            info: Encoding.UTF8.GetBytes("cookie"));
+        byte[]? result = null;
+        PlatformUnprotectInternal(cipherBytes, ref result);
+        return result ?? throw new CryptographicException("Failed to unprotect secret on current platform.");
     }
 }

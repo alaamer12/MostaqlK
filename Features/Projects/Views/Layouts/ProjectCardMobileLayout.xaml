@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:components="clr-namespace:MostaqlK.UI.PlatformComponents"
+             xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem"
+             xmlns:vm="clr-namespace:MostaqlK.Features.Projects.ViewModels"
+             x:Class="MostaqlK.Features.Projects.Views.Layouts.ProjectCardMobileLayout"
+             x:DataType="vm:ProjectCardViewModel"
+             FlowDirection="RightToLeft">
+
+    <!-- Streamlined mobile card layout focusing on title, enrichment badge, description, and budget -->
+    <Grid Margin="0,0,0,12">
+        <components:AppCard IsUnread="{Binding IsUnread}"
+                            Padding="16">
+            <VerticalStackLayout Spacing="0" AutomationId="ProjectCard_Mobile_Root" SemanticProperties.Description="{Binding Title}">
+
+                <VerticalStackLayout.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding SelectCommand}" />
+                </VerticalStackLayout.GestureRecognizers>
+
+                <!-- Title + enrichment badge -->
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,0,0,8">
+                    <Label Grid.Column="0"
+                           Text="{Binding Title}"
+                           FontSize="16"
+                           LineHeight="1.4"
+                           FontFamily="TajawalBold"
+                           TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
+                           LineBreakMode="WordWrap" />
+
+                    <!-- Enrichment badge -->
+                    <Border Grid.Column="1"
+                            StrokeThickness="0"
+                            Padding="8,3"
+                            VerticalOptions="Start"
+                            BackgroundColor="{Binding EnrichmentBadgeBackground}">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="6" />
+                        </Border.StrokeShape>
+                        <HorizontalStackLayout Spacing="4">
+                            <components:AppIcon Icon="{Binding EnrichmentBadgeIcon}"
+                                                FontSize="11"
+                                                TextColor="{Binding EnrichmentBadgeForeground}"
+                                                VerticalOptions="Center" />
+                            <Label Text="{Binding EnrichmentBadgeText}"
+                                   FontSize="10"
+                                   FontFamily="TajawalBold"
+                                   VerticalOptions="Center"
+                                   TextColor="{Binding EnrichmentBadgeForeground}" />
+                        </HorizontalStackLayout>
+                    </Border>
+                </Grid>
+
+                <!-- Description (2 lines) -->
+                <Label Text="{Binding Description}"
+                       FontSize="13"
+                       LineHeight="1.4"
+                       TextColor="{AppThemeBinding Light=#475569, Dark=#94A3B8}"
+                       MaxLines="2"
+                       LineBreakMode="TailTruncation"
+                       Margin="0,0,0,10"
+                       FontFamily="Tajawal" />
+
+                <!-- Compact metadata footer: Budget & Unread / PublishTime -->
+                <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,4,0,0">
+                    <Label Grid.Column="0"
+                           Text="{Binding Budget}"
+                           FontSize="12"
+                           FontFamily="TajawalBold"
+                           TextColor="{AppThemeBinding Light=#16A34A, Dark=#4ADE80}"
+                           VerticalOptions="Center" />
+
+                    <Label Grid.Column="1"
+                           Text="{Binding PublishTimeText}"
+                           FontSize="11"
+                           TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                           FontFamily="Tajawal"
+                           Margin="12,0,0,0"
+                           VerticalOptions="Center" />
+
+                    <HorizontalStackLayout Grid.Column="2"
+                                           Spacing="4"
+                                           VerticalOptions="Center"
+                                           IsVisible="{Binding IsUnread}">
+                        <BoxView WidthRequest="6"
+                                 HeightRequest="6"
+                                 Color="{AppThemeBinding Light=#2386C8, Dark=#5CA8DE}"
+                                 CornerRadius="3"
+                                 VerticalOptions="Center" />
+                        <Label Text="غير مقروء" FontSize="10" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#2386C8, Dark=#5CA8DE}" VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                </Grid>
+
+            </VerticalStackLayout>
+        </components:AppCard>
+
+        <!-- Animated "new" ribbon -->
+        <ds:NewRibbonBadge IsActive="{Binding IsUnread}"
+                           HorizontalOptions="End"
+                           VerticalOptions="Start"
+                           AutomationId="ProjectCard_Mobile_NewRibbon" />
+
+        <!-- Diagonal light-reflection sweep -->
+        <ds:EnrichmentShimmerOverlay IsActive="{Binding IsEnriching}"
+                                     AutomationId="ProjectCard_Mobile_EnrichmentShimmer" />
+    </Grid>
+
+</ContentView>

@@ -548,19 +548,50 @@ public partial class PipelineRadar : ContentView
 
     private void OnTapped(object? sender, TappedEventArgs e)
     {
+        var pos = e.GetPosition(RadarCanvas);
+        var region = _pointerRegion;
+        var worker = _pointerWorker;
+
+        if (pos.HasValue)
+        {
+            var tapRegion = HitTest(pos.Value, out var tapWorker);
+            if (tapRegion != RadarRegion.None || region == RadarRegion.None)
+            {
+                region = tapRegion;
+                worker = tapWorker;
+            }
+        }
+
+        // On touch screens where hover events do not occur, update hover & tooltip on tap
+        _pointerRegion = region;
+        _pointerWorker = worker;
+        _state.SetHover(region, worker);
+        HoverNearestToken(region, worker);
+
+        if (region == RadarRegion.None)
+        {
+            _ = HideTooltipAsync();
+        }
+        else
+        {
+            ResetTooltipTweens(region, worker);
+            UpdateTooltipText(region, worker);
+            _ = ShowTooltipAsync();
+        }
+
+        HoverChanged?.Invoke(region, worker);
+
         // Click a worker segment to focus it (and its project), click the discovery or queue ring to
         // pin that ring's drill-in, click the same thing again - or empty space - to release.
-        // Only the worker case existed before, which is why clicking the queue ring appeared to do
-        // nothing whatsoever.
-        if (_pointerRegion == RadarRegion.Worker && _pointerWorker >= 0)
+        if (region == RadarRegion.Worker && worker >= 0)
         {
             _state.SetSelectedRegion(RadarRegion.None);
-            _state.SetFocusedWorker(_state.FocusedWorker == _pointerWorker ? -1 : _pointerWorker);
+            _state.SetFocusedWorker(_state.FocusedWorker == worker ? -1 : worker);
         }
-        else if (_pointerRegion is RadarRegion.Queue or RadarRegion.Discovery)
+        else if (region is RadarRegion.Queue or RadarRegion.Discovery)
         {
             _state.SetFocusedWorker(-1);
-            _state.SetSelectedRegion(_state.SelectedRegion == _pointerRegion ? RadarRegion.None : _pointerRegion);
+            _state.SetSelectedRegion(_state.SelectedRegion == region ? RadarRegion.None : region);
         }
         else
         {

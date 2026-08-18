@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:components="clr-namespace:MostaqlK.UI.PlatformComponents"
+             xmlns:design="clr-namespace:MostaqlK.UI.DesignSystem"
+             xmlns:vm="clr-namespace:MostaqlK.Features.Projects.ViewModels"
+             xmlns:views="clr-namespace:MostaqlK.Features.Projects.Views"
+             xmlns:notifViews="clr-namespace:MostaqlK.Features.Notifications.Views"
+             xmlns:lastscan="clr-namespace:MostaqlK.UI.PlatformComponents.LastScanStatus"
+             x:Class="MostaqlK.Features.Projects.Views.Layouts.MainWindowMobileLayout"
+             x:DataType="vm:ProjectFeedViewModel"
+             FlowDirection="RightToLeft"
+             BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
+
+    <!-- Mobile Single-Column Feed Container -->
+    <Grid BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
+
+        <Grid RowDefinitions="Auto,*,Auto"
+              Padding="12,12,12,0"
+              BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
+
+            <!-- Mobile Header: Search & Quick Controls -->
+            <VerticalStackLayout Grid.Row="0" Spacing="8" Padding="0,0,0,8">
+
+                <!-- Search box + Action buttons row -->
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                    <!-- Search Input -->
+                    <Border Grid.Column="0"
+                            StrokeThickness="1"
+                            HeightRequest="40"
+                            VerticalOptions="Center"
+                            Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
+                            BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#1E293B}">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="8" />
+                        </Border.StrokeShape>
+                        <Grid ColumnDefinitions="Auto,*"
+                              ColumnSpacing="8"
+                              Padding="12,0"
+                              FlowDirection="LeftToRight">
+                            <components:AppIcon Grid.Column="0"
+                                                Icon="Search"
+                                                FontSize="14"
+                                                TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
+                                                VerticalOptions="Center" />
+                            <components:SearchInputField Grid.Column="1"
+                                                          AutomationId="Projects_Mobile_SearchInput"
+                                                          FlowDirection="RightToLeft"
+                                                          Text="{Binding SearchQuery}"
+                                                          Placeholder="بحث في المشاريع..."
+                                                          PlaceholderColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
+                                                          TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
+                                                          BackgroundColor="Transparent"
+                                                          FontSize="13"
+                                                          DebounceMilliseconds="300"
+                                                          DebouncedCommand="{Binding SearchCommand}"
+                                                          ClearCommand="{Binding ClearSearchCommand}"
+                                                          VerticalOptions="Center"
+                                                          FontFamily="Tajawal" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Polling Toggle -->
+                    <Border Grid.Column="1"
+                            StrokeThickness="0"
+                            AutomationId="Projects_Mobile_TogglePollingButton"
+                            SemanticProperties.Description="إيقاف/بدء الفحص"
+                            BackgroundColor="{Binding PollToggleColor}"
+                            WidthRequest="36"
+                            HeightRequest="40"
+                            VerticalOptions="Center">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="8" />
+                        </Border.StrokeShape>
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding TogglePollingCommand}" />
+                        </Border.GestureRecognizers>
+                        <components:AppIcon Icon="{Binding PollToggleIcon}"
+                                            FontSize="14"
+                                            TextColor="White"
+                                            HorizontalOptions="Center"
+                                            VerticalOptions="Center" />
+                    </Border>
+
+                    <!-- Notifications Bell -->
+                    <Border Grid.Column="2"
+                            StrokeThickness="0"
+                            AutomationId="Projects_Mobile_NotificationsButton"
+                            SemanticProperties.Description="التنبيهات"
+                            BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}"
+                            WidthRequest="36"
+                            HeightRequest="40"
+                            VerticalOptions="Center">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="8" />
+                        </Border.StrokeShape>
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnNotificationsButtonTapped" />
+                        </Border.GestureRecognizers>
+                        <components:AppIcon Icon="Bell"
+                                            FontSize="14"
+                                            TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
+                                            HorizontalOptions="Center"
+                                            VerticalOptions="Center" />
+                    </Border>
+                </Grid>
+
+                <!-- Status Strip -->
+                <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
+                    <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
+                        <BoxView WidthRequest="6" HeightRequest="6" Color="{AppThemeBinding Light=#2E9E6B, Dark=#4FBF8C}" CornerRadius="3" VerticalOptions="Center" />
+                        <Label Text="{Binding LiveStatusText}"
+                               FontSize="11"
+                               FontFamily="TajawalBold"
+                               TextColor="{AppThemeBinding Light=#2E9E6B, Dark=#4FBF8C}"
+                               VerticalOptions="Center" />
+                        <Label Text="•" FontSize="11" TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}" VerticalOptions="Center" />
+                        <Label Text="{Binding PollIntervalText}"
+                               FontSize="11"
+                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                               VerticalOptions="Center"
+                               FontFamily="Tajawal" />
+                    </HorizontalStackLayout>
+
+                    <lastscan:LastScanStatus Grid.Column="1"
+                                             LastScanAt="{Binding GlobalStatus.LastScanCompletedAt}"
+                                             IsChecking="{Binding GlobalStatus.IsScanning}"
+                                             ShowRefresh="True"
+                                             RefreshCommand="{Binding RefreshCommand}"
+                                             FontSize="11"
+                                             TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                             VerticalOptions="Center" />
+                </Grid>
+
+            </VerticalStackLayout>
+
+            <!-- Project Feed -->
+            <Grid Grid.Row="1">
+
+                <VerticalStackLayout Spacing="8" IsVisible="{Binding IsLoading}">
+                    <design:ShimmerBox HeightRequest="110" />
+                    <design:ShimmerBox HeightRequest="110" />
+                </VerticalStackLayout>
+
+                <VerticalStackLayout IsVisible="{Binding HasError}" VerticalOptions="Center">
+                    <design:LabelWithSubText Text="{Binding ErrorMessage}" SubText="اضغط لإعادة المحاولة." />
+                    <components:AppButton Text="إعادة المحاولة" AutomationId="Projects_Mobile_RetryButton" Command="{Binding RefreshCommand}" HorizontalOptions="Center" Margin="0,12,0,0" FontFamily="Tajawal" />
+                </VerticalStackLayout>
+
+                <design:LabelWithSubText IsVisible="{Binding IsEmpty}"
+                                          AutomationId="Projects_Mobile_EmptyStateLabel"
+                                          VerticalOptions="Center"
+                                          Text="{Binding EmptyStateTitle}"
+                                          SubText="{Binding EmptyStateSubtitle}" />
+
+                <CollectionView IsVisible="{Binding ShowFeed}"
+                                AutomationId="Projects_Mobile_CollectionView"
+                                ItemsSource="{Binding Projects}">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ProjectCardViewModel">
+                            <views:ProjectCard BindingContext="{Binding .}" />
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+            </Grid>
+
+            <!-- Compact Footer -->
+            <Grid Grid.Row="2"
+                  ColumnDefinitions="*,Auto"
+                  Padding="4,8"
+                  BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+                <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                    <Label Text="{Binding TrackedCountText}" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" VerticalOptions="Center" FontFamily="Tajawal" />
+                    <Label Text="•" FontSize="11" TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}" VerticalOptions="Center" />
+                    <Label Text="{Binding UnreadCountText}" FontSize="11" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#2386C8, Dark=#5CA8DE}" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+
+                <Label Grid.Column="1"
+                       Text="تحديد الكل كمقروء"
+                       FontSize="11"
+                       TextColor="{AppThemeBinding Light=#2386C8, Dark=#5CA8DE}"
+                       VerticalOptions="Center"
+                       FontFamily="Tajawal">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding MarkAllReadCommand}" />
+                    </Label.GestureRecognizers>
+                </Label>
+            </Grid>
+
+        </Grid>
+
+        <!-- Flyout backdrop -->
+        <BoxView x:Name="NotificationsBackdrop"
+                 Color="Transparent"
+                 IsVisible="False"
+                 InputTransparent="False">
+            <BoxView.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnNotificationsBackdropTapped" />
+            </BoxView.GestureRecognizers>
+        </BoxView>
+
+        <!-- Notifications Flyout -->
+        <notifViews:RecentNotificationsFlyout x:Name="NotificationsFlyout"
+                                               AutomationId="Notifications_Mobile_Flyout"
+                                               IsVisible="False"
+                                               HorizontalOptions="Fill"
+                                               VerticalOptions="Start"
+                                               Margin="8,12,8,0" />
+
+    </Grid>
+
+</ContentView>

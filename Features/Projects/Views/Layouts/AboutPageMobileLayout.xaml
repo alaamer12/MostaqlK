@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:components="clr-namespace:MostaqlK.UI.PlatformComponents"
+             xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem"
+             x:Class="MostaqlK.Features.Projects.Views.Layouts.AboutPageMobileLayout"
+             FlowDirection="RightToLeft">
+
+    <Grid RowDefinitions="Auto,*" BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
+        <!-- Top App Bar with back button -->
+        <Grid Grid.Row="0" Padding="16,12" ColumnDefinitions="Auto,*,Auto" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+            <ds:PressableButton Grid.Column="0" Text="← رجوع" AutomationId="About_Mobile_BackButton" Clicked="OnBackClicked"
+                                BackgroundColor="Transparent" TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" Padding="0"
+                                FontFamily="TajawalBold" FontSize="14" />
+            <Label Grid.Column="1" Text="حول التطبيق" FontSize="18" FontFamily="TajawalBold"
+                   TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" HorizontalOptions="Center" VerticalOptions="Center" />
+            <BoxView Grid.Column="2" WidthRequest="40" Color="Transparent" />
+        </Grid>
+
+        <ScrollView Grid.Row="1" AutomationId="About_Mobile_ScrollView">
+            <VerticalStackLayout Padding="16" Spacing="16">
+
+                <!-- Identity card -->
+                <Border Padding="20" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}" HorizontalOptions="Fill">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                    <VerticalStackLayout Spacing="8" HorizontalOptions="Center">
+                        <Border WidthRequest="56" HeightRequest="56" StrokeThickness="0" BackgroundColor="#3B82F6" HorizontalOptions="Center">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+                            <Label Text="M" TextColor="White" FontFamily="TajawalBold" FontSize="24" HorizontalOptions="Center" VerticalOptions="Center" />
+                        </Border>
+                        <Label Text="Mostaqlk" FontSize="18" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" HorizontalTextAlignment="Center" />
+                        <Border Padding="10,3" BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" StrokeThickness="0" HorizontalOptions="Center">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                            <Label x:Name="VersionLabel" FontSize="11" TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}" FontFamily="Tajawal" />
+                        </Border>
+                        <Label Text="تطبيق مراقبة وتنبيهات لمشاريع مستقل، مع حفظ كامل التفاصيل محلياً للرجوع إليها دون اتصال."
+                               FontSize="12" TextColor="{AppThemeBinding Light=#475569, Dark=#94A3B8}" HorizontalTextAlignment="Center"
+                               FontFamily="Tajawal" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Quick facts -->
+                <Border Padding="0" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                    <VerticalStackLayout>
+                        <HorizontalStackLayout Padding="16,12" Spacing="8">
+                            <components:AppIcon Icon="List" FontSize="13" TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}" VerticalOptions="Center" />
+                            <Label Text="حقائق سريعة" FontSize="13" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                        <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
+                        
+                        <Grid ColumnDefinitions="Auto,*" Padding="16,10">
+                            <Label Text="التخزين" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontSize="12" FontFamily="Tajawal" />
+                            <Label Grid.Column="1" Text="قاعدة بيانات محلية مُضمَّنة SQLite" 
+                                   TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" FontSize="12" FontFamily="TajawalBold" 
+                                   HorizontalOptions="End" VerticalOptions="Center" />
+                        </Grid>
+                        <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
+                        
+                        <Grid ColumnDefinitions="Auto,*" Padding="16,10">
+                            <Label Text="حد الطلبات" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontSize="12" FontFamily="Tajawal" />
+                            <Label Grid.Column="1" Text="معدل آمن لتجنب حظر الحساب" 
+                                   TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" FontSize="12" FontFamily="TajawalBold" 
+                                   HorizontalOptions="End" VerticalOptions="Center" />
+                        </Grid>
+                        <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
+                        
+                        <Grid ColumnDefinitions="Auto,*" Padding="16,10">
+                            <Label Text="اللغة" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontSize="12" FontFamily="Tajawal" />
+                            <Label Grid.Column="1" Text="العربية أساساً مع دعم الإنجليزية" 
+                                   TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" FontSize="12" FontFamily="TajawalBold" 
+                                   HorizontalOptions="End" VerticalOptions="Center" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Version scope -->
+                <Border Padding="16" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="نطاق الإصدارات" FontSize="13" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                        <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
+
+                        <HorizontalStackLayout Spacing="6">
+                            <Ellipse Fill="{AppThemeBinding Light=#2E9E6B, Dark=#4FBF8C}" WidthRequest="6" HeightRequest="6" VerticalOptions="Center" />
+                            <Label Text="v1 — الإصدار الحالي (فحص وتنبيهات وتخزين محلي)" FontSize="11" FontFamily="Tajawal" TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" />
+                        </HorizontalStackLayout>
+
+                        <HorizontalStackLayout Spacing="6">
+                            <Ellipse Fill="{AppThemeBinding Light=#CBD5E1, Dark=#475569}" WidthRequest="6" HeightRequest="6" VerticalOptions="Center" />
+                            <Label Text="v2 — تنزيل مرفقات وتجميع تنبيهات وبحث متقدم" FontSize="11" FontFamily="Tajawal" TextColor="{AppThemeBinding Light=#94A3B8, Dark=#94A3B8}" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="Mostaqlk ليس تابعاً لمنصة Mostaql.com ولا معتمداً رسمياً منها." FontSize="11" TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}" HorizontalOptions="Center" FontFamily="Tajawal">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnMostaqlLinkTapped" />
+                    </Label.GestureRecognizers>
+                    <Label.Behaviors>
+                        <ds:PressableEffect ApplyHoverHighlight="True" />
+                    </Label.Behaviors>
+                </Label>
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+
+</ContentView>

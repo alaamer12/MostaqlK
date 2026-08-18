@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:MostaqlK.Features.Settings.ViewModels"
+             xmlns:platform="clr-namespace:MostaqlK.UI.PlatformComponents"
+             xmlns:sidebar="clr-namespace:MostaqlK.UI.PlatformComponents.AppSidebar"
+             xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem"
+             xmlns:services="clr-namespace:MostaqlK.Services"
+             x:Class="MostaqlK.Features.Settings.Views.Layouts.SettingsPanelWindowsLayout"
+             x:DataType="vm:SettingsViewModel"
+             FlowDirection="RightToLeft">
+
+    <ContentView.Resources>
+        <ResourceDictionary>
+            <Style x:Key="SettingsInputBorderStyle" TargetType="Border">
+                <Setter Property="StrokeThickness" Value="1" />
+                <Setter Property="Stroke" Value="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" />
+                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#F8FAFC, Dark=#1E293B}" />
+                <Setter Property="Padding" Value="12,2" />
+                <Setter Property="StrokeShape">
+                    <Setter.Value>
+                        <RoundRectangle CornerRadius="8" />
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="SettingsInputStyle" TargetType="InputView">
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontFamily" Value="Tajawal" />
+                <Setter Property="TextColor" Value="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                <Setter Property="PlaceholderColor" Value="{AppThemeBinding Light=#94A3B8, Dark=#64748B}" />
+                <Setter Property="BackgroundColor" Value="Transparent" />
+            </Style>
+
+            <Style x:Key="SettingsPickerStyle" TargetType="Picker">
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontFamily" Value="Tajawal" />
+                <Setter Property="TextColor" Value="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                <Setter Property="BackgroundColor" Value="Transparent" />
+            </Style>
+        </ResourceDictionary>
+    </ContentView.Resources>
+
+    <Grid BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}" ColumnDefinitions="Auto,*">
+
+        <sidebar:AppSidebar Grid.Column="0"
+                             ActivePage="Settings"
+                             StatValue="{Binding GlobalStatus.ProjectsAddedTodayText}"
+                             ProjectsClicked="OnProjectsNavClicked"
+                             AdvancedSearchClicked="OnAdvancedSearchNavClicked"
+                             SettingsClicked="OnSettingsNavClicked"
+                             AboutClicked="OnAboutNavClicked" />
+
+        <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*" Padding="28,24,28,28" RowSpacing="18"
+              BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <platform:AppIcon Icon="Gear" WidthRequest="24" HeightRequest="24" TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" VerticalOptions="Center" />
+                <VerticalStackLayout Grid.Column="1" Spacing="2">
+                    <Label Text="الإعدادات" FontSize="24" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                    <Label Text="إدارة إعدادات التطبيق وسلوك المراقبة" FontSize="13" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
+                </VerticalStackLayout>
+            </Grid>
+            <!-- MVP note: bg-blue-50 dark:bg-blue-500/10 with text-blue-700 dark:text-blue-300. -->
+            <Border Grid.Row="1" BackgroundColor="{AppThemeBinding Light=#EFF6FF, Dark=#132239}" StrokeThickness="0" Padding="16,12">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="12" />
+                </Border.StrokeShape>
+                <Label Text="ملاحظة MVP: بعض الإعدادات المتقدمة ستُضاف في إصدارات لاحقة." FontSize="13" TextColor="{AppThemeBinding Light=#1D4ED8, Dark=#93C5FD}" FontFamily="Tajawal" />
+            </Border>
+
+            <ScrollView Grid.Row="2">
+                <VerticalStackLayout Spacing="24">
+
+                    <!-- v1/v2 note: bg-blue-50 dark:bg-blue-500/10 with text-blue-700 dark:text-blue-300. -->
+                    <Border BackgroundColor="{AppThemeBinding Light=#EFF6FF, Dark=#132239}" StrokeThickness="0" Padding="16,12">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                        <HorizontalStackLayout Spacing="12">
+                            <platform:AppIcon Icon="Info" WidthRequest="18" HeightRequest="18" TextColor="{AppThemeBinding Light=#1D4ED8, Dark=#93C5FD}" VerticalOptions="Start" />
+                            <Label Text="الإعدادات الموسّعة في v1 و v2 — تحكّم بالفاصل الزمني للفحص، حد الطلبات، معدل التوازي، خيارات الأمان، استعلام الفحص، تنزيل المرفقات، وتجميع التنبيهات. التغييرات تُطبَّق من دورة الفحص التالية."
+                                   FontSize="13" TextColor="{AppThemeBinding Light=#1D4ED8, Dark=#93C5FD}" FontFamily="Tajawal" LineBreakMode="WordWrap" />
+                        </HorizontalStackLayout>
+                    </Border>
+
+                    <Label Text="{Binding ValidationMessage}"
+                           TextColor="{AppThemeBinding Light=#DC2626, Dark=#F87171}"
+                           FontSize="13"
+                           IsVisible="{Binding HasValidationError}"
+                           FontFamily="Tajawal" />
+
+                    <!-- poll_interval card (Indigo) -->
+                    <Border Padding="0" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                        <VerticalStackLayout>
+                            <VerticalStackLayout Padding="24,16" Spacing="4">
+                                <HorizontalStackLayout Spacing="8">
+                                    <platform:AppIcon Icon="Stopwatch" TextColor="#6366F1" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                                    <Label Text="الفاصل الزمني للفحص" FontSize="16" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                                </HorizontalStackLayout>
+                                <Label Text="المدة بين كل عمليتي فحص متتاليتين للمشاريع الجديدة" FontSize="12" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
+                            </VerticalStackLayout>
+                            <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
+                            <Grid ColumnDefinitions="*,160" Padding="24,16" VerticalOptions="Center">
+                                <Label Text="الفاصل الزمني (بالثواني)" TextColor="{AppThemeBinding Light=#334155, Dark=#E2E8F0}" VerticalOptions="Center" FontFamily="Tajawal" />
+                                <Border Grid.Column="1" Style="{StaticResource SettingsInputBorderStyle}">
+                                    <Entry AutomationId="Settings_PollIntervalEntry"
+                                           Text="{Binding PollIntervalSeconds, Mode=TwoWay}"
+                                           Keyboard="Numeric"
+                                           Style="{StaticResource SettingsInputStyle}" />
+                                </Border>
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- rate_limit card (Sky) -->
+                    <Border Padding="0" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                        <VerticalStackLayout>
+                            <VerticalStackLayout Padding="24,16" Spacing="4">
+                                <HorizontalStackLayout Spacing="8">
+                                    <platform:AppIcon Icon="Gauge" TextColor="#0EA5E9" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                                    <Label Text="حد الطلبات (معدل الوصول)" FontSize="16" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                                </HorizontalStackLayout>
+                                <Label Text="الحد الأقصى لعدد الطلبات المسموح بها في الدقيقة الواحدة لتجنب حظر الحساب" FontSize="12" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
+                            </VerticalStackLayout>
+                            <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
+                            <Grid ColumnDefinitions="*,160" Padding="24,16" VerticalOptions="Center">
+                                <Label Text="عدد الطلبات / دقيقة" TextColor="{AppThemeBinding Light=#334155, Dark=#E2E8F0}" VerticalOptions="Center" FontFamily="Tajawal" />
+                                <Border Grid.Column="1" Style="{StaticResource SettingsInputBorderStyle}">
+                                    <Entry AutomationId="Settings_RateLimitEntry"
+                                           Text="{Binding RequestsPerMinute, Mode=TwoWay}"
+                                           Keyboard="Numeric"
+                                           Style="{StaticResource SettingsInputStyle}" />
+                                </Border>
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- max_parallel_enrichment card (Purple) -->
+                    <Border Padding="0" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                        <VerticalStackLayout>
+                            <VerticalStackLayout Padding="24,16" Spacing="4">
+                                <HorizontalStackLayout Spacing="8">
+                                    <platform:AppIcon Icon="Code" TextColor="#A855F7" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                                    <Label Text="توازي جلب التفاصيل" FontSize="16" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                                </HorizontalStackLayout>
+                                <Label Text="العدد الأقصى للمشاريع التي تُجلب تفاصيلها في الوقت نفسه (1 - 5)" FontSize="12" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
+                            </VerticalStackLayout>
+                            <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
+                            <Grid ColumnDefinitions="*,160" Padding="24,16" VerticalOptions="Center">
+                                <Label Text="عدد العمال المتوازيين" TextColor="{AppThemeBinding Light=#334155, Dark=#E2E8F0}" VerticalOptions="Center" FontFamily="Tajawal" />
+                                <Border Grid.Column="1" Style="{StaticResource SettingsInputBorderStyle}">
+                                    <Entry AutomationId="Settings_ParallelEnrichmentEntry"
+                                           Text="{Binding MaxParallelEnrichment, Mode=TwoWay}"
+                                           Keyboard="Numeric"
+                                           Style="{StaticResource SettingsInputStyle}" />
+                                </Border>
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- query_params card (Teal) -->
+                    <Border Padding="0" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                        <VerticalStackLayout>
+                            <VerticalStackLayout Padding="24,16" Spacing="4">
+                                <HorizontalStackLayout Spacing="8">
+                                    <platform:AppIcon Icon="Filter" TextColor="#14B8A6" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                                    <Label Text="معايير استعلام الفحص (Query Params)" FontSize="16" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                                </HorizontalStackLayout>
+                                <Label Text="معاملات URL إضافية تُمرَّر لصفحة المشاريع في مستقل (مثل: category=software-dev)" FontSize="12" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
+                            </VerticalStackLayout>
+                            <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
+                            <VerticalStackLayout Padding="24,16" Spacing="8">
+                                <Border Style="{StaticResource SettingsInputBorderStyle}">
+                                    <Entry AutomationId="Settings_QueryParamsEntry"
+                                           Text="{Binding QueryParams, Mode=TwoWay}"
+                                           Placeholder="category=software-dev"
+                                           FlowDirection="LeftToRight"
+                                           Style="{StaticResource SettingsInputStyle}" />
+                                </Border>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- include_assets card (Emerald) -->
+                    <Border Padding="0" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                        <VerticalStackLayout>
+                            <VerticalStackLayout Padding="24,16" Spacing="4">
+                                <HorizontalStackLayout Spacing="8">
+                                    <platform:AppIcon Icon="Download" TextColor="#10B981" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                                    <Label Text="تنزيل المرفقات تلقائيًا" FontSize="16" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                                </HorizontalStackLayout>
+                                <Label Text="تنزيل ملفات المشاريع فور اكتشافها لتكون متاحة دون اتصال" FontSize="12" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
+                            </VerticalStackLayout>
+                            <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
+                            <Grid ColumnDefinitions="*,Auto" Padding="24,16" VerticalOptions="Center">
+                                <Label Text="تفعيل التنزيل التلقائي للمرفقات" TextColor="{AppThemeBinding Light=#334155, Dark=#E2E8F0}" VerticalOptions="Center" FontFamily="Tajawal" />
+                                <platform:AppToggle Grid.Column="1"
+                                                    AutomationId="Settings_IncludeAssetsToggle"
+                                                    IsToggled="{Binding IncludeAssets, Mode=TwoWay}"
+                                                    VerticalOptions="Center" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- notifications_grouping card (Amber) -->
+                    <Border Padding="0" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                        <VerticalStackLayout>
+                            <VerticalStackLayout Padding="24,16" Spacing="4">
+                                <HorizontalStackLayout Spacing="8">
+                                    <platform:AppIcon Icon="LayerGroup" TextColor="#F59E0B" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                                    <Label Text="تجميع التنبيهات" FontSize="16" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                                </HorizontalStackLayout>
+                                <Label Text="إرسال تنبيه واحد يجمع عدة مشاريع عند اكتشاف عدد كبير معًا بدلاً من تنبيه لكل مشروع" FontSize="12" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
+                            </VerticalStackLayout>
+                            <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
+                            <Grid ColumnDefinitions="*,Auto" Padding="24,16" VerticalOptions="Center">
+                                <Label Text="تفعيل تجميع التنبيهات" TextColor="{AppThemeBinding Light=#334155, Dark=#E2E8F0}" VerticalOptions="Center" FontFamily="Tajawal" />
+                                <platform:AppToggle Grid.Column="1"
+                                                    AutomationId="Settings_GroupingToggle"
+                                                    IsToggled="{Binding NotificationsGroupingEnabled, Mode=TwoWay}"
+                                                    VerticalOptions="Center" />
+                            </Grid>
+                            <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
+                            <Grid ColumnDefinitions="*,160" Padding="24,16" VerticalOptions="Center">
+                                <Label Text="حد التجميع (عدد المشاريع)" TextColor="{AppThemeBinding Light=#334155, Dark=#E2E8F0}" VerticalOptions="Center" FontFamily="Tajawal" />
+                                <Border Grid.Column="1" Style="{StaticResource SettingsInputBorderStyle}">
+                                    <Entry AutomationId="Settings_GroupingThresholdEntry"
+                                           Text="{Binding NotificationsGroupingThreshold, Mode=TwoWay}"
+                                           Keyboard="Numeric"
+                                           Style="{StaticResource SettingsInputStyle}" />
+                                </Border>
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- session_cookie card (Rose) -->
+                    <Border Padding="0" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                        <VerticalStackLayout>
+                            <VerticalStackLayout Padding="24,16" Spacing="4">
+                                <HorizontalStackLayout Spacing="8">
+                                    <platform:AppIcon Icon="FileLines" TextColor="#F43F5E" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                                    <Label Text="كوكي جلسة مستقل (Mostaql Session Cookie)" FontSize="16" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                                </HorizontalStackLayout>
+                                <Label Text="مطلوب فقط للوصول إلى المشاريع الخاصة أو المغلقة. يُخزَّن مشفّرًا بواسطة نظام التشغيل." FontSize="12" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
+                            </VerticalStackLayout>
+                            <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
+                            <VerticalStackLayout Padding="24,16" Spacing="12">
+                                <HorizontalStackLayout Spacing="8">
+                                    <Border BackgroundColor="{AppThemeBinding Light=#F0FDF4, Dark=#14532D}" StrokeThickness="0" Padding="8,4" IsVisible="{Binding HasSessionCookie}">
+                                        <Border.StrokeShape><RoundRectangle CornerRadius="6" /></Border.StrokeShape>
+                                        <Label Text="تم حفظ الكوكي بنجاح" FontSize="11" TextColor="{AppThemeBinding Light=#16A34A, Dark=#4ADE80}" FontFamily="TajawalBold" />
+                                    </Border>
+                                    <Border BackgroundColor="{AppThemeBinding Light=#FEF2F2, Dark=#450A0A}" StrokeThickness="0" Padding="8,4" IsVisible="{Binding HasSessionCookie, Converter={StaticResource InvertedBoolConverter}}">
+                                        <Border.StrokeShape><RoundRectangle CornerRadius="6" /></Border.StrokeShape>
+                                        <Label Text="لم يُعيَّن كوكي بعد" FontSize="11" TextColor="{AppThemeBinding Light=#DC2626, Dark=#F87171}" FontFamily="TajawalBold" />
+                                    </Border>
+                                </HorizontalStackLayout>
+                                <Border Style="{StaticResource SettingsInputBorderStyle}">
+                                    <Entry AutomationId="Settings_SessionCookieEntry"
+                                           Text="{Binding SessionCookieInput, Mode=TwoWay}"
+                                           Placeholder="الصق قيمة Mostaql_session هنا..."
+                                           IsPassword="True"
+                                           FlowDirection="LeftToRight"
+                                           Style="{StaticResource SettingsInputStyle}" />
+                                </Border>
+                                <HorizontalStackLayout Spacing="12">
+                                    <Button AutomationId="Settings_SaveCookieButton"
+                                            Text="حفظ الكوكي"
+                                            Command="{Binding SaveSessionCookieCommand}"
+                                            BackgroundColor="#2563EB"
+                                            TextColor="White"
+                                            FontFamily="TajawalBold"
+                                            FontSize="13"
+                                            Padding="16,8"
+                                            CornerRadius="8" />
+                                    <Button AutomationId="Settings_ClearCookieButton"
+                                            Text="مسح الكوكي"
+                                            Command="{Binding ClearSessionCookieCommand}"
+                                            BackgroundColor="Transparent"
+                                            TextColor="{AppThemeBinding Light=#DC2626, Dark=#F87171}"
+                                            FontFamily="Tajawal"
+                                            FontSize="13"
+                                            Padding="16,8"
+                                            IsVisible="{Binding HasSessionCookie}" />
+                                </HorizontalStackLayout>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Close behavior card (Orange) -->
+                    <Border Padding="0" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                        <VerticalStackLayout>
+                            <VerticalStackLayout Padding="24,16" Spacing="4">
+                                <HorizontalStackLayout Spacing="8">
+                                    <platform:AppIcon Icon="ProjectsList" TextColor="#EA580C" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                                    <Label Text="سلوك زر الإغلاق (X)" FontSize="16" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                                </HorizontalStackLayout>
+                                <Label Text="الإجراء الذي يتخذه التطبيق عند النقر على زر الإغلاق في شريط العنوان" FontSize="12" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
+                            </VerticalStackLayout>
+                            <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
+                            <Grid ColumnDefinitions="*,200" Padding="24,16" VerticalOptions="Center">
+                                <Label Text="الإجراء الافتراضي" TextColor="{AppThemeBinding Light=#334155, Dark=#E2E8F0}" VerticalOptions="Center" FontFamily="Tajawal" />
+                                <Border Grid.Column="1" Style="{StaticResource SettingsInputBorderStyle}">
+                                    <Picker AutomationId="Settings_CloseBehaviorPicker"
+                                            SelectedIndex="{Binding SelectedCloseBehaviorIndex, Mode=TwoWay}"
+                                            Style="{StaticResource SettingsPickerStyle}">
+                                        <Picker.ItemsSource>
+                                            <x:Array Type="{x:Type x:String}">
+                                                <x:String>السؤال في كل مرة</x:String>
+                                                <x:String>التصغير لشريط المهام</x:String>
+                                                <x:String>إغلاق التطبيق نهائياً</x:String>
+                                            </x:Array>
+                                        </Picker.ItemsSource>
+                                    </Picker>
+                                </Border>
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Appearance card (Blue) -->
+                    <Border Padding="0" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                        <VerticalStackLayout>
+                            <VerticalStackLayout Padding="24,16" Spacing="4">
+                                <HorizontalStackLayout Spacing="8">
+                                    <platform:AppIcon Icon="Moon" TextColor="#2563EB" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                                    <Label Text="المظهر" FontSize="16" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                                </HorizontalStackLayout>
+                                <Label Text="تخصيص الوضع الليلي والواجهة" FontSize="12" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
+                            </VerticalStackLayout>
+                            <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
+                            <Grid ColumnDefinitions="*,Auto" Padding="24,16" VerticalOptions="Center">
+                                <Label Text="الوضع الداكن (Dark Mode)" TextColor="{AppThemeBinding Light=#334155, Dark=#E2E8F0}" VerticalOptions="Center" FontFamily="Tajawal" />
+                                <platform:AppToggle Grid.Column="1"
+                                                    AutomationId="Settings_DarkModeToggle"
+                                                    IsToggled="{Binding IsDarkMode, Mode=TwoWay}"
+                                                    VerticalOptions="Center" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                </VerticalStackLayout>
+            </ScrollView>
+        </Grid>
+    </Grid>
+
+</ContentView>

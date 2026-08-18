@@ -1,5 +1,7 @@
 using MostaqlK.Features.Projects.ViewModels;
+using MostaqlK.Features.Projects.Views.Layouts;
 using MostaqlK.Infrastructure.Database;
+using MostaqlK.UI.PlatformComponents;
 
 namespace MostaqlK.Features.Projects.Views;
 
@@ -8,6 +10,7 @@ public partial class ProjectDetailsPage : ContentPage
 {
     private readonly ProjectDetailsViewModel _viewModel;
     private readonly IProjectRepository _projectRepository;
+    private readonly View? _activeLayout;
 
     public string? ProjectId { get; set; }
 
@@ -17,6 +20,15 @@ public partial class ProjectDetailsPage : ContentPage
         _viewModel = viewModel;
         _projectRepository = projectRepository;
         BindingContext = _viewModel;
+
+        var layoutFactory = PlatformSelect.For<Func<View>>(
+            windows: () => new ProjectDetailsWindowsLayout(_viewModel),
+            android: () => new ProjectDetailsMobileLayout(_viewModel),
+            ios: () => new ProjectDetailsMobileLayout(_viewModel),
+            macCatalyst: () => new ProjectDetailsWindowsLayout(_viewModel)
+        );
+        _activeLayout = layoutFactory?.Invoke();
+        Content = _activeLayout;
     }
 
     protected override async void OnAppearing()
@@ -46,32 +58,5 @@ public partial class ProjectDetailsPage : ContentPage
         {
             _viewModel.SetError("معرّف المشروع غير صالح.");
         }
-    }
-
-    private async void OnProjectsNavClicked(object? sender, EventArgs e)
-    {
-        await Shell.Current.GoToAsync("//MainWindowPage");
-    }
-
-    private async void OnAdvancedSearchNavClicked(object? sender, EventArgs e)
-    {
-        // TODO: navigate to the advanced search route once implemented.
-        await Task.CompletedTask;
-    }
-
-    private async void OnNotificationsNavClicked(object? sender, EventArgs e)
-    {
-        // Notifications flyout is owned by MainWindowPage; navigate back to it first.
-        await Shell.Current.GoToAsync("//MainWindowPage");
-    }
-
-    private async void OnSettingsNavClicked(object? sender, EventArgs e)
-    {
-        await Shell.Current.GoToAsync("//SettingsPanel");
-    }
-
-    private async void OnAboutNavClicked(object? sender, EventArgs e)
-    {
-        await Shell.Current.GoToAsync("//AboutPage");
     }
 }

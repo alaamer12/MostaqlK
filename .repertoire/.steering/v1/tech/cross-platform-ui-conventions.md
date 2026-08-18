@@ -10,8 +10,9 @@ MostaqlK's UI is built once against **conventional, platform-neutral names**, no
 
 1. **Same-shape components that need per-platform tweaks** (padding, corner radius, native handler mapping) — e.g. a button looks and behaves the same everywhere, just needs small native adjustments.
 2. **Same-concept components that are structurally different per platform** — e.g. primary navigation is a bottom tab bar on mobile but a side panel on desktop. These are not the same control with different styling; they are different controls that serve the same conceptual role in the app.
+3. **Composite block components that host distinct visual layout trees per platform** — e.g. a `ProjectCard` or `MainWindowPage` that requires a 4-column multi-pane layout on desktop but a streamlined single-column feed or compact card layout on mobile.
 
-Both mechanisms live under `UI/`, but in separate folders, because they solve different problems.
+Both mechanisms live under `UI/` or within vertical feature slices (`Features/*/Views/`), in clean structure matching their responsibilities.
 
 ## Mechanism 1 — `PlatformComponents/` (same shape, per-OS tweaks)
 
@@ -42,7 +43,7 @@ Used when the platform-idiomatic control for a concept is a **different type of 
 ```text
 UI/PlatformConcepts/
 ├── NavigationControl.cs   # primary navigation: BottomTabs (mobile) vs SidePanel (desktop)
-├── ModalPresenter.cs      # overlay/modal surface: BottomSheet (mobile) vs Dialog/Popup (desktop)
+├── ModalPresenter.cs      # shared partial shell (+ .Windows.cs, .Android.cs, ...) for overlay/modal surface
 ├── Drawer.cs              # secondary/contextual panel: SwipeDrawer (mobile) vs Flyout (desktop)
 └── ActionMenu.cs          # action list: ActionSheet (mobile) vs ContextMenu (desktop)
 ```
@@ -66,6 +67,43 @@ public static class NavigationControl
 
 ```xml
 <Button HeightRequest="{OnPlatform Android=48, iOS=44, WinUI=36}" />
+```
+
+## Mechanism 3 — Block & View Layout Swapping (Composite block components)
+
+Used when high-level UI blocks (e.g. `ProjectCard`) or pages (e.g. `MainWindowPage`) require fundamentally distinct layout hierarchies (DOM structures) on desktop vs. mobile rather than inline visibility toggles or conditional styling.
+
+In this pattern:
+1. The host component or page is a lightweight shell (`ContentView` or `ContentPage`).
+2. The shell delegates instantiation of its active visual tree to platform-specific layout views via `PlatformSelect.For<Func<View>>()`.
+3. Child layout views inherit the `BindingContext` from the host shell, allowing existing ViewModels (`ProjectCardViewModel`, `ProjectFeedViewModel`) to bind without change.
+4. Platform-specific layouts reside in a `Layouts/` subfolder adjacent to the host view.
+
+```text
+Features/Projects/Views/
+├── ProjectCard.xaml(.cs)                     # Host ContentView shell
+├── Layouts/
+│   ├── ProjectCardWindowsLayout.xaml(.cs)    # Full-featured 4-column desktop layout
+│   └── ProjectCardMobileLayout.xaml(.cs)     # Streamlined mobile layout (title + description)
+```
+
+Example host implementation:
+
+```csharp
+public partial class ProjectCard : ContentView
+{
+    public ProjectCard()
+    {
+        InitializeComponent();
+        var layoutFactory = PlatformSelect.For<Func<View>>(
+            windows: () => new ProjectCardWindowsLayout(),
+            android: () => new ProjectCardMobileLayout(),
+            ios: () => new ProjectCardMobileLayout(),
+            macCatalyst: () => new ProjectCardWindowsLayout()
+        );
+        Content = layoutFactory();
+    }
+}
 ```
 
 ## Naming rule: neutral, abstract names — never a platform's native term
@@ -102,7 +140,7 @@ This matters because bug-workaround code is easy to miss during a "what's platfo
 **Rule:** when you find code whose comment/intent is "this exists because WinUI does X wrong," treat it exactly like a `.Windows.cs` case:
 
 ```text
-UI/DesignSystem/PressableEffect/
+UI/DesignSystem/
 ├── PressableEffect.cs          # shared bindable properties, gesture wiring, platform-neutral seam
 ├── PressableEffect.Windows.cs  # Windows-only: hover highlight, cursor, hover-coordination workaround
 └── PressableEffect.Android.cs  # Android-only: touch press feedback (added when the feature/fix is built)
@@ -123,7 +161,7 @@ Concretely: hover (`PointerEntered`/`PointerExited`) is a desktop/cursor concept
 Some behavior is genuinely shared by an entire *class* of platforms, not the whole app and not just one OS — e.g. Android and iOS both want the same touch-native tactile feedback (a haptic tick on press) that a mouse-driven Windows app should not get; a future macOS/Windows "desktop" pairing could similarly want shared mouse/trackpad-hover logic. For this case, use a leading-underscore, family-named file instead of duplicating the implementation into every platform-suffixed file:
 
 ```text
-UI/DesignSystem/PressableEffect/
+UI/DesignSystem/
 ├── PressableEffect.cs               # shared bindable properties, gesture wiring, platform-neutral seams
 ├── PressableEffect.Windows.cs       # Windows-only: hover highlight, cursor
 ├── _PressableEffect.Mobile.cs       # shared by Android + iOS: haptic press feedback (no platform APIs of its own)

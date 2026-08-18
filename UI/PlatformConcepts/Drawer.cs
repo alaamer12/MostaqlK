@@ -4,24 +4,55 @@ using MostaqlK.UI.PlatformComponents;
 namespace MostaqlK.UI.PlatformConcepts;
 
 /// <summary>
-/// Secondary/contextual panel. Structurally different per platform: a swipe-in drawer on
-/// mobile vs a flyout on desktop.
-/// Windows (V1): stood in with <see cref="FlyoutPage"/>, MAUI's built-in flyout-shell control —
-/// the closest idiomatic match to a desktop flyout panel.
+/// Secondary/contextual panel. Structurally different per platform:
+/// a bottom sheet / swipe-in drawer on mobile vs a side flyout on desktop.
 /// </summary>
 public static class Drawer
 {
     public static readonly Func<View>? Current = PlatformSelect.For<Func<View>>(
-        android: null, // TODO: SwipeDrawer — added only when V3 mobile work starts.
-        ios: null, // TODO: SwipeDrawer — added only when V3 mobile work starts.
+        android: CreateMobileDrawer,
+        ios: CreateMobileDrawer,
         windows: CreateFlyout,
-        macCatalyst: null); // TODO: Flyout-equivalent — added only when V3 mobile work starts.
+        macCatalyst: CreateFlyout);
+
+    /// <summary>
+    /// Composes a main view with an overlay drawer container.
+    /// </summary>
+    public static View Build(View mainContent, View drawerContent, bool isOpen = false) => PlatformSelect.For<Func<View, View, bool, View>>(
+        android: BuildMobileDrawer,
+        ios: BuildMobileDrawer,
+        windows: BuildDesktopFlyout,
+        macCatalyst: BuildDesktopFlyout)?.Invoke(mainContent, drawerContent, isOpen) ?? mainContent;
 
     private static View CreateFlyout()
     {
-        // Windows "Flyout" stand-in: a lightweight content container representing the flyout
-        // panel's content slot. TODO: wire this up to an actual FlyoutPage.Flyout / Shell
-        // flyout once a concrete secondary-panel use case is implemented.
         return new ContentView();
+    }
+
+    private static View CreateMobileDrawer()
+    {
+        return new ContentView();
+    }
+
+    private static View BuildDesktopFlyout(View mainContent, View drawerContent, bool isOpen)
+    {
+        var grid = new Grid();
+        grid.Children.Add(mainContent);
+        
+        drawerContent.IsVisible = isOpen;
+        drawerContent.HorizontalOptions = LayoutOptions.End;
+        grid.Children.Add(drawerContent);
+        return grid;
+    }
+
+    private static View BuildMobileDrawer(View mainContent, View drawerContent, bool isOpen)
+    {
+        var grid = new Grid();
+        grid.Children.Add(mainContent);
+
+        drawerContent.IsVisible = isOpen;
+        drawerContent.VerticalOptions = LayoutOptions.End;
+        grid.Children.Add(drawerContent);
+        return grid;
     }
 }

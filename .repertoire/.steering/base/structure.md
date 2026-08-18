@@ -17,6 +17,9 @@ MostaqlK/
 ├── MauiProgram.cs                   # Dependency injection and MAUI setup
 ├── MostaqlK.csproj
 │
+├── Core/                            # Shared application kernel and platform infrastructure
+│   └── Platform/                    # Platform-neutral abstractions (CurrentPlatform, PlatformCapability)
+│
 ├── Features/                        # User-facing features, organized by vertical slice
 │   ├── Projects/                    # Project list, details, and related view models
 │   ├── Notifications/               # Notification presentation and unread state
@@ -56,6 +59,7 @@ The project root remains the home for the MAUI entry points and project file. A 
 - Keep Arabic-first data handling and bilingual search behavior in shared layers, not in Windows-only code.
 - Treat `Resources/` and `Platforms/` as MAUI convention directories; change their project configuration only when the default conventions are insufficient.
 - Name every `UI/PlatformConcepts/` entry after its conceptual role (e.g. `NavigationControl`, `ModalPresenter`), never after a single platform's native widget name; see [`cross-platform-ui-conventions.md`](../v1/tech/cross-platform-ui-conventions.md) for the full convention and the `PlatformComponents/` vs `PlatformConcepts/` decision guide.
+- Express platform variance only via `X.cs`/`X.Windows.cs`/`X.Android.cs`/`X.iOS.cs`/`X.MaciOS.cs`/`_X.{Family}.cs` per-platform files, never via in-body `#if PLATFORM` outside the two canonical exempt files (`Core/Platform/CurrentPlatform.cs` and `UI/PlatformComponents/PlatformSelect.cs`); see [`cross-platform-ui-conventions.md`](../v1/tech/cross-platform-ui-conventions.md) for the full rule and examples.
 
 ## Delivery phases
 
