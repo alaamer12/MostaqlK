@@ -71,6 +71,8 @@ public static class NavigationControl
 
 ## Mechanism 3 — Block & View Layout Swapping (Composite block components)
 
+See [`docs/mobile-architecture-specification.md`](../../../../docs/mobile-architecture-specification.md) for full mobile navigation, layouts, push notifications, and background execution specs.
+
 Used when high-level UI blocks (e.g. `ProjectCard`) or pages (e.g. `MainWindowPage`) require fundamentally distinct layout hierarchies (DOM structures) on desktop vs. mobile rather than inline visibility toggles or conditional styling.
 
 In this pattern:

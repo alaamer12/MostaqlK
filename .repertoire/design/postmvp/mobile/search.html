@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#f1f5f9">
+  <title>البحث المتقدم — Mostaqlk</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('mostaqlk-theme');
+        var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var isDark = stored ? stored === 'dark' : systemDark;
+        if (isDark) document.documentElement.classList.add('dark');
+      } catch (e) { /* localStorage unavailable — fall back to light */ }
+    })();
+  </script>
+  <style>
+    :root {
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --text-faint: #94a3b8;
+      --border: #e2e8f0;
+      --border-soft: #e2e8f0;
+      --border-hair: #f1f5f9;
+      --accent: #2386c8;
+      --accent-soft: #eff6ff;
+      --green: #2e9e6b;
+      --green-soft: #f0fdf6;
+      --green-border: #d1fae5;
+      --stat-text: #64748b;
+      --avatar-bg: #eff6ff;
+      --shadow: rgba(20,35,60,.035);
+    }
+    html.dark {
+      --bg: #020617;
+      --surface: #0f172a;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-faint: #64748b;
+      --border: #1e293b;
+      --border-soft: #1e293b;
+      --border-hair: #1e293b;
+      --accent: #5ca8de;
+      --accent-soft: rgba(92,168,222,.1);
+      --green: #4fbf8c;
+      --green-soft: rgba(79,191,140,.1);
+      --green-border: rgba(79,191,140,.25);
+      --stat-text: #94a3b8;
+      --avatar-bg: rgba(92,168,222,.12);
+      --shadow: rgba(0,0,0,.25);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html { overscroll-behavior-y: none; }
+    body {
+      margin: 0;
+      font-family: -apple-system, "SF Pro Text", "Segoe UI", "Cairo", Tahoma, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overscroll-behavior-y: none;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: manipulation;
+      transition: background .2s ease, color .2s ease;
+    }
+    button, input { font: inherit; -webkit-appearance:none; appearance:none; }
+    button { touch-action: manipulation; }
+    .app {
+      max-width: 760px;
+      min-height: 100vh;
+      min-height: 100dvh;
+      margin: auto;
+      background: var(--bg);
+      padding-bottom: calc(92px + env(safe-area-inset-bottom));
+    }
+    header {
+      height: 82px;
+      padding: 18px 24px;
+      padding-top: calc(18px + env(safe-area-inset-top));
+      height: calc(82px + env(safe-area-inset-top));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 4;
+      transition: background .2s ease, border-color .2s ease;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .logo {
+      width: 48px; height: 48px; border-radius: 13px;
+      background: var(--accent); color: white;
+      display: grid; place-items: center;
+      font-size: 23px; font-weight: 700;
+    }
+    .brand-text strong { display:block; font-size: 21px; color: var(--text); }
+    .brand-text span { color:var(--text-muted); font-size: 13px; }
+    .theme-btn {
+      width: 44px; height: 44px; border-radius: 12px;
+      border: 1px solid var(--border); background: var(--bg);
+      font-size: 18px; color:var(--text-muted); cursor:pointer;
+      display:grid; place-items:center;
+      transition: opacity .1s ease, background .2s ease, border-color .2s ease;
+    }
+    .theme-btn:active { opacity:.6; }
+    main { padding: 18px 22px; }
+
+    /* Search input */
+    .search-bar {
+      height: 54px; border:1px solid var(--border); border-radius:14px;
+      display:flex; align-items:center; gap:12px; padding:0 16px;
+      background: var(--surface); color:var(--text-faint);
+      transition: background .2s ease, border-color .2s ease;
+    }
+    .search-bar i { font-size:16px; }
+    .search-bar input {
+      border:0; outline:0; background:transparent; width:100%;
+      color:var(--text); text-align:right;
+      -webkit-user-select:text; user-select:text;
+    }
+    .search-bar input::placeholder { color: var(--text-faint); }
+    .search-bar .clear-btn {
+      border:0; background:transparent; color:var(--text-faint);
+      font-size:16px; cursor:pointer; padding:4px; display:none;
+    }
+    .search-bar.has-text .clear-btn { display:block; }
+
+    /* Filter chips */
+    .filters {
+      display:flex; gap:8px; overflow-x:auto; margin-top:14px;
+      padding-bottom:2px; -ms-overflow-style:none; scrollbar-width:none;
+    }
+    .filters::-webkit-scrollbar { display:none; }
+    .chip {
+      flex:0 0 auto; padding:9px 16px; border-radius:999px;
+      border:1px solid var(--border); background:var(--surface);
+      color:var(--text-muted); font-size:13px; font-weight:600;
+      cursor:pointer; white-space:nowrap;
+      transition: background .15s ease, color .15s ease, border-color .15s ease;
+    }
+    .chip.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+    .chip:active { opacity:.7; }
+
+    .section-title {
+      display:flex; align-items:center; gap:10px;
+      margin: 24px 4px 12px;
+      font-size:18px; font-weight:700;
+      color: var(--text);
+    }
+    .section-title::before {
+      content:""; flex:0 0 auto; width:4px; height:25px; border-radius:5px;
+      background:var(--accent);
+    }
+    .section-title .clear-link {
+      margin-inline-start:auto; font-size:13px; font-weight:600;
+      color:var(--text-faint); cursor:pointer;
+    }
+
+    /* Recent searches */
+    .recent-searches { display:flex; flex-wrap:wrap; gap:8px; }
+    .recent-chip {
+      display:flex; align-items:center; gap:8px;
+      padding:9px 14px; border-radius:11px;
+      background:var(--surface); border:1px solid var(--border-soft);
+      color:var(--text); font-size:13px; cursor:pointer;
+      transition: background .15s ease;
+    }
+    .recent-chip i.fa-clock-rotate-left { color:var(--text-faint); font-size:12px; }
+    .recent-chip:active { background:var(--accent-soft); }
+
+    /* Empty state */
+    .empty-state {
+      display:flex; flex-direction:column; align-items:center; text-align:center;
+      padding: 48px 20px 20px;
+      color: var(--text-faint);
+    }
+    .empty-state .icon-circle {
+      width:72px; height:72px; border-radius:50%;
+      background:var(--accent-soft); color:var(--accent);
+      display:grid; place-items:center; font-size:28px; margin-bottom:18px;
+    }
+    .empty-state strong { color:var(--text); font-size:16px; margin-bottom:6px; }
+    .empty-state p { margin:0; font-size:13px; max-width:280px; line-height:1.8; }
+
+    /* Result cards (reuse project card language) */
+    .project {
+      background:var(--surface); border:1px solid var(--border-soft); border-radius:17px;
+      padding:18px; margin-bottom:11px;
+      box-shadow:0 2px 8px var(--shadow);
+      transition: transform .1s ease, box-shadow .1s ease, background .2s ease, border-color .2s ease;
+      cursor: pointer;
+    }
+    .project:active { transform: scale(.985); box-shadow:0 1px 4px var(--shadow); }
+    .project-head { display:flex; justify-content:space-between; gap:12px; }
+    .project h3 { margin:0; font-size:18px; color: var(--text); }
+    .project p { color:var(--text-muted); line-height:1.8; font-size:13px; margin:8px 0; }
+    .tags { display:flex; gap:7px; flex-wrap:wrap; }
+    .tag {
+      background:var(--accent-soft); color:var(--accent); padding:6px 10px;
+      border-radius:8px; font-size:12px;
+    }
+    .project-bottom {
+      border-top:1px solid var(--border-hair); margin-top:14px; padding-top:13px;
+      display:flex; justify-content:space-between; align-items:center;
+    }
+    .meta { color:var(--text-muted); font-size:12px; }
+    .budget { color:var(--green); font-weight:700; }
+
+    nav {
+      position:fixed; bottom:0; left:50%; transform:translateX(-50%);
+      width:min(760px,100%); height:76px; background:var(--surface);
+      border-top:1px solid var(--border); display:grid;
+      grid-template-columns:repeat(4,1fr); z-index:5;
+      padding-bottom: env(safe-area-inset-bottom);
+      height: calc(76px + env(safe-area-inset-bottom));
+      transition: background .2s ease, border-color .2s ease;
+    }
+    nav a {
+      text-decoration:none; color:var(--text-muted); display:flex;
+      flex-direction:column; justify-content:center; align-items:center;
+      gap:6px; font-size:11px;
+      transition: opacity .1s ease;
+    }
+    nav a i { font-size:20px; }
+    nav a.active { color:var(--accent); font-weight:700; }
+    nav a:active { opacity:.5; }
+    @media(max-width:520px) {
+      main { padding:14px; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="logo">M</div>
+      <div class="brand-text"><strong>Mostaqlk</strong><span>v1.0.0</span></div>
+    </div>
+    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" aria-label="تبديل المظهر">
+      <i class="fa-solid fa-moon" id="themeIcon"></i>
+    </button>
+  </header>
+
+  <main>
+    <label class="search-bar" id="searchBar">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input id="searchInput" placeholder="ابحث في المشاريع (العنوان، الوصف، المهارات...)" oninput="onSearchInput()" />
+      <button class="clear-btn" id="clearBtn" onclick="clearSearch()" aria-label="مسح"><i class="fa-solid fa-circle-xmark"></i></button>
+    </label>
+
+    <div class="filters">
+      <button class="chip active" data-filter="all">الكل</button>
+      <button class="chip" data-filter="dev">تطوير ويب</button>
+      <button class="chip" data-filter="design">تصميم واجهات</button>
+      <button class="chip" data-filter="writing">كتابة محتوى</button>
+      <button class="chip" data-filter="marketing">تسويق إلكتروني</button>
+      <button class="chip" data-filter="translation">ترجمة</button>
+    </div>
+
+    <div id="recentSection">
+      <div class="section-title">
+        عمليات بحث سابقة
+        <span class="clear-link" onclick="clearRecent()">مسح الكل</span>
+      </div>
+      <div class="recent-searches" id="recentSearches">
+        <div class="recent-chip"><i class="fa-solid fa-clock-rotate-left"></i>تصميم واجهات</div>
+        <div class="recent-chip"><i class="fa-solid fa-clock-rotate-left"></i>PHP</div>
+        <div class="recent-chip"><i class="fa-solid fa-clock-rotate-left"></i>ترجمة عربي</div>
+        <div class="recent-chip"><i class="fa-solid fa-clock-rotate-left"></i>SEO</div>
+      </div>
+    </div>
+
+    <div id="resultsSection" style="display:none;">
+      <div class="section-title">نتائج البحث</div>
+      <article class="project">
+        <div class="project-head">
+          <div><h3>تصميم موقع تعليمي تفاعلي</h3>
+          <p>أحتاج إلى تصميم وتطوير موقع تعليمي تفاعلي للدورات أونلاين مع لوحة تحكم للمدرب والطالب.</p></div>
+        </div>
+        <div class="tags"><span class="tag">تصميم واجهات</span><span class="tag">تطوير ويب</span><span class="tag">PHP</span></div>
+        <div class="project-bottom"><span class="meta"><i class="fa-regular fa-clock"></i> منذ 3 دقائق</span><span class="budget">2,500 - 5,500 ر.س</span></div>
+      </article>
+      <article class="project">
+        <div class="project-head">
+          <div><h3>كتابة محتوى تسويقي لمتجر إلكتروني</h3>
+          <p>مطلوب كتابة أوصاف منتجات احترافية وجذابة لمتجر إلكتروني متخصص في العناية بالبشرة.</p></div>
+        </div>
+        <div class="tags"><span class="tag">كتابة محتوى</span><span class="tag">SEO</span></div>
+        <div class="project-bottom"><span class="meta"><i class="fa-regular fa-clock"></i> منذ 8 دقائق</span><span class="budget">500 - 1,000 ر.س</span></div>
+      </article>
+    </div>
+
+    <div class="empty-state" id="emptyState" style="display:none;">
+      <div class="icon-circle"><i class="fa-solid fa-magnifying-glass"></i></div>
+      <strong>لا توجد نتائج</strong>
+      <p>جرّب كلمات بحث مختلفة أو امسح الفلاتر للعثور على المزيد من المشاريع.</p>
+    </div>
+  </main>
+
+  <nav>
+    <a href="index.html"><i class="fa-solid fa-house"></i><span>الرئيسية</span></a>
+    <a class="active" href="search.html"><i class="fa-solid fa-magnifying-glass"></i><span>البحث</span></a>
+    <a href="projects.html"><i class="fa-solid fa-list-check"></i><span>المشاريع</span></a>
+    <a href="more.html"><i class="fa-solid fa-bars"></i><span>المزيد</span></a>
+  </nav>
+</div>
+<script>
+  // Theme
+  function applyTheme(theme) {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    document.getElementById('themeIcon').className = theme === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) metaTheme.setAttribute('content', theme === 'dark' ? '#020617' : '#f1f5f9');
+    try { localStorage.setItem('mostaqlk-theme', theme); } catch (e) { /* localStorage unavailable */ }
+  }
+  function toggleTheme() {
+    const current = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+    applyTheme(current === 'dark' ? 'light' : 'dark');
+    if (navigator.vibrate) navigator.vibrate(10);
+  }
+  (function initTheme() {
+    applyTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+  })();
+
+  // Search interactions
+  const searchBar = document.getElementById('searchBar');
+  const searchInput = document.getElementById('searchInput');
+  const recentSection = document.getElementById('recentSection');
+  const resultsSection = document.getElementById('resultsSection');
+  const emptyState = document.getElementById('emptyState');
+
+  function onSearchInput() {
+    const hasText = searchInput.value.trim().length > 0;
+    searchBar.classList.toggle('has-text', hasText);
+    recentSection.style.display = hasText ? 'none' : 'block';
+    if (hasText) {
+      // Demo: show empty state for anything not matching the two seeded results
+      const q = searchInput.value.trim();
+      const matches = 'تصميم موقع تعليمي تفاعلي كتابة محتوى تسويقي لمتجر إلكتروني'.includes(q) || q.length < 2;
+      resultsSection.style.display = matches ? 'block' : 'none';
+      emptyState.style.display = matches ? 'none' : 'block';
+    } else {
+      resultsSection.style.display = 'none';
+      emptyState.style.display = 'none';
+    }
+  }
+
+  function clearSearch() {
+    searchInput.value = '';
+    onSearchInput();
+    searchInput.focus();
+  }
+
+  function clearRecent() {
+    document.getElementById('recentSearches').innerHTML =
+      '<span style="color:var(--text-faint); font-size:13px;">لا توجد عمليات بحث سابقة</span>';
+  }
+
+  document.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      if (navigator.vibrate) navigator.vibrate(10);
+    });
+  });
+
+  document.querySelectorAll('.recent-chip').forEach(item => {
+    item.addEventListener('click', () => {
+      searchInput.value = item.textContent.trim();
+      onSearchInput();
+    });
+  });
+</script>
+</body>
+</html>

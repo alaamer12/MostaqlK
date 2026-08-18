@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#f1f5f9">
+  <title>Mostaqlk Dashboard</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('mostaqlk-theme');
+        var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var isDark = stored ? stored === 'dark' : systemDark;
+        if (isDark) document.documentElement.classList.add('dark');
+      } catch (e) { /* localStorage unavailable — fall back to light */ }
+    })();
+  </script>
+  <style>
+    :root {
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --text-faint: #94a3b8;
+      --border: #e2e8f0;
+      --border-soft: #e2e8f0;
+      --border-hair: #f1f5f9;
+      --accent: #2386c8;
+      --accent-soft: #eff6ff;
+      --green: #2e9e6b;
+      --green-soft: #f0fdf6;
+      --green-border: #d1fae5;
+      --stat-text: #64748b;
+      --avatar-bg: #eff6ff;
+      --shadow: rgba(20,35,60,.035);
+    }
+    html.dark {
+      --bg: #020617;
+      --surface: #0f172a;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-faint: #64748b;
+      --border: #1e293b;
+      --border-soft: #1e293b;
+      --border-hair: #1e293b;
+      --accent: #5ca8de;
+      --accent-soft: rgba(92,168,222,.1);
+      --green: #4fbf8c;
+      --green-soft: rgba(79,191,140,.1);
+      --green-border: rgba(79,191,140,.25);
+      --stat-text: #94a3b8;
+      --avatar-bg: rgba(92,168,222,.12);
+      --shadow: rgba(0,0,0,.25);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html { overscroll-behavior-y: none; }
+    body {
+      margin: 0;
+      font-family: -apple-system, "SF Pro Text", "Segoe UI", "Cairo", Tahoma, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overscroll-behavior-y: none;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: manipulation;
+      transition: background .2s ease, color .2s ease;
+    }
+    button, input { font: inherit; -webkit-appearance:none; appearance:none; }
+    button { touch-action: manipulation; }
+    .app {
+      max-width: 760px;
+      min-height: 100vh;
+      min-height: 100dvh;
+      margin: auto;
+      background: var(--bg);
+      padding-bottom: calc(92px + env(safe-area-inset-bottom));
+    }
+    header {
+      height: 82px;
+      padding: 18px 24px;
+      padding-top: calc(18px + env(safe-area-inset-top));
+      height: calc(82px + env(safe-area-inset-top));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 4;
+      transition: background .2s ease, border-color .2s ease;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .logo {
+      width: 48px; height: 48px; border-radius: 13px;
+      background: var(--accent); color: white;
+      display: grid; place-items: center;
+      font-size: 23px; font-weight: 700;
+    }
+    .brand-text strong { display:block; font-size: 21px; color: var(--text); }
+    .brand-text span { color:var(--text-muted); font-size: 13px; }
+    .theme-btn {
+      width: 44px; height: 44px; border-radius: 12px;
+      border: 1px solid var(--border); background: var(--bg);
+      font-size: 18px; color:var(--text-muted); cursor:pointer;
+      display:grid; place-items:center;
+      transition: opacity .1s ease, background .2s ease, border-color .2s ease;
+    }
+    .theme-btn:active { opacity:.6; }
+    main { padding: 18px 22px; }
+    .controls {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 18px; padding: 30px 14px 24px; margin-bottom: 14px;
+      display:flex; flex-direction:column; align-items:center;
+      transition: background .2s ease, border-color .2s ease;
+    }
+    .power-btn {
+      width: 148px; height: 148px; border-radius: 50%;
+      border: none; cursor:pointer;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap: 6px;
+      color: white;
+      background: linear-gradient(180deg, #14b876, #0f9c63);
+      box-shadow: 0 14px 30px rgba(16,168,102,.35), inset 0 -4px 8px rgba(0,0,0,.12), inset 0 3px 4px rgba(255,255,255,.25);
+      transition: transform .12s ease, box-shadow .12s ease, background .2s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .power-btn i { font-size: 42px; }
+    .power-btn .power-label { font-size: 14px; font-weight:700; letter-spacing:.2px; }
+    .power-btn:active {
+      transform: scale(.94);
+      box-shadow: 0 4px 12px rgba(16,168,102,.3), inset 0 -3px 6px rgba(0,0,0,.15), inset 0 2px 3px rgba(255,255,255,.2);
+    }
+    .power-btn.stopped {
+      background: linear-gradient(180deg, #f24957, #e0303f);
+      box-shadow: 0 10px 24px rgba(224,48,63,.35), inset 0 -3px 6px rgba(0,0,0,.12), inset 0 2px 3px rgba(255,255,255,.25);
+    }
+    .power-btn.stopped:active {
+      box-shadow: 0 4px 12px rgba(224,48,63,.3), inset 0 -3px 6px rgba(0,0,0,.15), inset 0 2px 3px rgba(255,255,255,.2);
+    }
+    .power-status {
+      margin-top: 14px; font-size: 15px; font-weight:700; color:var(--green);
+      display:flex; align-items:center; gap:7px;
+    }
+    .power-status.is-stopped { color:#ef3d45; }
+    .power-status .dot {
+      width:7px; height:7px; border-radius:50%; background:currentColor;
+    }
+    .check { color:var(--text-faint); margin-top:6px; font-size:12.5px; }
+    .section-title {
+      display:flex; align-items:center; gap:10px;
+      margin: 24px 4px 12px;
+      font-size:18px; font-weight:700;
+      color: var(--text);
+    }
+    .section-title::before {
+      content:""; flex:0 0 auto; width:4px; height:25px; border-radius:5px;
+      background:var(--accent);
+    }
+    .stats {
+      display:grid; grid-template-columns:repeat(4,1fr); gap:10px;
+    }
+    .stat {
+      background:var(--surface); border:1px solid var(--border); border-radius:15px;
+      padding:16px 8px; text-align:center;
+      transition: background .2s ease, border-color .2s ease;
+    }
+    .stat .icon { font-size:22px; margin-bottom:7px; color: var(--accent); }
+    .stat strong { display:block; font-size:25px; color: var(--text); }
+    .stat span { color:var(--stat-text); font-size:12px; }
+    .up { display:block; color:#12a568 !important; margin-top:5px; font-size:11px !important; }
+    .project {
+      background:var(--surface); border:1px solid var(--border-soft); border-radius:17px;
+      padding:18px; margin-bottom:11px;
+      box-shadow:0 2px 8px var(--shadow);
+      transition: transform .1s ease, box-shadow .1s ease, background .2s ease, border-color .2s ease;
+      cursor: pointer;
+    }
+    .project:active { transform: scale(.985); box-shadow:0 1px 4px var(--shadow); }
+    .project-head {
+      display:flex; justify-content:space-between; gap:12px;
+    }
+    .new {
+      align-self:flex-start; padding:6px 10px; border-radius:8px;
+      color:var(--green); background:var(--green-soft); border:1px solid var(--green-border);
+      font-size:12px; white-space:nowrap;
+    }
+    .project h3 { margin:0; font-size:18px; color: var(--text); }
+    .project p {
+      color:var(--text-muted); line-height:1.8; font-size:13px; margin:8px 0;
+    }
+    .tags { display:flex; gap:7px; flex-wrap:wrap; }
+    .tag {
+      background:var(--accent-soft); color:var(--accent); padding:6px 10px;
+      border-radius:8px; font-size:12px;
+    }
+    .project-bottom {
+      border-top:1px solid var(--border-hair); margin-top:14px; padding-top:13px;
+      display:flex; justify-content:space-between; align-items:center;
+    }
+    .meta { color:var(--text-muted); font-size:12px; }
+    .budget { color:var(--green); font-weight:700; }
+    .all {
+      width:100%; border:1px solid var(--border-soft); background:var(--surface);
+      color:var(--accent); border-radius:12px; padding:13px; cursor:pointer;
+      transition: background .1s ease;
+      display:block; text-align:center; text-decoration:none; font-weight:600;
+    }
+    .all:active { background:var(--accent-soft); }
+    .recent {
+      background:var(--surface); border:1px solid var(--border-soft); border-radius:17px;
+      overflow:hidden;
+      transition: background .2s ease, border-color .2s ease;
+    }
+    .recent-row {
+      display:grid; grid-template-columns:42px 1fr auto;
+      gap:10px; align-items:center; padding:13px 15px;
+      border-bottom:1px solid var(--border-hair);
+      transition: background .1s ease; cursor:pointer;
+    }
+    .recent-row:active { background:var(--bg); }
+    .recent-row:last-child { border-bottom:0; }
+    .avatar {
+      width:38px; height:38px; border-radius:50%;
+      background:var(--avatar-bg); color:var(--accent); display:grid; place-items:center;
+      font-weight:700;
+    }
+    .recent-title { font-size:13px; font-weight:600; color: var(--text); }
+    .recent-time { font-size:11px; color:var(--text-muted); margin-top:3px; }
+    .recent-budget { color:var(--green); font-size:12px; font-weight:700; white-space:nowrap; }
+    nav {
+      position:fixed; bottom:0; left:50%; transform:translateX(-50%);
+      width:min(760px,100%); height:76px; background:var(--surface);
+      border-top:1px solid var(--border); display:grid;
+      grid-template-columns:repeat(4,1fr); z-index:5;
+      padding-bottom: env(safe-area-inset-bottom);
+      height: calc(76px + env(safe-area-inset-bottom));
+      transition: background .2s ease, border-color .2s ease;
+    }
+    nav a {
+      text-decoration:none; color:var(--text-muted); display:flex;
+      flex-direction:column; justify-content:center; align-items:center;
+      gap:6px; font-size:11px;
+    }
+    nav a i { font-size:20px; }
+    nav a.active { color:var(--accent); font-weight:700; }
+    nav a { transition: opacity .1s ease; }
+    nav a:active { opacity:.5; }
+    @media(max-width:520px) {
+      main { padding:14px; }
+      .stats { grid-template-columns:repeat(2,1fr); }
+      .check { font-size:12px; }
+      .pill { padding:11px 13px; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="logo">M</div>
+      <div class="brand-text"><strong>Mostaqlk</strong><span>v1.0.0</span></div>
+    </div>
+    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" aria-label="تبديل المظهر">
+      <i class="fa-solid fa-moon" id="themeIcon"></i>
+    </button>
+  </header>
+
+  <main>
+    <section class="controls">
+      <button class="power-btn" id="powerBtn" onclick="toggleMonitor()" aria-pressed="true">
+        <i class="fa-solid fa-pause" id="powerIcon"></i>
+        <span class="power-label" id="powerLabel">إيقاف</span>
+      </button>
+      <div class="power-status" id="powerStatus"><span class="dot"></span><span>يعمل الآن</span></div>
+      <span class="check"><i class="fa-regular fa-clock"></i> يتم فحص كل 30 ثانية</span>
+    </section>
+
+    <div class="section-title">نظرة عامة</div>
+    <section class="stats">
+      <div class="stat"><div class="icon"><i class="fa-solid fa-folder-open"></i></div><strong>147</strong><span>مشروع مفتوح</span><b class="up"><i class="fa-solid fa-arrow-up"></i> 8% عن أمس</b></div>
+      <div class="stat"><div class="icon"><i class="fa-solid fa-bookmark"></i></div><strong>8</strong><span>مشاريع مميزة</span><b class="up"><i class="fa-solid fa-arrow-up"></i> 10% عن أمس</b></div>
+      <div class="stat"><div class="icon"><i class="fa-regular fa-clock"></i></div><strong>69</strong><span>عرض جديد</span><b class="up"><i class="fa-solid fa-arrow-up"></i> 15% عن أمس</b></div>
+      <div class="stat"><div class="icon"><i class="fa-solid fa-table-cells"></i></div><strong>12</strong><span>مشاريع اليوم</span><b class="up"><i class="fa-solid fa-arrow-up"></i> 20% عن أمس</b></div>
+    </section>
+
+    <div class="section-title">المشاريع المضافة اليوم</div>
+
+    <article class="project">
+      <div class="project-head">
+        <div><h3>تصميم موقع تعليمي تفاعلي</h3>
+        <p>أحتاج إلى تصميم وتطوير موقع تعليمي تفاعلي للدورات أونلاين مع لوحة تحكم للمدرب والطالب، يدعم المحتوى المرئي والاختبارات والشهادات.</p></div>
+        <span class="new">جديد</span>
+      </div>
+      <div class="tags"><span class="tag">تصميم واجهات</span><span class="tag">تطوير ويب</span><span class="tag">PHP</span><span class="tag">MySQL</span></div>
+      <div class="project-bottom"><span class="meta"><i class="fa-regular fa-clock"></i> منذ 3 دقائق</span><span class="budget">2,500 - 5,500 ر.س</span></div>
+    </article>
+
+    <article class="project">
+      <div class="project-head">
+        <div><h3>كتابة محتوى تسويقي لمتجر إلكتروني</h3>
+        <p>مطلوب كتابة أوصاف منتجات احترافية وجذابة لمتجر إلكتروني متخصص في العناية بالبشرة مع تحسين المحتوى لمحركات البحث.</p></div>
+        <span class="new">جديد</span>
+      </div>
+      <div class="tags"><span class="tag">كتابة محتوى</span><span class="tag">SEO</span><span class="tag">تسويق إلكتروني</span></div>
+      <div class="project-bottom"><span class="meta"><i class="fa-regular fa-clock"></i> منذ 8 دقائق</span><span class="budget">500 - 1,000 ر.س</span></div>
+    </article>
+
+    <a class="all" href="projects.html">عرض كل المشاريع</a>
+
+    <div class="section-title">آخر 4 مشاريع مضافة</div>
+    <section class="recent">
+      <div class="recent-row"><div class="avatar">فم</div><div><div class="recent-title">تطوير تطبيق جوال لتوصيل الطلبات</div><div class="recent-time"><i class="fa-solid fa-circle" style="font-size:6px;"></i> منذ 10 دقائق</div></div><span class="recent-budget">4,000 - 7,000 ر.س</span></div>
+      <div class="recent-row"><div class="avatar">نص</div><div><div class="recent-title">تصميم هوية بصرية لشركة ناشئة</div><div class="recent-time"><i class="fa-solid fa-circle" style="font-size:6px;"></i> منذ 15 دقيقة</div></div><span class="recent-budget">3,500 - 3,600 ر.س</span></div>
+      <div class="recent-row"><div class="avatar">عع</div><div><div class="recent-title">إعداد حملة إعلانية على فيسبوك وإنستجرام</div><div class="recent-time"><i class="fa-solid fa-circle" style="font-size:6px;"></i> منذ 20 دقيقة</div></div><span class="recent-budget">800 - 1,500 ر.س</span></div>
+      <div class="recent-row"><div class="avatar">تر</div><div><div class="recent-title">ترجمة مقالات من الإنجليزية للعربية</div><div class="recent-time"><i class="fa-solid fa-circle" style="font-size:6px;"></i> منذ 30 دقيقة</div></div><span class="recent-budget">300 - 800 ر.س</span></div>
+    </section>
+  </main>
+
+  <nav>
+    <a class="active" href="index.html"><i class="fa-solid fa-house"></i><span>الرئيسية</span></a>
+    <a href="search.html"><i class="fa-solid fa-magnifying-glass"></i><span>البحث</span></a>
+    <a href="projects.html"><i class="fa-solid fa-list-check"></i><span>المشاريع</span></a>
+    <a href="more.html"><i class="fa-solid fa-bars"></i><span>المزيد</span></a>
+  </nav>
+</div>
+<script>
+  let running = true;
+  function toggleMonitor() {
+    running = !running;
+    const btn = document.getElementById('powerBtn');
+    const icon = document.getElementById('powerIcon');
+    const label = document.getElementById('powerLabel');
+    const status = document.getElementById('powerStatus');
+    btn.classList.toggle('stopped', !running);
+    btn.setAttribute('aria-pressed', String(running));
+    icon.className = running ? 'fa-solid fa-pause' : 'fa-solid fa-play';
+    label.textContent = running ? 'إيقاف' : 'تشغيل';
+    status.classList.toggle('is-stopped', !running);
+    status.innerHTML = running
+      ? '<span class="dot"></span><span>يعمل الآن</span>'
+      : '<span class="dot"></span><span>متوقف</span>';
+    if (navigator.vibrate) navigator.vibrate(10);
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    document.getElementById('themeIcon').className = theme === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) metaTheme.setAttribute('content', theme === 'dark' ? '#020617' : '#f1f5f9');
+    try { localStorage.setItem('mostaqlk-theme', theme); } catch (e) { /* localStorage unavailable */ }
+  }
+
+  function toggleTheme() {
+    const current = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+    applyTheme(current === 'dark' ? 'light' : 'dark');
+    if (navigator.vibrate) navigator.vibrate(10);
+  }
+
+  // Sync icon/meta with the class already applied by the head script (avoids flash of wrong theme).
+  (function initTheme() {
+    const isDark = document.documentElement.classList.contains('dark');
+    applyTheme(isDark ? 'dark' : 'light');
+  })();
+</script>
+</body>
+</html>

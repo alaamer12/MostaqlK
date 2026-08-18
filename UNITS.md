@@ -22,6 +22,24 @@ Status legend: `Scaffold` = stub only, no real logic yet. `Implemented` = real l
 
 ---
 
+## Block Components & Layout Barrels
+
+Location: `Features/<Feature>/Views/` & `Features/<Feature>/Views/Layouts/`
+
+| Unit | Base MAUI type | Purpose | Status |
+|---|---|---|---|
+| `ProjectCard` | `ContentView` (`Features/Projects/Views/ProjectCard.xaml`) | Platform-agnostic shell delegating layout instantiation to `ProjectCardWindowsLayout` (desktop 4-column rich card) or `ProjectCardMobileLayout` (streamlined touch card) via `PlatformSelect.For<Func<View>>()`. | Implemented |
+| `ProjectCardWindowsLayout` | `ContentView` (`Features/Projects/Views/Layouts/ProjectCardWindowsLayout.xaml`) | Rich desktop card layout containing client ratings, 4 stats columns (`Budget`, `Proposals`, `AvgBid`, `Execution`), full skill pills, and direct external action button. | Implemented |
+| `ProjectCardMobileLayout` | `ContentView` (`Features/Projects/Views/Layouts/ProjectCardMobileLayout.xaml`) | Streamlined mobile project card with vertical hierarchy (Card Type 3 in mobile spec: Title, status pill, excerpt, skills flex wrap, proposals/time/budget footer, swipe gestures). | Implemented |
+| `DashboardProjectCard` | `ContentView` (`Features/Projects/Views/Layouts/DashboardProjectCard.xaml`) | Card Type 1 in mobile spec: compact matched project card with Title, green "جديد" badge, 2-line description, skill tags, time ago, and prominent green budget. | Implemented |
+| `RecentScanRow` | `ContentView` (`Features/Projects/Views/Layouts/RecentScanRow.xaml`) | Card Type 2 in mobile spec: compact scan history row with 38px circular category/client avatar, single-line bold title, relative time, and trailing green budget. | Implemented |
+| `ScraperPowerButton` | `ContentView` (`Features/Dashboard/Views/ScraperPowerButton.xaml`) | 148px circular central control toggling scraper state with dynamic radial elevation shadow, pulsing status dot, and emerald (running) vs crimson (stopped) gradients. | Implemented |
+| `DashboardDailyStats` | `ContentView` (`Features/Dashboard/Views/DashboardDailyStats.xaml`) | 4-column real-time metric counter grid (`فحص`, `مشاريع`, `مطابقة`, `تنبيهات`) for the mobile dashboard. | Implemented |
+| `MainWindowPage` | `ContentPage` (`Features/Projects/Views/MainWindowPage.xaml`) | Host page delegating to `MainWindowWindowsLayout` (4-column desktop layout with sidebar, feed, splitter, pipeline panel) or `MainWindowMobileLayout` (single-column feed). | Implemented |
+| `ProjectDetailsPage` | `ContentPage` (`Features/Projects/Views/ProjectDetailsPage.xaml`) | Host page delegating to `ProjectDetailsWindowsLayout` or `ProjectDetailsMobileLayout`. | Implemented |
+| `SettingsPanel` | `ContentPage` (`Features/Settings/Views/SettingsPanel.xaml`) | Host page delegating to `SettingsPanelWindowsLayout` or `SettingsPanelMobileLayout`. | Implemented |
+| `AboutPage` | `ContentPage` (`Features/Projects/Views/AboutPage.xaml`) | Host page delegating to `AboutPageWindowsLayout` or `AboutPageMobileLayout`. | Implemented |
+
 ## Platform Infrastructure
 
 Location: `Core/Platform/`

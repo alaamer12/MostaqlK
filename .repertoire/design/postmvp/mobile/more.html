@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#f1f5f9">
+  <title>المزيد — Mostaqlk</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('mostaqlk-theme');
+        var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var isDark = stored ? stored === 'dark' : systemDark;
+        if (isDark) document.documentElement.classList.add('dark');
+      } catch (e) { /* localStorage unavailable — fall back to light */ }
+    })();
+  </script>
+  <style>
+    :root {
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --text-faint: #94a3b8;
+      --border: #e2e8f0;
+      --border-soft: #e2e8f0;
+      --border-hair: #f1f5f9;
+      --accent: #2386c8;
+      --accent-soft: #eff6ff;
+      --green: #2e9e6b;
+      --green-soft: #f0fdf6;
+      --green-border: #d1fae5;
+      --stat-text: #64748b;
+      --avatar-bg: #eff6ff;
+      --shadow: rgba(20,35,60,.035);
+      --danger: #dc2626;
+      --danger-soft: #fef2f2;
+    }
+    html.dark {
+      --bg: #020617;
+      --surface: #0f172a;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-faint: #64748b;
+      --border: #1e293b;
+      --border-soft: #1e293b;
+      --border-hair: #1e293b;
+      --accent: #5ca8de;
+      --accent-soft: rgba(92,168,222,.1);
+      --green: #4fbf8c;
+      --green-soft: rgba(79,191,140,.1);
+      --green-border: rgba(79,191,140,.25);
+      --stat-text: #94a3b8;
+      --avatar-bg: rgba(92,168,222,.12);
+      --shadow: rgba(0,0,0,.25);
+      --danger: #f87171;
+      --danger-soft: rgba(248,113,113,.1);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html { overscroll-behavior-y: none; }
+    body {
+      margin: 0;
+      font-family: -apple-system, "SF Pro Text", "Segoe UI", "Cairo", Tahoma, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overscroll-behavior-y: none;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: manipulation;
+      transition: background .2s ease, color .2s ease;
+    }
+    button, input { font: inherit; -webkit-appearance:none; appearance:none; }
+    button { touch-action: manipulation; }
+    a { text-decoration:none; color:inherit; }
+    .app {
+      max-width: 760px;
+      min-height: 100vh;
+      min-height: 100dvh;
+      margin: auto;
+      background: var(--bg);
+      padding-bottom: calc(92px + env(safe-area-inset-bottom));
+    }
+    header {
+      height: 82px;
+      padding: 18px 24px;
+      padding-top: calc(18px + env(safe-area-inset-top));
+      height: calc(82px + env(safe-area-inset-top));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 4;
+      transition: background .2s ease, border-color .2s ease;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .logo {
+      width: 48px; height: 48px; border-radius: 13px;
+      background: var(--accent); color: white;
+      display: grid; place-items: center;
+      font-size: 23px; font-weight: 700;
+    }
+    .brand-text strong { display:block; font-size: 21px; color: var(--text); }
+    .brand-text span { color:var(--text-muted); font-size: 13px; }
+    .theme-btn {
+      width: 44px; height: 44px; border-radius: 12px;
+      border: 1px solid var(--border); background: var(--bg);
+      font-size: 18px; color:var(--text-muted); cursor:pointer;
+      display:grid; place-items:center;
+      transition: opacity .1s ease, background .2s ease, border-color .2s ease;
+    }
+    .theme-btn:active { opacity:.6; }
+    main { padding: 18px 22px; }
+
+    /* Profile summary card */
+    .profile-card {
+      background: var(--surface); border:1px solid var(--border); border-radius:18px;
+      padding: 20px; margin-bottom: 18px;
+      display:flex; align-items:center; gap:14px;
+      transition: background .2s ease, border-color .2s ease;
+    }
+    .profile-avatar {
+      width:56px; height:56px; border-radius:50%;
+      background: linear-gradient(135deg, var(--accent), #6ab7ec);
+      color:#fff; display:grid; place-items:center;
+      font-size:20px; font-weight:700; flex:0 0 auto;
+    }
+    .profile-info strong { display:block; font-size:16px; color:var(--text); }
+    .profile-info span { font-size:13px; color:var(--text-muted); }
+
+    /* Today's stat mini-card */
+    .stat-mini {
+      background: var(--surface); border:1px solid var(--border); border-radius:16px;
+      padding: 16px; margin-bottom: 18px; text-align:center;
+      transition: background .2s ease, border-color .2s ease;
+    }
+    .stat-mini span { display:block; font-size:13px; color:var(--text-muted); margin-bottom:4px; }
+    .stat-mini strong { font-size:28px; color:var(--accent); }
+
+    .section-title {
+      display:flex; align-items:center; gap:10px;
+      margin: 4px 4px 10px;
+      font-size:14px; font-weight:700;
+      color: var(--text-faint);
+    }
+
+    .menu-card {
+      background: var(--surface); border:1px solid var(--border); border-radius:16px;
+      overflow:hidden; margin-bottom:18px;
+      transition: background .2s ease, border-color .2s ease;
+    }
+    .menu-row {
+      display:flex; align-items:center; gap:14px;
+      padding:15px 16px; border-bottom:1px solid var(--border-hair);
+      cursor:pointer; transition: background .1s ease;
+    }
+    .menu-row:last-child { border-bottom:0; }
+    .menu-row:active { background: var(--bg); }
+    .menu-row .row-icon {
+      width:38px; height:38px; border-radius:11px;
+      display:grid; place-items:center; font-size:15px; flex:0 0 auto;
+    }
+    .menu-row .row-text { flex:1; min-width:0; }
+    .menu-row .row-text strong { display:block; font-size:14.5px; color:var(--text); font-weight:600; }
+    .menu-row .row-text span { display:block; font-size:12px; color:var(--text-muted); margin-top:2px; }
+    .menu-row .row-trail { color: var(--text-faint); font-size:14px; flex:0 0 auto; }
+    .menu-row .row-badge {
+      background: var(--accent); color:#fff; font-size:11px; font-weight:700;
+      border-radius:999px; padding:2px 8px; flex:0 0 auto;
+    }
+
+    .icon-poll   { background: rgba(99,102,241,.12);  color:#6366F1; }
+    html.dark .icon-poll   { background: rgba(129,140,248,.15); color:#818CF8; }
+    .icon-query  { background: rgba(139,92,246,.12);  color:#8B5CF6; }
+    html.dark .icon-query  { background: rgba(167,139,250,.15); color:#A78BFA; }
+    .icon-assets { background: rgba(249,115,22,.12);  color:#F97316; }
+    html.dark .icon-assets { background: rgba(251,146,60,.15); color:#FB923C; }
+    .icon-grouping { background: rgba(20,184,166,.12); color:#14B8A6; }
+    html.dark .icon-grouping { background: rgba(45,212,191,.15); color:#2DD4BF; }
+    .icon-rate   { background: rgba(236,72,153,.12);  color:#EC4899; }
+    html.dark .icon-rate   { background: rgba(244,114,182,.15); color:#F472B6; }
+    .icon-info   { background: var(--accent-soft); color: var(--accent); }
+    .icon-danger { background: var(--danger-soft); color: var(--danger); }
+
+    /* Toggle switch (matches settings.html) */
+    .switch {
+      width:40px; height:24px; border-radius:999px; position:relative;
+      background: var(--border); cursor:pointer; flex:0 0 auto; border:none;
+      transition: background .2s ease;
+    }
+    .switch.on { background: var(--accent); }
+    .switch .knob {
+      width:16px; height:16px; border-radius:50%; background:#fff;
+      position:absolute; top:4px; right:4px; transition: right .2s ease;
+      box-shadow: 0 1px 3px rgba(0,0,0,.2);
+    }
+    .switch.on .knob { right: 20px; }
+
+    .danger-text strong { color: var(--danger) !important; }
+
+    .app-version {
+      text-align:center; color:var(--text-faint); font-size:12px; margin: 8px 0 4px;
+    }
+
+    nav {
+      position:fixed; bottom:0; left:50%; transform:translateX(-50%);
+      width:min(760px,100%); height:76px; background:var(--surface);
+      border-top:1px solid var(--border); display:grid;
+      grid-template-columns:repeat(4,1fr); z-index:5;
+      padding-bottom: env(safe-area-inset-bottom);
+      height: calc(76px + env(safe-area-inset-bottom));
+      transition: background .2s ease, border-color .2s ease;
+    }
+    nav a {
+      text-decoration:none; color:var(--text-muted); display:flex;
+      flex-direction:column; justify-content:center; align-items:center;
+      gap:6px; font-size:11px;
+      transition: opacity .1s ease;
+    }
+    nav a i { font-size:20px; }
+    nav a.active { color:var(--accent); font-weight:700; }
+    nav a:active { opacity:.5; }
+    @media(max-width:520px) {
+      main { padding:14px; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="logo">M</div>
+      <div class="brand-text"><strong>Mostaqlk</strong><span>v1.0.0</span></div>
+    </div>
+    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" aria-label="تبديل المظهر">
+      <i class="fa-solid fa-moon" id="themeIcon"></i>
+    </button>
+  </header>
+
+  <main>
+    <div class="stat-mini">
+      <span>مشاريع مضافة اليوم</span>
+      <strong>12</strong>
+    </div>
+
+    <div class="section-title">إعدادات الفحص</div>
+    <div class="menu-card">
+      <a class="menu-row" href="#">
+        <div class="row-icon icon-poll"><i class="fa-solid fa-stopwatch"></i></div>
+        <div class="row-text"><strong>الفاصل الزمني للفحص</strong><span>كل 30 ثانية</span></div>
+        <i class="fa-solid fa-chevron-left row-trail"></i>
+      </a>
+      <a class="menu-row" href="#">
+        <div class="row-icon icon-query"><i class="fa-solid fa-filter"></i></div>
+        <div class="row-text"><strong>استعلام الفحص</strong><span>توجيه القائمة نحو تصفية محددة</span></div>
+        <i class="fa-solid fa-chevron-left row-trail"></i>
+      </a>
+      <a class="menu-row" href="#">
+        <div class="row-icon icon-rate"><i class="fa-solid fa-gauge-high"></i></div>
+        <div class="row-text"><strong>حد الطلبات والتوازي</strong><span>الحماية من التقييد والفحص الآمن</span></div>
+        <i class="fa-solid fa-chevron-left row-trail"></i>
+      </a>
+    </div>
+
+    <div class="section-title">التنبيهات والمرفقات</div>
+    <div class="menu-card">
+      <div class="menu-row">
+        <div class="row-icon icon-grouping"><i class="fa-solid fa-layer-group"></i></div>
+        <div class="row-text"><strong>تجميع التنبيهات</strong><span>دمج الاكتشافات المتقاربة في تنبيه واحد</span></div>
+        <button class="switch on" id="groupingSwitch" onclick="toggleSwitch(this)" aria-pressed="true"><span class="knob"></span></button>
+      </div>
+      <div class="menu-row">
+        <div class="row-icon icon-assets"><i class="fa-solid fa-paperclip"></i></div>
+        <div class="row-text"><strong>تنزيل المرفقات</strong><span>حفظ صور وملفات المشروع محليًا</span></div>
+        <button class="switch" id="assetsSwitch" onclick="toggleSwitch(this)" aria-pressed="false"><span class="knob"></span></button>
+      </div>
+    </div>
+
+    <div class="section-title">التطبيق</div>
+    <div class="menu-card">
+      <div class="menu-row">
+        <div class="row-icon icon-info"><i class="fa-regular fa-moon"></i></div>
+        <div class="row-text"><strong>الوضع الداكن</strong><span id="themeRowStatus">مطابق لإعداد النظام</span></div>
+        <button class="switch" id="darkSwitch" onclick="toggleThemeFromRow(this)" aria-pressed="false"><span class="knob"></span></button>
+      </div>
+      <a class="menu-row" href="#">
+        <div class="row-icon icon-info"><i class="fa-solid fa-bell"></i></div>
+        <div class="row-text"><strong>التنبيهات</strong><span>إدارة إشعارات المشاريع الجديدة</span></div>
+        <span class="row-badge">5</span>
+      </a>
+      <a class="menu-row" href="about.html">
+        <div class="row-icon icon-info"><i class="fa-solid fa-circle-info"></i></div>
+        <div class="row-text"><strong>حول التطبيق</strong><span>الإصدار، حقائق سريعة، نطاق الإصدارات</span></div>
+        <i class="fa-solid fa-chevron-left row-trail"></i>
+      </a>
+      <a class="menu-row" href="#">
+        <div class="row-icon icon-info"><i class="fa-solid fa-file-contract"></i></div>
+        <div class="row-text"><strong>الشروط والأحكام</strong><span>سياسة الاستخدام وحفظ البيانات</span></div>
+        <i class="fa-solid fa-chevron-left row-trail"></i>
+      </a>
+      <a class="menu-row" href="#">
+        <div class="row-icon icon-info"><i class="fa-solid fa-shield-halved"></i></div>
+        <div class="row-text"><strong>سياسة الخصوصية</strong><span>كيف نتعامل مع بياناتك</span></div>
+        <i class="fa-solid fa-chevron-left row-trail"></i>
+      </a>
+    </div>
+
+    <div class="section-title">إدارة البيانات</div>
+    <div class="menu-card">
+      <div class="menu-row danger-text">
+        <div class="row-icon icon-danger"><i class="fa-solid fa-trash-can"></i></div>
+        <div class="row-text"><strong>مسح البيانات المحلية</strong><span>حذف المشاريع والإعدادات المحفوظة على الجهاز</span></div>
+        <i class="fa-solid fa-chevron-left row-trail"></i>
+      </div>
+    </div>
+
+    <div class="app-version">Mostaqlk MVP — الإصدار 1.0.0</div>
+  </main>
+
+  <nav>
+    <a href="index.html"><i class="fa-solid fa-house"></i><span>الرئيسية</span></a>
+    <a href="search.html"><i class="fa-solid fa-magnifying-glass"></i><span>البحث</span></a>
+    <a href="projects.html"><i class="fa-solid fa-list-check"></i><span>المشاريع</span></a>
+    <a class="active" href="more.html"><i class="fa-solid fa-bars"></i><span>المزيد</span></a>
+  </nav>
+</div>
+<script>
+  function applyTheme(theme) {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    document.getElementById('themeIcon').className = theme === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) metaTheme.setAttribute('content', theme === 'dark' ? '#020617' : '#f1f5f9');
+    try { localStorage.setItem('mostaqlk-theme', theme); } catch (e) { /* localStorage unavailable */ }
+    const darkSwitch = document.getElementById('darkSwitch');
+    const themeRowStatus = document.getElementById('themeRowStatus');
+    if (darkSwitch) {
+      darkSwitch.classList.toggle('on', theme === 'dark');
+      darkSwitch.setAttribute('aria-pressed', String(theme === 'dark'));
+    }
+    if (themeRowStatus) {
+      themeRowStatus.textContent = theme === 'dark' ? 'مُفعَّل' : 'مُعطَّل';
+    }
+  }
+  function toggleTheme() {
+    const current = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+    applyTheme(current === 'dark' ? 'light' : 'dark');
+    if (navigator.vibrate) navigator.vibrate(10);
+  }
+  function toggleThemeFromRow() { toggleTheme(); }
+  (function initTheme() {
+    applyTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+  })();
+
+  function toggleSwitch(el) {
+    const isOn = el.classList.toggle('on');
+    el.setAttribute('aria-pressed', String(isOn));
+    if (navigator.vibrate) navigator.vibrate(10);
+  }
+</script>
+</body>
+</html>
