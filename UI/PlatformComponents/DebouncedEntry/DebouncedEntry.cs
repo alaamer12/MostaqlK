@@ -1,14 +1,15 @@
 using System.Windows.Input;
 using Microsoft.Maui.Controls;
+using MostaqlK.Core;
 
 namespace MostaqlK.UI.PlatformComponents;
 
 /// <summary>
 /// Extends <see cref="AppEntry"/> with keystroke debouncing: raises
 /// <see cref="DebouncedTextChanged"/> (and invokes <see cref="DebouncedCommand"/>) only after
-/// <see cref="DebounceMilliseconds"/> have elapsed with no further typing, using a
-/// <see cref="CancellationTokenSource"/>-restart-on-keystroke pattern so every keystroke cancels
-/// the previous pending fire and schedules a fresh one.
+/// <see cref="DebounceMilliseconds"/> have elapsed with no further typing, using a shared
+/// <see cref="Debouncer"/> so every keystroke cancels the previous pending fire and schedules a
+/// fresh one.
 /// </summary>
 public partial class DebouncedEntry : AppEntry
 {
@@ -23,7 +24,7 @@ public partial class DebouncedEntry : AppEntry
         typeof(ICommand),
         typeof(DebouncedEntry));
 
-    private CancellationTokenSource? _debounceCts;
+    private readonly Debouncer _debouncer = new(TimeSpan.FromMilliseconds(300));
 
     /// <summary>How long to wait, after the last keystroke, before raising the debounced event.</summary>
     public int DebounceMilliseconds
@@ -49,30 +50,18 @@ public partial class DebouncedEntry : AppEntry
 
     private void OnTextChanged(object? sender, TextChangedEventArgs e)
     {
-        _debounceCts?.Cancel();
-        _debounceCts?.Dispose();
-        var cts = new CancellationTokenSource();
-        _debounceCts = cts;
-
-        _ = DebounceAndFireAsync(e, cts.Token);
+        // Keep the shared helper's delay in sync with the (bindable) property — callers may
+        // change DebounceMilliseconds at runtime without reconstructing this entry.
+        _debouncer.SetDelay(TimeSpan.FromMilliseconds(DebounceMilliseconds));
+        _debouncer.Schedule(ct => FireDebouncedAsync(e, ct));
     }
 
     [MostaqlK.Core.ErrorOutcome(MostaqlK.Core.ErrorOutcome.Ignored, Label = "DebouncedEntry_RestartOnKeystroke")]
-    private async Task DebounceAndFireAsync(TextChangedEventArgs e, CancellationToken cancellationToken)
+    private Task FireDebouncedAsync(TextChangedEventArgs e, CancellationToken cancellationToken)
     {
-        try
-        {
-            await Task.Delay(DebounceMilliseconds, cancellationToken);
-        }
-        catch (TaskCanceledException)
-        {
-            // Expected: a newer keystroke restarted the debounce window and cancelled this one.
-            return;
-        }
-
         if (cancellationToken.IsCancellationRequested)
         {
-            return;
+            return Task.CompletedTask;
         }
 
         DebouncedTextChanged?.Invoke(this, e);
@@ -81,5 +70,7 @@ public partial class DebouncedEntry : AppEntry
         {
             DebouncedCommand.Execute(e.NewTextValue);
         }
+
+        return Task.CompletedTask;
     }
 }

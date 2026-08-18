@@ -28,6 +28,14 @@ namespace MostaqlK.UI.DesignSystem;
 /// frame from elapsed time - there is exactly one native animation driver for the whole app
 /// no matter how many cards are shimmering at once, eliminating the concurrency that caused the
 /// crash while keeping the same continuous, eased, angled sweep look.
+///
+/// Cross-platform note: the fix itself is built entirely on <see cref="IDispatcherTimer"/>
+/// (<c>dispatcher.CreateTimer()</c>), MAUI's standard cross-platform timer abstraction — there is
+/// no <c>#if WINDOWS</c>/WinUI-specific API anywhere in this class. So although the underlying bug
+/// that motivated it was Windows/WinUI-only, this workaround does NOT get a <c>.Windows.cs</c>
+/// split: it has no platform-conditional branch to isolate, and the single-shared-ticker design is
+/// a reasonable, harmless choice on every platform (avoiding dozens of independent native
+/// animation drivers is not a Windows-only concern).
 /// </remarks>
 public class EnrichmentShimmerOverlay : ContentView
 {

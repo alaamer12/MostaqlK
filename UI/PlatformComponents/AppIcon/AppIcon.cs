@@ -20,6 +20,15 @@ namespace MostaqlK.UI.PlatformComponents;
 /// pre-rasterized to PNG at build time by MAUI's existing <c>MauiImage</c> pipeline
 /// (<c>Resources/Images/icon_*.svg</c>) — a fundamentally different, more reliable rendering
 /// path that does not depend on runtime font loading at all.
+///
+/// Cross-platform note: although the PNG strategy exists to dodge a *Windows*-only WinUI font
+/// bug, the resulting implementation has no platform-conditional code at all (no
+/// <c>#if WINDOWS</c>) — <see cref="Image"/>/<c>MauiImage</c> PNG rendering is a standard,
+/// fully cross-platform MAUI mechanism that works identically on Android/iOS. So unlike the
+/// other Windows-workaround findings in <c>docs/mobile-readiness/windows-workaround-findings.md</c>,
+/// this one intentionally does NOT get a <c>.Windows.cs</c> split: there is no Windows-only
+/// branch to isolate, and forcing a font-glyph path on mobile "just because it isn't Windows"
+/// would only reintroduce inconsistency with zero benefit.
 /// </summary>
 public partial class AppIcon : ContentView
 {

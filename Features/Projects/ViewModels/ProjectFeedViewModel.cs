@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Maui.Storage;
+using MostaqlK.Core;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Infrastructure.Database.SearchIndex;
 using MostaqlK.Models;
@@ -47,7 +48,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     // or enriched afterwards, even though the database and the dashboard panel were both fully
     // live. These three pipeline events are debounced into a single reload so a burst of
     // discoveries doesn't hammer the database with one query per project.
-    private CancellationTokenSource? _autoReloadDebounce;
+    private readonly Debouncer _autoReloadDebouncer = new(TimeSpan.FromMilliseconds(400));
 
     public ObservableCollection<ProjectCardViewModel> Projects { get; } = [];
 
@@ -174,31 +175,15 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     /// </summary>
     private void ScheduleAutoReload()
     {
-        var cts = new CancellationTokenSource();
-        var previous = Interlocked.Exchange(ref _autoReloadDebounce, cts);
-        previous?.Cancel();
-        previous?.Dispose();
-
-        _ = DebouncedReloadAsync(cts.Token);
-    }
-
-    private async Task DebouncedReloadAsync(CancellationToken token)
-    {
-        try
+        _autoReloadDebouncer.Schedule(async token =>
         {
-            await Task.Delay(400, token);
-        }
-        catch (TaskCanceledException)
-        {
-            return;
-        }
+            if (token.IsCancellationRequested)
+            {
+                return;
+            }
 
-        if (token.IsCancellationRequested)
-        {
-            return;
-        }
-
-        await MainThread.InvokeOnMainThreadAsync(LoadAsync);
+            await MainThread.InvokeOnMainThreadAsync(LoadAsync);
+        });
     }
 
     // The footer's "آخر فحص" line used to be built here, timed from the last moment this *view*

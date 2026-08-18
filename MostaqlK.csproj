@@ -116,6 +116,30 @@
 		<None Remove="MostaqlK.UITests\**" />
 	</ItemGroup>
 
+	<!-- Filename-based multi-targeting (see cross-platform-ui-conventions.md, Mechanism 1): a file
+	     named MyType.Windows.cs / MyType.Android.cs / MyType.iOS.cs is only meant to compile for
+	     its own platform. Contrary to some other SDK-style multi-target project setups, this is
+	     NOT automatic for a MAUI single-project app - it must be configured explicitly, per
+	     https://learn.microsoft.com/dotnet/maui/platform-integration/configure-multi-targeting.
+	     Without this, e.g. PressableEffect.Android.cs and PressableEffect.iOS.cs would both be
+	     compiled into the Windows build and collide as duplicate partial-method implementations. -->
+	<ItemGroup Condition="$(TargetFramework.Contains('-android')) != true">
+		<Compile Remove="**\*.Android.cs" />
+		<Compile Remove="**\Android\**\*.cs" />
+	</ItemGroup>
+	<ItemGroup Condition="$(TargetFramework.Contains('-ios')) != true AND $(TargetFramework.Contains('-maccatalyst')) != true">
+		<Compile Remove="**\*.MaciOS.cs" />
+	</ItemGroup>
+	<ItemGroup Condition="$(TargetFramework.Contains('-ios')) != true">
+		<Compile Remove="**\*.iOS.cs" />
+	</ItemGroup>
+	<ItemGroup Condition="$(TargetFramework.Contains('-maccatalyst')) != true">
+		<Compile Remove="**\*.MacCatalyst.cs" />
+	</ItemGroup>
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'windows'">
+		<Compile Remove="**\*.Windows.cs" />
+	</ItemGroup>
+
 	<!-- tools\* holds standalone dev-utility console projects (each with its own .csproj, e.g.
 	     tools\ErrorHandlingAudit\ErrorHandlingAudit.csproj) that are built independently, not as
 	     part of the app. Without this exclusion their source files get swept into this project's

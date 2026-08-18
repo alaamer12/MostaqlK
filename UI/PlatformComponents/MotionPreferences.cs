@@ -5,8 +5,12 @@ namespace MostaqlK.UI.PlatformComponents;
 /// shape, per-OS lookup). Units that animate continuously must honour this - see
 /// <c>UI/PlatformComponents/PipelineRadar/</c>, which drops its ambient scanner, breathing and
 /// pulses and falls back to plain fades when motion is reduced.
+/// <para>
+/// Platform-specific lookup lives in the matching partial (e.g. <c>MotionPreferences.Windows.cs</c>);
+/// the shared shell defaults to "motion allowed" whenever no platform partial supplies a value.
+/// </para>
 /// </summary>
-public static class MotionPreferences
+public static partial class MotionPreferences
 {
     /// <summary>
     /// True when the user asked the OS to minimise animations. Falls back to <c>false</c> (motion
@@ -16,19 +20,18 @@ public static class MotionPreferences
     {
         get
         {
-#if WINDOWS
-            try
-            {
-                return !new Windows.UI.ViewManagement.UISettings().AnimationsEnabled;
-            }
-            catch (Exception)
-            {
-                // Some unpackaged/headless Windows contexts fail to construct UISettings.
-                return false;
-            }
-#else
-            return false;
-#endif
+            var isReduced = false;
+            // partial void: no-op on platforms without a .Windows/.Android/... partial, leaving
+            // isReduced = false (motion allowed) — same fallback the previous #if WINDOWS / #else
+            // branch used.
+            ResolveReducedMotion(ref isReduced);
+            return isReduced;
         }
     }
+
+    /// <summary>
+    /// Implemented per OS (see <c>MotionPreferences.Windows.cs</c>); a no-op elsewhere, which
+    /// leaves <paramref name="isReduced"/> at its default of <c>false</c> (motion allowed).
+    /// </summary>
+    static partial void ResolveReducedMotion(ref bool isReduced);
 }

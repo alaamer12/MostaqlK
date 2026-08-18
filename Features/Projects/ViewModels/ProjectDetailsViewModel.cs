@@ -65,17 +65,9 @@ public sealed partial class AttachmentItemViewModel : ObservableObject
 
         try
         {
-#if WINDOWS
-            // Reveal in Explorer: opens the folder and selects the file.
-            System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{_localPath}\"");
-#else
-            // Fallback for other platforms: open the folder.
-            var folder = Path.GetDirectoryName(_localPath);
-            if (!string.IsNullOrEmpty(folder))
-            {
-                await Microsoft.Maui.ApplicationModel.Launcher.Default.OpenAsync($"file://{folder}");
-            }
-#endif
+            // Platform-specific reveal (Explorer /select on Windows, open folder elsewhere)
+            // lives behind IFileRevealService — no ad hoc #if WINDOWS at this call site.
+            await FileRevealService.Current.RevealAsync(_localPath);
         }
         catch (Exception ex)
         {

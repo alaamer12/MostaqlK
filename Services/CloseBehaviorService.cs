@@ -14,12 +14,13 @@ public enum CloseAction
 
 /// <summary>
 /// Persists the user's answer to the "close to tray vs. exit" confirmation dialog (see
-/// <c>CloseConfirmationDialog</c> under <c>Platforms/Windows</c>), so a checked "remember my
+/// <c>ExitConfirmationBox</c> in <c>UI/DesignSystem</c>), so a checked "remember my
 /// choice" box makes every subsequent X-button click idempotent — it silently repeats the same
 /// action instead of showing the dialog again. Deliberately platform-neutral (just
 /// <see cref="Microsoft.Maui.Storage.Preferences"/> reads/writes) so the decision itself stays
-/// testable without any WinUI dependency; only the dialog and the native Closing/Hide wiring
-/// live under Platforms/Windows.
+/// testable without any WinUI dependency; the dialog lives in the Design System
+/// (<c>ConfirmationBox</c>/<c>ExitConfirmationBox</c> via <c>ModalPresenter</c>) and the native
+/// Closing/Hide wiring stays in <c>MauiProgram</c>.
 /// </summary>
 public class CloseBehaviorService
 {

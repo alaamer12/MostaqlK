@@ -170,32 +170,10 @@ public sealed partial class ProjectCardViewModel : ObservableObject
 
     public string Skills => Project.SkillsText;
 
-    public IReadOnlyList<string> SkillTags
-    {
-        get
-        {
-            if (string.IsNullOrWhiteSpace(Project.SkillsText))
-            {
-                return Array.Empty<string>();
-            }
-
-            return Project.SkillsText
-                .Split([',', '،', '|', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Where(static s => s.Length > 0)
-                .Take(6)
-                .ToArray();
-        }
-    }
+    public IReadOnlyList<string> SkillTags => SkillsFormatter.ParseTags(Project.SkillsText);
 
     /// <summary>Compact skill chip line for the feed card.</summary>
-    public string SkillsDisplay
-    {
-        get
-        {
-            var tags = SkillTags;
-            return tags.Count == 0 ? string.Empty : string.Join("   ", tags.Select(static t => $"  {t}  "));
-        }
-    }
+    public string SkillsDisplay => SkillsFormatter.FormatDisplay(Project.SkillsText);
 
     /// <summary>Skill chips as bindable items for pill borders in the card template.</summary>
     public IReadOnlyList<SkillTagItem> SkillItems =>

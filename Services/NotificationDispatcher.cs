@@ -1,5 +1,4 @@
 using MostaqlK.Core;
-using MostaqlK.Infrastructure.Notifications;
 using MostaqlK.Models;
 using MostaqlK.Services.Diagnostics;
 
@@ -10,7 +9,7 @@ public sealed class NotificationDispatcher : INotificationDispatcher
 {
     private const int MaxHistory = 10;
 
-    private readonly WindowsToastSender _toastSender;
+    private readonly INotificationSender _toastSender;
     private readonly NotificationGrouper _grouper;
     private readonly GlobalAppStatusService _globalStatus;
     private readonly Lock _historyGate = new();
@@ -35,7 +34,7 @@ public sealed class NotificationDispatcher : INotificationDispatcher
     /// <summary>Raised after a batch is added to <see cref="RecentHistory"/>, so the UI can refresh.</summary>
     public event Action? HistoryChanged;
 
-    public NotificationDispatcher(WindowsToastSender toastSender, NotificationGrouper grouper, GlobalAppStatusService globalStatus)
+    public NotificationDispatcher(INotificationSender toastSender, NotificationGrouper grouper, GlobalAppStatusService globalStatus)
     {
         _toastSender = toastSender;
         _grouper = grouper;

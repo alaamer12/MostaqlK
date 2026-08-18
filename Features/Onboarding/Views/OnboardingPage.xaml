@@ -39,7 +39,14 @@
                             <Border.Shadow>
                                 <Shadow Brush="Black" Opacity="0.10" Radius="18" Offset="0,6" />
                             </Border.Shadow>
-                            <Image x:Name="Illustration" Source="{Binding CurrentIllustration}" Aspect="AspectFit" Margin="20" AutomationId="onboarding-illustration" />
+                            <!--
+                            OnboardingStepImage (not a plain Image) wraps this illustration through
+                            PlatformImage's per-platform resolution/caching seam - see
+                            UI/PlatformComponents/PlatformImage/OnboardingStepImage.cs. Today it
+                            resolves the identical asset on every platform (no separate mobile art
+                            exists yet), but the seam is now in place for when it does.
+                            -->
+                            <ui:OnboardingStepImage x:Name="Illustration" StepImageFileName="{Binding CurrentIllustration}" Aspect="AspectFit" Margin="20" AutomationId="onboarding-illustration" />
                         </Border>
                         <Border x:Name="BadgeBorder" IsVisible="{Binding IsBadgeVisible}" HorizontalOptions="Center" Padding="14,6" StrokeThickness="1"
                                 Stroke="{AppThemeBinding Light=#BBF0CE, Dark=#2E3B5C}"
@@ -135,6 +142,15 @@
                         Instead, each icon is a separate InputTransparent Image overlaid on top of
                         a plain text-only Button, exactly like the NextSpinnerIcon/SaveSpinnerIcon
                         overlays below, which have always rendered correctly on first paint.
+
+                        Cross-platform note: although this pattern exists to dodge a Windows/WinUI
+                        bug, the pattern itself (a plain-text Button + an AppIcon overlaid via
+                        ZIndex, both standard MAUI/Grid composition) has NO platform-conditional
+                        code anywhere - AppIcon.cs (see its own doc comment) is already confirmed
+                        cross-platform-safe. So unlike the other findings in
+                        docs/mobile-readiness/windows-workaround-findings.md, this one does NOT
+                        need a .Windows.cs/.Windows.xaml split: there is no Windows-only branch to
+                        isolate, and the composed technique is safe to ship unmodified to Android.
                         -->
                         <Button AutomationId="onboarding-next-button" ZIndex="0" BackgroundColor="#168F42" TextColor="White" FontFamily="TajawalBold" FontAttributes="Bold" FontSize="16" CornerRadius="14" Padding="24,12,54,12" Command="{Binding NextCommand}" IsEnabled="{Binding IsTransitioning, Converter={StaticResource InvertedBoolConverter}}"
                                 IsVisible="{Binding IsFinalStep, Converter={StaticResource InvertedBoolConverter}}"

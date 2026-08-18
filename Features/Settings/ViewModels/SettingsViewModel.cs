@@ -6,6 +6,7 @@ using MostaqlK.Services;
 using MostaqlK.Services.Diagnostics;
 using MostaqlK.Services.Pipeline;
 using MostaqlK.Services.Pipeline.WorkerPool;
+using MostaqlK.UI.DesignSystem;
 using Microsoft.Maui.Storage;
 using Microsoft.Maui.ApplicationModel;
 
@@ -268,6 +269,24 @@ public sealed partial class SettingsViewModel : ObservableObject
     public async Task ClearSessionCookieAsync()
     {
         using var _ = TraceScope.Begin("ClearSessionCookieCommand");
+
+        // Destructive action — ask first. Secondary = "مسح" (proceed); Primary/dismiss = cancel.
+        var nativeWindow = ConfirmationBox.TryGetActiveNativeWindow();
+        if (nativeWindow is not null)
+        {
+            var confirm = await ConfirmationBox.ShowAsync(
+                nativeWindow,
+                title: "مسح الجلسة",
+                message: "سيتم مسح بيانات الجلسة المخزنة. هل تريد المتابعة؟",
+                primaryText: "إلغاء",
+                secondaryText: "مسح");
+
+            if (!confirm.IsSecondary)
+            {
+                return;
+            }
+        }
+
         await _cookieStore.ClearAsync();
         IsCookieSuccess = false;
         IsCookieError = false;
@@ -378,13 +397,15 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        if (value < MinPollIntervalSeconds || value > MaxPollIntervalSeconds)
+        if (!TryValidateRange(
+                value,
+                MinPollIntervalSeconds,
+                MaxPollIntervalSeconds,
+                $"فترة الفحص يجب أن تكون بين {MinPollIntervalSeconds} و {MaxPollIntervalSeconds} ثانية."))
         {
-            SetValidationError($"فترة الفحص يجب أن تكون بين {MinPollIntervalSeconds} و {MaxPollIntervalSeconds} ثانية.");
             return;
         }
 
-        ClearValidationError();
         Preferences.Set(KeyPollIntervalSeconds, value);
         ApplyPollSettings();
     }
@@ -396,13 +417,11 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        if (value <= 0)
+        if (!TryValidateRange(value, min: 1, max: int.MaxValue, "الحد الأقصى للطلبات يجب أن يكون رقمًا أكبر من صفر."))
         {
-            SetValidationError("الحد الأقصى للطلبات يجب أن يكون رقمًا أكبر من صفر.");
             return;
         }
 
-        ClearValidationError();
         Preferences.Set(KeyMaxRequestsPerMinute, value);
         ApplyPollSettings();
     }
@@ -410,12 +429,11 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnMaxConcurrentDetailFetchesChanged(int value)
     {
         if (_isLoading) return;
-        if (value <= 0)
+        if (!TryValidateRange(value, min: 1, max: int.MaxValue, "عدد التوازي يجب أن يكون رقمًا أكبر من صفر."))
         {
-            SetValidationError("عدد التوازي يجب أن يكون رقمًا أكبر من صفر.");
             return;
         }
-        ClearValidationError();
+
         Preferences.Set(KeyMaxConcurrentDetailFetches, value);
         ApplyWorkerSettings();
     }
@@ -470,9 +488,11 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        if (value <= 0 && GroupingMode != NotificationGroupingMode.EndOfMinute)
+        // EndOfMinute ignores the threshold, so a non-positive value is only invalid for the
+        // modes that actually consume it (AfterMinutes / AfterCount).
+        if (GroupingMode != NotificationGroupingMode.EndOfMinute
+            && !TryValidateRange(value, min: 1, max: int.MaxValue, "حد التجميع يجب أن يكون رقمًا أكبر من صفر."))
         {
-            SetValidationError("حد التجميع يجب أن يكون رقمًا أكبر من صفر.");
             return;
         }
 
@@ -538,6 +558,24 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             app.UserAppTheme = IsDarkMode ? AppTheme.Dark : AppTheme.Light;
         }
+    }
+
+    /// <summary>
+    /// Shared range-check used by the numeric settings <c>OnXChanged</c> handlers. Sets the
+    /// validation error and returns <c>false</c> when <paramref name="value"/> is outside
+    /// <paramref name="min"/>..<paramref name="max"/> (inclusive); otherwise clears any prior
+    /// validation error and returns <c>true</c> so the caller can persist/apply the value.
+    /// </summary>
+    private bool TryValidateRange(int value, int min, int max, string errorMessage)
+    {
+        if (value < min || value > max)
+        {
+            SetValidationError(errorMessage);
+            return false;
+        }
+
+        ClearValidationError();
+        return true;
     }
 
     private void SetValidationError(string message)

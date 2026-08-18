@@ -23,7 +23,13 @@
         <!-- Invisible full-size Button overlaid on each nav row's Border: a plain
              Border+TapGestureRecognizer never surfaces an AutomationId to the Windows UI
              Automation tree (dotnet/maui#4715), so the actual hit target/AutomationId now lives
-             on this transparent Button instead, leaving the Border purely for visuals. -->
+             on this transparent Button instead, leaving the Border purely for visuals.
+
+             Cross-platform note: this workaround targets a Windows UI-Automation gap, but the
+             technique itself (a transparent Button overlaid on a Border) is plain, portable MAUI
+             composition with no platform-conditional code - AutomationId on a Button resolves
+             correctly on Android's accessibility tree too, so this pattern is safe to ship
+             unmodified and does NOT need a .Windows.xaml split. -->
         <Style x:Key="SidebarNavRowHitTargetStyle" TargetType="Button">
             <Setter Property="BackgroundColor" Value="Transparent" />
             <Setter Property="BorderWidth" Value="0" />

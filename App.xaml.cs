@@ -13,17 +13,11 @@ namespace MostaqlK;
 
 public partial class App : Application
 {
-	/// <summary>Height of the WinUI caption/title band that sits above the client area.</summary>
-	private const int WindowsCaptionHeight = 32;
-
-	/// <summary>
-	/// Extra height WinUI silently takes off the requested <see cref="Window.Height"/> on Windows 11
-	/// (the resize-frame inset is subtracted from the value MAUI forwards to the AppWindow). Measured
-	/// by capture: requesting 832 produced an 824px frame, i.e. a 792px client area once the 32px
-	/// caption band is cropped — the design-parity harness then padded the missing 8 rows with black,
-	/// which read as an 8px global vertical shift against the 800px mockup viewport.
-	/// </summary>
-	private const int WindowsFrameInset = 8;
+	// Window-chrome sizing constants (WinUI caption height/frame inset) used to live here as
+	// Windows-only literals - moved to Platforms/Windows/AppWindowMetrics.cs since Android/iOS
+	// windows are always fullscreen and have no equivalent concept (see
+	// cross-platform-ui-conventions.md, Mechanism 1). CreateWindow/CreateMainWindow below add
+	// AppWindowMetrics.ChromeHeight only under #if WINDOWS.
 
 	private readonly CancellationTokenSource _pipelineCts = new();
 	private readonly IServiceProvider _services;
@@ -43,13 +37,7 @@ public partial class App : Application
 		// resolution is not supported under this project's SourceGen XAML inflator and was causing
 		// an unhandled native crash on startup before any window could appear.
 #if WINDOWS
-		if (Resources.TryGetValue("AppButtonBase", out var baseButtonStyleValue) && baseButtonStyleValue is Style baseButtonStyle)
-		{
-			var windowsButtonStyle = new Style(typeof(Microsoft.Maui.Controls.Button)) { BasedOn = baseButtonStyle };
-			windowsButtonStyle.Setters.Add(new Setter { Property = Microsoft.Maui.Controls.Button.PaddingProperty, Value = new Thickness(16, 10) });
-			windowsButtonStyle.Setters.Add(new Setter { Property = Microsoft.Maui.Controls.Button.FontSizeProperty, Value = 14 });
-			Resources.Add("AppButtonWindows", windowsButtonStyle);
-		}
+		MostaqlK.Platforms.Windows.AppWindowMetrics.ApplyButtonStyleOverrides(Resources);
 #endif
 
 		// TODO(RTL): the Arabic-first FlowDirection switch (dir="rtl" in the mockups) hooks in here,
@@ -290,7 +278,11 @@ public partial class App : Application
 			var workHeight = display.Height / display.Density;
 			var scale = Math.Clamp(Math.Min((workWidth - 48) / 920d, (workHeight - 96) / 720d), 0.65d, 1.25d);
 			_onboardingWindow.Width = Math.Round(920 * scale);
-			_onboardingWindow.Height = Math.Round(720 * scale) + WindowsCaptionHeight + WindowsFrameInset;
+			var onboardingHeight = Math.Round(720 * scale);
+#if WINDOWS
+			onboardingHeight += MostaqlK.Platforms.Windows.AppWindowMetrics.ChromeHeight;
+#endif
+			_onboardingWindow.Height = onboardingHeight;
 			return _onboardingWindow;
 		}
 
@@ -306,7 +298,11 @@ public partial class App : Application
 		// frame, so the 32px caption band is added on top. This keeps design-parity captures
 		// deterministic instead of depending on whatever size the OS last remembered.
 		window.Width = 1280;
-		window.Height = 800 + WindowsCaptionHeight + WindowsFrameInset;
+		double mainHeight = 800;
+#if WINDOWS
+		mainHeight += MostaqlK.Platforms.Windows.AppWindowMetrics.ChromeHeight;
+#endif
+		window.Height = mainHeight;
 
 		return window;
 	}
@@ -332,7 +328,11 @@ public partial class App : Application
 				
 				// Pre-size the window to the main shell's expected dimensions before swapping content
 				window.Width = 1280;
-				window.Height = 800 + WindowsCaptionHeight + WindowsFrameInset;
+				double swapHeight = 800;
+#if WINDOWS
+				swapHeight += MostaqlK.Platforms.Windows.AppWindowMetrics.ChromeHeight;
+#endif
+				window.Height = swapHeight;
 				
 				// Swap the content
 				window.Page = shell;

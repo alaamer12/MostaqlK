@@ -9,9 +9,10 @@ namespace MostaqlK.Infrastructure.Notifications;
 /// <summary>
 /// Dual-variation toast handler that orchestrates between modern Windows App SDK
 /// notifications and robust WinRT fallbacks.
-/// Part of the "winToast-handler" logic mapping.
+/// Part of the "winToast-handler" logic mapping. Implements the platform-neutral
+/// <see cref="INotificationSender"/> boundary used by <c>NotificationDispatcher</c>.
 /// </summary>
-public sealed class WindowsToastSender
+public sealed class WindowsToastSender : INotificationSender
 {
     private static readonly object InitializeLock = new();
     private static IToastVariation? _activeVariation;
