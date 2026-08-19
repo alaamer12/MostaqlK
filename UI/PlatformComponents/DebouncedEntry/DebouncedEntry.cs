@@ -33,7 +33,7 @@ public partial class DebouncedEntry : AppEntry
         set => SetValue(DebounceMillisecondsProperty, value);
     }
 
-    /// <summary>Optional command invoked with the current <see cref="Entry.Text"/> once the debounce window elapses.</summary>
+    /// <summary>Optional command invoked with the current <c>Text</c> once the debounce window elapses.</summary>
     public ICommand? DebouncedCommand
     {
         get => (ICommand?)GetValue(DebouncedCommandProperty);

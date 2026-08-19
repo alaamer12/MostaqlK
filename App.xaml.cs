@@ -263,24 +263,8 @@ public partial class App : Application
 
 	protected override Window CreateWindow(IActivationState? activationState)
 	{
-		var onboarding = _services.GetRequiredService<OnboardingStateService>();
-		if (!onboarding.IsCompleted)
-		{
-			_onboardingWindow = new Window(_services.GetRequiredService<OnboardingPage>());
-			var display = DeviceDisplay.MainDisplayInfo;
-			var workWidth = display.Width / display.Density;
-			var workHeight = display.Height / display.Density;
-			var scale = Math.Clamp(Math.Min((workWidth - 48) / 920d, (workHeight - 96) / 720d), 0.65d, 1.25d);
-			_onboardingWindow.Width = Math.Round(920 * scale);
-			var onboardingHeight = Math.Round(720 * scale);
-#if WINDOWS
-			onboardingHeight += MostaqlK.Platforms.Windows.AppWindowMetrics.ChromeHeight;
-#endif
-			_onboardingWindow.Height = onboardingHeight;
-			return _onboardingWindow;
-		}
-
-		return CreateMainWindow();
+		_onboardingWindow = new Window(new MainPage());
+		return _onboardingWindow;
 	}
 
 	private Window CreateMainWindow()

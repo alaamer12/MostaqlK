@@ -5,13 +5,13 @@ namespace MostaqlK.UI.DesignSystem;
 ///
 /// Hover (<c>PointerEntered</c>/<c>PointerExited</c>) is a mouse/pointer concept that has no
 /// equivalent on a touch screen — there is no "the finger is near but not touching" state to
-/// react to. So unlike <see cref="PressableEffect.Windows.cs"/>, both hover partial hooks stay
+/// react to. So unlike <c>PressableEffect.Windows.cs</c>, both hover partial hooks stay
 /// intentionally no-op here — this is a documented design decision, not a missing implementation.
 ///
 /// Android's native press feel instead comes from two sources: (1) the shared, already
 /// cross-platform press/release scale+opacity feedback in <c>PressableEffect.cs</c>
 /// (<c>OnPointerPressed</c>/<c>OnPointerReleased</c>), and (2) the mobile-OS-family haptic tick
-/// exported from <see cref="_PressableEffect.Mobile.cs"/> (shared with iOS, see that file for why
+/// exported from <c>_PressableEffect.Mobile.cs</c> (shared with iOS, see that file for why
 /// it lives separately from this one) — together the touch-native "something responded to my tap"
 /// pattern MAUI apps use in place of a full Material ripple when one isn't implemented.
 ///

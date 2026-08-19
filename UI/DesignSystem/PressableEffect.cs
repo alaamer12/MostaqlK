@@ -11,8 +11,8 @@ namespace MostaqlK.UI.DesignSystem;
 ///    fire for touch input too) and gives touch platforms their native "press" feedback.
 /// 2. Hover background highlight and pointer cursor — a desktop/mouse-only concept with no touch
 ///    equivalent (there is no "hover" without a pointer that can move without touching). This half
-///    is implemented per-platform: see <see cref="PressableEffect.Windows.cs"/> (hover highlight,
-///    cross-hover coordination, cursor) and <see cref="PressableEffect.Android.cs"/> (explicitly
+///    is implemented per-platform: see <c>PressableEffect.Windows.cs</c> (hover highlight,
+///    cross-hover coordination, cursor) and <c>PressableEffect.Android.cs</c> (explicitly
 ///    a no-op — touch's "native feel" is the shared press/scale feedback above, not a stand-in
 ///    hover). This mirrors the "native feel per platform, not one platform's design with parts
 ///    stripped out" rule in cross-platform-ui-conventions.md.

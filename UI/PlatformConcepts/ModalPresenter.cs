@@ -34,7 +34,7 @@ public static partial class ModalPresenter
 
     /// <summary>Wording/behaviour for a single confirmation prompt. The Windows-only default-button
     /// choice lives in the <c>DefaultButton</c> partial property declared in
-    /// <see cref="ModalPresenterWindowsDefaultButton"/> below — see <c>ModalPresenter.Windows.cs</c>
+    /// <c>ModalPresenterWindowsDefaultButton</c> — see <c>ModalPresenter.Windows.cs</c>
     /// for its Windows value and <c>_ModalPresenter.Mobile.cs</c> for the mobile no-op.</summary>
     public sealed class ConfirmationOptions
     {

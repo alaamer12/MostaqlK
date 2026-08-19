@@ -15,7 +15,7 @@ public partial class SearchInputField : DebouncedEntry
         typeof(ICommand),
         typeof(SearchInputField));
 
-    /// <summary>Invoked (in addition to clearing <see cref="Entry.Text"/>) when the clear ("x") button is pressed.</summary>
+    /// <summary>Invoked (in addition to clearing <c>Text</c>) when the clear ("x") button is pressed.</summary>
     public ICommand? ClearCommand
     {
         get => (ICommand?)GetValue(ClearCommandProperty);

@@ -28,7 +28,7 @@ public sealed class PollService : IPollService
     /// </summary>
     public int PollIntervalSeconds { get; set; } = 30;
 
-    /// <summary>Current observable status, mirrored to the tray icon (see <see cref="TrayIconService"/>).</summary>
+    /// <summary>Current observable status, mirrored to the tray icon (see <c>TrayIconService</c>).</summary>
     public PollServiceStatus Status { get; private set; } = PollServiceStatus.Idle;
 
     /// <summary>Raised whenever <see cref="Status"/> changes, so the tray icon can react live.</summary>

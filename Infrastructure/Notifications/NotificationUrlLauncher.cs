@@ -5,14 +5,14 @@ namespace MostaqlK.Infrastructure.Notifications;
 
 /// <summary>
 /// Shared "open URL in default browser" helper used by both toast variations' "عرض على مستقل"
-/// button handlers (<see cref="ToastActivator"/> for <see cref="WinRtVariation"/>,
-/// <see cref="WinAppSdkVariation.OnNotificationInvoked"/> for the modern SDK path).
+/// button handlers (<c>ToastActivator</c> for <c>WinRtVariation</c>,
+/// <c>WinAppSdkVariation.OnNotificationInvoked</c> for the modern SDK path).
 /// <para>
 /// Both variations previously delegated the actual browser launch to the OS itself
 /// (<c>activationType='protocol'</c> / <c>SetInvokeUri</c>): if that silently failed, nothing in
 /// <see cref="InteractionLogger"/> would ever record it, making "the button does not work" reports
 /// impossible to trace. Routing the click through our own COM/event activation and launching the
-/// URL here via <see cref="Process.Start"/> makes every attempt (and any failure) fully logged.
+/// URL here via <c>Process.Start</c> makes every attempt (and any failure) fully logged.
 /// </para>
 /// </summary>
 public static class NotificationUrlLauncher

@@ -9,7 +9,7 @@ namespace MostaqlK.UI.DesignSystem;
 /// this overlay sits transparently *on top* of the already-visible, fully-readable card — a
 /// diagonal translucent band continuously sweeps from one side to the other, evoking a passing
 /// light reflection rather than a loading skeleton. Sits inert (zero opacity, not ticking,
-/// <see cref="InputTransparent"/>) whenever <see cref="IsActive"/> is false, so it never
+/// <c>InputTransparent</c>) whenever <see cref="IsActive"/> is false, so it never
 /// intercepts taps and never re-renders the rest of the feed.
 /// Respects <see cref="MotionPreferences.IsReducedMotionRequested"/> like
 /// <see cref="NewRibbonBadge"/>: the reflection is simply not shown (no static replacement is
@@ -24,7 +24,7 @@ namespace MostaqlK.UI.DesignSystem;
 /// with that many simultaneous per-view native animation objects, not something a managed
 /// try/catch can guard against. This version instead uses a single shared ticker
 /// (<see cref="Microsoft.Maui.Animations.Ticker"/> via one app-wide ticking callback) that
-/// directly computes and assigns every active overlay's <see cref="View.TranslationX"/> each
+/// directly computes and assigns every active overlay's <c>TranslationX</c> each
 /// frame from elapsed time - there is exactly one native animation driver for the whole app
 /// no matter how many cards are shimmering at once, eliminating the concurrency that caused the
 /// crash while keeping the same continuous, eased, angled sweep look.
@@ -56,7 +56,7 @@ public class EnrichmentShimmerOverlay : ContentView
     /// <summary>One full sweep pass, in milliseconds - matches the previous per-instance animation's duration.</summary>
     private const double PassDurationMs = 2600;
 
-    /// <summary>All currently-active overlays still attached to the visual tree, ticked by <see cref="SharedTicker"/>.</summary>
+    /// <summary>All currently-active overlays still attached to the visual tree, ticked by <see cref="_sharedTicker"/>.</summary>
     private static readonly List<EnrichmentShimmerOverlay> ActiveOverlays = [];
     private static IDispatcherTimer? _sharedTicker;
     private static long _tickStartTicks;

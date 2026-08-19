@@ -111,9 +111,6 @@
 	     under this project's SourceGen XAML inflator and previously caused a native startup crash. -->
 	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
 		<Page Remove="Platforms\Windows\Styles\**\*.xaml" />
-		<Compile Remove="MostaqlK.UITests\**" />
-		<EmbeddedResource Remove="MostaqlK.UITests\**" />
-		<None Remove="MostaqlK.UITests\**" />
 	</ItemGroup>
 
 	<!-- Filename-based multi-targeting (see cross-platform-ui-conventions.md, Mechanism 1): a file
@@ -146,9 +143,21 @@
 	     default Compile glob and fail to build here (they reference packages, like
 	     Microsoft.CodeAnalysis.CSharp, that this app project does not and should not depend on). -->
 	<ItemGroup>
+		<Compile Remove="MostaqlK.UITests\**" />
+		<EmbeddedResource Remove="MostaqlK.UITests\**" />
+		<None Remove="MostaqlK.UITests\**" />
 		<Compile Remove="tools\**" />
 		<EmbeddedResource Remove="tools\**" />
 		<None Remove="tools\**" />
+	</ItemGroup>
+
+	<!-- Dotnet watch exclusions to prevent FileSystemWatcher buffer overflow during multi-target builds -->
+	<ItemGroup>
+		<Watch Remove="bin\**" />
+		<Watch Remove="obj\**" />
+		<Watch Remove="scratch\**" />
+		<Watch Remove="tools\**" />
+		<Watch Remove=".repertoire\**" />
 	</ItemGroup>
 
 	<ItemGroup>

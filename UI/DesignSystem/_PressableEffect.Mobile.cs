@@ -12,8 +12,8 @@ namespace MostaqlK.UI.DesignSystem;
 /// TargetFramework ("Mobile" is not a recognized TargetPlatformIdentifier the way "Android"/"iOS"/
 /// "Windows" are) — so this file compiles for EVERY target, including Windows. It must therefore
 /// contain no platform-specific APIs of its own; it is only ever invoked from the real
-/// platform-suffixed files that DO get selected per target (<see cref="PressableEffect.Android.cs"/>
-/// and <see cref="PressableEffect.iOS.cs"/> both call <see cref="ApplyMobilePressFeedback"/>), so on
+/// platform-suffixed files that DO get selected per target (<c>PressableEffect.Android.cs</c>
+/// and <c>PressableEffect.iOS.cs</c> both call <see cref="ApplyMobilePressFeedback"/>), so on
 /// Windows this method simply exists unused with zero runtime effect.
 /// </summary>
 public partial class PressableEffect
