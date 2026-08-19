@@ -1,0 +1,859 @@
+# What I Learned from Bugs, Refactoring, and the Single-Ground Problem
+
+## The Experience That Made Me Notice This
+
+There is a programming problem I experienced that initially looked like a normal bug.
+
+A number was being calculated incorrectly.
+
+At first, the natural reaction was:
+
+> "There is a rounding bug. Let's fix the rounding."
+
+So I started thinking about things like `Math.round()`, decimal precision, rounding modes, and where the rounding should happen.
+
+But while looking at the problem more deeply, I realized something much more important.
+
+The problem was not really that someone used the wrong rounding function.
+
+The deeper problem was that **different parts of the system had independently decided how rounding should work.**
+
+One platform had one implementation.
+
+Another platform had another.
+
+Someone had made a small decision in one place, someone else had made another decision somewhere else, and neither decision was necessarily documented as a global business rule.
+
+The system therefore contained multiple interpretations of the same concept.
+
+That was the real bug.
+
+---
+
+# The Trap
+
+The trap was very easy to fall into because each individual piece of code looked reasonable.
+
+Imagine an investment application with Web and Mobile.
+
+The Web developer needs to display an investment value, so they write:
+
+```text
+round(value, 2)
+```
+
+Later, Mobile needs to display the same value.
+
+The mobile developer thinks:
+
+> "I need two decimal places, so I'll do the same thing."
+
+They implement their own version.
+
+Later, another calculation needs rounding.
+
+Someone uses the native language's rounding function.
+
+Another developer uses a utility function.
+
+Another developer rounds only for display.
+
+Another rounds before storing.
+
+Another rounds after calculating.
+
+None of these decisions necessarily looks wrong when viewed individually.
+
+The problem only appears when the system is considered as a whole.
+
+You end up with:
+
+```text
+                 "How should this value be rounded?"
+                              │
+          ┌───────────────────┼───────────────────┐
+          ↓                   ↓                   ↓
+        Web                 Mobile             Backend
+          │                   │                   │
+      Decision A          Decision B          Decision C
+```
+
+Now there is no longer one rule.
+
+There are three rules that are *supposed* to represent one rule.
+
+That is where I was trapped.
+
+---
+
+# Why the Bug Was Harder Than It Looked
+
+The most dangerous bugs are not necessarily caused by obviously bad code.
+
+Sometimes every developer involved followed a reasonable local assumption.
+
+The problem is that the assumptions were never connected.
+
+For example:
+
+````text
+Web:
+"AUM has 2 decimals."
+
+Mobile:
+"AUM has 2 decimals."
+
+Backend:
+"Database stores the full precision."
+
+All three statements can individually be valid.
+
+But what happens when:
+
+```text
+Raw value
+   ↓
+Backend calculation
+   ↓
+Web calculation
+   ↓
+Mobile calculation
+   ↓
+Display
+````
+
+uses different points at which rounding happens?
+
+Now the final result can differ even though everyone believes they are following the same rule.
+
+This taught me something important:
+
+> **A system can be locally correct and globally inconsistent.**
+
+---
+
+# The Refactoring Trap
+
+Then comes the second trap.
+
+Once I discover the problem, my instinct is to refactor.
+
+I might create:
+
+```text
+roundNumber(value, config)
+```
+
+That is already better than having `Math.round()` scattered everywhere.
+
+But then I might create the same function separately on Web and Mobile:
+
+```text
+Web:
+roundNumber()
+
+Mobile:
+roundNumber()
+```
+
+and give both of them:
+
+```text
+{
+    decimals: 2,
+    mode: "half-up"
+}
+```
+
+At first this feels like a clean solution.
+
+But I eventually realized:
+
+**I have not created a single source of truth.**
+
+I have only moved the duplication.
+
+Before:
+
+```text
+Math.round()
+Math.round()
+customRound()
+nativeRound()
+```
+
+After:
+
+```text
+Web roundNumber()
+Mobile roundNumber()
+```
+
+The architecture looks cleaner, but there are still two implementations.
+
+Six months later:
+
+```text
+Web → half-up
+Mobile → half-even
+```
+
+and the same class of bug comes back.
+
+The duplication became less visible, not eliminated.
+
+---
+
+# The Real Problem Was Not Duplication of Code
+
+This is where the lesson became much deeper.
+
+I originally thought the problem was:
+
+> "We duplicated the rounding function."
+
+But the real problem was:
+
+> **We duplicated the decision.**
+
+Code duplication is only one form of the problem.
+
+The more dangerous thing is **decision duplication**.
+
+For example:
+
+```text
+What is the minimum investment?
+
+What is the maximum investment?
+
+How many decimals does a currency use?
+
+When should a value be rounded?
+
+Which statuses are considered active?
+
+What makes an investment valid?
+
+What fields are required?
+
+What fee applies?
+
+What happens when a value is exactly .5?
+
+Which values are allowed?
+```
+
+If Web, Mobile, and Backend independently answer those questions, the system contains multiple sources of truth.
+
+Even if the code is beautifully structured.
+
+Even if every implementation has unit tests.
+
+Even if the code follows clean architecture.
+
+The system can still drift.
+
+---
+
+# The Bigger Pattern I Discovered
+
+The rounding problem was only an example.
+
+Once I understood it, I could see the same pattern in other bugs.
+
+Suppose Web says:
+
+```text
+Investment amount >= 100
+```
+
+but Mobile says:
+
+```text
+Investment amount >= 500
+```
+
+Now the user can do something on Web that Mobile rejects.
+
+Or:
+
+```text
+Web:
+email is required
+
+Mobile:
+email is optional
+```
+
+Or:
+
+```text
+Web:
+status "pending" means waiting
+
+Mobile:
+status "pending" means partially processed
+```
+
+Or:
+
+```text
+Web:
+fee = 1.5%
+
+Mobile:
+fee = 2%
+```
+
+These look like different bugs.
+
+But they can all come from the same architectural disease:
+
+```text
+                NO SINGLE GROUND
+                       ↓
+          Multiple independent decisions
+                       ↓
+                Platform drift
+                       ↓
+               Inconsistent behavior
+                       ↓
+                    Bugs
+```
+
+That was the important realization.
+
+---
+
+# "Single Source of Truth" Was Too Small a Phrase
+
+I initially thought about this as:
+
+> "We need a single source of truth."
+
+But I now understand it more precisely as:
+
+> **We need a single ground for every decision that is supposed to be identical across the system.**
+
+The word "ground" matters because it is not necessarily one file.
+
+Different types of decisions need different mechanisms.
+
+For example:
+
+```text
+Business behavior
+        ↓
+Shared domain code
+
+Validation structure
+        ↓
+Shared schema
+
+Changing business values
+        ↓
+Server configuration
+
+API structure
+        ↓
+Shared/generated contract
+
+Database truth
+        ↓
+Backend/database
+
+Platform-specific UI behavior
+        ↓
+Platform code
+```
+
+The goal is not to force everything into one giant shared file.
+
+The goal is to make sure that **each important decision has one authoritative origin.**
+
+---
+
+# The React + React Native Example
+
+Suppose I am starting a new investment application with:
+
+```text
+React Web
+React Native Mobile
+Backend API
+```
+
+The naive architecture might be:
+
+```text
+Web
+ ├── validation
+ ├── calculations
+ ├── rounding
+ └── business rules
+
+Mobile
+ ├── validation
+ ├── calculations
+ ├── rounding
+ └── business rules
+
+Backend
+ ├── validation
+ ├── calculations
+ ├── rounding
+ └── business rules
+```
+
+This creates many opportunities for divergence.
+
+Instead, I should ask:
+
+> "Which of these things actually need to be independently implemented?"
+
+For React and React Native, I have an important advantage:
+
+They can share TypeScript.
+
+So I can create:
+
+```text
+packages/
+    domain/
+    schemas/
+    api-contract/
+    config/
+
+apps/
+    web/
+    mobile/
+```
+
+Now:
+
+```text
+Web ───────┐
+           ├──→ shared domain
+Mobile ────┘
+```
+
+The calculation exists once.
+
+The validation exists once.
+
+The business rule exists once.
+
+The tests exist once.
+
+That is much stronger than manually copying the same implementation.
+
+---
+
+# But Then I Discovered Another Important Distinction
+
+Not every rule should be shared in the same way.
+
+This is where architecture can become confusing.
+
+For example:
+
+```text
+"Calculate investment fee"
+```
+
+is behavior.
+
+That belongs in shared domain logic.
+
+But:
+
+```text
+"Maximum investment = $1,000,000"
+```
+
+is a business value.
+
+That might need to come from the server because the business can change it.
+
+And:
+
+```text
+"amount is required and must be positive"
+```
+
+is a validation rule.
+
+That can be represented by a shared schema.
+
+And:
+
+```text
+"GET /investments/{id} returns Investment"
+```
+
+is an API contract.
+
+That should come from the API definition/generated types.
+
+So I shouldn't blindly say:
+
+> "Put everything in shared code."
+
+The better rule is:
+
+> **Put each decision at the correct single ground.**
+
+---
+
+# The Most Important Question During Development
+
+I learned that whenever I am about to implement something, I should ask:
+
+> **"Who is the authority for this decision?"**
+
+For example:
+
+### Rounding
+
+Who decides how investment values are rounded?
+
+Not Web.
+
+Not Mobile.
+
+Not an individual developer.
+
+There should be an explicit business/domain rule.
+
+### Validation
+
+Who decides what makes an investment valid?
+
+Not the Web form.
+
+Not the Mobile form.
+
+The validation rule should have one authoritative definition.
+
+### Fees
+
+Who decides the fee?
+
+If the fee is dynamically controlled by the business, the backend/configuration should be authoritative.
+
+### API shape
+
+Who decides what the API returns?
+
+The API contract should be authoritative.
+
+---
+
+# The Bug-Fixing Lesson
+
+This also changed how I think about debugging.
+
+Previously I might ask:
+
+> "Where is the bug?"
+
+Now I also ask:
+
+> **"Where was this decision made?"**
+
+And then:
+
+> **"How many times was this decision made?"**
+
+This is a much stronger debugging technique.
+
+Suppose I find:
+
+```text
+Mobile rejects investment = 50
+```
+
+I should not immediately modify:
+
+```text
+if (amount < 100)
+```
+
+I should investigate:
+
+```text
+Where did 100 come from?
+
+Who defined it?
+
+Does Web have the same value?
+
+Does Backend have the same value?
+
+Is it a business constant?
+
+Is it supposed to be configurable?
+
+Is there already another definition?
+```
+
+The visible bug may be one line.
+
+The real bug may be the architecture that allowed that line to exist independently.
+
+---
+
+# Refactoring Should Remove the Cause, Not Just the Duplication
+
+This became another important lesson.
+
+A refactor should not merely make code prettier.
+
+It should reduce the possibility of the same category of failure happening again.
+
+Bad refactoring:
+
+```text
+Move duplicated code into two nicer files.
+```
+
+Better refactoring:
+
+```text
+Identify why the code was duplicated.
+Establish an authoritative source.
+Make consumers depend on it.
+Add tests that protect the rule.
+```
+
+The difference is enormous.
+
+The first improves readability.
+
+The second improves the system.
+
+---
+
+# The "Every Micro-Decision" Problem
+
+The thing that really caused the original problem was a collection of tiny decisions.
+
+No single decision looked important enough to create architecture around.
+
+Someone thought:
+
+> "I'll just round it here."
+
+Someone else:
+
+> "I'll just validate it here."
+
+Someone else:
+
+> "I'll just put this constant here."
+
+Someone else:
+
+> "Mobile needs slightly different handling."
+
+And eventually:
+
+```text
+100 tiny decisions
+        ↓
+20 duplicated decisions
+        ↓
+5 divergent behaviors
+        ↓
+2 production bugs
+        ↓
+1 huge debugging session
+```
+
+This is why I now want to recognize **micro-decisions as architectural decisions**.
+
+A tiny line of code can encode a business decision.
+
+If it does, it deserves the same architectural attention as a large feature.
+
+---
+
+# The Rule I Want to Carry Into Future Projects
+
+Before implementing a business rule, I should ask:
+
+```text
+Is this a business decision?
+
+        ↓ YES
+
+Should every platform behave identically?
+
+        ↓ YES
+
+Where is the single ground?
+
+        ↓
+
+Can every consumer use that same ground?
+```
+
+If the answer is no, I should stop before duplicating the rule.
+
+---
+
+# Another Important Boundary: Not Everything Should Be Shared
+
+This lesson should not turn into:
+
+> "Everything must be shared."
+
+That would create a different architectural problem.
+
+Some things are inherently platform-specific.
+
+For example:
+
+```text
+Web UI
+React DOM
+Browser APIs
+Desktop interactions
+
+Mobile UI
+React Native components
+Touch gestures
+Native navigation
+Camera
+Biometrics
+Push notification APIs
+```
+
+These can legitimately have different implementations.
+
+The rule is:
+
+> **Share decisions that must be identical, not implementations that merely look similar.**
+
+That distinction is critical.
+
+Two buttons may look similar but belong to different platform UI systems.
+
+Two investment calculations may look different in code but must produce exactly the same business result.
+
+The second one deserves stronger sharing.
+
+---
+
+# The Final Mental Model
+
+The experience taught me to think about software as a collection of decisions.
+
+Every important decision should have:
+
+```text
+Authority
+   ↓
+Definition
+   ↓
+Consumers
+   ↓
+Tests
+```
+
+For example:
+
+```text
+Rounding Rule
+     ↓
+Shared Domain
+     ↓
+Web + Mobile + Backend
+     ↓
+Shared Tests
+```
+
+Or:
+
+```text
+Maximum Investment
+     ↓
+Server Configuration
+     ↓
+Web + Mobile
+     ↓
+Configuration Tests
+```
+
+Or:
+
+```text
+API Response
+     ↓
+API Contract
+     ↓
+Web + Mobile clients
+     ↓
+Contract Tests
+```
+
+This creates a much more stable system.
+
+---
+
+# The Deeper Lesson About Bugs
+
+The biggest thing I took from this experience is:
+
+> **A bug is sometimes evidence of a missing source of truth.**
+
+If the same type of bug can be independently introduced in Web, Mobile, and Backend, then simply fixing the current occurrence is not enough.
+
+I should investigate whether the architecture permits the same mistake to happen again.
+
+This changes the question from:
+
+> "How do I fix this bug?"
+
+to:
+
+> "What allowed this bug to exist?"
+
+And eventually:
+
+> **"How do I change the architecture so this entire class of bug becomes difficult or impossible to introduce?"**
+
+That is the part of debugging that turns into engineering.
+
+---
+
+# The Principle to Remember
+
+**Do not only remove duplicated code. Remove duplicated decisions.**
+
+Code can be duplicated and harmless.
+
+A duplicated business decision is dangerous.
+
+When multiple platforms must behave the same:
+
+```text
+One decision
+    ↓
+One authoritative ground
+    ↓
+Multiple consumers
+    ↓
+One consistent behavior
+```
+
+When I see multiple platforms independently deciding the same thing, I should immediately treat that as a potential architectural problem.
+
+The goal of good architecture is not simply:
+
+> "Don't repeat yourself."
+
+It is more deeply:
+
+> **"Don't make the same important decision in multiple places."**

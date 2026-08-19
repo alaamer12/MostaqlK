@@ -3,12 +3,14 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Maui.Storage;
 using MostaqlK.Core;
+using MostaqlK.Core.Navigation;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Infrastructure.Database.SearchIndex;
 using MostaqlK.Models;
 using MostaqlK.Services;
 using MostaqlK.Services.Diagnostics;
 using MostaqlK.Services.Pipeline;
+using MostaqlK.UI.DesignSystem;
 using MostaqlK.UI.PlatformComponents;
 
 namespace MostaqlK.Features.Projects.ViewModels;
@@ -110,7 +112,9 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
 
     public string PollToggleLabel => IsPollingActive ? "إيقاف" : "بدء الفحص";
 
-    public Color PollToggleColor => IsPollingActive ? Color.FromArgb("#EF4444") : Color.FromArgb("#22C55E");
+    public Color PollToggleColor => IsPollingActive
+        ? DesignTokens.Colors.PollToggleActive
+        : DesignTokens.Colors.PollToggleInactive;
 
     public AppIconGlyph PollToggleIcon => IsPollingActive ? AppIconGlyph.Pause : AppIconGlyph.Play;
 
@@ -430,7 +434,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
                 InteractionLogger.Fault("ProjectFeedViewModel.SelectProjectAsync", new InvalidOperationException(result.Error.InternalMessage));
             }
 
-            await Shell.Current.GoToAsync($"ProjectDetailsPage?projectId={card.Project.ProjectId}");
+            await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(card.Project.ProjectId));
         }
         catch (Exception ex)
         {

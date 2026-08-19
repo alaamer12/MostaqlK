@@ -206,10 +206,7 @@ public sealed class DesignDataSeeder
                 Title = "مشروع سابق",
                 Url = $"https://mostaql.com/project/{ArchivedIdBase + index}",
                 ClientName = "عميل",
-                PublishTimeNumber = 0,
-                PublishTimeText = string.Empty,
                 ProposalCount = 0,
-                ProposalCountText = string.Empty,
                 IsUnread = false,
                 EnrichmentStatus = EnrichmentStatus.Enriched,
                 DiscoveredAt = discoveredAt,
@@ -318,7 +315,7 @@ public sealed class DesignDataSeeder
         EnrichmentStatus status,
         DateTimeOffset discoveredAt,
         DateTimeOffset? enrichedAt = null,
-        int? hiringRatePercent = null,
+        double? hiringRatePercent = null,
         Asset[]? attachments = null)
     {
         var url = $"https://mostaql.com/project/{projectId}";
@@ -338,10 +335,10 @@ public sealed class DesignDataSeeder
                 Title = title,
                 Url = url,
                 ClientName = ownerName,
-                PublishTimeNumber = 0, // Placeholder, will be updated by PublishedTimeUpdateService
+                PublishTimeNumber = MostaqlK.Core.Formatting.ArabicRelativeTime.ParseRelativeNumber(postedRelative),
                 PublishTimeText = postedRelative,
                 ProposalCount = proposalCount,
-                ProposalCountText = $"{proposalCount} عرض",
+                ProposalCountText = MostaqlK.Core.Formatting.ArabicProposalParser.Format(proposalCount),
                 Budget = budget,
                 DeliveryDays = deliveryDays,
                 SkillsText = string.Join(", ", skills),
@@ -359,14 +356,15 @@ public sealed class DesignDataSeeder
                 Budget = budget,
                 DeliveryDays = deliveryDays,
                 ProjectStatus = "مفتوح",
+                PublishTimeNumber = MostaqlK.Core.Formatting.ArabicRelativeTime.ParseRelativeNumber(postedRelative),
                 PublishTimeText = postedRelative,
-                PublishTimeNumber = 0,
                 ProposalCount = proposalCount,
-                ProposalCountText = $"{proposalCount} عرض",
+                ProposalCountText = MostaqlK.Core.Formatting.ArabicProposalParser.Format(proposalCount),
                 Skills = [.. skills.Select(s => new ProjectSkill { Name = s })],
                 Owner = owner,
                 Attachments = [.. attachments ?? []],
                 EnrichmentStatus = status,
+                DiscoveredAt = discoveredAt,
                 EnrichedAt = status == EnrichmentStatus.Enriched ? enrichedAt ?? discoveredAt : null,
             });
     }

@@ -1,3 +1,4 @@
+using MostaqlK.Core.Navigation;
 using MostaqlK.Features.Notifications.ViewModels;
 
 namespace MostaqlK.Features.Projects.Views.Layouts;
@@ -71,10 +72,7 @@ public partial class MainWindowWindowsLayout : ContentView
 
     private async void OnSettingsNavClicked(object? sender, EventArgs e)
     {
-        if (Shell.Current is not null)
-        {
-            await Shell.Current.GoToAsync("//SettingsPanel");
-        }
+        await AppRoutes.NavigateAsync(AppRoutes.Settings);
     }
 
     private void OnNotificationsButtonTapped(object? sender, TappedEventArgs e)
@@ -84,9 +82,6 @@ public partial class MainWindowWindowsLayout : ContentView
 
     private async void OnAboutNavClicked(object? sender, EventArgs e)
     {
-        if (Shell.Current is not null)
-        {
-            await Shell.Current.GoToAsync("//AboutPage");
-        }
+        await AppRoutes.NavigateAsync(AppRoutes.About);
     }
 }

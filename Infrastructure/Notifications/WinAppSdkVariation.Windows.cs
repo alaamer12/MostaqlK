@@ -1,6 +1,8 @@
 using Microsoft.Windows.AppNotifications;
 using Microsoft.Windows.AppNotifications.Builder;
 using MostaqlK.Core;
+using MostaqlK.Core.Formatting;
+using MostaqlK.Core.Navigation;
 using MostaqlK.Models;
 using MostaqlK.Services.Diagnostics;
 using Microsoft.Maui;
@@ -57,7 +59,7 @@ public sealed class WinAppSdkVariation : IToastVariation
                         trayService?.OnOpen();
                     }
 
-                    await Shell.Current.GoToAsync($"ProjectDetailsPage?projectId={projectId}");
+                    await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(projectId));
                 }
                 catch (Exception ex)
                 {
@@ -110,9 +112,7 @@ public sealed class WinAppSdkVariation : IToastVariation
     private static AppNotificationBuilder BuildIndividualToast(ProjectSummary project)
     {
         var originalDescription = project.Description ?? string.Empty;
-        var description = originalDescription.Length > 200 
-            ? originalDescription.Substring(0, 197) + "..." 
-            : originalDescription;
+        var description = TextTruncator.Truncate(originalDescription, 200);
 
         InteractionLogger.Mark("WinAppSdkVariation.BuildIndividualToast", "A", new 
         { 

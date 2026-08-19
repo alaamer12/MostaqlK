@@ -21,6 +21,11 @@ public static class DesignTokens
         public static readonly Color AccentPositive = Color.FromArgb("#2E9E6B");
         public static readonly Color AccentPositiveDark = Color.FromArgb("#4FBF8C");
 
+        // Polling toggle (running vs stopped) semantic colors.
+        // Mirrors the MVP mockup (projects.html) and the existing pipeline error/success dots.
+        public static readonly Color PollToggleActive = Color.FromArgb("#EF4444");
+        public static readonly Color PollToggleInactive = Color.FromArgb("#22C55E");
+
         // Slate background/surface palette.
         public static readonly Color BackgroundLight = Color.FromArgb("#F8FAFC");
         public static readonly Color BackgroundDark = Color.FromArgb("#0F172A");

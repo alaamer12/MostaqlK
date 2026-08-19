@@ -29,6 +29,13 @@ public static class Program
     {
         Console.OutputEncoding = Encoding.UTF8;
 
+        if (args.Length >= 1 && args[0] == "--audit-live")
+        {
+            var limit = args.Length >= 2 && int.TryParse(args[1], out var l) ? l : 10;
+            var cookiePath = args.Length >= 3 ? args[2] : null;
+            return RunAuditLive(limit, cookiePath).GetAwaiter().GetResult();
+        }
+
         if (args.Length >= 2 && args[0] == "--live")
         {
             // Optional 3rd arg: path to a cookies file (Netscape or "name=value" per line).
@@ -47,6 +54,11 @@ public static class Program
         Run(nameof(TestAdversarialPageStillParses), TestAdversarialPageStillParses);
         Run(nameof(TestListingPageIdExtraction), TestListingPageIdExtraction);
         Run(nameof(TestNormalizationPrimitives), TestNormalizationPrimitives);
+        Run(nameof(TestArabicNameFormatter), TestArabicNameFormatter);
+        Run(nameof(TestArabicProposalFormatting), TestArabicProposalFormatting);
+        Run(nameof(TestTextTruncator), TestTextTruncator);
+        Run(nameof(TestPipelineTelemetryFormatter), TestPipelineTelemetryFormatter);
+        Run(nameof(TestArabicRelativeTimeParsing), TestArabicRelativeTimeParsing);
         Run(nameof(TestProposalCountForms), TestProposalCountForms);
         Run(nameof(TestProposalCountAdversarial), TestProposalCountAdversarial);
         Run(nameof(TestProposalCountJsonRoundTrip), TestProposalCountJsonRoundTrip);
@@ -83,7 +95,7 @@ public static class Program
         Check("budget parsed", details.Budget == "$50.00 - $100.00", details.Budget);
         Check("delivery days parsed", details.DeliveryDays == 10, $"{details.DeliveryDays}");
         Check("owner name parsed", details.Owner.Name == "Abdulrhman S.", details.Owner.Name);
-        Check("hire rate 36.36% rounds to 36", details.Owner.HiringRatePercent == 36, $"{details.Owner.HiringRatePercent}");
+        Check("hire rate 36.36% parsed exactly", details.Owner.HiringRatePercent == 36.36, $"{details.Owner.HiringRatePercent}");
         Check("all three skills parsed", details.Skills.Count == 3, string.Join("/", details.Skills.Select(s => s.Name)));
 
         // The description-newlines regression: paragraph structure must survive.
@@ -117,7 +129,7 @@ public static class Program
         Check("budget recovered via label-driven walk", details.Budget == "$50.00 - $100.00", details.Budget);
         Check("Arabic-Indic '١٠ أيام' parsed as 10 days", details.DeliveryDays == 10, $"{details.DeliveryDays}");
         Check("owner name recovered from the /u/ profile link", details.Owner.Name == "Abdulrhman S.", details.Owner.Name);
-        Check("hire rate recovered from a renamed stat list", details.Owner.HiringRatePercent == 36, $"{details.Owner.HiringRatePercent}");
+        Check("hire rate recovered from a renamed stat list", details.Owner.HiringRatePercent == 36.36, $"{details.Owner.HiringRatePercent}");
         Check("skills recovered by href shape, pagination link excluded",
             details.Skills.Count == 3 && details.Skills.All(s => s.Url?.Contains("/skills/") == true),
             string.Join("/", details.Skills.Select(s => s.Name)));
@@ -218,9 +230,12 @@ public static class Program
             summaries.ElementAtOrDefault(0)?.Title);
         Check("listing proposal number parsed", summaries.ElementAtOrDefault(0)?.ProposalCount == 7,
             $"{summaries.ElementAtOrDefault(0)?.ProposalCount}");
-        Check("listing proposal display text preserved",
-            summaries.ElementAtOrDefault(0)?.ProposalCountText == "7 عروض",
-            summaries.ElementAtOrDefault(0)?.ProposalCountText);
+        Check("listing proposal count text parsed", summaries.ElementAtOrDefault(0)?.ProposalCountText == "7 عروض",
+            $"{summaries.ElementAtOrDefault(0)?.ProposalCountText}");
+        Check("listing publish time number parsed", summaries.ElementAtOrDefault(0)?.PublishTimeNumber == 4,
+            $"{summaries.ElementAtOrDefault(0)?.PublishTimeNumber}");
+        Check("listing publish time text parsed", summaries.ElementAtOrDefault(0)?.PublishTimeText == "منذ 4 ساعات",
+            $"{summaries.ElementAtOrDefault(0)?.PublishTimeText}");
         Check("listing proposal number handles singular form", summaries.ElementAtOrDefault(1)?.ProposalCount == 12,
             $"{summaries.ElementAtOrDefault(1)?.ProposalCount}");
         Check("listing description parsed",
@@ -253,6 +268,62 @@ public static class Program
         var multiline = StructuralExtractor.NormalizeMultiline(doc.DocumentNode.SelectSingleNode("//div"));
         Check("NormalizeMultiline turns block boundaries into real line breaks",
             multiline == "سطر أول\nسطر ثان\nسطر ثالث", multiline.Replace("\n", "\\n"));
+    }
+
+    private static void TestArabicNameFormatter()
+    {
+        Check("single word > 2 chars", ArabicNameFormatter.GetInitials("عميل") == "عم", ArabicNameFormatter.GetInitials("عميل"));
+        Check("single word 1 char", ArabicNameFormatter.GetInitials("أ") == "أ", ArabicNameFormatter.GetInitials("أ"));
+        Check("null/empty returns fallback", ArabicNameFormatter.GetInitials(null) == "؟", ArabicNameFormatter.GetInitials(null));
+        Check("strips 'ال' from compound name", ArabicNameFormatter.GetInitials("أحمد العتيبي") == "أع", ArabicNameFormatter.GetInitials("أحمد العتيبي"));
+        Check("strips 'ال' from both names if present", ArabicNameFormatter.GetInitials("المهندس المطيري") == "مم", ArabicNameFormatter.GetInitials("المهندس المطيري"));
+        Check("preserves pure 'ال' word if not prefix", ArabicNameFormatter.StripArticle("ال") == "ال", ArabicNameFormatter.StripArticle("ال"));
+        Check("StripArticle strips 'ال' prefix", ArabicNameFormatter.StripArticle("العتيبي") == "عتيبي", ArabicNameFormatter.StripArticle("العتيبي"));
+    }
+
+    private static void TestArabicProposalFormatting()
+    {
+        Check("format 0", ArabicProposalParser.Format(0) == "0 عرض", ArabicProposalParser.Format(0));
+        Check("format 1", ArabicProposalParser.Format(1) == "عرض واحد", ArabicProposalParser.Format(1));
+        Check("format 2", ArabicProposalParser.Format(2) == "عرضان", ArabicProposalParser.Format(2));
+        Check("format 3", ArabicProposalParser.Format(3) == "3 عروض", ArabicProposalParser.Format(3));
+        Check("format 10", ArabicProposalParser.Format(10) == "10 عروض", ArabicProposalParser.Format(10));
+        Check("format 11", ArabicProposalParser.Format(11) == "11 عرضاً", ArabicProposalParser.Format(11));
+        Check("format 25", ArabicProposalParser.Format(25) == "25 عرضاً", ArabicProposalParser.Format(25));
+    }
+
+    private static void TestTextTruncator()
+    {
+        Check("no truncation needed", TextTruncator.Truncate("Hello", 10) == "Hello", TextTruncator.Truncate("Hello", 10));
+        Check("truncate with ellipsis", TextTruncator.Truncate("Hello World", 8) == "Hello...", TextTruncator.Truncate("Hello World", 8));
+        Check("truncate null", TextTruncator.Truncate(null, 5) == "", TextTruncator.Truncate(null, 5));
+        Check("truncateWords splits nicely", TextTruncator.TruncateWords("Hello Beautiful World", 14) == "Hello...", TextTruncator.TruncateWords("Hello Beautiful World", 14));
+    }
+
+    private static void TestPipelineTelemetryFormatter()
+    {
+        Check("processing state", PipelineTelemetryFormatter.FormatWorkerState("Processing") == "يعالج", PipelineTelemetryFormatter.FormatWorkerState("Processing"));
+        Check("completed state", PipelineTelemetryFormatter.FormatWorkerState("Completed") == "مكتمل", PipelineTelemetryFormatter.FormatWorkerState("Completed"));
+        Check("error state", PipelineTelemetryFormatter.FormatWorkerState("Error") == "خطأ", PipelineTelemetryFormatter.FormatWorkerState("Error"));
+        Check("idle state", PipelineTelemetryFormatter.FormatWorkerState("Idle") == "خامل", PipelineTelemetryFormatter.FormatWorkerState("Idle"));
+        Check("format seconds normal", PipelineTelemetryFormatter.FormatSeconds(12.36) == "12.4", PipelineTelemetryFormatter.FormatSeconds(12.36));
+        Check("format seconds >= 100", PipelineTelemetryFormatter.FormatSeconds(120.4) == "120", PipelineTelemetryFormatter.FormatSeconds(120.4));
+        Check("format seconds suffix", PipelineTelemetryFormatter.FormatSecondsSuffix(12.36) == "12.4 ث", PipelineTelemetryFormatter.FormatSecondsSuffix(12.36));
+    }
+
+    private static void TestArabicRelativeTimeParsing()
+    {
+        Check("parse 'منذ لحظات'", ArabicRelativeTime.ParseRelativeNumber("منذ لحظات") == 0);
+        Check("parse 'منذ دقيقة'", ArabicRelativeTime.ParseRelativeNumber("منذ دقيقة") == 1);
+        Check("parse 'منذ دقيقتين'", ArabicRelativeTime.ParseRelativeNumber("منذ دقيقتين") == 2);
+        Check("parse 'منذ 7 دقائق'", ArabicRelativeTime.ParseRelativeNumber("منذ 7 دقائق") == 7);
+        Check("parse 'منذ ٧ دقائق'", ArabicRelativeTime.ParseRelativeNumber("منذ ٧ دقائق") == 7);
+        Check("parse 'منذ ساعتين'", ArabicRelativeTime.ParseRelativeNumber("منذ ساعتين") == 2);
+        Check("parse 'منذ ساعة'", ArabicRelativeTime.ParseRelativeNumber("منذ ساعة") == 1);
+        Check("parse 'منذ 3 ساعات'", ArabicRelativeTime.ParseRelativeNumber("منذ 3 ساعات") == 3);
+        Check("parse 'منذ يوم'", ArabicRelativeTime.ParseRelativeNumber("منذ يوم") == 1);
+        Check("parse 'منذ يومين'", ArabicRelativeTime.ParseRelativeNumber("منذ يومين") == 2);
+        Check("parse 'منذ 15 يوما'", ArabicRelativeTime.ParseRelativeNumber("منذ 15 يوما") == 15);
     }
 
     private static void TestProposalCountForms()
@@ -306,7 +377,6 @@ public static class Program
             ProjectId = 123,
             Title = "اختبار JSON",
             ProposalCount = 7,
-            ProposalCountText = "7 عروض",
         };
 
         var json = System.Text.Json.JsonSerializer.Serialize(original);
@@ -314,8 +384,8 @@ public static class Program
 
         Check("JSON keeps proposal number", restored?.ProposalCount == 7,
             restored?.ProposalCount.ToString() ?? "null");
-        Check("JSON keeps proposal display text", restored?.ProposalCountText == "7 عروض",
-            restored?.ProposalCountText);
+        Check("ArabicProposalParser formats proposal count", ArabicProposalParser.Format(restored?.ProposalCount ?? 0) == "7 عروض",
+            ArabicProposalParser.Format(restored?.ProposalCount ?? 0));
     }
 
     /// <summary>Degenerate inputs must fail loudly and predictably, never silently.</summary>
@@ -360,6 +430,90 @@ public static class Program
     // -----------------------------------------------------------------
     // Live mode - parse a real URL end-to-end (opt-in, needs network)
     // -----------------------------------------------------------------
+
+    private static async Task<int> RunAuditLive(int limit, string? cookiePath)
+    {
+        Console.WriteLine($"Live Scrape & Audit starting (limit = {limit} projects)...\n");
+        using var http = new HttpClient();
+        http.DefaultRequestHeaders.Add("User-Agent", LiveUserAgent);
+
+        var cookieHeader = CookieJar.Load(cookiePath);
+        if (cookieHeader is not null)
+        {
+            Console.WriteLine($"Cookie:       loaded ({CookieJar.LastSource}, {cookieHeader.Split(';').Length} cookies)");
+            http.DefaultRequestHeaders.TryAddWithoutValidation("Cookie", cookieHeader);
+        }
+        else
+        {
+            Console.WriteLine("Cookie:       none (anonymous fetch)");
+        }
+
+        Console.WriteLine("Fetching listing page: https://mostaql.com/projects ...");
+        var listingHtml = await http.GetStringAsync("https://mostaql.com/projects");
+        var summaries = ListingParser.Parse(listingHtml);
+        Console.WriteLine($"Discovered {summaries.Count} projects on listing page.\n");
+
+        var audited = 0;
+        var issues = new List<string>();
+
+        foreach (var summary in summaries.Take(limit))
+        {
+            audited++;
+            var url = summary.Url;
+            if (string.IsNullOrEmpty(url))
+            {
+                url = $"https://mostaql.com/project/{summary.ProjectId}";
+            }
+
+            Console.WriteLine($"[{audited}/{Math.Min(limit, summaries.Count)}] Auditing project {summary.ProjectId}: {summary.Title}");
+            try
+            {
+                var projectHtml = await http.GetStringAsync(url);
+                var details = DetailParser.Parse(summary.ProjectId, projectHtml);
+
+                // Format values through domain formatters and presentation properties
+                var budgetFormatted = BudgetFormatter.Format(details.Budget);
+                var durationFormatted = details.DeliveryDays is int days ? ArabicRelativeTime.Days(days) : "—";
+                var publishFormatted = ArabicRelativeTime.Since(details.DiscoveredAt);
+                var proposalFormatted = ArabicProposalParser.Format(details.ProposalCount);
+                var hireRateFormatted = details.Owner.HiringRatePercent is double rate
+                    ? $"{rate.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}%"
+                    : "لم يحسب بعد";
+
+                Console.WriteLine($"  - Owner: '{details.Owner.Name}', Reg: '{details.Owner.RegisteredAt}', Hire: '{hireRateFormatted}', Open: {details.Owner.OpenProjectsCount}, InProg: {details.Owner.InProgressProjectsCount}, Comms: {details.Owner.OngoingCommunicationsCount}, Comp: {details.Owner.CompletedProjectsCount?.ToString() ?? "null"}");
+                Console.WriteLine($"  - Budget: '{budgetFormatted}', Duration: '{durationFormatted}', Proposals: '{proposalFormatted}', Skills: {details.Skills.Count}");
+
+                // Integrity Checks
+                if (string.IsNullOrWhiteSpace(details.Title))
+                {
+                    issues.Add($"Project {summary.ProjectId}: Title is empty.");
+                }
+                if (hireRateFormatted == "%")
+                {
+                    issues.Add($"Project {summary.ProjectId}: Hire rate rendered as broken lone '%'.");
+                }
+                if (details.Owner.CompletedProjectsCount is int comp && comp > 1000)
+                {
+                    issues.Add($"Project {summary.ProjectId}: Owner CompletedProjectsCount appears hallucinated ({comp}).");
+                }
+            }
+            catch (Exception ex)
+            {
+                issues.Add($"Project {summary.ProjectId} ({url}): Exception during scrape/parse: {ex.Message}");
+                Console.WriteLine($"  ERROR: {ex.Message}");
+            }
+            Console.WriteLine();
+        }
+
+        Console.WriteLine(new string('=', 60));
+        Console.WriteLine($"AUDIT COMPLETE: Audited {audited} projects. Issues found: {issues.Count}");
+        foreach (var issue in issues)
+        {
+            Console.WriteLine($"  - [ISSUE] {issue}");
+        }
+
+        return issues.Count == 0 ? 0 : 1;
+    }
 
     private static async Task<int> RunLive(string url, string? cookiePath)
     {

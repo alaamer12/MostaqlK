@@ -882,14 +882,9 @@ public partial class PipelineRadar : ContentView
         }
     }
 
-    private static string StatusText(RadarWorkerState state) => state switch
-    {
-        RadarWorkerState.Processing => "يعالج",
-        RadarWorkerState.Completed => "مكتمل",
-        RadarWorkerState.Error => "خطأ",
-        _ => "خامل"
-    };
+    private static string StatusText(RadarWorkerState state) =>
+        PipelineTelemetryFormatter.FormatWorkerState(state);
 
     private static string Format(double seconds) =>
-        seconds.ToString(seconds >= 100 ? "0" : "0.0", CultureInfo.InvariantCulture);
+        PipelineTelemetryFormatter.FormatSeconds(seconds);
 }

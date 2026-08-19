@@ -1,11 +1,13 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using MostaqlK.Core.Formatting;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Infrastructure.Http;
 using MostaqlK.Models;
 using MostaqlK.Services;
 using MostaqlK.Services.Diagnostics;
+using MostaqlK.UI.DesignSystem.Badges;
 using MostaqlK.UI.PlatformComponents;
 
 namespace MostaqlK.Features.Projects.ViewModels;
@@ -145,6 +147,17 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(EnrichmentBadgeBackground))]
     [NotifyPropertyChangedFor(nameof(EnrichmentBadgeForeground))]
     [NotifyPropertyChangedFor(nameof(EnrichmentBadgeIcon))]
+    [NotifyPropertyChangedFor(nameof(Budget))]
+    [NotifyPropertyChangedFor(nameof(Duration))]
+    [NotifyPropertyChangedFor(nameof(PublishTimeText))]
+    [NotifyPropertyChangedFor(nameof(ProposalCountText))]
+    [NotifyPropertyChangedFor(nameof(OwnerName))]
+    [NotifyPropertyChangedFor(nameof(OwnerRegisteredAt))]
+    [NotifyPropertyChangedFor(nameof(OwnerHiringRateText))]
+    [NotifyPropertyChangedFor(nameof(OwnerOpenProjectsText))]
+    [NotifyPropertyChangedFor(nameof(OwnerInProgressProjectsText))]
+    [NotifyPropertyChangedFor(nameof(OwnerOngoingCommunicationsText))]
+    [NotifyPropertyChangedFor(nameof(OwnerCompletedProjectsText))]
     public partial ProjectDetails? Details { get; set; }
 
     [ObservableProperty]
@@ -163,32 +176,48 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     
     public EnrichmentStatus EnrichmentStatus => Details?.EnrichmentStatus ?? EnrichmentStatus.Pending;
 
-    public string EnrichmentBadgeText => EnrichmentStatus switch
-    {
-        EnrichmentStatus.Enriched => "تم الإثراء",
-        EnrichmentStatus.Failed => "فشل الإثراء",
-        _ => "قيد الإثراء",
-    };
+    public string EnrichmentBadgeText => EnrichmentBadgeStyle.GetText(EnrichmentStatus);
 
-    public string EnrichmentBadgeBackground => EnrichmentStatus switch
-    {
-        EnrichmentStatus.Enriched => "#ECFDF5",
-        EnrichmentStatus.Failed => "#FEF2F2",
-        _ => "#FFFBEB",
-    };
+    public string EnrichmentBadgeBackground => EnrichmentBadgeStyle.GetBackgroundHex(EnrichmentStatus);
 
-    public string EnrichmentBadgeForeground => EnrichmentStatus switch
-    {
-        EnrichmentStatus.Enriched => "#2E9E6B",
-        EnrichmentStatus.Failed => "#DC2626",
-        _ => "#D97706",
-    };
+    public string EnrichmentBadgeForeground => EnrichmentBadgeStyle.GetForegroundHex(EnrichmentStatus);
 
-    public AppIconGlyph EnrichmentBadgeIcon => EnrichmentStatus switch
-    {
-        EnrichmentStatus.Enriched => AppIconGlyph.CircleCheck,
-        _ => AppIconGlyph.Clock,
-    };
+    public AppIconGlyph EnrichmentBadgeIcon => EnrichmentBadgeStyle.GetIcon(EnrichmentStatus);
+
+    /// <summary>Formatted budget in canonical currency presentation (e.g., "2,500 - 5,500 ر.س").</summary>
+    public string Budget => Details?.Budget is not null ? BudgetFormatter.Format(Details.Budget) : "—";
+
+    /// <summary>Formatted delivery duration in canonical Arabic plural form.</summary>
+    public string Duration => Details?.DeliveryDays is int days ? ArabicRelativeTime.Days(days) : "—";
+
+    /// <summary>Relative publish time computed dynamically from discovered timestamp.</summary>
+    public string PublishTimeText => Details is not null ? ArabicRelativeTime.Since(Details.DiscoveredAt) : "—";
+
+    /// <summary>Formatted proposal count in canonical Arabic plural form.</summary>
+    public string ProposalCountText => Details is not null ? ArabicProposalParser.Format(Details.ProposalCount) : "—";
+
+    /// <summary>Owner name or fallback.</summary>
+    public string OwnerName => !string.IsNullOrWhiteSpace(Details?.Owner?.Name) ? Details.Owner.Name : "—";
+
+    /// <summary>Owner registration date or fallback.</summary>
+    public string OwnerRegisteredAt => !string.IsNullOrWhiteSpace(Details?.Owner?.RegisteredAt) ? Details.Owner.RegisteredAt : "—";
+
+    /// <summary>Formatted owner hiring rate (e.g., "50%", "6.25%" or "لم يحسب بعد").</summary>
+    public string OwnerHiringRateText => Details?.Owner?.HiringRatePercent is double rate
+        ? $"{rate.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}%"
+        : "لم يحسب بعد";
+
+    /// <summary>Owner open projects count or fallback.</summary>
+    public string OwnerOpenProjectsText => Details?.Owner?.OpenProjectsCount is int count ? count.ToString() : "0";
+
+    /// <summary>Owner in-progress projects count or fallback.</summary>
+    public string OwnerInProgressProjectsText => Details?.Owner?.InProgressProjectsCount is int count ? count.ToString() : "0";
+
+    /// <summary>Owner ongoing communications count or fallback.</summary>
+    public string OwnerOngoingCommunicationsText => Details?.Owner?.OngoingCommunicationsCount is int count ? count.ToString() : "0";
+
+    /// <summary>Owner completed projects count or fallback.</summary>
+    public string OwnerCompletedProjectsText => Details?.Owner?.CompletedProjectsCount is int count ? count.ToString() : "0";
 
     public ProjectDetailsViewModel(IProjectRepository projectRepository, AssetDownloadService assetDownloadService, GlobalAppStatusService globalStatus)
     {

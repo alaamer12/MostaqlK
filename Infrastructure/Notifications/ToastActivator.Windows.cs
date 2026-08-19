@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using MostaqlK.Core.Navigation;
 using MostaqlK.Services.Diagnostics;
 
 namespace MostaqlK.Infrastructure.Notifications;
@@ -92,13 +93,13 @@ public static class ToastActivator
                     trayService?.OnOpen();
                 }
 
-                if (args.TryGetValue("projectId", out var projectIdStr) && long.TryParse(projectIdStr, out var projectId))
+                if (args.TryGetValue(AppRoutes.ProjectIdQueryParam, out var projectIdStr) && long.TryParse(projectIdStr, out var projectId))
                 {
-                    await Shell.Current.GoToAsync($"ProjectDetailsPage?projectId={projectId}");
+                    await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(projectId));
                 }
                 else
                 {
-                    await Shell.Current.GoToAsync("//MainWindowPage");
+                    await AppRoutes.NavigateAsync(AppRoutes.Projects);
                 }
             }
             catch (Exception ex)

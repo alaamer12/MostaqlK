@@ -1,3 +1,5 @@
+using MostaqlK.Core.Navigation;
+
 namespace MostaqlK.Features.Projects.Views.Layouts;
 
 public partial class AboutPageWindowsLayout : ContentView
@@ -10,7 +12,7 @@ public partial class AboutPageWindowsLayout : ContentView
 
     private async void OnProjectsNavClicked(object? sender, EventArgs e)
     {
-        await Shell.Current.GoToAsync("//MainWindowPage");
+        await AppRoutes.NavigateAsync(AppRoutes.Projects);
     }
 
     private async void OnAdvancedSearchNavClicked(object? sender, EventArgs e)
@@ -20,12 +22,12 @@ public partial class AboutPageWindowsLayout : ContentView
 
     private async void OnSettingsNavClicked(object? sender, EventArgs e)
     {
-        await Shell.Current.GoToAsync("//SettingsPanel");
+        await AppRoutes.NavigateAsync(AppRoutes.Settings);
     }
 
     private async void OnAboutNavClicked(object? sender, EventArgs e)
     {
-        await Shell.Current.GoToAsync("//AboutPage");
+        await AppRoutes.NavigateAsync(AppRoutes.About);
     }
 
     private async void OnMostaqlLinkTapped(object? sender, TappedEventArgs e)

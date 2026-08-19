@@ -61,6 +61,29 @@
                        Margin="0,0,0,10"
                        FontFamily="Tajawal" />
 
+                <!-- Skill pills (Flex wrap) -->
+                <FlexLayout BindableLayout.ItemsSource="{Binding SkillItems}"
+                            Wrap="Wrap"
+                            Direction="Row"
+                            Margin="0,0,0,8">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SkillTagItem">
+                            <Border StrokeThickness="0"
+                                    BackgroundColor="{AppThemeBinding Light=#EFF6FF, Dark=#132237}"
+                                    Padding="8,3"
+                                    Margin="0,0,6,6">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="6" />
+                                </Border.StrokeShape>
+                                <Label Text="{Binding Name}"
+                                       FontSize="10"
+                                       FontFamily="TajawalBold"
+                                       TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" />
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </FlexLayout>
+
                 <!-- Compact metadata footer: Budget & Unread / PublishTime -->
                 <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,4,0,0">
                     <Label Grid.Column="0"

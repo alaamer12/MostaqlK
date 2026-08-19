@@ -1,15 +1,37 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
-using HtmlAgilityPack;
-using MostaqlK.Infrastructure.Http.Parsers;
+using MostaqlK.Core.Utilities;
 
 namespace MostaqlK.Core.Formatting;
 
 /// <summary>
-/// Parser for Mostaql proposal counts, handling Arabic singular, dual, and plural forms.
+/// Authoritative single ground for parsing and canonical Arabic pluralization of proposal counts.
+/// Handles singular, dual, and plural forms ("عرض واحد", "عرضان", "3-10 عروض", "11+ عرضاً").
 /// </summary>
 public static class ArabicProposalParser
 {
     private static readonly Regex DigitRegex = new(@"\d+", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Formats a proposal count into canonical Arabic wording:
+    /// 0 -> "0 عرض"
+    /// 1 -> "عرض واحد"
+    /// 2 -> "عرضان"
+    /// 3..10 -> "{count} عروض"
+    /// 11+ -> "{count} عرضاً"
+    /// </summary>
+    public static string Format(int count)
+    {
+        var num = count.ToString(CultureInfo.InvariantCulture);
+        return count switch
+        {
+            <= 0 => "0 عرض",
+            1 => "عرض واحد",
+            2 => "عرضان",
+            >= 3 and <= 10 => $"{num} عروض",
+            _ => $"{num} عرضاً",
+        };
+    }
 
     /// <summary>
     /// Parses an Arabic proposal count string into a numeric value and the original text.
@@ -24,12 +46,10 @@ public static class ArabicProposalParser
 
         // 0. Clean input from HTML tags and common surrounding symbols/quotes that might
         // leak from attribute-heavy or redesigned markup.
-        var text = HtmlEntity.DeEntitize(input).Trim();
-        text = Regex.Replace(text, "<.*?>", string.Empty);
-        text = text.Trim('"', '\'', ' ', '\t', '\r', '\n');
+        var text = StringNormalization.CleanHtml(input);
 
-        var normalizedText = StructuralExtractor.NormalizeLabel(text);
-        var asciiText = StructuralExtractor.ToAsciiDigits(normalizedText);
+        var normalizedText = StringNormalization.NormalizeLabel(text);
+        var asciiText = StringNormalization.ToAsciiDigits(normalizedText);
 
         // 1. Check for specific non-numeric markers
         if (normalizedText.Contains("اضف اول عرض"))

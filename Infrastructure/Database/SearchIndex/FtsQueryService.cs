@@ -38,7 +38,9 @@ public sealed class FtsQueryService
             using var connection = _connectionFactory.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = """
-                SELECT p.project_id, p.title, p.url, p.client_name, p.publish_time_number, p.publish_time_text, p.proposal_count,
+                SELECT p.project_id, p.title, p.url, p.client_name,
+                       p.publish_time_number, p.publish_time_text,
+                       p.proposal_count, p.proposal_count_text,
                        p.is_unread, p.enrichment_status, p.discovered_at, p.description, p.budget, p.delivery_days,
                        p.project_status,
                        COALESCE((SELECT group_concat(name, ', ') FROM project_skills s WHERE s.project_id = p.project_id), '')
@@ -62,14 +64,15 @@ public sealed class FtsQueryService
                     PublishTimeNumber = reader.IsDBNull(4) ? 0 : reader.GetInt32(4),
                     PublishTimeText = reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
                     ProposalCount = reader.IsDBNull(6) ? 0 : reader.GetInt32(6),
-                    IsUnread = !reader.IsDBNull(7) && reader.GetInt64(7) != 0,
-                    EnrichmentStatus = Enum.Parse<EnrichmentStatus>(reader.GetString(8)),
-                    DiscoveredAt = DateTimeOffset.Parse(reader.GetString(9)),
-                    Description = reader.IsDBNull(10) ? string.Empty : reader.GetString(10),
-                    Budget = reader.IsDBNull(11) ? null : reader.GetString(11),
-                    DeliveryDays = reader.IsDBNull(12) ? null : reader.GetInt32(12),
-                    ProjectStatus = reader.IsDBNull(13) ? null : reader.GetString(13),
-                    SkillsText = reader.IsDBNull(14) ? string.Empty : reader.GetString(14),
+                    ProposalCountText = reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
+                    IsUnread = !reader.IsDBNull(8) && reader.GetInt64(8) != 0,
+                    EnrichmentStatus = Enum.Parse<EnrichmentStatus>(reader.GetString(9)),
+                    DiscoveredAt = DateTimeOffset.Parse(reader.GetString(10)),
+                    Description = reader.IsDBNull(11) ? string.Empty : reader.GetString(11),
+                    Budget = reader.IsDBNull(12) ? null : reader.GetString(12),
+                    DeliveryDays = reader.IsDBNull(13) ? null : reader.GetInt32(13),
+                    ProjectStatus = reader.IsDBNull(14) ? null : reader.GetString(14),
+                    SkillsText = reader.IsDBNull(15) ? string.Empty : reader.GetString(15),
                 });
             }
 

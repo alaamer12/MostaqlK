@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using HtmlAgilityPack;
+using MostaqlK.Core.Utilities;
 
 namespace MostaqlK.Infrastructure.Http.Parsers;
 
@@ -145,11 +146,7 @@ private static readonly HashSet<string> KnownFileExtensions = new(StringComparer
     private static readonly Regex FilenameExtRegex = new(@"\.([A-Za-z0-9]{2,5})$", RegexOptions.Compiled);
 
     /// <summary>Collapse runs of whitespace to a single space and trim, mirroring Python's normalize().</summary>
-    public static string Normalize(string? s) =>
-        string.IsNullOrEmpty(s) ? string.Empty : Regex.Replace(s, @"\s+", " ").Trim();
-
-    private const string ArabicIndicDigits = "٠١٢٣٤٥٦٧٨٩";
-    private const string ExtendedArabicIndicDigits = "۰۱۲۳۴۵۶۷۸۹";
+    public static string Normalize(string? s) => StringNormalization.Normalize(s);
 
     /// <summary>
     /// Converts Arabic-Indic (٠-٩) and extended/Persian Arabic-Indic (۰-۹) digits to ASCII.
@@ -158,28 +155,7 @@ private static readonly HashSet<string> KnownFileExtensions = new(StringComparer
     /// perfectly valid "١٥ يوما" silently parses as null. The Python prototype only did this
     /// inside its analyzer/inference scoring, never in the value parsers.
     /// </summary>
-    public static string ToAsciiDigits(string? s)
-    {
-        if (string.IsNullOrEmpty(s))
-        {
-            return string.Empty;
-        }
-
-        var sb = new System.Text.StringBuilder(s.Length);
-        foreach (var c in s)
-        {
-            var idx = ArabicIndicDigits.IndexOf(c);
-            if (idx < 0)
-            {
-                idx = ExtendedArabicIndicDigits.IndexOf(c);
-            }
-            sb.Append(idx >= 0 ? (char)('0' + idx) : c);
-        }
-        return sb.ToString();
-    }
-
-    private static readonly Regex ArabicDiacriticsRegex = new(@"[\u064B-\u065F\u0670\u0640]", RegexOptions.Compiled);
-    private static readonly char[] LabelTrimChars = [':', '\uFF1A', '\u061B', ';', '.', '\u060C', ',', '-', '\u2013', '\u2014', ' '];
+    public static string ToAsciiDigits(string? s) => StringNormalization.ToAsciiDigits(s);
 
     /// <summary>
     /// Canonical form used to compare an on-page label against <see cref="KnownLabels"/>.
@@ -189,31 +165,7 @@ private static readonly HashSet<string> KnownFileExtensions = new(StringComparer
     /// both sides makes label matching survive those purely orthographic variations, which is
     /// the single most common way a redesign/CMS change breaks label-driven extraction.
     /// </summary>
-    public static string NormalizeLabel(string? s)
-    {
-        var text = Normalize(s);
-        if (text.Length == 0)
-        {
-            return string.Empty;
-        }
-
-        text = ArabicDiacriticsRegex.Replace(text, string.Empty);
-        var sb = new System.Text.StringBuilder(text.Length);
-        foreach (var c in text)
-        {
-            sb.Append(c switch
-            {
-                'أ' or 'إ' or 'آ' or 'ٱ' => 'ا',
-                'ى' => 'ي',
-                'ة' => 'ه',
-                'ؤ' => 'و',
-                'ئ' => 'ي',
-                _ => c,
-            });
-        }
-
-        return sb.ToString().Trim(LabelTrimChars);
-    }
+    public static string NormalizeLabel(string? s) => StringNormalization.NormalizeLabel(s);
 
     /// <summary>Block-level tags whose boundaries should become a line break when walking a node's text.</summary>
     private static readonly HashSet<string> BlockLevelTags = new(StringComparer.OrdinalIgnoreCase)
@@ -391,7 +343,7 @@ private static readonly HashSet<string> KnownFileExtensions = new(StringComparer
                                 // This is tricky with Arabic, so we'll just take the part that isn't the label.
                                 if (rawText.Contains(label))
                                 {
-                                     var value = rawText.Replace(label, "").Trim(LabelTrimChars);
+                                     var value = rawText.Replace(label, "").Trim(StringNormalization.LabelTrimChars);
                                      if (!string.IsNullOrEmpty(value))
                                      {
                                          results[normalizedLabel] = value;
@@ -566,7 +518,7 @@ private static readonly HashSet<string> KnownFileExtensions = new(StringComparer
             var labelText = GetText(labelEl);
             if (parentText.StartsWith(labelText, StringComparison.Ordinal) && parentText != labelText)
             {
-                var remainder = Normalize(parentText[labelText.Length..].TrimStart(LabelTrimChars));
+                var remainder = Normalize(parentText[labelText.Length..].TrimStart(StringNormalization.LabelTrimChars));
                 if (!string.IsNullOrEmpty(remainder))
                 {
                     return (remainder, "parent_text_minus_label");

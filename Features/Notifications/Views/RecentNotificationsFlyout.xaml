@@ -54,7 +54,7 @@
                            Margin="0,20" FontFamily="Tajawal" />
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="models:ProjectSummary">
+                    <DataTemplate x:DataType="vm:NotificationItemViewModel">
                         <Border Padding="10,8" Margin="6,2" StrokeThickness="0" StrokeShape="RoundRectangle 8"
                                 AutomationId="Notifications_Row">
                             <Border.GestureRecognizers>

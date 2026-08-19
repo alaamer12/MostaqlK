@@ -1,3 +1,4 @@
+using MostaqlK.Core.Navigation;
 using MostaqlK.Features.Projects.ViewModels;
 
 namespace MostaqlK.Features.Projects.Views.Layouts;
@@ -16,6 +17,6 @@ public partial class ProjectDetailsMobileLayout : ContentView
 
     private async void OnBackClicked(object? sender, EventArgs e)
     {
-        await Shell.Current.GoToAsync("//MainWindowPage");
+        await AppRoutes.NavigateAsync(AppRoutes.Projects);
     }
 }

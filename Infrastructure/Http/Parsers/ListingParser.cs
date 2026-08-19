@@ -109,10 +109,10 @@ public static class ListingParser
         var meta = row.SelectSingleNode(".//ul[contains(concat(' ', normalize-space(@class), ' '), ' project__meta ')]");
 
         string clientName = string.Empty;
-        string publishTimeText = string.Empty;
-        int publishTimeNumber = 0;
         int proposalCount = 0;
         string proposalCountText = string.Empty;
+        int publishTimeNumber = 0;
+        string publishTimeText = string.Empty;
         string description = string.Empty;
 
         var briefNode = row.SelectSingleNode(".//p[contains(@class, 'project__brief')]/a") 
@@ -144,26 +144,14 @@ public static class ListingParser
 
                     if (hasProposalIcon || LooksLikeProposalCount(text))
                     {
-                        var (num, txt) = ArabicProposalParser.Parse(text);
+                        var (num, origText) = ArabicProposalParser.Parse(text);
                         proposalCount = num;
-                        proposalCountText = txt;
+                        proposalCountText = origText;
                     }
                     else if (text.Contains("منذ") || text.Contains("ساعة") || text.Contains("يوم") || text.Contains("لحظات"))
                     {
+                        publishTimeNumber = ArabicRelativeTime.ParseRelativeNumber(text);
                         publishTimeText = text;
-                        // Extract number from relative time text (e.g. "منذ 7 دقائق" -> 7)
-                        var numMatch = System.Text.RegularExpressions.Regex.Match(text, @"\d+");
-                        if (numMatch.Success && int.TryParse(numMatch.Value, out var num))
-                        {
-                            publishTimeNumber = num;
-                        }
-                        else if (text.Contains("ساعة")) publishTimeNumber = 1;
-                        else if (text.Contains("ساعتين")) publishTimeNumber = 2;
-                        else if (text.Contains("يوم")) publishTimeNumber = 1;
-                        else if (text.Contains("يومان")) publishTimeNumber = 2;
-                        else if (text.Contains("دقيقة")) publishTimeNumber = 1;
-                        else if (text.Contains("دقيقتان")) publishTimeNumber = 2;
-                        else if (text.Contains("لحظات")) publishTimeNumber = 0;
                     }
                     else if (string.IsNullOrEmpty(clientName))
                     {

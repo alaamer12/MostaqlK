@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MostaqlK.Core.Formatting;
 using MostaqlK.Models;
+using MostaqlK.UI.DesignSystem.Badges;
 using MostaqlK.UI.PlatformComponents;
 
 namespace MostaqlK.Features.Projects.ViewModels;
@@ -95,63 +96,20 @@ public sealed partial class ProjectCardViewModel : ObservableObject
 
     public string ClientName => string.IsNullOrWhiteSpace(Project.ClientName) ? "عميل" : Project.ClientName;
 
-    public string ClientInitials
-    {
-        get
-        {
-            var name = ClientName.Trim();
-            if (name.Length == 0)
-            {
-                return "؟";
-            }
-
-            var parts = name.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
-            // One initial per name part, first + last (projects.html shows "أع" for
-            // "أحمد العتيبي" and "سم" for "سارة المطيري").
-            if (parts.Length > 1)
-            {
-                return string.Concat(FirstLetter(parts[0]), FirstLetter(parts[^1]));
-            }
-
-            return parts[0].Length >= 2 ? parts[0][..2] : parts[0];
-        }
-    }
-
-    /// <summary>
-    /// Initial letter of one name word, skipping the Arabic definite article "ال". Arabic family
-    /// names are overwhelmingly written with it ("العتيبي", "المطيري"), so taking the raw first
-    /// character yielded the article's alef for every one of them — the feed rendered "أا" and
-    /// "سا" where projects.html shows "أع" and "سم" (two adjacent alef strokes read as "ii" in a
-    /// capture). The article is only stripped when a real letter still follows it, so a one-word
-    /// name like "الرياض" keeps producing a letter instead of an empty string.
-    /// </summary>
-    private static string FirstLetter(string part)
-    {
-        const string definiteArticle = "ال";
-
-        return part.Length > definiteArticle.Length && part.StartsWith(definiteArticle, StringComparison.Ordinal)
-            ? part.Substring(definiteArticle.Length, 1)
-            : part[..1];
-    }
+    public string ClientInitials => ArabicNameFormatter.GetInitials(ClientName);
 
     /// <summary>Secondary client line under the name. Summary feed has no country/member-since fields, so keep a compact placeholder that still fills the mockup rhythm.</summary>
     public string ClientMeta => "السعودية  •  عضو منذ 2021";
 
     /// <summary>
-    /// Relative post time shown at the end of the client row ("منذ 3 دقائق" in projects.html).
-    /// The scraped listing string is preferred; rows discovered without one (the listing markup
-    /// omits it for some cards, which used to leave the slot showing a bare placeholder) fall
-    /// back to the same phrase rebuilt from the absolute <c>discovered_at</c> timestamp.
+    /// Relative post time shown at the end of the client row ("منذ 3 دقائق" in projects.html),
+    /// computed dynamically from the absolute <c>discovered_at</c> timestamp.
     /// </summary>
-    public string PublishTimeText => string.IsNullOrWhiteSpace(Project.PublishTimeText)
-        ? ArabicRelativeTime.Since(Project.DiscoveredAt)
-        : Project.PublishTimeText;
+    public string PublishTimeText => ArabicRelativeTime.Since(Project.DiscoveredAt);
 
     public int ProposalCount => Project.ProposalCount;
 
-    public string ProposalCountText => string.IsNullOrWhiteSpace(Project.ProposalCountText)
-        ? $"{ProposalCount} عرض"
-        : Project.ProposalCountText;
+    public string ProposalCountText => ArabicProposalParser.Format(Project.ProposalCount);
 
     /// <summary>Budget in the mockup's presentation form ("2,500 - 5,500 ر.س"), not the raw scraped string.</summary>
     public string Budget => BudgetFormatter.Format(Project.Budget);
@@ -165,7 +123,7 @@ public sealed partial class ProjectCardViewModel : ObservableObject
     /// discovered but not yet enriched show the placeholder until enrichment fills it in.
     /// </summary>
     public string Execution => Project.DeliveryDays is int days
-        ? $"{days} يوما"
+        ? ArabicRelativeTime.Days(days)
         : "—";
 
     public string Skills => Project.SkillsText;
@@ -181,37 +139,14 @@ public sealed partial class ProjectCardViewModel : ObservableObject
 
     public string Description => Project.Description;
 
-    public string EnrichmentBadgeText => Project.EnrichmentStatus switch
-    {
-        EnrichmentStatus.Enriched => "تم الإثراء",
-        EnrichmentStatus.Failed => "فشل الإثراء",
-        _ => "قيد الإثراء",
-    };
+    public string EnrichmentBadgeText => EnrichmentBadgeStyle.GetText(Project.EnrichmentStatus);
 
-    public string EnrichmentBadgeBackground => Project.EnrichmentStatus switch
-    {
-        EnrichmentStatus.Enriched => "#ECFDF5",
-        EnrichmentStatus.Failed => "#FEF2F2",
-        _ => "#FFFBEB",
-    };
+    public string EnrichmentBadgeBackground => EnrichmentBadgeStyle.GetBackgroundHex(Project.EnrichmentStatus);
 
-    public string EnrichmentBadgeForeground => Project.EnrichmentStatus switch
-    {
-        EnrichmentStatus.Enriched => "#2E9E6B",
-        EnrichmentStatus.Failed => "#DC2626",
-        _ => "#D97706",
-    };
+    public string EnrichmentBadgeForeground => EnrichmentBadgeStyle.GetForegroundHex(Project.EnrichmentStatus);
 
-    /// <summary>
-    /// Leading icon inside the enrichment badge. projects.html puts a <c>fa-regular
-    /// fa-circle-check</c> in the "تم الإثراء" badge and a <c>fa-regular fa-clock</c> in the
-    /// "قيد الإثراء" one; the failure badge has no mockup counterpart and reuses the clock.
-    /// </summary>
-    public AppIconGlyph EnrichmentBadgeIcon => Project.EnrichmentStatus switch
-    {
-        EnrichmentStatus.Enriched => AppIconGlyph.CircleCheck,
-        _ => AppIconGlyph.Clock,
-    };
+    /// <summary>Leading icon inside the enrichment badge.</summary>
+    public AppIconGlyph EnrichmentBadgeIcon => EnrichmentBadgeStyle.GetIcon(Project.EnrichmentStatus);
 
     /// <summary>
     /// True while the project's enrichment process is still running (queued or in-flight) —

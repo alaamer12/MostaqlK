@@ -159,6 +159,10 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial string SessionCookieStatusText { get; set; } = string.Empty;
 
+    /// <summary>Bound to the session cookie entry text box in settings layouts.</summary>
+    [ObservableProperty]
+    public partial string SessionCookieInput { get; set; } = string.Empty;
+
     /// <summary>
     /// True while the picked file is being parsed and encrypted. Drives the drop zone's spinner
     /// and disables the command, so the (short but non-instant) DPAPI round-trip is visible
@@ -291,8 +295,57 @@ public sealed partial class SettingsViewModel : ObservableObject
         IsCookieSuccess = false;
         IsCookieError = false;
         CookieFeedbackText = string.Empty;
+        SessionCookieInput = string.Empty;
         ClearValidationError();
         RefreshCookieStatus();
+    }
+
+    /// <summary>
+    /// Saves the raw cookie string entered in the text box.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(IsCookieIdle))]
+    public async Task SaveSessionCookieAsync()
+    {
+        if (string.IsNullOrWhiteSpace(SessionCookieInput))
+        {
+            SetValidationError("يرجى إدخال قيمة الكوكي.");
+            return;
+        }
+
+        try
+        {
+            IsCookieBusy = true;
+            var content = SessionCookieInput.Trim();
+            // If just a raw value or header was entered, format appropriately for saving
+            if (!content.Contains("mostaql_session") && !content.Contains("Cookie:"))
+            {
+                content = $"mostaql_session={content}";
+            }
+
+            var save = _cookieStore.SaveFromFileContentAsync(content);
+            await Task.WhenAll(save, Task.Delay(SpinnerMinimumVisibleMilliseconds));
+            var count = save.Result;
+
+            IsCookieBusy = false;
+
+            if (count is null || count == 0)
+            {
+                IsCookieError = true;
+                SetValidationError("تعذّر قراءة كوكي صالح من النص المدخل.");
+                return;
+            }
+
+            IsCookieSuccess = true;
+            SessionCookieInput = string.Empty;
+            ClearValidationError();
+            RefreshCookieStatus();
+        }
+        catch (Exception)
+        {
+            IsCookieBusy = false;
+            IsCookieError = true;
+            SetValidationError("تعذّر حفظ الكوكي.");
+        }
     }
 
     // -----------------------------------------------------------------
@@ -312,16 +365,52 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial string CloseBehaviorStatusText { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Index corresponding to: 0 = Ask every time, 1 = Minimize to tray, 2 = Exit.
+    /// Bound to the CloseBehavior Picker in settings layouts.
+    /// </summary>
+    [ObservableProperty]
+    public partial int SelectedCloseBehaviorIndex { get; set; }
+
     private void RefreshCloseBehaviorStatus()
     {
         var remembered = _closeBehaviorService.GetRememberedAction();
         RememberCloseBehavior = remembered is not null;
+        SelectedCloseBehaviorIndex = remembered switch
+        {
+            CloseAction.MinimizeToTray => 1,
+            CloseAction.Exit => 2,
+            _ => 0
+        };
         CloseBehaviorStatusText = remembered switch
         {
             CloseAction.Exit => "سيتم إغلاق التطبيق نهائيًا عند الضغط على X دون سؤالك مرة أخرى.",
             CloseAction.MinimizeToTray => "سيستمر التطبيق بالعمل في الخلفية عند الضغط على X دون سؤالك مرة أخرى.",
             _ => "سيُسألك التطبيق عن السلوك المطلوب في كل مرة تضغط فيها على X.",
         };
+    }
+
+    partial void OnSelectedCloseBehaviorIndexChanged(int value)
+    {
+        if (_isLoading)
+        {
+            return;
+        }
+
+        switch (value)
+        {
+            case 1:
+                _closeBehaviorService.RememberAction(CloseAction.MinimizeToTray);
+                break;
+            case 2:
+                _closeBehaviorService.RememberAction(CloseAction.Exit);
+                break;
+            default:
+                _closeBehaviorService.ForgetRememberedAction();
+                break;
+        }
+
+        RefreshCloseBehaviorStatus();
     }
 
     partial void OnRememberCloseBehaviorChanged(bool value)

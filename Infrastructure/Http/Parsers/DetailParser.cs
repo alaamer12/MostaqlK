@@ -24,9 +24,15 @@ public static class DetailParser
         ["مدة التنفيذ"] = "duration",
         ["تاريخ التسجيل"] = "registration_date",
         ["معدل التوظيف"] = "hire_rate",
+        ["نسبة التوظيف"] = "hire_rate",
         ["المشاريع المفتوحة"] = "open_projects_count",
+        ["مشاريع مفتوحة"] = "open_projects_count",
         ["مشاريع قيد التنفيذ"] = "in_progress_count",
+        ["المشاريع قيد التنفيذ"] = "in_progress_count",
         ["مشاريع منجزة"] = "completed_projects_count",
+        ["مشاريع مكتملة"] = "completed_projects_count",
+        ["المشاريع المكتملة"] = "completed_projects_count",
+        ["المشاريع المنجزة"] = "completed_projects_count",
         ["التواصلات الجارية"] = "ongoing_conversations",
         ["بدأ تنفيذه منذ"] = "started_since",
         ["تاريخ الصفقة"] = "deal_date",
@@ -50,7 +56,8 @@ public static class DetailParser
             .GroupBy(kv => kv.Value)
             .ToDictionary(group => group.Key, group => group.Select(kv => kv.Key).ToArray());
 
-    private static readonly HashSet<string> CompletedOnlyFields = ["started_since", "deal_date", "delivery_date"];
+    private static readonly HashSet<string> CompletedOnlyFields =
+        ["started_since", "deal_date", "delivery_date", "completed_projects_count"];
     private const string CompletedStatusText = "مكتمل";
 
     private static readonly HashSet<string> NumericFields =
@@ -90,13 +97,21 @@ public static class DetailParser
         var fields = new Dictionary<string, FieldResolution>();
         var mismatches = new List<FieldMismatch>();
 
-        foreach (var (label, field) in LabelToField)
+        foreach (var (field, labels) in FieldToLabels)
         {
-            // Prefer the structural extraction, but fall back to the label-driven
-            // (identifier-blind) DOM-adjacency heuristic when the meta panel/table selector
-            // itself didn't yield anything for this label.
-            var labelKey = StructuralExtractor.NormalizeLabel(label);
-            var sVal = structural.TryGetValue(labelKey, out var sv) ? sv : labelDriven.GetValueOrDefault(labelKey);
+            // Prefer the structural extraction across known synonym labels, falling back
+            // to the label-driven DOM adjacency heuristic.
+            string? sVal = null;
+            foreach (var label in labels)
+            {
+                var labelKey = StructuralExtractor.NormalizeLabel(label);
+                if (structural.TryGetValue(labelKey, out var sv) || labelDriven.TryGetValue(labelKey, out sv))
+                {
+                    sVal = sv;
+                    break;
+                }
+            }
+
             var sOk = SanityOk(field, sVal);
 
             string? value;
@@ -141,7 +156,7 @@ public static class DetailParser
             fields[field] = new FieldResolution(value, source, confidence);
         }
 
-        // Enforce nullable-by-design completed-only fields.
+        // Enforce nullable-by-design completed-only fields and label-presence validation.
         // (1) If the field's Arabic label text is not literally present anywhere on the page,
         // an inference-sourced value has nothing genuine to latch onto - force null.
         // Compared through NormalizeLabel so an orthographic variant of the label on the page
@@ -151,8 +166,8 @@ public static class DetailParser
         {
             if (fields.TryGetValue(f, out var res) && res.Source == "inference")
             {
-                var label = FieldToLabel.GetValueOrDefault(f) is { } l ? StructuralExtractor.NormalizeLabel(l) : null;
-                if (label is not null && !pageText.Contains(label, StringComparison.Ordinal))
+                var labels = FieldToLabels.GetValueOrDefault(f)?.Select(StructuralExtractor.NormalizeLabel).ToArray() ?? [];
+                if (labels.Length > 0 && !labels.Any(l => pageText.Contains(l, StringComparison.Ordinal)))
                 {
                     fields[f] = new FieldResolution(null, "none", 0.0);
                 }
@@ -189,7 +204,7 @@ public static class DetailParser
         {
             foreach (var f in CompletedOnlyFields)
             {
-                if (fields.TryGetValue(f, out var res))
+                if (f != "completed_projects_count" && fields.TryGetValue(f, out var res))
                 {
                     fields[f] = res with { Value = null };
                 }
@@ -221,8 +236,10 @@ public static class DetailParser
             SizeText = a.SizeText,
         }).ToList();
 
+        var publishedDateText = fields.GetValueOrDefault("published_date")?.Value;
+        var publishTimeNumber = ArabicRelativeTime.ParseRelativeNumber(publishedDateText);
         var proposalText = fields.GetValueOrDefault("proposal_count")?.Value;
-        var (proposalNum, proposalTxt) = ArabicProposalParser.Parse(proposalText);
+        var (proposalNum, originalProposalText) = ArabicProposalParser.Parse(proposalText);
 
         return new ProjectDetails
         {
@@ -233,14 +250,15 @@ public static class DetailParser
             Budget = fields.GetValueOrDefault("budget")?.Value,
             DeliveryDays = ParseLeadingInt(fields.GetValueOrDefault("duration")?.Value),
             ProjectStatus = fields.GetValueOrDefault("project_status")?.Value,
-            PublishTimeText = fields.GetValueOrDefault("published_date")?.Value ?? string.Empty,
-            PublishTimeNumber = ParseLeadingInt(fields.GetValueOrDefault("published_date")?.Value) ?? 0,
+            PublishTimeNumber = publishTimeNumber,
+            PublishTimeText = publishedDateText ?? string.Empty,
             ProposalCount = proposalNum,
-            ProposalCountText = proposalTxt,
+            ProposalCountText = originalProposalText ?? string.Empty,
             Skills = skills,
             Owner = owner,
             Attachments = attachments,
             EnrichmentStatus = EnrichmentStatus.Enriched,
+            DiscoveredAt = DateTimeOffset.UtcNow,
             EnrichedAt = DateTimeOffset.UtcNow,
             FieldProvenance = fields,
             Mismatches = mismatches,
@@ -705,13 +723,11 @@ public static class DetailParser
         new(@"\d+(?:[.,]\d+)?", System.Text.RegularExpressions.RegexOptions.Compiled);
 
     /// <summary>
-    /// Parses a percentage like "36.36%" into a rounded whole-number percent (36). Mostaql's
-    /// hire-rate stat is a real decimal (e.g. "36.36%"), so a naive "keep every digit character"
-    /// approach (the previous implementation) mangles it into 3636 - stripping the decimal point
-    /// instead of interpreting it. Matches the leading numeric run (with an optional decimal
-    /// separator) and rounds it to the nearest integer instead.
+    /// Parses a percentage like "36.36%" or "6.25%" into a floating-point percent value (36.36, 6.25).
+    /// Mostaql's hire-rate stat is a real decimal, so we parse the leading numeric run with its
+    /// optional decimal separator without truncating or rounding away precision.
     /// </summary>
-    private static int? ParsePercent(string? text)
+    private static double? ParsePercent(string? text)
     {
         if (string.IsNullOrEmpty(text))
         {
@@ -726,7 +742,7 @@ public static class DetailParser
 
         var normalized = match.Value.Replace(',', '.');
         return double.TryParse(normalized, System.Globalization.CultureInfo.InvariantCulture, out var value)
-            ? (int)Math.Round(value, MidpointRounding.AwayFromZero)
+            ? value
             : null;
     }
 

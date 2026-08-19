@@ -196,14 +196,11 @@ public sealed class EnrichmentWorker
             Url = details.Url,
             Description = details.Description,
             ClientName = details.Owner?.Name ?? string.Empty,
-            PublishTimeNumber = details.PublishTimeNumber,
-            PublishTimeText = details.PublishTimeText,
             ProposalCount = details.ProposalCount,
-            ProposalCountText = details.ProposalCountText,
             ProjectStatus = details.ProjectStatus,
             Budget = details.Budget,
             DeliveryDays = details.DeliveryDays,
-            DiscoveredAt = DateTimeOffset.UtcNow,
+            DiscoveredAt = details.DiscoveredAt != default ? details.DiscoveredAt : DateTimeOffset.UtcNow,
             // The moment enrichment actually completed (stamped by DetailParser), not this
             // notification's dispatch time - this is what the feed's ORDER BY sorts on, so a
             // project only moves to the top once its enrichment has genuinely finished.

@@ -183,7 +183,7 @@ public sealed class SqliteConnectionFactory
             avatar_url TEXT,
             rating REAL,
             completed_projects_count INTEGER,
-            hiring_rate_percent INTEGER,
+            hiring_rate_percent REAL,
             registered_at TEXT,
             open_projects_count INTEGER,
             in_progress_projects_count INTEGER,

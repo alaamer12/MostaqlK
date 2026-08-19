@@ -127,14 +127,14 @@
                             </HorizontalStackLayout>
                             <platform:AppToggle Grid.Column="1"
                                                 AutomationId="Settings_Mobile_GroupingToggle"
-                                                IsToggled="{Binding NotificationsGroupingEnabled, Mode=TwoWay}"
+                                                IsToggled="{Binding NotificationGroupingEnabled, Mode=TwoWay}"
                                                 VerticalOptions="Center" />
                         </Grid>
                         <Grid ColumnDefinitions="*,120" Padding="0,4,0,0">
                             <Label Text="حد التجميع (عدد المشاريع)" TextColor="{AppThemeBinding Light=#334155, Dark=#E2E8F0}" VerticalOptions="Center" FontSize="12" FontFamily="Tajawal" />
                             <Border Grid.Column="1" Style="{StaticResource SettingsInputBorderStyle}">
                                 <Entry AutomationId="Settings_Mobile_GroupingThresholdEntry"
-                                       Text="{Binding NotificationsGroupingThreshold, Mode=TwoWay}"
+                                       Text="{Binding GroupingThreshold, Mode=TwoWay}"
                                        Keyboard="Numeric"
                                        Style="{StaticResource SettingsInputStyle}" />
                             </Border>

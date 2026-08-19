@@ -1,6 +1,7 @@
 using Windows.UI.Notifications;
 using Windows.Data.Xml.Dom;
 using MostaqlK.Core;
+using MostaqlK.Core.Formatting;
 using MostaqlK.Models;
 using MostaqlK.Services.Diagnostics;
 
@@ -54,9 +55,7 @@ public sealed class WinRtVariation : IToastVariation
     private static XmlDocument BuildIndividualToastXml(ProjectSummary project)
     {
         var originalDescription = project.Description ?? string.Empty;
-        var description = originalDescription.Length > 200 
-            ? originalDescription.Substring(0, 197) + "..." 
-            : originalDescription;
+        var description = TextTruncator.Truncate(originalDescription, 200);
 
         InteractionLogger.Mark("WinRtVariation.BuildIndividualToastXml", "A", new 
         { 

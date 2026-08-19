@@ -19,9 +19,13 @@ public sealed class ProjectDetails
     public int? DeliveryDays { get; set; }
 
     public string? ProjectStatus { get; set; }
+
     public int PublishTimeNumber { get; set; }
+
     public string PublishTimeText { get; set; } = string.Empty;
+
     public int ProposalCount { get; set; }
+
     public string ProposalCountText { get; set; } = string.Empty;
 
     public List<ProjectSkill> Skills { get; set; } = [];
@@ -31,6 +35,8 @@ public sealed class ProjectDetails
     public List<Asset> Attachments { get; set; } = [];
 
     public EnrichmentStatus EnrichmentStatus { get; set; } = EnrichmentStatus.Pending;
+
+    public DateTimeOffset DiscoveredAt { get; set; }
 
     public DateTimeOffset? EnrichedAt { get; set; }
 

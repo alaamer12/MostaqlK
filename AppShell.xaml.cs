@@ -1,3 +1,4 @@
+using MostaqlK.Core.Navigation;
 using MostaqlK.Features.Projects.Views;
 using MostaqlK.Features.Projects.ViewModels;
 
@@ -15,7 +16,7 @@ public partial class AppShell : Shell
 
 		// Detail-only route (not a ShellContent tab): reached via Shell.Current.GoToAsync
 		// from ProjectFeedViewModel.SelectProjectCommand.
-		Routing.RegisterRoute(nameof(ProjectDetailsPage), typeof(ProjectDetailsPage));
+		Routing.RegisterRoute(AppRoutes.ProjectDetailsPageName, typeof(ProjectDetailsPage));
 		Loaded += OnLoaded;
 	}
 
@@ -24,12 +25,14 @@ public partial class AppShell : Shell
 		Loaded -= OnLoaded;
 		var route = _startup.DefaultPage switch
 		{
-			StartupPage.Settings => "//SettingsPanel",
-			StartupPage.About => "//AboutPage",
-			StartupPage.ProjectDetails => $"{nameof(ProjectDetailsPage)}?projectId={_startup.ProjectId?.ToString() ?? string.Empty}",
-			_ => "//MainWindowPage"
+			StartupPage.Settings => AppRoutes.Settings,
+			StartupPage.About => AppRoutes.About,
+			StartupPage.ProjectDetails => _startup.ProjectId.HasValue
+				? AppRoutes.ProjectDetails(_startup.ProjectId.Value)
+				: AppRoutes.ProjectDetails(),
+			_ => AppRoutes.Projects
 		};
-		await GoToAsync(route);
+		await this.GoToAsync(route);
 	}
 }
 

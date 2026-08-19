@@ -1,15 +1,17 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
+using MostaqlK.Core.Utilities;
 
 namespace MostaqlK.Core.Formatting;
 
 /// <summary>
-/// Arabic relative-time and day-count wording used by the project cards ("منذ 3 دقائق", "7 أيام").
-/// The scraper stores the numeric value and formatted string in <c>projects.publish_time_number</c>
-/// and <c>projects.publish_time_text</c>. The <c>PublishedTimeUpdateService</c> periodically
-/// rebuilds these from the absolute discovery timestamp so the feed stays live.
+/// Authoritative single ground for Arabic relative-time and duration formatting and parsing.
+/// Used by project cards, scrapers, and detail views ("منذ 3 دقائق", "7 أيام").
 /// </summary>
 public static class ArabicRelativeTime
 {
+    private static readonly Regex DigitRegex = new(@"\d+", RegexOptions.Compiled);
+
     /// <summary>Formats "time since <paramref name="timestamp"/>" the way projects.html words it.</summary>
     public static string Since(DateTimeOffset timestamp, DateTimeOffset? now = null)
     {
@@ -49,6 +51,69 @@ public static class ArabicRelativeTime
 
     /// <summary>Formats a day count ("20 يوم", "7 أيام") the way the stats row words it.</summary>
     public static string Days(int days) => Count(days, "يوم واحد", "يومان", "أيام", "يوم");
+
+    /// <summary>
+    /// Parses the integer number from an Arabic relative time string (e.g. "منذ 7 دقائق" -> 7,
+    /// "منذ ساعتين" -> 2, "منذ يوم" -> 1, "منذ لحظات" -> 0).
+    /// Handles Arabic-Indic numerals, dual forms ("دقيقتين", "ساعتين", "يومين"), and singular words.
+    /// </summary>
+    public static int ParseRelativeNumber(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return 0;
+        }
+
+        var cleaned = StringNormalization.CleanHtml(text);
+        var ascii = StringNormalization.ToAsciiDigits(cleaned);
+
+        // 1. Check for explicit numbers first (e.g. "منذ 7 دقائق", "منذ ١٥ يوما")
+        var match = DigitRegex.Match(ascii);
+        if (match.Success && int.TryParse(match.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedNumber))
+        {
+            return parsedNumber;
+        }
+
+        var norm = StringNormalization.NormalizeLabel(cleaned);
+
+        // 2. Check for "لحظات" (moments ago -> 0)
+        if (norm.Contains("لحظات"))
+        {
+            return 0;
+        }
+
+        // 3. Check for dual forms ("دقيقتان", "دقيقتين", "ساعتان", "ساعتين", "يومان", "يومين", "شهران", "شهرين", "سنتان", "سنتين", "اسبوعان", "اسبوعين")
+        if (norm.Contains("دقيقتان") || norm.Contains("دقيقتين") ||
+            norm.Contains("ساعتان") || norm.Contains("ساعتين") ||
+            norm.Contains("يومان") || norm.Contains("يومين") ||
+            norm.Contains("شهران") || norm.Contains("شهرين") ||
+            norm.Contains("سنتان") || norm.Contains("سنتين") ||
+            norm.Contains("اسبوعان") || norm.Contains("اسبوعين"))
+        {
+            return 2;
+        }
+
+        // 4. Check for singular forms (1)
+        if (norm.Contains("دقيقه") || norm.Contains("دقيقة") ||
+            norm.Contains("ساعه") || norm.Contains("ساعة") ||
+            norm.Contains("يوم") ||
+            norm.Contains("شهر") ||
+            norm.Contains("سنه") || norm.Contains("سنة") || norm.Contains("عام") ||
+            norm.Contains("اسبوع") || norm.Contains("أسبوع"))
+        {
+            // Verify it is not a plural
+            if (!norm.Contains("دقائق") && !norm.Contains("ساعات") &&
+                !norm.Contains("ايام") && !norm.Contains("أيام") &&
+                !norm.Contains("اشهر") && !norm.Contains("أشهر") && !norm.Contains("شهور") &&
+                !norm.Contains("سنوات") && !norm.Contains("اعوام") && !norm.Contains("أعوام") &&
+                !norm.Contains("اسابيع") && !norm.Contains("أسابيع"))
+            {
+                return 1;
+            }
+        }
+
+        return 0;
+    }
 
     private static string Count(int value, string one, string two, string few, string many)
     {

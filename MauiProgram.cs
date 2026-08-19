@@ -159,7 +159,6 @@ public static class MauiProgram
 		// Global Status
 		builder.Services.AddSingleton<GlobalAppStatusService>();
 		builder.Services.AddSingleton<AppLifecycleService>();
-		builder.Services.AddSingleton<PublishedTimeUpdateService>();
 
 		// Features: Projects
 		builder.Services.AddTransient<ProjectFeedViewModel>();
@@ -194,9 +193,6 @@ public static class MauiProgram
 		// load the stored session, so the first poll cycle is already authenticated rather than
 		// silently anonymous until the user happens to open Settings.
 		_ = app.Services.GetRequiredService<CookieStore>().InitializeAsync();
-
-		// Start background time updates.
-		app.Services.GetRequiredService<PublishedTimeUpdateService>().Start();
 
 #if WINDOWS
 		setWindowsAppRef(app);

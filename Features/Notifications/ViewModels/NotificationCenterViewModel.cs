@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using MostaqlK.Core.Navigation;
 using MostaqlK.Features.Projects.Views;
 using MostaqlK.Models;
 using MostaqlK.Services;
@@ -18,7 +19,7 @@ public sealed partial class NotificationCenterViewModel : ObservableObject, IDis
     private readonly INotificationDispatcher _notificationDispatcher;
     private readonly GlobalAppStatusService _globalStatus;
 
-    public ObservableCollection<ProjectSummary> RecentNotifications { get; } = [];
+    public ObservableCollection<NotificationItemViewModel> RecentNotifications { get; } = [];
 
     public GlobalAppStatusService GlobalStatus => _globalStatus;
 
@@ -47,7 +48,7 @@ public sealed partial class NotificationCenterViewModel : ObservableObject, IDis
         RecentNotifications.Clear();
         foreach (var project in _notificationDispatcher.RecentHistory)
         {
-            RecentNotifications.Add(project);
+            RecentNotifications.Add(new NotificationItemViewModel(project));
         }
     }
 
@@ -71,13 +72,13 @@ public sealed partial class NotificationCenterViewModel : ObservableObject, IDis
     }
 
     [RelayCommand]
-    public async Task OpenProjectAsync(ProjectSummary? project)
+    public async Task OpenProjectAsync(NotificationItemViewModel? item)
     {
-        if (project is null)
+        if (item is null)
         {
             return;
         }
 
-        await Shell.Current.GoToAsync($"{nameof(ProjectDetailsPage)}?projectId={project.ProjectId}");
+        await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(item.ProjectId));
     }
 }

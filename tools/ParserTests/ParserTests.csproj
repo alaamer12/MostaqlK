@@ -19,7 +19,13 @@
 	     in the whole MAUI stack, which would make this harness slow to build and impossible to
 	     run headlessly. Only the files the parser actually needs are linked. -->
 	<ItemGroup>
+		<Compile Include="..\..\Core\Formatting\ArabicNameFormatter.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Formatting\ArabicProposalParser.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Formatting\ArabicRelativeTime.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Formatting\BudgetFormatter.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Formatting\PipelineTelemetryFormatter.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Formatting\TextTruncator.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Utilities\StringNormalization.cs" LinkBase="Core" />
 		<Compile Include="..\..\Infrastructure\Http\Parsers\DetailParser.cs" LinkBase="Parsers" />
 		<Compile Include="..\..\Infrastructure\Http\Parsers\ListingParser.cs" LinkBase="Parsers" />
 		<Compile Include="..\..\Infrastructure\Http\Parsers\StructuralExtractor.cs" LinkBase="Parsers" />

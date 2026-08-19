@@ -1,3 +1,4 @@
+using MostaqlK.Core.Navigation;
 using MostaqlK.Features.Projects.Views;
 using MostaqlK.Features.Settings.Views;
 using MostaqlK.Services.Pipeline;
@@ -124,7 +125,7 @@ public class TrayIconService
         // (subscribed to RestoreRequested); this just makes sure the app navigates back to the
         // projects feed.
         RestoreRequested?.Invoke();
-        MainThread.BeginInvokeOnMainThread(() => Shell.Current?.GoToAsync($"//{nameof(MainWindowPage)}"));
+        _ = AppRoutes.NavigateAsync(AppRoutes.Projects);
     }
 
     /// <summary>Finds the currently displayed <see cref="MainWindowPage"/> instance, if any.</summary>
@@ -156,11 +157,7 @@ public class TrayIconService
         // Open action itself works around via RestoreRequested.
         OnOpen();
 
-        // Every other call site (AppShell, AboutPage, MainWindowPage, ProjectDetailsPage) uses
-        // the absolute "//SettingsPanel" route; this one used the bare, relative route name
-        // instead, which is why nothing happened - a relative GoToAsync depends on the current
-        // page's own route stack, which a tray click (outside any page's context) cannot rely on.
-        MainThread.BeginInvokeOnMainThread(() => Shell.Current?.GoToAsync("//SettingsPanel"));
+        _ = AppRoutes.NavigateAsync(AppRoutes.Settings);
     }
 
     private static void OnQuit()

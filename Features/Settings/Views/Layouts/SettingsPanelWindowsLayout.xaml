@@ -6,12 +6,15 @@
              xmlns:sidebar="clr-namespace:MostaqlK.UI.PlatformComponents.AppSidebar"
              xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem"
              xmlns:services="clr-namespace:MostaqlK.Services"
+             xmlns:converters="clr-namespace:MostaqlK.UI.DesignSystem.Converters"
              x:Class="MostaqlK.Features.Settings.Views.Layouts.SettingsPanelWindowsLayout"
              x:DataType="vm:SettingsViewModel"
              FlowDirection="RightToLeft">
 
     <ContentView.Resources>
         <ResourceDictionary>
+            <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+
             <Style x:Key="SettingsInputBorderStyle" TargetType="Border">
                 <Setter Property="StrokeThickness" Value="1" />
                 <Setter Property="Stroke" Value="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" />
@@ -151,7 +154,7 @@
                                 <Label Text="عدد العمال المتوازيين" TextColor="{AppThemeBinding Light=#334155, Dark=#E2E8F0}" VerticalOptions="Center" FontFamily="Tajawal" />
                                 <Border Grid.Column="1" Style="{StaticResource SettingsInputBorderStyle}">
                                     <Entry AutomationId="Settings_ParallelEnrichmentEntry"
-                                           Text="{Binding MaxParallelEnrichment, Mode=TwoWay}"
+                                           Text="{Binding MaxConcurrentDetailFetches, Mode=TwoWay}"
                                            Keyboard="Numeric"
                                            Style="{StaticResource SettingsInputStyle}" />
                                 </Border>
@@ -221,7 +224,7 @@
                                 <Label Text="تفعيل تجميع التنبيهات" TextColor="{AppThemeBinding Light=#334155, Dark=#E2E8F0}" VerticalOptions="Center" FontFamily="Tajawal" />
                                 <platform:AppToggle Grid.Column="1"
                                                     AutomationId="Settings_GroupingToggle"
-                                                    IsToggled="{Binding NotificationsGroupingEnabled, Mode=TwoWay}"
+                                                    IsToggled="{Binding NotificationGroupingEnabled, Mode=TwoWay}"
                                                     VerticalOptions="Center" />
                             </Grid>
                             <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
@@ -229,7 +232,7 @@
                                 <Label Text="حد التجميع (عدد المشاريع)" TextColor="{AppThemeBinding Light=#334155, Dark=#E2E8F0}" VerticalOptions="Center" FontFamily="Tajawal" />
                                 <Border Grid.Column="1" Style="{StaticResource SettingsInputBorderStyle}">
                                     <Entry AutomationId="Settings_GroupingThresholdEntry"
-                                           Text="{Binding NotificationsGroupingThreshold, Mode=TwoWay}"
+                                           Text="{Binding GroupingThreshold, Mode=TwoWay}"
                                            Keyboard="Numeric"
                                            Style="{StaticResource SettingsInputStyle}" />
                                 </Border>
