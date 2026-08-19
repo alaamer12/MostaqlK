@@ -25,6 +25,10 @@ The outcome is **one coherent architecture** — mobile screens must look like t
 - Adaptive/tablet behaviour (≥600px master-detail).
 - **Accessibility pass** (Android TalkBack / iOS VoiceOver semantics, 48dp touch targets, contrast, dynamic type) and **performance pass** (virtualized feeds, image sizing, startup cost) per current platform guidance.
 - **Platform configuration**: Android manifest (permissions, notification channels, WorkManager), iOS `Info.plist` capabilities/background modes, mobile app icon and splash resources.
+- **Typed mobile navigation ground**: extend the newly introduced `Core/Navigation/AppRoutes.cs` typed-route system (commit `ca01d56`) with a mobile destination set resolved through `PlatformSelect`, so both platforms consume one authoritative route vocabulary.
+- **Single Ground compliance for every mobile surface** per `bugfree.txt` and `docs/single-ground-architecture-blueprint.md`, including closing the still-open mobile parity/perf violations `V-12` (skills row in `ProjectCardMobileLayout`), `V-13` (owner stats in `ProjectDetailsMobileLayout`) and `V-14` (`GetAllDetailsAsync` N+1).
+- **Mobile startup-screen debug flags** — the mobile counterpart of the existing Windows `--default-page=` / `--project-id=` / `--theme=` / `--design-data` startup arguments, so any screen can be launched directly for visual testing.
+- **Automated visual parity harness** — design-mockup screenshots compared against live `Pixel_6_API_29` emulator screenshots with `tools/snip_tool.py` + `tools/image_similarity.py`, iterated until every mobile screen reaches **≥80% similarity**.
 - Integration pass, `UNITS.md` catalog updates, final architectural review.
 
 **Out of Scope**
@@ -40,6 +44,8 @@ The outcome is **one coherent architecture** — mobile screens must look like t
 - As a user, I want to log in through an in-app WebView once and have my session stored in hardware-backed secure storage.
 - As a user, I want new matching projects to be discovered and notified even when the app is backgrounded.
 - As a first-time mobile user, I want the same six-step Arabic onboarding as on desktop, reflowed for a phone, so I can set my personalization query before reaching the tabs.
+- As a developer, I want to launch the Android build directly on any screen (Settings, Search, onboarding, project details) via a debug flag — exactly like the Windows `--default-page=` flag — so I can screenshot it without manually navigating.
+- As a developer, I want a repeatable command that captures the emulator screen, compares it to the corresponding design mockup and prints a similarity score with a regional breakdown, so I can iterate on layout until the screen matches the design.
 
 ### Functional Requirements
 - All four destinations reachable and state-preserving; back behaviour correct on Android hardware back and iOS gestures.
@@ -51,6 +57,10 @@ The outcome is **one coherent architecture** — mobile screens must look like t
 - **No orphan surfaces**: every desktop screen has a reachable mobile counterpart — project details (from a feed card tap), about/diagnostics and the notifications list (from the More tab), and exit/confirmation modals rendered as mobile-appropriate sheets rather than desktop dialogs.
 - Accessibility: every interactive element has a semantic description and a ≥48dp touch target; no information is conveyed by colour alone.
 - On mobile, onboarding is a full-screen page presented before the tab shell (mobile has no multi-window concept); on Windows the existing dedicated onboarding `Window` created in `App.xaml.cs` is untouched.
+- Mobile debug flags accept the **same argument vocabulary** as Windows (`--default-page=`, `--project-id=`, `--theme=`, `--design-data`), delivered through Android intent extras rather than a process command line, and resolve to the **same typed `AppRoute`** — no second startup-argument grammar.
+- Debug-only startup flags are compiled out of Release builds and must never alter shipping startup behaviour.
+- Design mockup screenshots are captured once into `tools/temp/mobile/<screen-name>/` and reused as the parity baseline for every subsequent comparison run.
+- Every mobile screen (`onboarding`, `dashboard`, `projects`, `project-details`, `search`, `more`, `about`) reaches **≥80% overall similarity** against its design baseline before the final review phase closes.
 
 ### Non-Functional Requirements
 - **Zero desktop regression**: `dotnet build MostaqlK.csproj -f net10.0-windows10.0.19041.0 -c Debug` → 0 errors, 0 warnings after every stage.
@@ -58,6 +68,8 @@ The outcome is **one coherent architecture** — mobile screens must look like t
 - Session cookie `mostaql_session` never in plaintext or `Preferences`.
 - Every new reusable unit registered in `UNITS.md`.
 - Every new file justified against the New File Governance checklist before acceptance.
+- **Single Ground**: no mobile surface may invent its own rounding, fallback text, pluralization, truncation limit, relative-time rule, status colour, route string or budget format — each must come from its authoritative ground in `Core/Formatting/`, `Core/Utilities/StringNormalization.cs`, `Core/Navigation/AppRoutes.cs` or `UI/DesignSystem/`.
+- No presentation strings are ever written to SQLite (the `publish_time_text` class of violation must not reappear via mobile code paths).
 
 # Technical Design
 
@@ -78,6 +90,11 @@ Investigation confirms the mobile scaffolding partially exists but is inert:
  Security | `Infrastructure/Security/SecretProtector.{Windows,Android,MaciOS}.cs`, `Infrastructure/Database/SecretRepository.cs` | Existing secure-secret abstraction |
  Data | `Infrastructure/Database/SqliteConnectionFactory.cs`, `SearchIndex/FtsQueryService.cs`, `ProjectRepository.cs` | FTS5 Arabic search already implemented |
 
+**Two recent commits change the baseline and are now folded into this plan:**
+
+- **`ca01d56` — Single Ground refactor + typed navigation.** Introduced `Core/Navigation/AppRoutes.cs`: a branded `AppRoute` record struct, route-name constants (`MainWindowPageName`, `SettingsPanelName`, `AboutPageName`, `ProjectDetailsPageName`), the `projectId` query-param key, typed absolute routes (`MainWindow`/`Projects`, `Settings`, `About`, `Main`), parameterized `ProjectDetails(long|string)` builders, a main-thread-safe `NavigateAsync`, and a `Shell.GoToAsync(AppRoute)` extension. `AppShell.xaml.cs` now registers `AppRoutes.ProjectDetailsPageName` and maps `StartupNavigation.DefaultPage` to typed routes. **The destination set is desktop-shaped** — there are no `Dashboard`/`Search` destinations and no notion of a tab bar. The same commit landed the Single Ground engines (`ArabicNameFormatter`, `TextTruncator`, `PipelineTelemetryFormatter`, `StringNormalization`, `EnrichmentBadgeStyle`, `NotificationItemViewModel`) and deleted `Services/PublishedTimeUpdateService.cs`, plus `bugfree.txt` and `docs/single-ground-architecture-blueprint.md`.
+- **`c13a1c0` — Android platform foundation.** Android manifest/`MainActivity`/`MainApplication` updates, mobile TFM wiring in `MostaqlK.csproj`, `.dotnetignore`, `PressableEffect.Android.cs` / `_PressableEffect.Mobile.cs` touch feedback, `DebouncedEntry`/`SearchInputField` debounced inputs, `PollService` polling adjustments, and `scripts/build.ps1` / `run.ps1` / `watch.ps1` with mobile targets. Mobile now compiles and runs — so every stage below can add a mobile build/run check, not only the Windows gate.
+
 ### Key Decisions
 
 1. **Mobile navigation = Shell `TabBar`, barrel-swapped** *(confirmed with user)*. `AppShell` remains the single host; its content is resolved once via `PlatformSelect.For<Func<ShellItem>>()` → a mobile `TabBar` with 4 `ShellContent` tabs, or the existing Windows route list. `NavigationControl` remains the concept for in-page navigation chrome and is **not** duplicated by a new navigation service.
@@ -87,8 +104,18 @@ Investigation confirms the mobile scaffolding partially exists but is inert:
 5. **Background work is platform-divergent by design.** Android → `WorkManager` periodic + expedited unique work with constraints/backoff. iOS → `BGAppRefreshTask` (light poll) and `BGProcessingTask` (enrichment), scheduled opportunistically. Exposed to shared code through one abstraction resolved by `PlatformCapability`/`PlatformSelect` — never by branching in shared logic.
 6. **Secure session via existing `SecretProtector` family.** WebView cookie extraction feeds `SecretRepository`; no new secret store.
 7. **Design tokens only.** No hard-coded hex outside `DesignTokens.cs` / resource dictionaries.
+8. **Typed navigation stays one ground; only the destination *set* is platform-resolved.** `Core/Navigation/AppRoutes.cs` remains the single authority for the `AppRoute` type, route-name constants, query-param keys and the navigation dispatcher — mobile must **not** get a second route vocabulary or its own `GoToAsync` helper. What genuinely differs is *which* destinations exist and in what order. Therefore:
+   - `AppRoutes.cs` gains the missing shared names/routes needed by mobile (`DashboardPageName`/`Dashboard`, `SearchPageName`/`Search`, `MorePageName` aliasing the settings destination) — additive, so Windows behaviour is untouched.
+   - A new platform concept `Core/Navigation/ShellDestinations.cs` (+ `ShellDestinations.Windows.cs` and `_ShellDestinations.Mobile.cs`) exposes the ordered top-level destination list and the startup-route mapping, resolved via `PlatformSelect.For<…>()`. Windows returns today's flat route list; mobile returns the 4 tab destinations. `AppShell` consumes this instead of hard-coding either shape.
+   - `StartupNavigation.DefaultPage` → route mapping moves behind the same seam so `--default-page=` args and notification deep links resolve correctly per platform.
+9. **Single Ground Principle is a first-class acceptance criterion** (`bugfree.txt`, `docs/single-ground-architecture-blueprint.md`). Every micro-decision a mobile screen appears to need — a fallback string, a truncation length, a plural form, a date phrasing, a status colour, a currency format, a route literal — must be traced to an existing authority before it is written. "Where was this decision made, and how many times?" is asked before any mobile screen is accepted. Mobile is the highest-risk drift surface precisely because it re-implements screens that already exist on Windows.
+
+10. **Mobile startup arguments are a platform concept, not a new grammar.** `StartupNavigation.FromArguments` (`AppShell.xaml.cs:43`) already parses `--default-page=` / `--project-id=`, `ResolveTheme`/`ResolveExplicitTheme` (`AppShell.xaml.cs:71,92`) parse `--theme=`, and `DesignDataSeeder.ParseArguments` parses the seeding flag. Android has no process command line, so a `StartupArguments` platform concept (`StartupArguments.cs` + `.Windows.cs` + `_StartupArguments.Mobile.cs`) supplies the `string[]` those existing parsers consume: Windows returns `Environment.GetCommandLineArgs()`; mobile projects `MainActivity`'s launch-intent extras into the same `--key=value` shape. The direct `Environment.GetCommandLineArgs()` call sites in `App.xaml.cs` (lines 54, 56, 75, 82, 109, 147, 272, 305) route through the concept instead, so parsing, route mapping and theme resolution stay single-ground. Gated by `#if DEBUG` — a build-configuration switch, not a platform directive.
+11. **Visual parity is measured, not asserted.** Design fidelity is verified by scoring emulator captures against mockup baselines with the existing `tools/image_similarity.py` (SSIM + palette + 4×4 regional grid + heatmap), not by eyeballing. Frame normalisation (Chrome chrome, emulator bezel/status bar) and mock-data normalisation (via the existing `--design-data` seeding) are part of the harness so the metric measures layout, not framing artefacts.
 
 ### Proposed Changes
+
+- **Debug launch flags & visual parity**: add the `StartupArguments` platform concept so mobile can be launched on any screen by flag, and stand up the design-baseline / emulator-capture / similarity-scoring loop under `tools/temp/mobile/`.
 
 - **AppShell**: introduce mobile shell content (`AppShell.Mobile.cs` partial or a mobile `TabBar` XAML fragment) selected at construction; register the 4 tab routes plus existing detail routes.
 - **NavigationControl**: fill in the real mobile bottom-nav composition and safe-area handling; keep the desktop path byte-for-byte behaviourally identical.
@@ -99,6 +126,8 @@ Investigation confirms the mobile scaffolding partially exists but is inert:
 - **Onboarding**: convert `Features/Onboarding/Views/OnboardingPage.xaml(.cs)` into a View Barrel host — its current desktop-sized visual tree moves to `Layouts/OnboardingWindowsLayout.xaml`, and a new `Layouts/OnboardingMobileLayout.xaml` gives the phone reflow (single vertical column, illustration capped by `OnboardingStepImage`, sticky bottom action row, thumb-reachable progress dots). The animation choreography hooks (`BeginExitAnimation`/`BeginEnterAnimation`, dot transitions, save spinner→check) move with each layout so `OnboardingViewModel` is unchanged. Startup presentation is resolved through `PlatformSelect` (desktop window vs mobile full-screen page).
 - **Auth**: WebView login flow + cookie extraction into `Infrastructure/Http/CookieJar.cs` + `SecretRepository`.
 - **Background**: platform partials driving `PollService`/`EnrichmentService`; mobile notification sender alongside the Windows toast variations in `Infrastructure/Notifications/`.
+- **Navigation ground**: extend `Core/Navigation/AppRoutes.cs` with the shared mobile destination names and add the `ShellDestinations` platform-resolved destination set; all mobile navigation (tab switches, feed→details, notification taps, onboarding→shell) goes through typed `AppRoute` values, never raw strings.
+- **Single Ground remediation carried into mobile**: `ProjectCardMobileLayout` gets the missing skills flex-wrap row (`V-12`), `ProjectDetailsMobileLayout` gets the mobile owner-stats card and loses the broken `StringFormat='{0} أيام'` in favour of `ArabicRelativeTime.Days` via the ViewModel (`V-13`), and `ProjectRepository.GetAllDetailsAsync` is batched before the mobile feed/search relies on it (`V-14`).
 
 ### Components
 
@@ -112,6 +141,7 @@ Investigation confirms the mobile scaffolding partially exists but is inert:
  `FilterChip` / chip group | Design System | `PressableBorder` |
  Mobile bottom navigation | Platform Concept | `NavigationControl` + Shell `TabBar` |
  Mobile background scheduler | Platform Capability | `PlatformCapability<T>` |
+ `ShellDestinations` (Windows/Mobile) | Platform Concept | `Core/Navigation/AppRoutes.cs`, `PlatformSelect` |
  `OnboardingMobileLayout` | Layout Barrel | existing host `OnboardingPage`, `OnboardingStepImage`, `AppButton`, `AppEntry` |
  Onboarding presentation selector | Platform Concept | `PlatformSelect`, existing `OnboardingStateService` |
  `ProjectDetailsMobileLayout` | Layout Barrel | existing host `ProjectDetailsPage`, `ProjectDetailsViewModel` |
@@ -124,6 +154,15 @@ Investigation confirms the mobile scaffolding partially exists but is inert:
 ```
 AppShell.xaml(.cs)                      # modified: PlatformSelect-resolved shell content
 AppShell.Mobile.cs                      # new: mobile TabBar composition + tab routes
+Core/Navigation/AppRoutes.cs            # modified: additive Dashboard/Search/More route names
+Core/Navigation/ShellDestinations.cs    # new: shared destination-set contract
+Core/Navigation/ShellDestinations.Windows.cs   # new: desktop route list
+Core/Navigation/_ShellDestinations.Mobile.cs   # new: 4-tab destination list
+Core/Platform/StartupArguments.cs         # new: shared startup-argument contract
+Core/Platform/StartupArguments.Windows.cs # new: Environment.GetCommandLineArgs()
+Core/Platform/_StartupArguments.Mobile.cs # new: intent extras -> --key=value (DEBUG only)
+tools/temp/mobile/<screen>/design.png     # new: design baselines (captured once)
+tools/temp/mobile/<screen>/current.png    # new: emulator captures per iteration
 UI/PlatformConcepts/NavigationControl.cs# modified: real mobile bottom nav
 UI/DesignSystem/ScraperPowerButton.cs   # new
 Features/Dashboard/Views/…/Layouts/DashboardMobileLayout.xaml(.cs)   # new
@@ -149,8 +188,10 @@ UNITS.md                                 # updated with every new unit
 
 ```mermaid
 graph TD
-    Shell[AppShell] -->|PlatformSelect| WinRoutes[Windows ShellContent routes]
-    Shell -->|PlatformSelect| TabBar[Mobile TabBar - 4 tabs]
+    Routes[Core/Navigation/AppRoutes - single ground] --> Dest[ShellDestinations]
+    Dest -->|PlatformSelect| Shell[AppShell]
+    Shell --> WinRoutes[Windows ShellContent routes]
+    Shell --> TabBar[Mobile TabBar - 4 tabs]
     TabBar --> Dash[Dashboard host]
     TabBar --> Proj[MainWindowPage host]
     TabBar --> Search[Search host]
@@ -181,6 +222,8 @@ Every delegated task is issued with: Task ID, owner, objective, allowed files, e
 - **Windows regression** from touching barrels/NavigationControl → mitigated by the build gate after every stage.
 - **iOS background scheduling is opportunistic**, not guaranteed → design must degrade gracefully to foreground polling.
 - **WebView cookie APIs differ per platform** → isolated in platform partials, researched against current Android/Apple docs before implementation.
+- **Navigation drift**: a Slave adding a mobile-only route string or a second `GoToAsync` helper would recreate exactly the duplicated-decision failure described in `bugfree.txt` → all routes must resolve through `AppRoutes`/`ShellDestinations`, enforced by a grep for raw `GoToAsync("` string literals.
+- **Re-drift of Single Ground engines**: a mobile layout quietly re-implementing pluralization/relative time/status colour would reintroduce `V-03`–`V-09` on the mobile side → mitigated by the static greps in the Testing tab.
 - **Extracting the desktop onboarding tree into a layout barrel is a high-risk refactor** of a working, animation-heavy page → move the markup verbatim, keep all `x:Name` references and animation hooks intact, and verify the desktop flow end to end before adding the mobile layout.
 
 # Governance
@@ -228,6 +271,7 @@ When Slaves propose different solutions the Master never simply picks the first 
 Before accepting any new abstraction: *"If another feature needs this capability tomorrow, would we want them to use this same abstraction?"* If yes — make it reusable, place it in the correct layer, catalog it. If no — keep it local to the existing component and do not create a global abstraction.
 
 ### Architectural Source of Truth
+Mandatory additions from the last two commits, to be read before any mobile work: `bugfree.txt`, `docs/single-ground-architecture-blueprint.md`, `Core/Navigation/AppRoutes.cs`, `.repertoire/agents/script-violation-scanner.md`, `.repertoire/agents/codebase-deep-swipe-auditor.md`.
 Before any implementation every agent must have read: `docs/mobile-architecture-specification.md` · `.repertoire/design/postmvp/mobile/` · `UNITS.md` · `.repertoire/.steering/base/structure.md` · `.repertoire/.steering/v1/tech/cross-platform-ui-conventions.md` · `data-model-schema.md` · the ViewModels/services relevant to its task · the platform abstraction infrastructure · the existing layout barrels · the existing reusable components. **The repository itself is also a source of truth** — inspect existing implementations before creating any new abstraction.
 
 ### New File Governance — never create a file just because it is convenient
@@ -236,6 +280,27 @@ Every new file is reported with: Path, Architectural category, Reason, Existing 
 Before any file is created these questions must be answered: does an existing class already own this responsibility? should an existing abstraction be extended instead? is it platform-specific / mobile-family / desktop+mobile shared? is it a UI component, a design-system unit, a platform capability, a navigation concern, or a View Barrel? does it fit an existing architectural category? will it be reusable? does it create duplication? does it violate the partial-class conventions? does it need a `UNITS.md` entry?
 
 **Worked example — bottom tabs.** A file named `BottomTabs.cs` is not automatically acceptable. The correct home is the existing navigation abstraction: `NavigationControl` → `PlatformSelect.For(...)` → Windows implementation / Mobile implementation — **not** a parallel set of `BottomTabs.cs`, `MainBottomTabs.cs`, `MobileBottomTabs.cs`, `NavigationTabs.cs` with duplicated responsibilities. New behaviour extends the architecture; it never creates a second architecture.
+
+### Single Ground Principle (from `bugfree.txt` + `docs/single-ground-architecture-blueprint.md`)
+The Golden Rule: *every business decision, linguistic rule, validation constraint, display policy and navigation identifier has exactly one authoritative ground.* Bugs in this codebase come from **duplicated decisions**, not merely duplicated code — a system can be locally correct and globally inconsistent. Moving a duplicated rule into two nicely-named per-platform helpers is **not** a fix; it only hides the duplication until the two copies drift.
+
+Before writing any mobile line that encodes a rule, the owning agent answers: *Is this a business/linguistic/display decision? Must every platform behave identically? Where is the single ground? Can this consumer use that same ground?* If there is no ground yet, the Master establishes one before implementation — never a mobile-local copy. Share **decisions that must be identical**, not implementations that merely look similar (two buttons may legitimately differ; two budget formats may not).
+
+**Authority matrix (mobile work must respect it):**
+
+ Decision type | Authoritative ground |
+---|---|
+ Domain rules, Arabic grammar, initials, truncation, telemetry text | `Core/Domain/`, `Core/Formatting/` (`ArabicRelativeTime`, `ArabicProposalParser`, `ArabicNameFormatter`, `BudgetFormatter`, `TextTruncator`, `PipelineTelemetryFormatter`) |
+ String normalization, diacritics, ASCII digits | `Core/Utilities/StringNormalization.cs` |
+ Navigation routes, query params, dispatch | `Core/Navigation/AppRoutes.cs` (+ platform-resolved `ShellDestinations`) |
+ Raw facts, UTC timestamps, numeric counts | `Infrastructure/` (never presentation strings) |
+ State & presentation transformation | `Features/*/ViewModels` calling `Core/Formatting` |
+ Colours, spacing, typography, status badges | `UI/DesignSystem/DesignTokens.cs`, `UI/DesignSystem/Badges/EnrichmentBadgeStyle.cs` |
+ Platform divergence | `Core/Platform/` (`CurrentPlatform`, `PlatformSelect`, `PlatformCapability`) + `Platforms/` |
+
+**Layer prohibitions:** `Infrastructure/` must not generate/store UI strings, mask missing fields with UI fallbacks (`?? "غير محدد"`), or run background services that rewrite display text into SQLite. `Core/` must not reference `Infrastructure/`. ViewModels must not slice strings, invent pluralization, or hardcode hex/status switches. XAML and code-behind must contain zero business or formatting logic — no inline `StringFormat` with hand-made Arabic grammar.
+
+**Debugging stance:** when a mobile/desktop behaviour differs, the first question is not "where is the bug" but "where was this decision made, and how many times?" — then the architecture is changed so the class of bug becomes hard to reintroduce.
 
 ### Cross-Platform & Abstraction Rules
 - **Forbidden in shared files:** `#if WINDOWS` / `#if ANDROID` / `#if IOS` / `#if MACCATALYST`, except in the canonical compile-time resolution infrastructure (`Core/Platform/CurrentPlatform.cs`, `UI/PlatformComponents/PlatformSelect.cs`).
@@ -303,6 +368,9 @@ Static architectural verification is performed by repository search rather than 
 - grep for `#if WINDOWS|#if ANDROID|#if IOS|#if MACCATALYST` — expected hits **only** in `Core/Platform/CurrentPlatform.cs` and `UI/PlatformComponents/PlatformSelect.cs`.
 - grep for `PointerEntered|PointerExited` in mobile layouts — expected zero.
 - grep for hard-coded hex literals in new mobile XAML — expected zero outside token definitions.
+- grep for raw `GoToAsync("` / `"//` route string literals — expected zero outside `Core/Navigation/`.
+- grep for `StringFormat=` with Arabic literals in mobile XAML, and for ad-hoc `?? "غير محدد"` / `.Substring(` / `$"{...} عرض"` patterns in new mobile code — expected zero (must route through `Core/Formatting`).
+- Confirm no new column or write path persists presentation text into SQLite.
 - Confirm every new reusable type has a corresponding row in `UNITS.md`.
 
 ### Key Scenarios
@@ -311,6 +379,8 @@ Static architectural verification is performed by repository search rather than 
 - Dashboard power toggle drives the existing pipeline state, not a private copy.
 - Projects feed binds `ProjectFeedViewModel`; search binds the existing FTS query path.
 - Session cookie round-trips through `SecretProtector`/`SecretRepository`, and logout deletes it.
+- Every mobile navigation (tab switch, feed→details, notification tap, onboarding completion) resolves through a typed `AppRoute`; Windows startup args (`--default-page=`, `--project-id=`) still map to the same typed routes.
+- The same project renders identical Arabic relative time, proposal pluralization, budget text, owner initials and status badge colour on mobile and Windows — proving one ground, not two.
 - First launch on mobile shows onboarding; completing or skipping stores completion once and lands on the Dashboard tab; second launch goes straight to the tab shell.
 - Windows first launch still opens the dedicated onboarding window with unchanged visuals and animations.
 
@@ -320,22 +390,44 @@ Static architectural verification is performed by repository search rather than 
 - RTL mirroring of chips, swipe directions and card affordances.
 - Background work denied/deferred by the OS — app must fall back cleanly to foreground polling.
 
+### Visual Parity Testing (Phase 8)
+
+A repeatable design-vs-implementation loop, run after integration and before final review.
+
+**One-time baseline capture**
+- Serve the mockups locally (`python -m http.server` from `.repertoire/design/postmvp/mobile/`).
+- Open each page in a Chrome window at the Pixel 6 logical viewport and capture the **full page**.
+- Save baselines to `tools/temp/mobile/<screen-name>/design.png` for `onboarding`, `dashboard`, `projects`, `project-details`, `search`, `more`, `about`.
+
+**Per-screen comparison loop**
+1. Verify the build is deployed and focused on `Pixel_6_API_29` (`adb devices`, `adb shell dumpsys window | findstr mCurrentFocus`).
+2. Relaunch the app on the target screen via the mobile debug flags (`adb shell am start -n <pkg>/…MainActivity -e default-page dashboard -e theme light -e design-data 1`).
+3. Capture the emulator window with `tools/snip_tool.py --title "Pixel_6_API_29" --output tools/temp/mobile/<screen>/current.png`.
+4. Score with `python tools/image_similarity.py tools/temp/mobile/<screen>/design.png tools/temp/mobile/<screen>/current.png --resize-mode pad --regional-score 4 --palette --heatmap-out tools/temp/mobile/<screen>/heat.png`.
+5. Drive fixes from the worst-cell pixel boxes, the palette mismatch report and the heatmap; repeat until `overall_similarity ≥ 0.80`.
+
+**Frame normalisation** — captures include browser chrome and emulator bezel/status bar, which SSIM and the palette metric would otherwise score as real divergence. Both baseline and current captures are cropped to the app content rectangle before comparison — the same concern `crop_titlebar` in `tools/compare_images.py` handles for the desktop title bar, generalised into a reusable crop with per-screen offsets recorded so runs are reproducible.
+
+**Mock-data normalisation** — the mockups contain invented projects and counters. For the comparison window only, the app is launched with the existing `--design-data` seeding path so it renders the same fixture content. Any temporary hard-coded parity values are removed before the phase closes, and the static greps are re-run to prove nothing hard-coded survived.
+
 ### Test Changes
-Extend `MostaqlK.UITests` where the existing harness supports the new surfaces; otherwise verification is by build gate plus the static architectural greps above.
+Extend `MostaqlK.UITests` where the existing harness supports the new surfaces; otherwise verification is by build gate, the static architectural greps above, and the recorded per-screen visual parity scores.
 
 # Delivery Steps
 
-###   Step 1: Phase 0-1: Architectural discovery and mobile navigation shell
-The app launches on Android/iOS into a 4-tab RTL bottom navigation while Windows keeps its existing shell unchanged.
+###   Step 1: Phase 0-1: Typed navigation ground and mobile navigation shell
+The app launches on Android/iOS into a 4-tab RTL bottom navigation driven by typed routes, while Windows keeps its existing shell unchanged.
 
-- Complete Phase 0 discovery: re-read `docs/mobile-architecture-specification.md`, `.repertoire/.steering/v1/tech/cross-platform-ui-conventions.md`, `UNITS.md`, and inspect all four mockups in `.repertoire/design/postmvp/mobile/`.
+- Complete Phase 0 discovery: re-read `docs/mobile-architecture-specification.md`, `.repertoire/.steering/v1/tech/cross-platform-ui-conventions.md`, `UNITS.md`, `bugfree.txt`, `docs/single-ground-architecture-blueprint.md`, `Core/Navigation/AppRoutes.cs`, and inspect all four mockups in `.repertoire/design/postmvp/mobile/`.
+- Extend `Core/Navigation/AppRoutes.cs` additively with the shared mobile destination names/routes (`Dashboard`, `Search`, `More` aliasing the settings destination) — no second route vocabulary, no mobile-only `GoToAsync` helper.
+- Add the `ShellDestinations` platform concept (`ShellDestinations.cs` + `ShellDestinations.Windows.cs` + `_ShellDestinations.Mobile.cs`) exposing the ordered top-level destination list and the `StartupNavigation.DefaultPage` → typed-route mapping, resolved via `PlatformSelect`; make `AppShell` consume it instead of hard-coding either shape.
 - Research current .NET MAUI Shell/TabBar navigation and platform back-navigation behaviour before implementing.
 - Add mobile shell composition (`AppShell.Mobile.cs` + mobile `TabBar` content) with tabs `الرئيسية`, `المشاريع`, `البحث`, `المزيد`; resolve shell content via `PlatformSelect` so `AppShell.xaml`'s Windows route list is untouched.
 - Register the four tab routes alongside existing detail routes in `AppShell.xaml.cs`; do **not** introduce a second navigation service or state manager.
 - Implement the real mobile composition in `UI/PlatformConcepts/NavigationControl.cs` (`CreateBottomTabs`/`BuildBottomNav`) including safe areas, Android navigation bar and iOS status bar insets; leave the desktop side-rail path behaviourally identical.
 - Add adaptive switch to master-detail at ≥600px width.
 - Define and freeze the inter-agent contracts, file-ownership map and shared-file lock list for all later stages.
-- Register the mobile navigation unit in `UNITS.md`; run the Windows build gate.
+- Register the mobile navigation and `ShellDestinations` units in `UNITS.md`; run the Windows build gate plus an Android build via `scripts/build.ps1`.
 
 ###   Step 2: Phase 2: Dashboard screen and its four units
 The Dashboard tab renders a faithful implementation of `dashboard.html` driven by existing pipeline state.
@@ -354,10 +446,12 @@ The Projects tab shows the mobile feed from `projects.html` bound to the existin
 - Inspect `.repertoire/design/postmvp/mobile/projects.html` before writing XAML.
 - Flesh out `Features/Projects/Views/Layouts/MainWindowMobileLayout.xaml` with the header bar (project counter, sort selector) and horizontal filter chips (`الكل`, `جديدة`, `مفتوحة`, `ميزانية عالية`).
 - Implement the reusable filter-chip unit on `PressableBorder` rather than a screen-local control.
-- Flesh out `ProjectCardMobileLayout.xaml` (Card Type 3): keyword highlight, dynamic status pill, flex-wrap skill tags, proposals/budget footer.
+- Flesh out `ProjectCardMobileLayout.xaml` (Card Type 3): keyword highlight, dynamic status pill from `EnrichmentBadgeStyle`, the missing flex-wrap skill-tag row (**closes `V-12`**), and a proposals/budget footer using `ArabicProposalParser` + `BudgetFormatter` — no local pluralization or hex.
+- Batch `ProjectRepository.GetAllDetailsAsync` to remove the per-row skills/assets N+1 (**closes `V-14`**) before the mobile feed and search depend on it.
 - Add swipe actions (Open on Mostaql, Bookmark, Hide) after researching current MAUI gesture/SwipeView behaviour; route them through existing `ProjectCardViewModel` commands.
 - Consume `ProjectFeedViewModel` filtering/sorting — do not duplicate project-state logic or alter the Windows layout.
-- Flesh out the currently inert `ProjectDetailsMobileLayout.xaml` so tapping a feed card opens a full-screen, scrollable details view bound to the existing `ProjectDetailsViewModel` (title, status, budget, skills, description, owner, open-on-Mostaql action) with correct Android back / iOS edge-swipe return.
+- Flesh out the currently inert `ProjectDetailsMobileLayout.xaml` so tapping a feed card opens a full-screen, scrollable details view bound to the existing `ProjectDetailsViewModel` (title, status, budget, skills, description, owner, open-on-Mostaql action) with correct Android back / iOS edge-swipe return; navigate via `AppRoutes.ProjectDetails(id)`, never a raw string.
+- Add the mobile-adapted owner statistics card and remove any broken `StringFormat='{0} أيام'` in favour of the ViewModel's `ArabicRelativeTime.Days` output (**closes `V-13`**).
 - Update `UNITS.md`; run the Windows build gate.
 
 ###   Step 4: Phase 4-5: Search screen and More/Settings screen
@@ -402,7 +496,28 @@ Scraping continues under OS rules when the app is backgrounded, and new matches 
 - Add a mobile notification variation alongside the existing Windows toast variations in `Infrastructure/Notifications/`, reusing `NotificationUrlLauncher` for tap routing.
 - Ensure graceful degradation to foreground polling when the OS defers or denies background work. Update `UNITS.md`; run the Windows build gate.
 
-###   Step 7: Phase 8-9: Integration pass and final architectural review
+###   Step 7: Phase 8: Mobile debug launch flags and the visual parity harness
+Every mobile screen can be launched directly by flag, captured on `Pixel_6_API_29`, and scored ≥80% similar to its design mockup.
+
+**Debug launch flags (mobile counterpart of the Windows startup arguments)**
+- Add the `StartupArguments` platform concept (`Core/Platform/StartupArguments.cs`, `.Windows.cs`, `_StartupArguments.Mobile.cs`) resolved via `PlatformSelect`: Windows returns `Environment.GetCommandLineArgs()`; mobile maps `MainActivity`'s launch-intent extras into the same `--key=value` array.
+- Replace the direct `Environment.GetCommandLineArgs()` calls in `App.xaml.cs` with the concept so `StartupNavigation.FromArguments`, `ResolveTheme`/`ResolveExplicitTheme` and `DesignDataSeeder.ParseArguments` are reused verbatim — no second argument grammar and no mobile-only parser.
+- Extend the existing `--default-page=` vocabulary additively with the mobile destinations (`dashboard`, `search`, `more`, `about`, `onboarding`), mapping to the typed `AppRoutes` / `ShellDestinations` entries from Step 1.
+- Guard the mobile extras path with `#if DEBUG` so the flags are absent from Release builds; register the concept in `UNITS.md`.
+
+**One-time design baseline capture**
+- Serve `.repertoire/design/postmvp/mobile/` with `python -m http.server`, open each page in Chrome at the Pixel 6 logical viewport, and capture full-page screenshots.
+- Save them as `tools/temp/mobile/<screen-name>/design.png` for `onboarding`, `dashboard`, `projects`, `project-details`, `search`, `more`, `about`.
+
+**Capture, compare and refine loop**
+- Confirm the Android build is deployed and focused on `Pixel_6_API_29` via `adb devices` and `adb shell dumpsys window`.
+- Launch each screen with `adb shell am start ... -e default-page <screen> -e theme light -e design-data 1`, then capture the emulator window with `tools/snip_tool.py`.
+- Normalise frames before scoring: crop both baseline and capture to the app content rectangle (removing Chrome chrome and emulator bezel/status bar), generalising `tools/compare_images.py`'s `crop_titlebar` into a reusable crop with per-screen offsets recorded for reproducibility.
+- Score with `python tools/image_similarity.py <design> <current> --resize-mode pad --regional-score 4 --palette --heatmap-out ...` and drive targeted fixes from the worst-cell boxes, palette mismatch report and heatmap.
+- Use the existing `--design-data` seeding so mockup mock content is matched by real fixture data; remove any temporary hard-coded parity values at the end of the phase and re-run the static greps to prove it.
+- Iterate per screen until `overall_similarity ≥ 0.80`; record the final score per screen and hand the results to the review step.
+
+###   Step 8: Phase 8-9: Integration pass and final architectural review
 All independently built pieces are glued into one coherent, reachable, regression-free application.
 
 - Integration pass: connect all pages, navigation routes, ViewModels, commands, services, resource dictionaries and DI registrations in `MauiProgram.cs`; verify every layout barrel and platform-selection wiring actually resolves.
@@ -413,4 +528,5 @@ All independently built pieces are glued into one coherent, reachable, regressio
 - Performance pass against current .NET MAUI guidance: virtualized collections in the feed and search results, image sizing, and startup cost of the onboarding/shell resolution.
 - Master review of the full diff across architecture, naming, abstraction, platform separation, view barrels, bindings, RTL, design fidelity, platform APIs, security, async/lifecycle, accessibility and performance.
 - Reconcile `UNITS.md` so every introduced reusable unit is cataloged under the correct category.
+- Confirm every screen's recorded visual parity score from Step 7 is ≥ 0.80, and that no temporary hard-coded parity values remain in the codebase.
 - Final build gates: Windows `net10.0-windows10.0.19041.0` at 0 errors / 0 warnings, plus mobile target compilation; only then declare the mobile edition complete.
