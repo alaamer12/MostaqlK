@@ -43,6 +43,7 @@ internal sealed class DefaultFileRevealService : IFileRevealService
 /// Windows implementation: opens Explorer with the file selected via <c>explorer.exe /select</c>.
 /// Behavior is byte-identical to the former inline call in <c>AttachmentItemViewModel.RevealAsync</c>.
 /// </summary>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 internal sealed class WindowsFileRevealService : IFileRevealService
 {
     public Task RevealAsync(string localPath)

@@ -68,7 +68,7 @@
 
 		<!-- Images -->
 		<MauiImage Include="Resources\Images\**\*.png;Resources\Images\**\*.jpg;Resources\Images\**\*.jpeg;Resources\Images\**\*.svg" Exclude="Resources\Images\logo.png" />
-		<None Include="Resources\Images\logo.png">
+		<None Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'" Include="Resources\Images\logo.png">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
 		<MauiImage Update="Resources\Images\dotnet_bot.png" Resize="True" BaseSize="300,185" />

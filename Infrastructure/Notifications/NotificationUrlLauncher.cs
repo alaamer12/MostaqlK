@@ -34,8 +34,13 @@ public static class NotificationUrlLauncher
 
         try
         {
+#if WINDOWS || MACCATALYST
             Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
             InteractionLogger.Mark($"{checkpoint}.OpenUrl", "C", new { Reason = "process-started", Url = url });
+#else
+            _ = Microsoft.Maui.ApplicationModel.Launcher.Default.OpenAsync(uri);
+            InteractionLogger.Mark($"{checkpoint}.OpenUrl", "C", new { Reason = "launcher-opened", Url = url });
+#endif
         }
         catch (Exception ex)
         {
