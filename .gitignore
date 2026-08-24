@@ -13,6 +13,7 @@ cookies.txt
 [Dd]ebug/
 [Dd]ebugTrae
 [Rr]elease/
+release_artifacts/
 x64/
 x86/
 ARM/

@@ -7,11 +7,17 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  build-windows:
+  build-and-release-windows:
+    name: Build & Release Windows (Portable)
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
@@ -24,17 +30,36 @@ jobs:
       - name: Build Windows
         run: pwsh ./scripts/build.ps1 -Platform Windows
         
-      - name: Release Windows (Directory)
-        run: pwsh ./scripts/deploy.ps1 -Platform Windows -Type Directory
-        
-      - name: Release Windows (Portable)
-        run: pwsh ./scripts/deploy.ps1 -Platform Windows -Type Portable
+      - name: Run GitHub Release Automation
+        id: release_step
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ./scripts/github-release.ps1 -Arch x64
+
+      - name: Publish GitHub Release
+        if: github.event_name != 'pull_request' && steps.release_step.outputs.should_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_step.outputs.tag }}
+          name: ${{ steps.release_step.outputs.release_title }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            ${{ steps.release_step.outputs.artifact_exe }}
+            ${{ steps.release_step.outputs.artifact_zip }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
       - name: Upload Windows Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: MostaqlK-Windows
-          path: bin/Release/net10.0-windows10.0.19041.0/**/publish/
+          path: |
+            release_artifacts/*
+            bin/Release/net10.0-windows10.0.19041.0/**/publish/
 
   build-android:
     runs-on: windows-latest
