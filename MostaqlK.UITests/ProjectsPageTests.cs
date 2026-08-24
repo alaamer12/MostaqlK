@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using MostaqlK.Core.Platform;
 using MostaqlK.UITests.Utils;
 using OpenQA.Selenium.Appium.Windows;
 using System;
@@ -18,11 +19,7 @@ namespace MostaqlK.UITests;
 [TestFixture]
 public class ProjectsPageTests
 {
-    // Same on-disk location MostaqlK.csproj's SqliteConnectionFactory/InteractionLogger resolve via
-    // FileSystem.AppDataDirectory for this unpackaged app id (confirmed by inspecting the running app).
-    private static readonly string InteractionLogPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "User Name", "com.companyname.mostaqlk", "Data", "interaction-log.txt");
+    private static readonly string InteractionLogPath = AppPaths.LogFilePath;
 
     private static WindowsDriver<WindowsElement> Driver => AppiumSetup.Driver!;
 

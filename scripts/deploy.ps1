@@ -5,13 +5,17 @@ param (
     [string]$Platform = "Windows",
 
     [Parameter(Mandatory=$false)]
+    [ValidateSet("x64", "arm64", "x86")]
+    [string]$Arch = "x64",
+
+    [Parameter(Mandatory=$false)]
     [ValidateSet("Portable", "Directory")]
     [string]$Type = "Directory"
 )
 
 switch ($Platform) {
     "Windows" {
-        & "$PSScriptRoot\release-windows.ps1" -Type $Type
+        & "$PSScriptRoot\release-windows.ps1" -Type $Type -Arch $Arch
     }
     "macOS" {
         & "$PSScriptRoot\release-macos.ps1"

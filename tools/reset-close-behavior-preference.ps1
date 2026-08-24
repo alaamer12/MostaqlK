@@ -1,5 +1,5 @@
 param(
-    [string]$PreferencesPath = (Join-Path $env:LOCALAPPDATA 'User Name\com.companyname.mostaqlk\Settings\preferences.dat'),
+    [string]$PreferencesPath = (Join-Path $env:LOCALAPPDATA 'MostaqlK\Settings\preferences.dat'),
     [switch]$ConfirmReset
 )
 

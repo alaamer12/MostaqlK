@@ -30,7 +30,7 @@
 		<ApplicationTitle>MostaqlK</ApplicationTitle>
 
 		<!-- App Identifier -->
-		<ApplicationId>com.companyname.mostaqlk</ApplicationId>
+		<ApplicationId>com.mostaqlk</ApplicationId>
 
 		<!-- Versions -->
 		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
@@ -46,6 +46,14 @@
 		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
 		<EnableDefaultWinUICustomMain Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">false</EnableDefaultWinUICustomMain>
 		<DefineConstants Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+	</PropertyGroup>
+
+	<!-- Windows App SDK single-file EXE validation requires extra flags for unpackaged apps. -->
+	<PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows' AND '$(PublishSingleFile)' == 'true'">
+		<IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+		<EnableMsixTooling>true</EnableMsixTooling>
+		<WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+		<WindowsAppSdkUndockedRegFreeWinRTInitialize>true</WindowsAppSdkUndockedRegFreeWinRTInitialize>
 	</PropertyGroup>
 
 

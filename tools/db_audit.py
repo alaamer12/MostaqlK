@@ -6,7 +6,9 @@ import sys
 if sys.stdout.encoding != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
 
-db_path = r"C:\Users\amrmu\AppData\Local\User Name\com.companyname.mostaqlk\Data\mostaqlk.db"
+# Standard cross-platform path resolution for MostaqlK database
+local_app_data = os.environ.get("LOCALAPPDATA", os.path.expanduser(r"~\AppData\Local"))
+db_path = os.path.join(local_app_data, "MostaqlK", "Data", "mostaqlk.db")
 
 if not os.path.exists(db_path):
     print(f"Error: Database not found at {db_path}")

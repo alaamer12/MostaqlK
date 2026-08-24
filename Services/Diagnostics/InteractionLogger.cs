@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using MostaqlK.Core.Platform;
 
 namespace MostaqlK.Services.Diagnostics;
 
@@ -13,7 +14,7 @@ namespace MostaqlK.Services.Diagnostics;
 public static class InteractionLogger
 {
     private static readonly object Gate = new();
-    private static readonly Lazy<string> LogFilePath = new(ResolveLogFilePath);
+    private static readonly Lazy<string> LogFilePath = new(() => AppPaths.LogFilePath);
 
     /// <summary>
     /// Bracket-style A/B marker. Call with the same <paramref name="checkpoint"/> and a different
@@ -124,14 +125,6 @@ public static class InteractionLogger
 
     private static string ResolveLogFilePath()
     {
-        // Cross-platform MAUI AppData directory — same folder SqliteConnectionFactory and the
-        // UITests suite already resolve for this unpackaged app id
-        // (%LocalAppData%\User Name\com.companyname.mostaqlk\Data\ on Windows). Using the MAUI
-        // API (instead of Environment.SpecialFolder + a hard-coded "MostaqlK" segment) keeps the
-        // path correct on every target framework and matches ProjectsPageTests /
-        // ProjectDetailsPageTests' InteractionLogPath, so the test suite can still find the log.
-        var directory = Microsoft.Maui.Storage.FileSystem.AppDataDirectory;
-        Directory.CreateDirectory(directory);
-        return Path.Combine(directory, "interaction-log.txt");
+        return AppPaths.LogFilePath;
     }
 }

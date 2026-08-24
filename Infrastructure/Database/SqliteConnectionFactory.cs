@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using MostaqlK.Core.Platform;
 
 namespace MostaqlK.Infrastructure.Database;
 
@@ -21,7 +22,7 @@ public sealed class SqliteConnectionFactory
     private bool _schemaVerified;
 
     public SqliteConnectionFactory()
-        : this(Path.Combine(FileSystem.AppDataDirectory, "mostaqlk.db"))
+        : this(AppPaths.DatabasePath)
     {
     }
 

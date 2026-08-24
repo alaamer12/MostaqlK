@@ -1,5 +1,5 @@
 param(
-    [string]$DatabasePath = (Join-Path $env:LOCALAPPDATA 'User Name\com.companyname.mostaqlk\Data\mostaqlk.db'),
+    [string]$DatabasePath = (Join-Path $env:LOCALAPPDATA 'MostaqlK\Data\mostaqlk.db'),
     [switch]$ConfirmReset
 )
 

@@ -55,6 +55,7 @@ public static class MauiProgram
 
 	public static MauiApp CreateMauiApp()
 	{
+		AppPaths.Initialize();
 		RegisterGlobalExceptionLogging();
 #if WINDOWS
 		MostaqlK.Platforms.Windows.PlatformServiceRegistration.HideCollectionViewScrollBars();

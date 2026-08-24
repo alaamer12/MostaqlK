@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using NUnit.Framework;
+using MostaqlK.Core.Platform;
 using MostaqlK.UITests.Utils;
 using OpenQA.Selenium.Appium.Windows;
 using System;
@@ -18,12 +19,7 @@ namespace MostaqlK.UITests;
 [TestFixture]
 public class DataSyncTests
 {
-    // Same on-disk location MostaqlK.csproj's SqliteConnectionFactory resolves via
-    // FileSystem.AppDataDirectory for this unpackaged app id (confirmed against
-    // ProjectsPageTests' identical resolution for interaction-log.txt in the same folder).
-    private static readonly string DbPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "User Name", "com.companyname.mostaqlk", "Data", "mostaqlk.db");
+    private static readonly string DbPath = AppPaths.DatabasePath;
 
     private static WindowsDriver<WindowsElement> Driver => AppiumSetup.Driver!;
 

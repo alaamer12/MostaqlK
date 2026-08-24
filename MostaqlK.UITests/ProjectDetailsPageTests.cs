@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using MostaqlK.Core.Platform;
 using MostaqlK.UITests.Utils;
 using OpenQA.Selenium.Appium.Windows;
 using System;
@@ -18,9 +19,7 @@ namespace MostaqlK.UITests;
 [TestFixture]
 public class ProjectDetailsPageTests
 {
-    private static readonly string InteractionLogPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "User Name", "com.companyname.mostaqlk", "Data", "interaction-log.txt");
+    private static readonly string InteractionLogPath = AppPaths.LogFilePath;
 
     private static WindowsDriver<WindowsElement> Driver => AppiumSetup.Driver!;
 

@@ -166,6 +166,7 @@ internal static class PlatformServiceRegistration
             events.AddWindows(windows => windows
                 .OnWindowCreated(window =>
                 {
+                    NativeSplashScreen.Hide();
                     // MAUI extends app content into the WinUI3 title bar by default, which makes
                     // Windows draw its own custom caption buttons (close/maximize/minimize) using
                     // the "Segoe Fluent Icons" font. That font ships built-in only on Windows 11 -
@@ -210,7 +211,11 @@ internal static class PlatformServiceRegistration
                     // OnWindowCreated fires (e.g. when the platform view finishes loading), so a
                     // single assignment here can get silently overwritten. Re-assert once the
                     // window is actually activated to make sure the native chrome sticks.
-                    window.Activated += (_, _) => RestoreNativeTitleBar(window);
+                    window.Activated += (_, _) =>
+                    {
+                        NativeSplashScreen.Hide();
+                        RestoreNativeTitleBar(window);
+                    };
                     // Keep the title bar colors in sync whenever the user switches the app's
                     // light/dark theme at runtime (e.g. via the Settings page's dark-mode toggle).
                     if (Microsoft.Maui.Controls.Application.Current is { } themedApp)

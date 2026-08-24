@@ -1,4 +1,5 @@
 using MostaqlK.Core;
+using MostaqlK.Core.Platform;
 using MostaqlK.Models;
 using MostaqlK.Services.Diagnostics;
 
@@ -140,7 +141,7 @@ public sealed class AssetDownloadService
                 $"file — likely an expired/invalid session). Manual link: {targetUrl}");
         }
 
-        var destDir = Path.Combine(FileSystem.CacheDirectory, "attachments");
+        var destDir = AppPaths.AttachmentsDirectory;
         Directory.CreateDirectory(destDir);
         var localPath = Path.Combine(destDir, asset.FileName);
         await File.WriteAllBytesAsync(localPath, data, cancellationToken);
