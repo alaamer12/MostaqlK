@@ -58,8 +58,9 @@ jobs:
         with:
           name: MostaqlK-Windows
           path: |
-            release_artifacts/*
             bin/Release/net10.0-windows10.0.19041.0/**/publish/
+            release_artifacts/*
+          if-no-files-found: ignore
 
   build-android:
     runs-on: windows-latest
@@ -85,6 +86,7 @@ jobs:
         with:
           name: MostaqlK-Android
           path: bin/Release/net10.0-android/**/publish/
+          if-no-files-found: ignore
 
   build-macos:
     runs-on: macos-latest
@@ -110,6 +112,7 @@ jobs:
         with:
           name: MostaqlK-macOS
           path: bin/Release/net10.0-maccatalyst/**/publish/
+          if-no-files-found: ignore
 
   build-ios:
     runs-on: macos-latest
@@ -135,3 +138,4 @@ jobs:
         with:
           name: MostaqlK-iOS
           path: bin/Release/net10.0-ios/**/publish/
+          if-no-files-found: ignore

@@ -24,7 +24,7 @@ if (Test-Path $toolsDir) {
 }
 
 # Note: macOS publish requires a Mac
-dotnet publish $projectName.csproj -f $target -c Release
+dotnet publish $projectName.csproj -f $target -c Release -p:TargetFrameworks=$target
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "macOS Release successful!" -ForegroundColor Green

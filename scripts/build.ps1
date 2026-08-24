@@ -12,18 +12,18 @@ param (
 switch ($Platform) {
     "Windows" {
         Write-Host "Building MostaqlK for Windows ($Configuration)..." -ForegroundColor Cyan
-        dotnet build MostaqlK.csproj -f net10.0-windows10.0.19041.0 -c $Configuration
+        dotnet build MostaqlK.csproj -f net10.0-windows10.0.19041.0 -c $Configuration -p:TargetFrameworks=net10.0-windows10.0.19041.0
     }
     "macOS" {
-        & "$PSScriptRoot\build-macos.ps1"
+        & "$PSScriptRoot\build-macos.ps1" -Configuration $Configuration
     }
     "Android" {
         Write-Host "Building MostaqlK for Android ($Configuration)..." -ForegroundColor Cyan
-        dotnet build MostaqlK.csproj -f net10.0-android -c $Configuration
+        dotnet build MostaqlK.csproj -f net10.0-android -c $Configuration -p:TargetFrameworks=net10.0-android
     }
     "iOS" {
         Write-Host "Building MostaqlK for iOS ($Configuration)..." -ForegroundColor Cyan
-        dotnet build MostaqlK.csproj -f net10.0-ios -c $Configuration
+        dotnet build MostaqlK.csproj -f net10.0-ios -c $Configuration -p:TargetFrameworks=net10.0-ios
     }
     "Linux" {
         & "$PSScriptRoot\build-linux.ps1"
