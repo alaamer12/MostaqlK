@@ -43,6 +43,7 @@ public sealed class OnboardingStateService
         Preferences.Set(QueryPreferenceKey, normalizedQuery);
         _pollService.QueryParams = normalizedQuery;
         Preferences.Set(CompletionPreferenceKey, true);
+        Preferences.Set("settings_is_polling_active", true);
         Completed?.Invoke(this, EventArgs.Empty);
         return true;
     }

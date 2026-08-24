@@ -175,6 +175,120 @@ internal static class PlatformServiceRegistration
                     // restores the fully native, OS-drawn title bar and caption buttons, themed to
                     // match the app's current light/dark mode.
                     RestoreNativeTitleBar(window);
+
+                    // MAUI's own Window handler re-applies ExtendsContentIntoTitleBar after
+                    // OnWindowCreated fires (e.g. when the platform view finishes loading), so a
+                    // single assignment here can get silently overwritten. Re-assert once the
+                    // window is actually activated to make sure the native chrome sticks.
+                    window.Activated += (_, _) =>
+                    {
+                        NativeSplashScreen.Hide();
+                        RestoreNativeTitleBar(window);
+                    };
+                    // Keep the title bar colors in sync whenever the user switches the app's
+                    // light/dark theme at runtime (e.g. via the Settings page's dark-mode toggle).
+                    if (Microsoft.Maui.Controls.Application.Current is { } themedApp)
+                    {
+                        themedApp.RequestedThemeChanged += (_, _) => ApplyTitleBarTheme(window);
+                    }
+
+                    void SetupMainDesktopServices()
+                    {
+                        if (appRef is null || nativeHost is not null)
+                        {
+                            return;
+                        }
+
+                        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+                        // Resolved via PlatformCapability.WindowsOnly — null on non-Windows heads.
+                        // On the Windows TFM this is always non-null; still null-check so the capability
+                        // contract stays honest if a future path resolves without the tray.
+                        var trayIconService = appRef.Services.GetService<TrayIconService>();
+                        if (trayIconService is null)
+                        {
+                            return;
+                        }
+
+                        var appLifecycleService = appRef.Services.GetRequiredService<AppLifecycleService>();
+                        nativeHost = new TrayIconNativeHost(trayIconService, hwnd);
+
+                        var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
+                        var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
+                        var closeBehaviorService = appRef.Services.GetRequiredService<CloseBehaviorService>();
+
+                        // Bring the window back from the tray when "Open" runs (sidebar/tray menu/tray
+                        // icon click), in case a previous X-button click hid it via MinimizeToTray below.
+                        trayIconService.RestoreRequested += () =>
+                            Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(() =>
+                            {
+                                appWindow.Show();
+                                window.Activate();
+                                appLifecycleService.IsInBackground = false;
+                            });
+
+                        // Avast-style "keep running in background": the X button no longer closes the
+                        // process outright. AppWindow.Closing (unlike WinUI's plain Window.Closed) is
+                        // cancelable, so every click is intercepted here first.
+                        appWindow.Closing += async (sender, closingArgs) =>
+                        {
+                            if (isExitConfirmed)
+                            {
+                                // The user already chose "force closing" (directly, or via the
+                                // remembered decision below) - let this and any further click close
+                                // for real; nothing left to ask.
+                                return;
+                            }
+
+                            // Idempotent guard: a second click while the ContentDialog await below is
+                            // still pending must not stack a second dialog on top of the first.
+                            closingArgs.Cancel = true;
+                            if (isClosePromptShowing)
+                            {
+                                return;
+                            }
+
+                            var rememberedAction = closeBehaviorService.GetRememberedAction();
+                            CloseAction action;
+                            if (rememberedAction is { } remembered)
+                            {
+                                // "the click should be idempotent": once remembered, every subsequent
+                                // X-button click silently repeats the same action, no dialog shown.
+                                action = remembered;
+                            }
+                            else
+                            {
+                                isClosePromptShowing = true;
+                                try
+                                {
+                                    var (chosenAction, remember) = await ExitConfirmationBox.ShowAsync(window);
+                                    action = chosenAction;
+                                    if (remember)
+                                    {
+                                        closeBehaviorService.RememberAction(action);
+                                    }
+                                }
+                                finally
+                                {
+                                    isClosePromptShowing = false;
+                                }
+                            }
+
+                            if (action == CloseAction.Exit)
+                            {
+                                isExitConfirmed = true;
+                                appWindow.Destroy();
+                            }
+                            else
+                            {
+                                // Hide, not minimize: no taskbar entry, same as Avast - the pipeline
+                                // (PollService/WorkerPool) keeps running untouched and the tray icon
+                                // stays put; "Open" (tray menu/click) restores it via RestoreRequested.
+                                appWindow.Hide();
+                                appLifecycleService.IsInBackground = true;
+                            }
+                        };
+                    }
+
                     if ((Microsoft.Maui.Controls.Application.Current as MostaqlK.App)?.IsOnboardingWindowPending == true)
                     {
                         var onboardingHwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
@@ -199,123 +313,14 @@ internal static class PlatformServiceRegistration
                                     {
                                         presenter.IsResizable = true;
                                         presenter.IsMaximizable = true;
+                                        SetupMainDesktopServices();
                                     });
                             }
                         }
-                    }
-                    if ((Microsoft.Maui.Controls.Application.Current as MostaqlK.App)?.IsOnboardingWindowPending == true)
-                    {
-                        return;
-                    }
-                    // MAUI's own Window handler re-applies ExtendsContentIntoTitleBar after
-                    // OnWindowCreated fires (e.g. when the platform view finishes loading), so a
-                    // single assignment here can get silently overwritten. Re-assert once the
-                    // window is actually activated to make sure the native chrome sticks.
-                    window.Activated += (_, _) =>
-                    {
-                        NativeSplashScreen.Hide();
-                        RestoreNativeTitleBar(window);
-                    };
-                    // Keep the title bar colors in sync whenever the user switches the app's
-                    // light/dark theme at runtime (e.g. via the Settings page's dark-mode toggle).
-                    if (Microsoft.Maui.Controls.Application.Current is { } themedApp)
-                    {
-                        themedApp.RequestedThemeChanged += (_, _) => ApplyTitleBarTheme(window);
-                    }
-
-                    if (appRef is null)
-                    {
                         return;
                     }
 
-                    var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
-                    // Resolved via PlatformCapability.WindowsOnly — null on non-Windows heads.
-                    // On the Windows TFM this is always non-null; still null-check so the capability
-                    // contract stays honest if a future path resolves without the tray.
-                    var trayIconService = appRef.Services.GetService<TrayIconService>();
-                    if (trayIconService is null)
-                    {
-                        return;
-                    }
-
-                    var appLifecycleService = appRef.Services.GetRequiredService<AppLifecycleService>();
-                    nativeHost = new TrayIconNativeHost(trayIconService, hwnd);
-
-                    var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
-                    var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
-                    var closeBehaviorService = appRef.Services.GetRequiredService<CloseBehaviorService>();
-
-                    // Bring the window back from the tray when "Open" runs (sidebar/tray menu/tray
-                    // icon click), in case a previous X-button click hid it via MinimizeToTray below.
-                    trayIconService.RestoreRequested += () =>
-                        Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(() =>
-                        {
-                            appWindow.Show();
-                            window.Activate();
-                            appLifecycleService.IsInBackground = false;
-                        });
-
-                    // Avast-style "keep running in background": the X button no longer closes the
-                    // process outright. AppWindow.Closing (unlike WinUI's plain Window.Closed) is
-                    // cancelable, so every click is intercepted here first.
-                    appWindow.Closing += async (sender, closingArgs) =>
-                    {
-                        if (isExitConfirmed)
-                        {
-                            // The user already chose "force closing" (directly, or via the
-                            // remembered decision below) - let this and any further click close
-                            // for real; nothing left to ask.
-                            return;
-                        }
-
-                        // Idempotent guard: a second click while the ContentDialog await below is
-                        // still pending must not stack a second dialog on top of the first.
-                        closingArgs.Cancel = true;
-                        if (isClosePromptShowing)
-                        {
-                            return;
-                        }
-
-                        var rememberedAction = closeBehaviorService.GetRememberedAction();
-                        CloseAction action;
-                        if (rememberedAction is { } remembered)
-                        {
-                            // "the click should be idempotent": once remembered, every subsequent
-                            // X-button click silently repeats the same action, no dialog shown.
-                            action = remembered;
-                        }
-                        else
-                        {
-                            isClosePromptShowing = true;
-                            try
-                            {
-                                var (chosenAction, remember) = await ExitConfirmationBox.ShowAsync(window);
-                                action = chosenAction;
-                                if (remember)
-                                {
-                                    closeBehaviorService.RememberAction(action);
-                                }
-                            }
-                            finally
-                            {
-                                isClosePromptShowing = false;
-                            }
-                        }
-
-                        if (action == CloseAction.Exit)
-                        {
-                            isExitConfirmed = true;
-                            appWindow.Destroy();
-                        }
-                        else
-                        {
-                            // Hide, not minimize: no taskbar entry, same as Avast - the pipeline
-                            // (PollService/WorkerPool) keeps running untouched and the tray icon
-                            // stays put; "Open" (tray menu/click) restores it via RestoreRequested.
-                            appWindow.Hide();
-                            appLifecycleService.IsInBackground = true;
-                        }
-                    };
+                    SetupMainDesktopServices();
                 })
                 .OnClosed((window, args) =>
                 {
