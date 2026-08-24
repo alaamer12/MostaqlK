@@ -30,6 +30,7 @@ nupkgs/
 .nuget/packages/
 .nuget/loader/
 packages/
+.github-token
 
 # Test results
 TestResults/
@@ -58,3 +59,4 @@ Desktop.ini
 *.swp
 *.swo
 *~
+.junie/mcp/mcp.json
