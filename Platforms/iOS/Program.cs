@@ -1,7 +1,7 @@
 ﻿using ObjCRuntime;
 using UIKit;
 
-namespace MostaqlKApp;
+namespace MostaqlK;
 
 public class Program
 {

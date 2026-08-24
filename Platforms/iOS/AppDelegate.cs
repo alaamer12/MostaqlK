@@ -1,6 +1,6 @@
 ﻿using Foundation;
 
-namespace MostaqlKApp;
+namespace MostaqlK;
 
 [Register("AppDelegate")]
 public class AppDelegate : MauiUIApplicationDelegate
