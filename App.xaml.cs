@@ -271,12 +271,15 @@ public partial class App : Application
 			var workWidth = display.Width / display.Density;
 			var workHeight = display.Height / display.Density;
 			var scale = Math.Clamp(Math.Min((workWidth - 48) / 920d, (workHeight - 96) / 720d), 0.65d, 1.25d);
-			_onboardingWindow.Width = Math.Round(920 * scale);
+			var onboardingWidth = Math.Round(920 * scale);
 			var onboardingHeight = Math.Round(720 * scale);
 #if WINDOWS
 			onboardingHeight += MostaqlK.Platforms.Windows.AppWindowMetrics.ChromeHeight;
 #endif
+			_onboardingWindow.Width = onboardingWidth;
 			_onboardingWindow.Height = onboardingHeight;
+			_onboardingWindow.X = Math.Max(0, (workWidth - onboardingWidth) / 2);
+			_onboardingWindow.Y = Math.Max(0, (workHeight - onboardingHeight) / 2);
 			return _onboardingWindow;
 		}
 
@@ -291,12 +294,19 @@ public partial class App : Application
 		// sized so its *client* area is exactly that: `Window.Height` on Windows covers the whole
 		// frame, so the 32px caption band is added on top. This keeps design-parity captures
 		// deterministic instead of depending on whatever size the OS last remembered.
-		window.Width = 1280;
+		var mainWidth = 1280;
 		double mainHeight = 800;
 #if WINDOWS
 		mainHeight += MostaqlK.Platforms.Windows.AppWindowMetrics.ChromeHeight;
 #endif
+		window.Width = mainWidth;
 		window.Height = mainHeight;
+
+		var display = DeviceDisplay.MainDisplayInfo;
+		var workWidth = display.Width / display.Density;
+		var workHeight = display.Height / display.Density;
+		window.X = Math.Max(0, (workWidth - mainWidth) / 2);
+		window.Y = Math.Max(0, (workHeight - mainHeight) / 2);
 
 		return window;
 	}
@@ -321,15 +331,29 @@ public partial class App : Application
 				var shell = new AppShell(StartupNavigation.FromArguments(Environment.GetCommandLineArgs()));
 				
 				// Pre-size the window to the main shell's expected dimensions before swapping content
-				window.Width = 1280;
+				var mainWidth = 1280;
 				double swapHeight = 800;
 #if WINDOWS
 				swapHeight += MostaqlK.Platforms.Windows.AppWindowMetrics.ChromeHeight;
 #endif
+				window.Width = mainWidth;
 				window.Height = swapHeight;
-				
+
+				var display = DeviceDisplay.MainDisplayInfo;
+				var workWidth = display.Width / display.Density;
+				var workHeight = display.Height / display.Density;
+				window.X = Math.Max(0, (workWidth - mainWidth) / 2);
+				window.Y = Math.Max(0, (workHeight - swapHeight) / 2);
+
 				// Swap the content
 				window.Page = shell;
+
+#if WINDOWS
+				if (window.Handler?.PlatformView is Microsoft.UI.Xaml.Window winUiWindow)
+				{
+					MostaqlK.Platforms.Windows.PlatformServiceRegistration.CenterOnScreen(winUiWindow);
+				}
+#endif
 			}
 			else
 			{

@@ -175,16 +175,16 @@
                         mechanism NextSpinnerIcon/SaveSpinnerIcon below use and which has always
                         rendered correctly on first paint.
                         -->
-                        <ui:AppIcon ZIndex="1" Icon="ChevronLeft" FontSize="16" TextColor="White" HorizontalOptions="End" VerticalOptions="Center" Margin="0,0,22,0" InputTransparent="True"
+                        <ui:AppIcon x:Name="NextChevronIcon" ZIndex="1" Icon="ChevronLeft" FontSize="16" TextColor="White" HorizontalOptions="End" VerticalOptions="Center" Margin="0,0,22,0" InputTransparent="True"
                                     IsVisible="{Binding IsFinalStep, Converter={StaticResource InvertedBoolConverter}}" />
-                        <ui:AppIcon ZIndex="1" Icon="CircleCheck" FontSize="16" TextColor="White" HorizontalOptions="End" VerticalOptions="Center" Margin="0,0,22,0" InputTransparent="True"
+                        <ui:AppIcon x:Name="NextCheckIcon" ZIndex="1" Icon="CircleCheck" FontSize="16" TextColor="White" HorizontalOptions="End" VerticalOptions="Center" Margin="0,0,22,0" InputTransparent="True"
                                     IsVisible="{Binding IsFinalStep}" />
                         <!-- Explicit ZIndex guarantees this stays on top of the two toggled Button
                              siblings above: on Windows (WinUI), a sibling whose IsVisible flips at
                              runtime can be re-inserted into the native children collection, which
                              silently changes paint order and can cover elements that used to be on
                              top purely by XAML declaration order. -->
-                        <ui:AppIcon x:Name="NextSpinnerIcon" ZIndex="1" Icon="Refresh" WidthRequest="16" HeightRequest="16" TextColor="White" HorizontalOptions="End" VerticalOptions="Center" Margin="0,0,22,0" IsVisible="{Binding IsTransitioning}" InputTransparent="True" />
+                        <ui:AppIcon x:Name="NextSpinnerIcon" ZIndex="1" Icon="Refresh" WidthRequest="16" HeightRequest="16" TextColor="White" HorizontalOptions="End" VerticalOptions="Center" Margin="0,0,22,0" IsVisible="False" Opacity="0" InputTransparent="True" />
                     </Grid>
                     <Button Text="رجوع" FontFamily="TajawalMedium" Command="{Binding BackCommand}" IsVisible="{Binding CanGoBack}" AutomationId="onboarding-back-button" BackgroundColor="Transparent" TextColor="{AppThemeBinding Light=#64748B, Dark=#C9D3E6}" FontSize="16">
                         <Button.Behaviors>

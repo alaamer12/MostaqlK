@@ -40,6 +40,13 @@ public partial class OnboardingPage : ContentPage
         SaveCheckIcon.AbortAnimation("ScaleToAsync");
         SaveCheckIcon.AbortAnimation("RotateToAsync");
         NextSpinnerIcon.AbortAnimation(SpinnerAnimationName);
+        NextSpinnerIcon.AbortAnimation("ScaleToAsync");
+        NextSpinnerIcon.AbortAnimation("FadeToAsync");
+        NextChevronIcon.AbortAnimation("ScaleToAsync");
+        NextChevronIcon.AbortAnimation("FadeToAsync");
+        NextCheckIcon.AbortAnimation("ScaleToAsync");
+        NextCheckIcon.AbortAnimation("RotateToAsync");
+        NextCheckIcon.AbortAnimation("FadeToAsync");
         
         var dots = new[] { StepDot0, StepDot1, StepDot2, StepDot3, StepDot4, StepDot5 };
         foreach (var dot in dots)
@@ -55,6 +62,7 @@ public partial class OnboardingPage : ContentPage
         {
             case nameof(OnboardingViewModel.CurrentStep):
                 UpdateStepDots(viewModel.CurrentStep);
+                AnimateNextActionIcon(viewModel.IsFinalStep);
                 break;
             case nameof(OnboardingViewModel.IsSaving):
                 UpdateSaveSpinner(viewModel.IsSaving);
@@ -63,7 +71,7 @@ public partial class OnboardingPage : ContentPage
                 if (viewModel.IsSaved) PlaySaveCheckPop();
                 break;
             case nameof(OnboardingViewModel.IsTransitioning):
-                UpdateNextSpinner(viewModel.IsTransitioning);
+                UpdateNextSpinner(viewModel.IsTransitioning, viewModel.IsFinalStep);
                 break;
         }
     }
@@ -145,24 +153,31 @@ public partial class OnboardingPage : ContentPage
     /// <summary>Mirrors the mockup's `.next-spinner` continuous rotation (`animation: next-spin
     /// 0.6s linear infinite`) while the step transition (`.is-loading`) is in flight, and its
     /// icon-stack swap (icon scales/rotates away while the spinner scales/fades in).</summary>
-    private void UpdateNextSpinner(bool isTransitioning)
+    private void UpdateNextSpinner(bool isTransitioning, bool isFinalStep)
     {
         NextSpinnerIcon.AbortAnimation(SpinnerAnimationName);
+        var activeActionIcon = isFinalStep ? NextCheckIcon : NextChevronIcon;
 
         if (MotionPreferences.IsReducedMotionRequested)
         {
             NextSpinnerIcon.Rotation = 0;
             NextSpinnerIcon.Scale = isTransitioning ? 1 : 0.5;
             NextSpinnerIcon.Opacity = isTransitioning ? 1 : 0;
+            NextSpinnerIcon.IsVisible = isTransitioning;
+            activeActionIcon.Opacity = isTransitioning ? 0 : 1;
+            activeActionIcon.Scale = isTransitioning ? 0.5 : 1;
             return;
         }
 
         if (isTransitioning)
         {
+            NextSpinnerIcon.IsVisible = true;
             NextSpinnerIcon.Rotation = 0;
             _ = Task.WhenAll(
-                NextSpinnerIcon.ScaleToAsync(1, 250, Easing.SpringOut),
-                NextSpinnerIcon.FadeToAsync(1, 200, Easing.CubicOut));
+                NextSpinnerIcon.ScaleToAsync(1, 240, Easing.SpringOut),
+                NextSpinnerIcon.FadeToAsync(1, 200, Easing.CubicOut),
+                activeActionIcon.ScaleToAsync(0.4, 180, Easing.CubicIn),
+                activeActionIcon.FadeToAsync(0, 180, Easing.CubicIn));
 
             var animation = new Animation(v => NextSpinnerIcon.Rotation = v, 0, 360);
             animation.Commit(NextSpinnerIcon, SpinnerAnimationName, 16, 600, Easing.Linear,
@@ -171,8 +186,61 @@ public partial class OnboardingPage : ContentPage
         else
         {
             _ = Task.WhenAll(
-                NextSpinnerIcon.ScaleToAsync(0.5, 200, Easing.CubicIn),
-                NextSpinnerIcon.FadeToAsync(0, 200, Easing.CubicIn));
+                NextSpinnerIcon.ScaleToAsync(0.4, 180, Easing.CubicIn),
+                NextSpinnerIcon.FadeToAsync(0, 180, Easing.CubicIn),
+                activeActionIcon.ScaleToAsync(1.0, 240, Easing.SpringOut),
+                activeActionIcon.FadeToAsync(1.0, 200, Easing.CubicOut)).ContinueWith(_ =>
+                {
+                    MainThread.BeginInvokeOnMainThread(() =>
+                    {
+                        if (!((OnboardingViewModel)BindingContext).IsTransitioning)
+                        {
+                            NextSpinnerIcon.IsVisible = false;
+                        }
+                    });
+                });
+        }
+    }
+
+    private async void AnimateNextActionIcon(bool isFinalStep)
+    {
+        if (MotionPreferences.IsReducedMotionRequested)
+        {
+            NextChevronIcon.Scale = isFinalStep ? 0.5 : 1;
+            NextChevronIcon.Opacity = isFinalStep ? 0 : 1;
+            NextCheckIcon.Scale = isFinalStep ? 1 : 0.5;
+            NextCheckIcon.Opacity = isFinalStep ? 1 : 0;
+            NextCheckIcon.Rotation = 0;
+            return;
+        }
+
+        if (isFinalStep)
+        {
+            _ = Task.WhenAll(
+                NextChevronIcon.ScaleToAsync(0.4, 160, Easing.CubicIn),
+                NextChevronIcon.FadeToAsync(0, 160, Easing.CubicIn));
+
+            NextCheckIcon.Scale = 0.35;
+            NextCheckIcon.Opacity = 0;
+            NextCheckIcon.Rotation = -25;
+            await Task.WhenAll(
+                NextCheckIcon.FadeToAsync(1, 180, Easing.CubicOut),
+                NextCheckIcon.ScaleToAsync(1.25, 240, Easing.CubicOut));
+            await Task.WhenAll(
+                NextCheckIcon.ScaleToAsync(1.0, 160, Easing.CubicIn),
+                NextCheckIcon.RotateToAsync(0, 160, Easing.CubicIn));
+        }
+        else
+        {
+            _ = Task.WhenAll(
+                NextCheckIcon.ScaleToAsync(0.4, 160, Easing.CubicIn),
+                NextCheckIcon.FadeToAsync(0, 160, Easing.CubicIn));
+
+            NextChevronIcon.Scale = 0.4;
+            NextChevronIcon.Opacity = 0;
+            await Task.WhenAll(
+                NextChevronIcon.ScaleToAsync(1.0, 240, Easing.SpringOut),
+                NextChevronIcon.FadeToAsync(1.0, 200, Easing.CubicOut));
         }
     }
 

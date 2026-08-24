@@ -21,6 +21,28 @@ internal static class PlatformServiceRegistration
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
 
     /// <summary>
+    /// Centers the specified WinUI window in the middle of its current (or nearest) monitor's work area.
+    /// </summary>
+    public static void CenterOnScreen(Microsoft.UI.Xaml.Window window)
+    {
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+        if (hwnd == IntPtr.Zero) return;
+
+        var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
+        var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
+        if (appWindow is null) return;
+
+        var displayArea = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(windowId, Microsoft.UI.Windowing.DisplayAreaFallback.Nearest);
+        if (displayArea is not null)
+        {
+            var workArea = displayArea.WorkArea;
+            var x = workArea.X + Math.Max(0, (workArea.Width - appWindow.Size.Width) / 2);
+            var y = workArea.Y + Math.Max(0, (workArea.Height - appWindow.Size.Height) / 2);
+            appWindow.Move(new global::Windows.Graphics.PointInt32(x, y));
+        }
+    }
+
+    /// <summary>
     /// Forces the window back to Windows' fully native, OS-drawn title bar and caption buttons
     /// (close/maximize/minimize), overriding MAUI's default of extending app content into the
     /// WinUI3 title bar (which draws its own custom-looking caption buttons instead), and keeps
@@ -175,15 +197,22 @@ internal static class PlatformServiceRegistration
                     // restores the fully native, OS-drawn title bar and caption buttons, themed to
                     // match the app's current light/dark mode.
                     RestoreNativeTitleBar(window);
+                    CenterOnScreen(window);
 
                     // MAUI's own Window handler re-applies ExtendsContentIntoTitleBar after
                     // OnWindowCreated fires (e.g. when the platform view finishes loading), so a
                     // single assignment here can get silently overwritten. Re-assert once the
                     // window is actually activated to make sure the native chrome sticks.
+                    var hasCentered = false;
                     window.Activated += (_, _) =>
                     {
                         NativeSplashScreen.Hide();
                         RestoreNativeTitleBar(window);
+                        if (!hasCentered)
+                        {
+                            hasCentered = true;
+                            CenterOnScreen(window);
+                        }
                     };
                     // Keep the title bar colors in sync whenever the user switches the app's
                     // light/dark theme at runtime (e.g. via the Settings page's dark-mode toggle).
@@ -313,6 +342,7 @@ internal static class PlatformServiceRegistration
                                     {
                                         presenter.IsResizable = true;
                                         presenter.IsMaximizable = true;
+                                        CenterOnScreen(window);
                                         SetupMainDesktopServices();
                                     });
                             }
