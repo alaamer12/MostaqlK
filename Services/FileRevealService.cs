@@ -16,7 +16,11 @@ public static class FileRevealService
 
     private static IFileRevealService Create() =>
         PlatformCapability<IFileRevealService>.Resolve(
+#if WINDOWS
             windows: static () => new WindowsFileRevealService(),
+#else
+            windows: null,
+#endif
             android: static () => new DefaultFileRevealService(),
             ios: static () => new DefaultFileRevealService(),
             macCatalyst: static () => new DefaultFileRevealService())
