@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head><meta charset="utf-8"><title>المشاريع - مستقل</title></head>
+<body>
+<!-- Tier 3 shape: redesign removed row/card classes, canonical /project/ links remain -->
+<div class="content">
+  <a href="/project/12345-canva-2024">تصميم كانفا</a>
+  <a href="/project/77777-alpha">مشروع الفا</a>
+  <!-- duplicate id: first occurrence wins, this one is dropped -->
+  <a href="/project/77777-beta">نسخة مكررة</a>
+  <!-- id 0 -> skipped -->
+  <a href="/project/0-zero">صفر</a>
+  <!-- /project/ without numeric id -> fallback segmentation finds nothing -> skipped -->
+  <a href="https://external.example.com/project/">رابط خارجي</a>
+  <!-- blank title -> skipped -->
+  <a href="/project/6666-empty-title">   </a>
+</div>
+</body>
+</html>

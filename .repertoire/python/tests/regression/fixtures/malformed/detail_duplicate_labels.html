@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>مشروع بوسم مكرر | مستقل</title></head>
+<body>
+<!-- Malformed matrix: SAME label rendered twice with different values.
+     VERIFIED against C# StructuralExtractor.ExtractMetaFields
+     (StructuralExtractor.cs:261): `results[NormalizeLabel(label)] = value`
+     is a plain Dictionary indexer assignment over document-order rows, so
+     the LAST occurrence overwrites the first ("first wins" was checked and
+     rejected). The Python port assigns identically (structural.py
+     extract_meta_fields). Gap-filler heuristics only fill MISSING keys and
+     can never resurrect the overwritten first value. -->
+<h1>مشروع بوسم مكرر</h1>
+<div id="project-meta-panel">
+  <div class="meta-row">
+    <div class="meta-label">الميزانية</div>
+    <div class="meta-value">100 $</div>
+  </div>
+  <div class="meta-row">
+    <div class="meta-label">الميزانية</div>
+    <div class="meta-value">250 $</div>
+  </div>
+</div>
+<div id="projectDetailsTab">
+  <div class="text-wrapper-div">تفاصيل المشروع هنا.</div>
+</div>
+</body>
+</html>

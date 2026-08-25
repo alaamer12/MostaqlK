@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head><meta charset="utf-8"><title>المشاريع - مستقل</title></head>
+<body>
+<!-- class-token decoys: substring lookalikes must never match the concat trick -->
+<div class="xproject-rowx">decoy substring row</div>
+<div class="project-item-nope"><h2><a href="/project/1111-decoy">decoy item</a></h2></div>
+<footer><a href="/project/9999-footer">تذييل</a></footer>
+
+<table class="projects-table">
+  <tbody>
+    <!-- Good card: messy whitespace, Arabic-Indic proposal digits -->
+    <tr class="project-row">
+      <td>
+        <h2><a href="/project/6006-good">مشروع   متعدد
+             الأسطر</a></h2>
+        <ul class="project__meta">
+          <li>عميل جيد</li>
+          <li>منذ 5 أيام</li>
+          <li>٦١ عرض</li>
+        </ul>
+        <p class="project__brief">وصف
+            قصير</p>
+      </td>
+    </tr>
+    <!-- Broken card: no title link anywhere -> silently skipped -->
+    <tr class="project-row">
+      <td><span>بدون أي رابط هنا</span></td>
+    </tr>
+  </tbody>
+</table>
+</body>
+</html>
