@@ -62,6 +62,7 @@ Before starting work:
 |-----------|-------|
 | Pick a skill | `using-agent-skills` |
 | Version bump / Release / Changelog | `version-bumping` |
+| System Tray / Tray Icons / Diagnostics | `tray-inspection` |
 | Bug hunt / `/bug-hunter` | `bug-hunting-skill` |
 | Code review | `code-review-and-quality` |
 | API / tRPC design | `api-and-interface-design` |
