@@ -16,6 +16,14 @@ $exePath = "$outputBase\$projectName.exe"
 
 Write-Host "Releasing MostaqlK for Windows ($Type mode, Arch: $Arch, RID: $rid)..." -ForegroundColor Cyan
 
+# Stop any running MostaqlK processes to avoid file locks on the database and output executable
+$runningProcesses = Get-Process -Name $projectName -ErrorAction SilentlyContinue
+if ($runningProcesses) {
+    Write-Host "Stopping running $projectName process(es)..." -ForegroundColor Yellow
+    $runningProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 500
+}
+
 # Reset state for clean release startup
 $toolsDir = Join-Path $PSScriptRoot "..\tools"
 if (Test-Path $toolsDir) {

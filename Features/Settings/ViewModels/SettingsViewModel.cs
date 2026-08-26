@@ -446,13 +446,15 @@ public sealed partial class SettingsViewModel : ObservableObject
         GroupingThreshold = Preferences.Get(KeyGroupingThreshold, 5);
         // Seed from the theme the app already resolved at startup (App.xaml.cs, which honours a
         // `--theme=light|dark` argument over the stored preference) and only fall back to the
-        // preference when no explicit theme was applied. Reading the preference unconditionally
+        // preference / effective theme when no explicit theme was applied. Reading the preference unconditionally
         // here would silently undo that startup override the moment this page is constructed.
         IsDarkMode = Application.Current?.UserAppTheme switch
         {
             AppTheme.Dark => true,
             AppTheme.Light => false,
-            _ => Preferences.Get(KeyIsDarkMode, false),
+            _ => Preferences.ContainsKey(KeyIsDarkMode)
+                ? Preferences.Get(KeyIsDarkMode, false)
+                : Application.Current?.RequestedTheme == AppTheme.Dark,
         };
 
         var storedMode = Preferences.Get(KeyGroupingMode, nameof(NotificationGroupingMode.EndOfMinute));

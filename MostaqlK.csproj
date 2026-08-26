@@ -47,6 +47,8 @@
 		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
 		<EnableDefaultWinUICustomMain Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">false</EnableDefaultWinUICustomMain>
 		<DefineConstants Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+		<GenerateAssemblyInfo Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">false</GenerateAssemblyInfo>
+		<GenerateTargetFrameworkAttribute Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">false</GenerateTargetFrameworkAttribute>
 	</PropertyGroup>
 
 	<!-- Windows App SDK single-file EXE validation requires extra flags for unpackaged apps. -->
@@ -152,6 +154,11 @@
 	     default Compile glob and fail to build here (they reference packages, like
 	     Microsoft.CodeAnalysis.CSharp, that this app project does not and should not depend on). -->
 	<ItemGroup>
+		<Compile Remove="bin\**" />
+		<Compile Remove="obj\**" />
+		<Compile Remove="scratch\**" />
+		<EmbeddedResource Remove="scratch\**" />
+		<None Remove="scratch\**" />
 		<Compile Remove="MostaqlK.UITests\**" />
 		<EmbeddedResource Remove="MostaqlK.UITests\**" />
 		<None Remove="MostaqlK.UITests\**" />

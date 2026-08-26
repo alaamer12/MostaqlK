@@ -45,16 +45,14 @@ public partial class App : Application
 
 		// Apply the persisted dark-mode preference eagerly at startup. SettingsViewModel is
 		// registered Transient and only constructed when the Settings page is opened, so without
-		// this, UserAppTheme stays Unspecified and the app silently follows the OS theme instead
-		// of the mockups' light-theme default (per projects.html, dark mode starts OFF).
+		// this, UserAppTheme stays Unspecified and the app follows the OS theme.
 		// A `--theme=light|dark` startup argument overrides the stored preference so each page can be
 		// captured deterministically in both themes during design-parity verification.
-		var onboardingIsPending = !services.GetRequiredService<OnboardingStateService>().IsCompleted;
-		UserAppTheme = onboardingIsPending
-			? StartupNavigation.ResolveExplicitTheme(Environment.GetCommandLineArgs())
-			: StartupNavigation.ResolveTheme(
-				Environment.GetCommandLineArgs(),
-				Microsoft.Maui.Storage.Preferences.Get("settings_is_dark_mode", false));
+		// If no preference has been explicitly set, it defaults to matching system (AppTheme.Unspecified).
+		bool? storedIsDarkMode = Microsoft.Maui.Storage.Preferences.ContainsKey("settings_is_dark_mode")
+			? Microsoft.Maui.Storage.Preferences.Get("settings_is_dark_mode", false)
+			: null;
+		UserAppTheme = StartupNavigation.ResolveTheme(Environment.GetCommandLineArgs(), storedIsDarkMode);
 
 #if WINDOWS
 		// FIX ("not a single notification, ever since day one"): AUMID + Start Menu shortcut +

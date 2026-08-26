@@ -56,6 +56,7 @@ public static class MauiProgram
 	public static MauiApp CreateMauiApp()
 	{
 		AppPaths.Initialize();
+		FilePreferences.Install();
 		RegisterGlobalExceptionLogging();
 #if WINDOWS
 		MostaqlK.Platforms.Windows.PlatformServiceRegistration.HideCollectionViewScrollBars();
@@ -83,6 +84,7 @@ public static class MauiProgram
 #endif
 
 		// Infrastructure
+		builder.Services.AddSingleton<Microsoft.Maui.Storage.IPreferences>(FilePreferences.Default);
 		// mostaql.com sits behind a bot filter that answers a *header-less* request with HTTP 403
 		// before any HTML is produced. A bare `new HttpClient()` sends no User-Agent at all, so every
 		// single poll cycle failed at the listing fetch - verified directly against the endpoint:

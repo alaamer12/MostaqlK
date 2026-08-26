@@ -66,9 +66,9 @@ public sealed record StartupNavigation(StartupPage DefaultPage, long? ProjectId)
 
 	/// <summary>
 	/// Resolves the startup <see cref="AppTheme"/>. A `--theme=light` / `--theme=dark` argument wins;
-	/// otherwise the persisted dark-mode preference decides (light by default, per the mockups).
+	/// otherwise the persisted dark-mode preference decides if present; if not set, defaults to matching system (<see cref="AppTheme.Unspecified"/>).
 	/// </summary>
-	public static AppTheme ResolveTheme(string[] args, bool storedIsDarkMode)
+	public static AppTheme ResolveTheme(string[] args, bool? storedIsDarkMode = null)
 	{
 		foreach (var arg in args)
 		{
@@ -86,18 +86,16 @@ public sealed record StartupNavigation(StartupPage DefaultPage, long? ProjectId)
 			}
 		}
 
-		return storedIsDarkMode ? AppTheme.Dark : AppTheme.Light;
+		if (storedIsDarkMode.HasValue)
+		{
+			return storedIsDarkMode.Value ? AppTheme.Dark : AppTheme.Light;
+		}
+
+		return AppTheme.Unspecified;
 	}
 
 	public static AppTheme ResolveExplicitTheme(string[] args)
 	{
-		foreach (var arg in args)
-		{
-			if (!arg.StartsWith("--theme=", StringComparison.OrdinalIgnoreCase)) continue;
-			if (arg[8..].Equals("dark", StringComparison.OrdinalIgnoreCase)) return AppTheme.Dark;
-			if (arg[8..].Equals("light", StringComparison.OrdinalIgnoreCase)) return AppTheme.Light;
-		}
-
-		return AppTheme.Unspecified;
+		return ResolveTheme(args, null);
 	}
 }

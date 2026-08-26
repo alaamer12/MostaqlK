@@ -27,6 +27,16 @@ public interface IAppDirectoryProvider
     string DataDirectory { get; }
 
     /// <summary>
+    /// Persistent settings directory (<c>Settings/</c>) for preferences and configuration files.
+    /// </summary>
+    string SettingsDirectory { get; }
+
+    /// <summary>
+    /// Path to the preferences file (<c>preferences.dat</c>).
+    /// </summary>
+    string PreferencesFilePath { get; }
+
+    /// <summary>
     /// Diagnostics log directory (<c>log/</c>) inside the application directory.
     /// </summary>
     string LogsDirectory { get; }
@@ -64,6 +74,7 @@ public static class AppPaths
 {
     private static readonly Lazy<string> BaseAppDir = new(ResolveAppDirectory);
     private static readonly Lazy<string> BaseDataDir = new(ResolveDataDirectory);
+    private static readonly Lazy<string> BaseSettingsDir = new(ResolveSettingsDirectory);
     private static readonly Lazy<string> BaseLogsDir = new(ResolveLogsDirectory);
     private static readonly Lazy<string> BaseCacheDir = new(ResolveCacheDirectory);
 
@@ -98,6 +109,24 @@ public static class AppPaths
             return dir;
         }
     }
+
+    /// <summary>
+    /// Persistent application settings directory (<c>Settings/</c>).
+    /// </summary>
+    public static string SettingsDirectory
+    {
+        get
+        {
+            var dir = BaseSettingsDir.Value;
+            EnsureDirectoryExists(dir);
+            return dir;
+        }
+    }
+
+    /// <summary>
+    /// Primary preferences file path (<c>preferences.dat</c>).
+    /// </summary>
+    public static string PreferencesFilePath => Path.Combine(SettingsDirectory, "preferences.dat");
 
     /// <summary>
     /// Application logs directory (<c>log/</c>) inside the application directory.
@@ -157,6 +186,7 @@ public static class AppPaths
 
                 EnsureDirectoryExists(AppDirectory);
                 EnsureDirectoryExists(DataDirectory);
+                EnsureDirectoryExists(SettingsDirectory);
                 EnsureDirectoryExists(LogsDirectory);
                 EnsureDirectoryExists(CacheDirectory);
                 EnsureDirectoryExists(AttachmentsDirectory);
@@ -236,6 +266,15 @@ public static class AppPaths
         return AppDirectory;
 #else
         return Path.Combine(AppDirectory, "Data");
+#endif
+    }
+
+    private static string ResolveSettingsDirectory()
+    {
+#if ANDROID || IOS
+        return AppDirectory;
+#else
+        return Path.Combine(AppDirectory, "Settings");
 #endif
     }
 
