@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using MostaqlK.UI.TrayIcon;
 
@@ -28,6 +30,12 @@ public sealed class TrayIconNativeHost : IDisposable
     private const uint TPM_RETURNCMD = 0x0100;
     private const uint WM_NULL = 0x0000;
 
+    private const uint IMAGE_ICON = 1;
+    private const uint LR_LOADFROMFILE = 0x00000010;
+    private const uint LR_DEFAULTSIZE = 0x00000040;
+    private const int SM_CXSMICON = 49;
+    private const int SM_CYSMICON = 50;
+
     // Arbitrary non-zero id for this subclass, only needs to be unique per-hwnd (we only ever
     // install one), as required by SetWindowSubclass.
     private const nuint SubclassId = 1;
@@ -39,6 +47,9 @@ public sealed class TrayIconNativeHost : IDisposable
     // Registered window message broadcast by Windows Shell whenever Explorer restarts or the
     // taskbar is recreated, allowing us to re-add the tray icon immediately.
     private static readonly uint WmTaskbarCreated = RegisterWindowMessage("TaskbarCreated");
+
+    // Cache loaded HICON handles per state to avoid creating new native handles repeatedly
+    private static readonly ConcurrentDictionary<TrayIconState, nint> CachedIcons = new();
 
     private readonly TrayIconService _trayIconService;
     private readonly nint _hwnd;
@@ -199,21 +210,124 @@ public sealed class TrayIconNativeHost : IDisposable
     }
 
     /// <summary>
-    /// Resolves the glyph for each state. Uses the system's built-in stock icons as a
-    /// zero-asset placeholder differentiator (info/question/error/warning) until dedicated
-    /// tray artwork is added.
+    /// Resolves and loads the high-DPI rounded-centroid native icon handle for each pipeline state:
+    ///   - Idle: Orange badge
+    ///   - Polling: Blue badge
+    ///   - BacklogDraining: Green badge
+    ///   - Error: Red badge
     /// </summary>
     private nint LoadIconHandleFor(TrayIconState state)
     {
-        var iconId = state switch
+        return CachedIcons.GetOrAdd(state, s =>
         {
-            TrayIconState.Error => 32513, // IDI_ERROR
-            TrayIconState.BacklogDraining => 32516, // IDI_WARNING
-            TrayIconState.Polling => 32515, // IDI_QUESTION
-            _ => 32512, // IDI_APPLICATION
+            var hIcon = LoadStateIcon(s);
+            if (hIcon != nint.Zero)
+            {
+                return hIcon;
+            }
+
+            // Fallback to stock icons if disk/embedded asset cannot be loaded
+            var fallbackIconId = s switch
+            {
+                TrayIconState.Error => 32513, // IDI_ERROR
+                TrayIconState.BacklogDraining => 32516, // IDI_WARNING
+                TrayIconState.Polling => 32515, // IDI_QUESTION
+                _ => 32512, // IDI_APPLICATION
+            };
+            return LoadIcon(nint.Zero, fallbackIconId);
+        });
+    }
+
+    private static nint LoadStateIcon(TrayIconState state)
+    {
+        var iconFileName = state switch
+        {
+            TrayIconState.Error => "tray_error.ico",
+            TrayIconState.BacklogDraining => "tray_processing.ico",
+            TrayIconState.Polling => "tray_pulling.ico",
+            _ => "tray_idle.ico"
         };
 
-        return LoadIcon(nint.Zero, iconId);
+        // 1. Try AppContext.BaseDirectory / Resources / Images / Tray /
+        var candidatePaths = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "Resources", "Images", "Tray", iconFileName),
+            Path.Combine(AppContext.BaseDirectory, iconFileName),
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Images", "Tray", iconFileName),
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, iconFileName),
+        };
+
+        foreach (var path in candidatePaths)
+        {
+            if (File.Exists(path))
+            {
+                var hIcon = LoadIconFromFile(path);
+                if (hIcon != nint.Zero)
+                {
+                    return hIcon;
+                }
+            }
+        }
+
+        // 2. Try loading from Embedded Resources (e.g. single-file publish / bundle)
+        try
+        {
+            var assembly = typeof(TrayIconNativeHost).Assembly;
+            var resourceName = assembly.GetManifestResourceNames()
+                .FirstOrDefault(n => n.EndsWith(iconFileName, StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrEmpty(resourceName))
+            {
+                using var stream = assembly.GetManifestResourceStream(resourceName);
+                if (stream != null)
+                {
+                    var tempDir = Path.Combine(Path.GetTempPath(), "MostaqlK_TrayIcons");
+                    Directory.CreateDirectory(tempDir);
+                    var tempFile = Path.Combine(tempDir, iconFileName);
+
+                    using (var fs = new FileStream(tempFile, FileMode.Create, FileAccess.Write, FileShare.Read))
+                    {
+                        stream.CopyTo(fs);
+                    }
+
+                    var hIcon = LoadIconFromFile(tempFile);
+                    if (hIcon != nint.Zero)
+                    {
+                        return hIcon;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Ignore embedded resource fallback errors and let caller handle stock fallback
+        }
+
+        return nint.Zero;
+    }
+
+    private static nint LoadIconFromFile(string filePath)
+    {
+        try
+        {
+            var cx = GetSystemMetrics(SM_CXSMICON);
+            var cy = GetSystemMetrics(SM_CYSMICON);
+            if (cx <= 0) cx = 16;
+            if (cy <= 0) cy = 16;
+
+            var hIcon = LoadImage(nint.Zero, filePath, IMAGE_ICON, cx, cy, LR_LOADFROMFILE);
+            if (hIcon != nint.Zero)
+            {
+                return hIcon;
+            }
+
+            // Fallback with default size flag
+            return LoadImage(nint.Zero, filePath, IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE);
+        }
+        catch
+        {
+            return nint.Zero;
+        }
     }
 
     public void Dispose()
@@ -274,6 +388,12 @@ public sealed class TrayIconNativeHost : IDisposable
 
     [DllImport("user32.dll")]
     private static extern nint LoadIcon(nint hInstance, int lpIconName);
+
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern nint LoadImage(nint hInst, string name, uint type, int cx, int cy, uint fuLoad);
+
+    [DllImport("user32.dll")]
+    private static extern int GetSystemMetrics(int nIndex);
 
     [DllImport("user32.dll")]
     private static extern nint CreatePopupMenu();
