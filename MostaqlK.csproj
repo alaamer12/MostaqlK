@@ -36,6 +36,12 @@
 		<!-- Versions -->
 		<ApplicationDisplayVersion>1.0.2</ApplicationDisplayVersion>
 		<ApplicationVersion>3</ApplicationVersion>
+		<Version>1.0.2</Version>
+		<FileVersion>1.0.2.0</FileVersion>
+		<AssemblyVersion>1.0.2.0</AssemblyVersion>
+		<Description>MostaqlK Desktop</Description>
+		<Product>MostaqlK</Product>
+		<Company>MostaqlK</Company>
 
 		<!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
 		<WindowsPackageType>None</WindowsPackageType>
@@ -47,8 +53,6 @@
 		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
 		<EnableDefaultWinUICustomMain Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">false</EnableDefaultWinUICustomMain>
 		<DefineConstants Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
-		<GenerateAssemblyInfo Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">false</GenerateAssemblyInfo>
-		<GenerateTargetFrameworkAttribute Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">false</GenerateTargetFrameworkAttribute>
 	</PropertyGroup>
 
 	<!-- Windows App SDK single-file EXE validation requires extra flags for unpackaged apps. -->

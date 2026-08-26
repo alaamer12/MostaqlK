@@ -18,6 +18,7 @@ This repo keeps its skills in **`.cursor/skills/`**. Each skill is a directory w
 | Skill | Path | Use when |
 |-------|------|----------|
 | **using-agent-skills** | `.cursor/skills/using-agent-skills/` | You need to pick a skill (this file) |
+| **version-bumping** | `.cursor/skills/version-bumping/` | Bumping versions, sync manifests/PE metadata, Keep a Changelog, tags |
 | **bug-hunting-skill** | `.cursor/skills/bug-hunting-skill/` | Hunting bugs, code audit, `/bug-hunter` subagent — React failure-mode patterns |
 | **code-review-and-quality** | `.cursor/skills/code-review-and-quality/` | Reviewing code before merge, quality gates |
 | **api-and-interface-design** | `.cursor/skills/api-and-interface-design/` | Designing APIs, tRPC routers, module boundaries, type contracts |
@@ -41,6 +42,8 @@ When a task arrives, map it to a skill:
 Task arrives
     │
     ├── Don't know which skill? ──────────→ using-agent-skills (this file)
+    │
+    ├── Version bump / release / changelog → version-bumping
     │
     ├── Bug hunt / audit / bug-hunter ────→ bug-hunting-skill
     │
@@ -152,6 +155,7 @@ A task is not done until there is evidence (tests, build, runtime check).
 | Phase | Skill |
 |-------|-------|
 | Pick a skill | `using-agent-skills` |
+| Bump version & release | `version-bumping` |
 | Find bugs | `bug-hunting-skill` |
 | Review code | `code-review-and-quality` |
 | Design API | `api-and-interface-design` |

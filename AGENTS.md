@@ -61,6 +61,7 @@ Before starting work:
 | Task hint | Skill |
 |-----------|-------|
 | Pick a skill | `using-agent-skills` |
+| Version bump / Release / Changelog | `version-bumping` |
 | Bug hunt / `/bug-hunter` | `bug-hunting-skill` |
 | Code review | `code-review-and-quality` |
 | API / tRPC design | `api-and-interface-design` |

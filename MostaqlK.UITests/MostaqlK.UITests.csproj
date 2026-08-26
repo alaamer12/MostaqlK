@@ -19,7 +19,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Compile Include="..\Core\Platform\*.cs" Link="Core\Platform\%(Filename)%(Extension)" />
+		<Compile Include="..\Core\Platform\AppPaths.cs" Link="Core\Platform\AppPaths.cs" />
 	</ItemGroup>
 
 </Project>
