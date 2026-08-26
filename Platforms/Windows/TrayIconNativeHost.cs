@@ -21,11 +21,6 @@ public sealed class TrayIconNativeHost : IDisposable
     private const uint NIF_MESSAGE = 0x00000001;
     private const uint NIF_ICON = 0x00000002;
     private const uint NIF_TIP = 0x00000004;
-    // Identifies the icon by a fixed GUID rather than by hWnd+uID. Without this, every relaunch
-    // of the app produces a new hWnd, and Explorer's own tray-icon cache (which keys entries by
-    // hWnd+uID for non-GUID icons) can end up showing a stale/ghost icon from a previous run, or
-    // failing to show the current one at all until Explorer is restarted - matching the "still
-    // not working / cache problem" symptom. A GUID keeps the same identity across restarts.
     private const uint NIF_GUID = 0x00000020;
 
     private const uint MF_STRING = 0x00000000;
@@ -37,9 +32,13 @@ public sealed class TrayIconNativeHost : IDisposable
     // install one), as required by SetWindowSubclass.
     private const nuint SubclassId = 1;
 
-    // Fixed, stable identity for this app's single tray icon so Explorer recognizes it across
-    // process restarts instead of caching it by the (ever-changing) hWnd+uID pair.
-    private static readonly Guid TrayIconGuid = new("5f2b9a1e-6e3f-4a9a-9c9a-2a6a2e9c0f11");
+    // Legacy GUID from earlier versions, used strictly during cleanup so any leftover icon
+    // registration from older runs is purged from Explorer.
+    private static readonly Guid LegacyTrayIconGuid = new("5f2b9a1e-6e3f-4a9a-9c9a-2a6a2e9c0f11");
+
+    // Registered window message broadcast by Windows Shell whenever Explorer restarts or the
+    // taskbar is recreated, allowing us to re-add the tray icon immediately.
+    private static readonly uint WmTaskbarCreated = RegisterWindowMessage("TaskbarCreated");
 
     private readonly TrayIconService _trayIconService;
     private readonly nint _hwnd;
@@ -56,35 +55,47 @@ public sealed class TrayIconNativeHost : IDisposable
         _trayIconService = trayIconService;
         _hwnd = hwnd;
 
+        // Clean up any stale legacy icon registered by GUID
+        var staleGuidData = new NOTIFYICONDATA
+        {
+            cbSize = Marshal.SizeOf<NOTIFYICONDATA>(),
+            uFlags = NIF_GUID,
+            guidItem = LegacyTrayIconGuid,
+            szTip = string.Empty,
+            szInfo = string.Empty,
+            szInfoTitle = string.Empty
+        };
+        Shell_NotifyIcon(NIM_DELETE, ref staleGuidData);
+
+        // Standard hWnd + uID registration (without NIF_GUID). Windows ties NIF_GUID to the original
+        // executable path where it was first registered, causing Shell_NotifyIcon to fail for portable
+        // releases running from different directories.
         _iconData = new NOTIFYICONDATA
         {
             cbSize = Marshal.SizeOf<NOTIFYICONDATA>(),
             hWnd = hwnd,
             uID = 1,
-            uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_GUID,
+            uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP,
             uCallbackMessage = WM_TRAYICON,
             hIcon = LoadIconHandleFor(trayIconService.State),
             szTip = "MostaqlK",
-            guidItem = TrayIconGuid,
         };
 
-        // Defensively clear any stale icon left behind under the same GUID by a previous run
-        // that crashed/was killed before it could call NIM_DELETE (e.g. the debug-session
-        // process kills seen during development); ignore the result, since there is normally
-        // nothing to delete.
-        var staleIconData = new NOTIFYICONDATA { cbSize = Marshal.SizeOf<NOTIFYICONDATA>(), uFlags = NIF_GUID, guidItem = TrayIconGuid, szTip = string.Empty, szInfo = string.Empty, szInfoTitle = string.Empty };
-        Shell_NotifyIcon(NIM_DELETE, ref staleIconData);
+        // Defensively clear any stale icon for this hwnd + uID
+        var staleHwndData = new NOTIFYICONDATA
+        {
+            cbSize = Marshal.SizeOf<NOTIFYICONDATA>(),
+            hWnd = hwnd,
+            uID = 1,
+            uFlags = 0
+        };
+        Shell_NotifyIcon(NIM_DELETE, ref staleHwndData);
 
-        Shell_NotifyIcon(NIM_ADD, ref _iconData);
-        _isAdded = true;
+        _isAdded = Shell_NotifyIcon(NIM_ADD, ref _iconData);
 
         _trayIconService.StateChanged += OnStateChanged;
 
-        // Nothing in the app ever forwarded WM_TRAYICON to HandleWindowMessage below - the main
-        // WinUI window's WndProc is owned by the framework, so this host has to install its own
-        // subclass (comctl32's SetWindowSubclass, which safely chains onto whatever WndProc is
-        // already there) to actually observe tray clicks. Without this, left/right-clicking the
-        // tray icon silently did nothing.
+        // WinUI window WndProc subclassing to observe WM_TRAYICON and WM_TASKBARCREATED
         _subclassProc = SubclassProc;
         _isSubclassed = SetWindowSubclass(_hwnd, _subclassProc, SubclassId, nint.Zero);
     }
@@ -106,6 +117,12 @@ public sealed class TrayIconNativeHost : IDisposable
     /// </summary>
     private void HandleWindowMessage(uint message, nint wParam, nint lParam)
     {
+        if (message == WmTaskbarCreated)
+        {
+            _isAdded = Shell_NotifyIcon(NIM_ADD, ref _iconData);
+            return;
+        }
+
         if (message != WM_TRAYICON)
         {
             return;
@@ -171,7 +188,14 @@ public sealed class TrayIconNativeHost : IDisposable
     private void OnStateChanged(TrayIconState state)
     {
         _iconData.hIcon = LoadIconHandleFor(state);
-        Shell_NotifyIcon(NIM_MODIFY, ref _iconData);
+        if (!_isAdded)
+        {
+            _isAdded = Shell_NotifyIcon(NIM_ADD, ref _iconData);
+        }
+        else
+        {
+            Shell_NotifyIcon(NIM_MODIFY, ref _iconData);
+        }
     }
 
     /// <summary>
@@ -241,6 +265,9 @@ public sealed class TrayIconNativeHost : IDisposable
         public int X;
         public int Y;
     }
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern uint RegisterWindowMessage(string lpString);
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     private static extern bool Shell_NotifyIcon(uint dwMessage, ref NOTIFYICONDATA lpData);

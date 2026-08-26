@@ -223,7 +223,8 @@ internal static class PlatformServiceRegistration
 
                     void SetupMainDesktopServices()
                     {
-                        if (appRef is null || nativeHost is not null)
+                        var services = appRef?.Services ?? Microsoft.Maui.Controls.Application.Current?.Handler?.MauiContext?.Services;
+                        if (services is null || nativeHost is not null)
                         {
                             return;
                         }
@@ -232,18 +233,18 @@ internal static class PlatformServiceRegistration
                         // Resolved via PlatformCapability.WindowsOnly — null on non-Windows heads.
                         // On the Windows TFM this is always non-null; still null-check so the capability
                         // contract stays honest if a future path resolves without the tray.
-                        var trayIconService = appRef.Services.GetService<TrayIconService>();
+                        var trayIconService = services.GetService<TrayIconService>();
                         if (trayIconService is null)
                         {
                             return;
                         }
 
-                        var appLifecycleService = appRef.Services.GetRequiredService<AppLifecycleService>();
+                        var appLifecycleService = services.GetRequiredService<AppLifecycleService>();
                         nativeHost = new TrayIconNativeHost(trayIconService, hwnd);
 
                         var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
                         var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
-                        var closeBehaviorService = appRef.Services.GetRequiredService<CloseBehaviorService>();
+                        var closeBehaviorService = services.GetRequiredService<CloseBehaviorService>();
 
                         // Bring the window back from the tray when "Open" runs (sidebar/tray menu/tray
                         // icon click), in case a previous X-button click hid it via MinimizeToTray below.
@@ -335,16 +336,27 @@ internal static class PlatformServiceRegistration
                             // undone once onboarding is actually done - otherwise the main window
                             // silently inherits the onboarding window's "not resizable/not
                             // maximizable" presenter forever.
-                            if (appRef?.Services.GetService<OnboardingStateService>() is { } onboardingStateService)
+                            var onboardingServices = appRef?.Services ?? Microsoft.Maui.Controls.Application.Current?.Handler?.MauiContext?.Services;
+                            if (onboardingServices?.GetService<OnboardingStateService>() is { } onboardingStateService)
                             {
-                                onboardingStateService.Completed += (_, _) =>
-                                    Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(() =>
-                                    {
-                                        presenter.IsResizable = true;
-                                        presenter.IsMaximizable = true;
-                                        CenterOnScreen(window);
-                                        SetupMainDesktopServices();
-                                    });
+                                if (onboardingStateService.IsCompleted)
+                                {
+                                    presenter.IsResizable = true;
+                                    presenter.IsMaximizable = true;
+                                    CenterOnScreen(window);
+                                    SetupMainDesktopServices();
+                                }
+                                else
+                                {
+                                    onboardingStateService.Completed += (_, _) =>
+                                        Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(() =>
+                                        {
+                                            presenter.IsResizable = true;
+                                            presenter.IsMaximizable = true;
+                                            CenterOnScreen(window);
+                                            SetupMainDesktopServices();
+                                        });
+                                }
                             }
                         }
                         return;
