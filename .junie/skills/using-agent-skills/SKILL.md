@@ -30,6 +30,7 @@ This repo keeps its skills in **`.cursor/skills/`**. Each skill is a directory w
 | **expo-ui** | `.cursor/skills/expo-ui/` | `@expo/ui` — SwiftUI/Compose native components from React |
 | **expo-api-routes** | `.cursor/skills/expo-api-routes/` | API routes in Expo Router with EAS Hosting |
 | **up-agents** | `.cursor/skills/up-agents/` | `up-agents N + 1` — staggered worker subagents + delayed reviewer |
+| **treasure-findings** | `.cursor/skills/treasure-findings/` | `treasure-findings N` — blind multi-agent orthogonal discovery + master synthesis |
 | **professional-typing** | `.cursor/skills/professional-typing/` | Semantic types, .d.ts, Zod, validateConfig for configs/APIs |
 | **quality-gate** | `.cursor/skills/quality-gate/` | `quality-gate` — lint, typecheck, tests, smoke, ship-ready verify |
 
@@ -78,6 +79,7 @@ Task arrives
 | `/bug-hunter` subagent | `bug-hunting-skill` (re-read `reference.md` per package) |
 | Pool of agents `/pool-agents` | `using-agent-skills` to assign skills per branch |
 | `up-agents` / `up-agents 4 + 1` | `up-agents` skill — staggered workers + reviewer |
+| `treasure-findings` / `/treasure-findings` | `treasure-findings` skill — blind multi-agent orthogonal discovery + synthesis |
 | `quality-gate` / `/quality-gate` | `quality-gate` skill — lint, typecheck, tests, smoke |
 | Professional types / PathLike / Zod config | `professional-typing` |
 

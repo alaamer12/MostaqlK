@@ -70,6 +70,7 @@ Before starting work:
 | React Native / Expo | `react-native-best-practices`, `building-native-ui`, `expo-ui` |
 | Junie CLI / Orchestration | `unit-agent` (orchestrate CLI subtasks) |
 | Parallel Workers / Review | `up-agents` (staggered worker pool + reviewer) |
+| Blind Multi-Agent Discovery / Audits | `treasure-findings` (blind orthogonal discovery + synthesis) |
 | Multi-agent research | `pool-agents` (via command or notation) |
 | PowerShell / Scripting | `powershell-master` |
 | CLI execution / Repo checks | `terminal-ops` |
