@@ -80,12 +80,16 @@ Update both user-facing semantic versions and native assembly/PE metadata:
 - **iOS/macOS (`Platforms/iOS/Info.plist`, `Platforms/MacCatalyst/Info.plist`):**
   Ensure `CFBundleShortVersionString` matches `<ApplicationDisplayVersion>` and `CFBundleVersion` matches `<ApplicationVersion>`.
 
-### C. In-App About / Settings UI
-- Never hardcode static version strings in XAML or code-behind.
+### C. In-App Navigation, Side-Panel & About UI
+- **Sidebar / Navigation Rail (`UI/PlatformComponents/AppSidebar/AppSidebar.xaml` and `AppSidebar.cs`):**
+  Ensure the sidebar header label (`x:Name="VersionLabel"`) dynamically resolves `$"v{AppInfo.Current.VersionString}"` in code-behind rather than containing hardcoded version strings (e.g. `v1.0.0`).
+- **About Page Layouts (`Features/Projects/Views/Layouts/AboutPageWindowsLayout.xaml.cs`, `AboutPageMobileLayout.xaml.cs`):**
+  Ensure the identity card's `VersionLabel.Text` dynamically reads `$"v{AppInfo.Current.VersionString}"`.
+- Never hardcode static release version strings in XAML or code-behind.
 - Always read the runtime version dynamically via `Microsoft.Maui.ApplicationModel.AppInfo`:
   ```csharp
-  string displayVersion = AppInfo.Current.VersionString; // e.g. "1.0.3"
-  string buildNumber = AppInfo.Current.BuildString;      // e.g. "4"
+  string displayVersion = AppInfo.Current.VersionString; // e.g. "1.0.4"
+  string buildNumber = AppInfo.Current.BuildString;      // e.g. "5"
   ```
 
 ---

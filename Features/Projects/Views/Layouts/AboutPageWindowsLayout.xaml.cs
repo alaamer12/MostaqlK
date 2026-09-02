@@ -7,7 +7,14 @@ public partial class AboutPageWindowsLayout : ContentView
     public AboutPageWindowsLayout()
     {
         InitializeComponent();
-        VersionLabel.Text = $"v{AppInfo.Current.VersionString}";
+        try
+        {
+            VersionLabel.Text = $"v{AppInfo.Current.VersionString}";
+        }
+        catch
+        {
+            VersionLabel.Text = "v1.0.4";
+        }
     }
 
     private async void OnProjectsNavClicked(object? sender, EventArgs e)

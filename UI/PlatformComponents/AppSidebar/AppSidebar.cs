@@ -56,6 +56,15 @@ public partial class AppSidebar : ContentView
     public AppSidebar()
     {
         InitializeComponent();
+        try
+        {
+            VersionLabel.Text = $"v{AppInfo.Current.VersionString}";
+        }
+        catch
+        {
+            // Fallback in case AppInfo is unavailable during design-time/isolated testing
+            VersionLabel.Text = "v1.0.4";
+        }
         ApplyActiveState();
         SyncDarkModeToggleFromCurrentTheme();
         DarkModeToggle.Toggled += OnDarkModeToggleToggled;

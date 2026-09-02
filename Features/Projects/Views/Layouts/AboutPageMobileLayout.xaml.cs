@@ -7,7 +7,14 @@ public partial class AboutPageMobileLayout : ContentView
     public AboutPageMobileLayout()
     {
         InitializeComponent();
-        VersionLabel.Text = $"v{AppInfo.Current.VersionString}";
+        try
+        {
+            VersionLabel.Text = $"v{AppInfo.Current.VersionString}";
+        }
+        catch
+        {
+            VersionLabel.Text = "v1.0.4";
+        }
     }
 
     private async void OnBackClicked(object? sender, EventArgs e)

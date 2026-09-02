@@ -63,7 +63,7 @@
             <VerticalStackLayout Spacing="0" VerticalOptions="Center">
                 <Label Text="Mostaqlk" FontSize="18" FontFamily="TajawalBold"
                        TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
-                <Label Text="v1.0.0" FontSize="12"
+                <Label x:Name="VersionLabel" FontSize="12"
                        TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
                        FontFamily="Tajawal" />
             </VerticalStackLayout>
