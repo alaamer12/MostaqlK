@@ -50,7 +50,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     // or enriched afterwards, even though the database and the dashboard panel were both fully
     // live. These three pipeline events are debounced into a single reload so a burst of
     // discoveries doesn't hammer the database with one query per project.
-    private readonly Debouncer _autoReloadDebouncer = new(TimeSpan.FromMilliseconds(400));
+    private readonly MostaqlK.Core.Debouncer _autoReloadDebouncer = new(TimeSpan.FromMilliseconds(400));
 
     public ObservableCollection<ProjectCardViewModel> Projects { get; } = [];
 

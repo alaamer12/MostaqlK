@@ -24,7 +24,7 @@ public partial class DebouncedEntry : AppEntry
         typeof(ICommand),
         typeof(DebouncedEntry));
 
-    private readonly Debouncer _debouncer = new(TimeSpan.FromMilliseconds(300));
+    private readonly MostaqlK.Core.Debouncer _debouncer = new(TimeSpan.FromMilliseconds(300));
 
     /// <summary>How long to wait, after the last keystroke, before raising the debounced event.</summary>
     public int DebounceMilliseconds

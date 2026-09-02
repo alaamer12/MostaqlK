@@ -113,6 +113,7 @@
 		     (NU1903, GHSA-2m69-gcr7-jv3q / CVE-2025-6965). Pin a newer bundle directly to override
 		     the transitive version until Microsoft.Data.Sqlite itself upgrades its dependency. -->
 		<PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
+		<PackageReference Include="Sentry.Maui" Version="6.9.0" />
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
 		<!-- DPAPI (ProtectedData) for the encrypted `app_secrets` store: the session cookie the
 		     user uploads in Settings is protected with a key the OS derives from the current

@@ -126,6 +126,39 @@ public static class CrashReporter
 
             // Also mirror to debug output in development
             Debug.WriteLine($"[CrashReporter] [{severity}] [{source}]: {exception?.Message}");
+
+            // Forward to Sentry SDK
+            try
+            {
+                if (exception != null)
+                {
+                    Sentry.SentrySdk.CaptureException(exception, scope =>
+                    {
+                        scope.SetTag("source", source);
+                        scope.SetTag("fatal", isFatal ? "true" : "false");
+                        if (context != null)
+                        {
+                            scope.SetExtra("context", SafeSerialize(context));
+                        }
+                    });
+                }
+                else
+                {
+                    Sentry.SentrySdk.CaptureMessage($"[{severity}] Source: {source}", scope =>
+                    {
+                        scope.SetTag("source", source);
+                        scope.SetTag("fatal", isFatal ? "true" : "false");
+                        if (context != null)
+                        {
+                            scope.SetExtra("context", SafeSerialize(context));
+                        }
+                    });
+                }
+            }
+            catch
+            {
+                // Fail-safe: ignore Sentry forwarding failures
+            }
         }
         catch
         {
