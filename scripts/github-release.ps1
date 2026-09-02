@@ -1,7 +1,8 @@
 param(
     [string]$Arch = "x64",
     [switch]$Force,
-    [switch]$CheckOnly
+    [switch]$CheckOnly,
+    [switch]$ResetDatabase
 )
 
 $ErrorActionPreference = "Stop"
@@ -81,8 +82,12 @@ if (-not $shouldRelease) {
 
 # 3. Build Windows Portable Single-File Executable
 $releaseScript = Join-Path $scriptDir "release-windows.ps1"
-Write-Host "Running release script: $releaseScript -Type Portable -Arch $Arch" -ForegroundColor Cyan
-& $releaseScript -Type Portable -Arch $Arch
+$releaseScriptArgs = @("-Type", "Portable", "-Arch", $Arch)
+if ($ResetDatabase) {
+    $releaseScriptArgs += "-ResetDatabase"
+}
+Write-Host "Running release script: $releaseScript $($releaseScriptArgs -join ' ')" -ForegroundColor Cyan
+& $releaseScript @releaseScriptArgs
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Release build failed with exit code $LASTEXITCODE."

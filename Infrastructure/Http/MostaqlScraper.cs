@@ -60,6 +60,10 @@ public sealed class MostaqlScraper : IProjectScraper
         {
             return Result<IReadOnlyList<ProjectSummary>>.Err(HttpErrors.ParseFailed(ListingUrl, ex));
         }
+        catch (Exception ex)
+        {
+            return Result<IReadOnlyList<ProjectSummary>>.Err(HttpErrors.ParseFailed(ListingUrl, ex));
+        }
     }
 
     [ErrorOutcome(ErrorOutcome.Rethrown, Label = "Propagates GetStringAsync failure via htmlResult.Error")]
@@ -80,6 +84,10 @@ public sealed class MostaqlScraper : IProjectScraper
             return Result<ProjectDetails>.Ok(details);
         }
         catch (ParseException ex)
+        {
+            return Result<ProjectDetails>.Err(HttpErrors.ParseFailed(url, ex));
+        }
+        catch (Exception ex)
         {
             return Result<ProjectDetails>.Err(HttpErrors.ParseFailed(url, ex));
         }

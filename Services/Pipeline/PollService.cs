@@ -89,15 +89,15 @@ public sealed class PollService : IPollService
     [ErrorOutcome(ErrorOutcome.Ignored, Label = "Expected OperationCanceledException on StopAsync ends the loop silently")]
     private async Task RunLoopAsync(CancellationToken cancellationToken)
     {
-        // Run an immediate first poll rather than waiting a full interval on startup,
-        // unless the service is already paused (e.g. from a persisted preference).
-        if (!_isPaused)
-        {
-            ReportCycle(await PollOnceAsync(cancellationToken));
-        }
-
         try
         {
+            // Run an immediate first poll rather than waiting a full interval on startup,
+            // unless the service is already paused (e.g. from a persisted preference).
+            if (!_isPaused)
+            {
+                ReportCycle(await PollOnceAsync(cancellationToken));
+            }
+
             while (!cancellationToken.IsCancellationRequested)
             {
                 using var tickDelayCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -128,6 +128,10 @@ public sealed class PollService : IPollService
         catch (OperationCanceledException)
         {
             // Expected on StopAsync - the loop simply ends.
+        }
+        catch (Exception ex)
+        {
+            CrashReporter.Report("PollService.RunLoopAsync.Fatal", ex);
         }
     }
 

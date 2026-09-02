@@ -1,6 +1,7 @@
 using MostaqlK.Core;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Services;
+using MostaqlK.Services.Diagnostics;
 
 namespace MostaqlK.Services.Pipeline.WorkerPool;
 
@@ -45,34 +46,56 @@ public sealed class WorkerPool
 
     public async Task<Result<bool>> StartAsync(CancellationToken cancellationToken = default)
     {
-        _poolCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
-        // Recovery: Load pending IDs from the discovery backlog table into the queue on startup.
-        var backlogResult = await _projectRepository.GetBacklogIdsAsync(cancellationToken);
-        if (backlogResult.IsOk)
+        try
         {
-            foreach (var projectId in backlogResult.Value)
+            _poolCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+            // Recovery: Load pending IDs from the discovery backlog table into the queue on startup.
+            var backlogResult = await _projectRepository.GetBacklogIdsAsync(cancellationToken);
+            if (backlogResult.IsOk)
             {
-                if (_inFlightTracker.TryMarkInFlight(projectId))
+                foreach (var projectId in backlogResult.Value)
                 {
-                    await _discoveryQueue.EnqueueAsync(projectId, cancellationToken);
-                    // Re-hydrated items are real backlog too, so the radar shows them as discovered.
-                    _globalStatus.NotifyProjectDiscovered(projectId);
+                    if (_inFlightTracker.TryMarkInFlight(projectId))
+                    {
+                        await _discoveryQueue.EnqueueAsync(projectId, cancellationToken);
+                        // Re-hydrated items are real backlog too, so the radar shows them as discovered.
+                        _globalStatus.NotifyProjectDiscovered(projectId);
+                    }
                 }
+
+                _globalStatus.UpdateQueueCount(_discoveryQueue.Count);
             }
 
-            _globalStatus.UpdateQueueCount(_discoveryQueue.Count);
+            // Cleanup: Prune very old backlog entries (e.g. > 30 days) to prevent bloat.
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _projectRepository.CleanOldBacklogAsync(30, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    CrashReporter.Report("WorkerPool.CleanOldBacklog", ex);
+                }
+            }, cancellationToken);
+
+            for (var i = 0; i < WorkerCount; i++)
+            {
+                SpawnWorker(i, _poolCts.Token);
+            }
+
+            return Result<bool>.Ok(true);
         }
-
-        // Cleanup: Prune very old backlog entries (e.g. > 30 days) to prevent bloat.
-        _ = _projectRepository.CleanOldBacklogAsync(30, cancellationToken);
-
-        for (var i = 0; i < WorkerCount; i++)
+        catch (OperationCanceledException)
         {
-            SpawnWorker(i, _poolCts.Token);
+            return Result<bool>.Ok(true);
         }
-
-        return Result<bool>.Ok(true);
+        catch (Exception ex)
+        {
+            CrashReporter.Report("WorkerPool.StartAsync", ex);
+            return Result<bool>.Err(EnrichErrors.Unexpected(0, ex));
+        }
     }
 
     public void Reconfigure(int workerCount)
@@ -102,7 +125,21 @@ public sealed class WorkerPool
     {
         var worker = new EnrichmentWorker(
             id, _discoveryQueue, _enrichmentService, _inFlightTracker, _projectRepository, _ownerRepository, _globalStatus, _notificationDispatcher);
-        _runningWorkers.Add(Task.Run(() => worker.RunAsync(token), token));
+        _runningWorkers.Add(Task.Run(async () =>
+        {
+            try
+            {
+                await worker.RunAsync(token);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected on cancellation
+            }
+            catch (Exception ex)
+            {
+                CrashReporter.Report("WorkerPool.WorkerTask", ex, new { WorkerId = id });
+            }
+        }, token));
     }
 
     public Task StopAsync()

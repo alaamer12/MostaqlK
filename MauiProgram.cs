@@ -13,6 +13,7 @@ using MostaqlK.Infrastructure.Database;
 using MostaqlK.Infrastructure.Http;
 using MostaqlK.Infrastructure.Notifications;
 using MostaqlK.Services;
+using MostaqlK.Services.Diagnostics;
 using MostaqlK.Services.Onboarding;
 using MostaqlK.Services.Pipeline;
 using MostaqlK.Services.Pipeline.DiffEngine;
@@ -41,6 +42,8 @@ public static class MauiProgram
 	/// </summary>
 	private static void RegisterGlobalExceptionLogging()
 	{
+		CrashReporter.RegisterGlobalHandlers();
+
 		AppDomain.CurrentDomain.UnhandledException += (_, args) =>
 			MostaqlK.Services.Diagnostics.InteractionLogger.Fault(
 				"AppDomain.UnhandledException",

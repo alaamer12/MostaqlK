@@ -21,6 +21,8 @@ public partial class App : Application
 
 	private readonly CancellationTokenSource _pipelineCts = new();
 	private readonly IServiceProvider _services;
+	private readonly bool _explicitlySeededThisLaunch;
+	private int _pipelineStartedFlag;
 	private Window? _onboardingWindow;
 	private bool _mainWindowOpened;
 
@@ -77,34 +79,61 @@ public partial class App : Application
 		// CURRENT launch's explicit request (this run's argv) is allowed to keep the pipeline
 		// offline; a stale persisted preference from a prior run is informational only (surfaced to
 		// the UI/log) and must not silently strand the shipped app on frozen seed data forever.
-		var explicitlySeededThisLaunch = DesignDataSeeder.ParseArguments(Environment.GetCommandLineArgs()) == true;
+		_explicitlySeededThisLaunch = DesignDataSeeder.ParseArguments(Environment.GetCommandLineArgs()) == true;
 
 		MostaqlK.Services.Diagnostics.InteractionLogger.Mark(
 			"App.Startup.DesignParityMode",
-			explicitlySeededThisLaunch ? "A" : "B",
-			new { designDataMode, explicitlySeededThisLaunch });
+			_explicitlySeededThisLaunch ? "A" : "B",
+			new { designDataMode, _explicitlySeededThisLaunch });
 
-		// MAUI has no ASP.NET-style `IHostedService`, so the pipeline subsystem (Poll Service +
-		// Worker Pool) is started here as fire-and-forget background loops off the app's own
-		// lifetime token. Both are registered as singletons in `MauiProgram`, so this simply
-		// kicks off their already-implemented `StartAsync` loops once.
-		// FIX (pipeline working before onboarding finished): background polling/enrichment must not
-		// begin while the onboarding window is still up - the user hasn't chosen a query yet and the
-		// Start/Pause button on the main page should still reflect its persisted default state the
-		// moment it appears, not "already ticking" from work that began seconds earlier. So the
-		// pipeline is only started once onboarding has actually completed; if it's still pending,
-		// starting is deferred to the same `Completed` event that swaps in the main shell below.
+		// DEFERRED STARTUP PIPELINE:
+		// Background polling and enrichment loops are no longer triggered immediately in the
+		// App constructor during window creation and XAML inflation. Starting immediate HTTP
+		// scraping and worker threads concurrently with WinUI window layout can saturate the
+		// thread pool and cause noticeable splash screen hanging.
+		// Instead, pipeline start is deferred until MainWindowPage.OnAppearing finishes its initial
+		// render (or onboarding completes), with a fail-safe background timer fallback.
 		var onboardingStateService = services.GetRequiredService<OnboardingStateService>();
-		if (onboardingStateService.IsCompleted)
+		onboardingStateService.Completed += (_, _) =>
 		{
-			StartPipeline(services, explicitlySeededThisLaunch);
-		}
-		else
+			_ = Task.Run(async () =>
+			{
+				await Task.Delay(300);
+				EnsurePipelineStarted();
+			});
+		};
+
+		// Fail-safe fallback: ensure pipeline eventually starts after 4 seconds even if
+		// window OnAppearing was not invoked (e.g. headless/test execution mode).
+		_ = Task.Run(async () =>
 		{
-			onboardingStateService.Completed += (_, _) => StartPipeline(services, explicitlySeededThisLaunch);
-		}
+			await Task.Delay(4000);
+			EnsurePipelineStarted();
+		});
 
 		HandleDebugJsonArgument(services, Environment.GetCommandLineArgs());
+	}
+
+	/// <summary>
+	/// Thread-safe, idempotent entry point to kick off background pipeline processing.
+	/// Can be called as soon as the main window has loaded its initial view.
+	/// </summary>
+	public void EnsurePipelineStarted()
+	{
+		if (Interlocked.Exchange(ref _pipelineStartedFlag, 1) == 1)
+		{
+			return;
+		}
+
+		var onboardingStateService = _services.GetRequiredService<OnboardingStateService>();
+		if (!onboardingStateService.IsCompleted)
+		{
+			// Reset flag so it will start when onboarding completes
+			Interlocked.Exchange(ref _pipelineStartedFlag, 0);
+			return;
+		}
+
+		StartPipeline(_services, _explicitlySeededThisLaunch);
 	}
 
 	/// <summary>

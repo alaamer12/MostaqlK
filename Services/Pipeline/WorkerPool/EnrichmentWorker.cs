@@ -54,47 +54,63 @@ public sealed class EnrichmentWorker
 
     public async Task RunAsync(CancellationToken cancellationToken = default)
     {
-        await foreach (var projectId in _discoveryQueue.ReadAllAsync(cancellationToken))
+        try
         {
-            try
+            await foreach (var projectId in _discoveryQueue.ReadAllAsync(cancellationToken))
             {
-                // Radar: the queued project token travels to this worker's segment, then the
-                // segment activates - the user can see *which* worker picked the project up.
-                _globalStatus.NotifyProjectAssignedToWorker(_workerId, projectId);
-                _globalStatus.UpdateWorkerState(_workerId, WorkerState.Processing);
-                _globalStatus.UpdateQueueCount(_discoveryQueue.Count);
-                await ProcessAsync(projectId, cancellationToken);
-                // Success: remove from persistent backlog.
-                await _projectRepository.RemoveFromBacklogAsync(projectId, cancellationToken);
-                _globalStatus.UpdateWorkerState(_workerId, WorkerState.Completed);
+                try
+                {
+                    // Radar: the queued project token travels to this worker's segment, then the
+                    // segment activates - the user can see *which* worker picked the project up.
+                    _globalStatus.NotifyProjectAssignedToWorker(_workerId, projectId);
+                    _globalStatus.UpdateWorkerState(_workerId, WorkerState.Processing);
+                    _globalStatus.UpdateQueueCount(_discoveryQueue.Count);
+                    await ProcessAsync(projectId, cancellationToken);
+                    // Success: remove from persistent backlog.
+                    await _projectRepository.RemoveFromBacklogAsync(projectId, cancellationToken);
+                    _globalStatus.UpdateWorkerState(_workerId, WorkerState.Completed);
+                }
+                catch (OperationCanceledException)
+                {
+                    // App shutdown: leave the loop without marking the worker as failed.
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    // A single project's failure must not cost the app a worker.
+                    _globalStatus.UpdateWorkerState(_workerId, WorkerState.Error);
+                    InteractionLogger.Failure(
+                        "EnrichmentWorker.Unexpected",
+                        EnrichErrors.Unexpected(projectId, ex),
+                        new { WorkerId = _workerId, ProjectId = projectId });
+                    CrashReporter.Report("EnrichmentWorker.Unexpected", ex, new { WorkerId = _workerId, ProjectId = projectId });
+                }
+                finally
+                {
+                    // Give a moment for the Completed/Error state to be visible before returning to Idle
+                    _ = Task.Delay(2000).ContinueWith(_ =>
+                    {
+                        try
+                        {
+                            _globalStatus.UpdateWorkerState(_workerId, WorkerState.Idle);
+                        }
+                        catch { }
+                    }, TaskScheduler.Default);
+
+                    _globalStatus.UpdateQueueCount(_discoveryQueue.Count);
+                    // Hard rule per In-Flight Tracker spec: always released, success or failure,
+                    // so no ID can get stuck permanently in-flight.
+                    _inFlightTracker.MarkComplete(projectId);
+                }
             }
-            catch (OperationCanceledException)
-            {
-                // App shutdown: leave the loop without marking the worker as failed.
-                throw;
-            }
-            catch (Exception ex)
-            {
-                // This used to rethrow, which ended `RunAsync` for good: the faulted task was never
-                // observed anywhere (WorkerPool only awaits them in StopAsync), so one unexpected
-                // exception silently removed a worker from the pool permanently - and three of them
-                // left the queue with nobody draining it while the UI still showed a live pipeline.
-                // A single project's failure must not cost the app a worker.
-                _globalStatus.UpdateWorkerState(_workerId, WorkerState.Error);
-                InteractionLogger.Failure(
-                    "EnrichmentWorker.Unexpected",
-                    EnrichErrors.Unexpected(projectId, ex),
-                    new { WorkerId = _workerId, ProjectId = projectId });
-            }
-            finally
-            {
-                // Give a moment for the Completed/Error state to be visible before returning to Idle
-                _ = Task.Delay(2000).ContinueWith(_ => _globalStatus.UpdateWorkerState(_workerId, WorkerState.Idle));
-                _globalStatus.UpdateQueueCount(_discoveryQueue.Count);
-                // Hard rule per In-Flight Tracker spec: always released, success or failure,
-                // so no ID can get stuck permanently in-flight.
-                _inFlightTracker.MarkComplete(projectId);
-            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected on cancellation
+        }
+        catch (Exception ex)
+        {
+            CrashReporter.Report("EnrichmentWorker.RunAsync.Fatal", ex, new { WorkerId = _workerId });
         }
     }
 
@@ -174,6 +190,10 @@ public sealed class EnrichmentWorker
             // implemented yet. Tolerated here so the pipeline can be exercised end-to-end
             // ahead of that step landing.
         }
+        catch (Exception ex)
+        {
+            CrashReporter.Report("EnrichmentWorker.UpsertException", ex, new { projectId });
+        }
 
         try
         {
@@ -184,6 +204,10 @@ public sealed class EnrichmentWorker
         catch (NotImplementedException)
         {
             // Expected integration gap: Step 5 (NotificationDispatcher) is not implemented yet.
+        }
+        catch (Exception ex)
+        {
+            CrashReporter.Report("EnrichmentWorker.NotificationException", ex, new { projectId });
         }
     }
 

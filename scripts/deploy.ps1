@@ -10,23 +10,31 @@ param (
 
     [Parameter(Mandatory=$false)]
     [ValidateSet("Portable", "Directory")]
-    [string]$Type = "Directory"
+    [string]$Type = "Directory",
+
+    [Parameter(Mandatory=$false)]
+    [switch]$ResetDatabase
 )
+
+$extraArgs = @()
+if ($ResetDatabase) {
+    $extraArgs += "-ResetDatabase"
+}
 
 switch ($Platform) {
     "Windows" {
-        & "$PSScriptRoot\release-windows.ps1" -Type $Type -Arch $Arch
+        & "$PSScriptRoot\release-windows.ps1" -Type $Type -Arch $Arch @extraArgs
     }
     "macOS" {
-        & "$PSScriptRoot\release-macos.ps1"
+        & "$PSScriptRoot\release-macos.ps1" @extraArgs
     }
     "Android" {
-        & "$PSScriptRoot\release-mobile.ps1" -Platform "Android"
+        & "$PSScriptRoot\release-mobile.ps1" -Platform "Android" @extraArgs
     }
     "iOS" {
-        & "$PSScriptRoot\release-mobile.ps1" -Platform "iOS"
+        & "$PSScriptRoot\release-mobile.ps1" -Platform "iOS" @extraArgs
     }
     "Mobile" {
-        & "$PSScriptRoot\release-mobile.ps1" -Platform "Both"
+        & "$PSScriptRoot\release-mobile.ps1" -Platform "Both" @extraArgs
     }
 }

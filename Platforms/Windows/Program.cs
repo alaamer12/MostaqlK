@@ -2,6 +2,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
 using MostaqlK.Platforms.Windows;
+using MostaqlK.Services.Diagnostics;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -32,14 +33,16 @@ public static class Program
         LogDebug($"AppContext.BaseDirectory: {AppContext.BaseDirectory}");
         LogDebug($"Environment.CurrentDirectory: {Environment.CurrentDirectory}");
 
+        CrashReporter.RegisterGlobalHandlers();
+
         AppDomain.CurrentDomain.UnhandledException += (s, e) =>
         {
-            LogCrash("AppDomain.UnhandledException", e.ExceptionObject as Exception);
+            CrashReporter.Report("Program.AppDomain.UnhandledException", e.ExceptionObject as Exception, isFatal: e.IsTerminating);
         };
 
         TaskScheduler.UnobservedTaskException += (s, e) =>
         {
-            LogCrash("TaskScheduler.UnobservedTaskException", e.Exception);
+            CrashReporter.Report("Program.TaskScheduler.UnobservedTaskException", e.Exception, isFatal: false);
         };
 
         AppDomain.CurrentDomain.FirstChanceException += (s, e) =>
@@ -122,11 +125,8 @@ public static class Program
     {
         try
         {
-            string msg = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{source}] {ex}\n";
+            CrashReporter.Report(source, ex, isFatal: true);
             LogDebug($"CRASH in {source}: {ex}");
-            string logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MostaqlK", "log");
-            Directory.CreateDirectory(logDir);
-            File.AppendAllText(Path.Combine(logDir, "crash.log"), msg);
         }
         catch { }
     }

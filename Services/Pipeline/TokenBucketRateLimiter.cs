@@ -172,7 +172,13 @@ public sealed class TokenBucketRateLimiter
                 else
                 {
                     var missing = 1.0 - _tokens;
-                    waitTime = TimeSpan.FromSeconds(missing / RefillPerSecond);
+                    var refillRate = Math.Max(0.001, RefillPerSecond);
+                    var seconds = missing / refillRate;
+                    if (double.IsNaN(seconds) || double.IsInfinity(seconds) || seconds > 3600)
+                    {
+                        seconds = 3600;
+                    }
+                    waitTime = TimeSpan.FromSeconds(seconds);
                 }
             }
 

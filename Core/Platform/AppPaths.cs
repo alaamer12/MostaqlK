@@ -57,6 +57,11 @@ public interface IAppDirectoryProvider
     string LogFilePath { get; }
 
     /// <summary>
+    /// Path to the dedicated crash log file (<c>crash.log</c>).
+    /// </summary>
+    string CrashLogFilePath { get; }
+
+    /// <summary>
     /// Path to the attachments cache directory.
     /// </summary>
     string AttachmentsDirectory { get; }
@@ -163,6 +168,11 @@ public static class AppPaths
     /// Primary interaction log file path (<c>interaction-log.txt</c>).
     /// </summary>
     public static string LogFilePath => Path.Combine(LogsDirectory, "interaction-log.txt");
+
+    /// <summary>
+    /// Dedicated crash log file path (<c>crash.log</c>).
+    /// </summary>
+    public static string CrashLogFilePath => Path.Combine(LogsDirectory, "crash.log");
 
     /// <summary>
     /// Directory for downloaded attachment files.

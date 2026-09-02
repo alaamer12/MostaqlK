@@ -52,5 +52,15 @@ public partial class MainWindowPage : ContentPage
         base.OnAppearing();
         await _viewModel.LoadAsync();
         _appLifecycleService.IsReadyToNotify = true;
+
+        // Defer background pipeline startup until after UI has loaded and rendered
+        if (Application.Current is App app)
+        {
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(300); // 300ms breathing delay for WinUI compositor and splash dismissal
+                app.EnsurePipelineStarted();
+            });
+        }
     }
 }
