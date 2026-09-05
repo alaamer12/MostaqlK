@@ -251,9 +251,16 @@ internal static class PlatformServiceRegistration
                         trayIconService.RestoreRequested += () =>
                             Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(() =>
                             {
-                                appWindow.Show();
-                                window.Activate();
-                                appLifecycleService.IsInBackground = false;
+                                try
+                                {
+                                    appWindow.Show();
+                                    window.Activate();
+                                    appLifecycleService.IsInBackground = false;
+                                }
+                                catch (Exception ex)
+                                {
+                                    MostaqlK.Services.Diagnostics.CrashReporter.Report("PlatformServiceRegistration.RestoreRequested", ex, isFatal: false);
+                                }
                             });
 
                         // Avast-style "keep running in background": the X button no longer closes the

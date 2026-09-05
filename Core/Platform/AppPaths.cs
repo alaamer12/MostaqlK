@@ -67,6 +67,16 @@ public interface IAppDirectoryProvider
     string AttachmentsDirectory { get; }
 
     /// <summary>
+    /// Directory for single-file runtime bundle extraction cache (<c>bundle-cache/</c>).
+    /// </summary>
+    string BundleCacheDirectory { get; }
+
+    /// <summary>
+    /// Path to the native crash dump file (<c>crash.dmp</c>).
+    /// </summary>
+    string CrashDumpFilePath { get; }
+
+    /// <summary>
     /// Ensures standard directories exist and purges legacy unidiomatic paths if they exist.
     /// </summary>
     void EnsureDirectories();
@@ -175,6 +185,25 @@ public static class AppPaths
     public static string CrashLogFilePath => Path.Combine(LogsDirectory, "crash.log");
 
     /// <summary>
+    /// Path for post-mortem native crash dumps (<c>crash.dmp</c>).
+    /// </summary>
+    public static string CrashDumpFilePath => Path.Combine(LogsDirectory, "crash.dmp");
+
+    /// <summary>
+    /// Directory for single-file runtime bundle extraction cache (<c>bundle-cache/</c>).
+    /// Prevents Windows Storage Sense and temp sweepers from purging DLLs/resources.
+    /// </summary>
+    public static string BundleCacheDirectory
+    {
+        get
+        {
+            var dir = Path.Combine(AppDirectory, "bundle-cache");
+            EnsureDirectoryExists(dir);
+            return dir;
+        }
+    }
+
+    /// <summary>
     /// Directory for downloaded attachment files.
     /// </summary>
     public static string AttachmentsDirectory => Path.Combine(CacheDirectory, "attachments");
@@ -200,6 +229,7 @@ public static class AppPaths
                 EnsureDirectoryExists(LogsDirectory);
                 EnsureDirectoryExists(CacheDirectory);
                 EnsureDirectoryExists(AttachmentsDirectory);
+                EnsureDirectoryExists(BundleCacheDirectory);
             }
             catch
             {

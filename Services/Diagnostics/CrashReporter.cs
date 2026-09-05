@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
+using Microsoft.Win32.SafeHandles;
 using MostaqlK.Core.Platform;
 
 namespace MostaqlK.Services.Diagnostics;
@@ -13,7 +14,7 @@ namespace MostaqlK.Services.Diagnostics;
 /// <summary>
 /// Dedicated, thread-aware crash diagnostics service for MostaqlK.
 /// Synchronously and reliably writes full diagnostic context (thread state, memory, process uptime,
-/// complete stack traces across all inner exceptions) to <c>crash.log</c> without throwing.
+/// complete stack traces across all inner exceptions) to <c>crash.log</c> and generates native minidumps without throwing.
 /// </summary>
 public static class CrashReporter
 {
@@ -22,8 +23,64 @@ public static class CrashReporter
     private static int _isRegistered;
     private static readonly DateTime ProcessStartTimeUtc = DateTime.UtcNow;
 
+#if WINDOWS || NET10_0_WINDOWS10_0_19041_0_OR_GREATER || WINDOWS10_0_17763_0_OR_GREATER
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+    private delegate int UnhandledExceptionFilterDelegate(IntPtr exceptionPointers);
+
+    private static UnhandledExceptionFilterDelegate? _nativeFilterDelegate;
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr SetUnhandledExceptionFilter(UnhandledExceptionFilterDelegate lpTopLevelExceptionFilter);
+
+    [DllImport("dbghelp.dll", SetLastError = true)]
+    private static extern bool MiniDumpWriteDump(
+        IntPtr hProcess,
+        uint processId,
+        SafeFileHandle hFile,
+        uint dumpType,
+        ref MINIDUMP_EXCEPTION_INFORMATION exceptionParam,
+        IntPtr userStreamParam,
+        IntPtr callbackParam);
+
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    private struct MINIDUMP_EXCEPTION_INFORMATION
+    {
+        public uint ThreadId;
+        public IntPtr ExceptionPointers;
+        [MarshalAs(UnmanagedType.Bool)]
+        public bool ClientPointers;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct EXCEPTION_RECORD
+    {
+        public uint ExceptionCode;
+        public uint ExceptionFlags;
+        public IntPtr ExceptionRecord;
+        public IntPtr ExceptionAddress;
+        public uint NumberParameters;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct EXCEPTION_POINTERS
+    {
+        public IntPtr ExceptionRecord;
+        public IntPtr ContextRecord;
+    }
+
+    [DllImport("kernel32.dll")]
+    private static extern uint GetCurrentProcessId();
+
+    [DllImport("kernel32.dll")]
+    private static extern uint GetCurrentThreadId();
+
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr GetCurrentProcess();
+#endif
+
     /// <summary>
-    /// Registers global unhandled exception hooks across <see cref="AppDomain"/> and <see cref="TaskScheduler"/>.
+    /// Registers global unhandled exception hooks across <see cref="AppDomain"/>, <see cref="TaskScheduler"/>,
+    /// and native Win32 Structured Exception Handling (SEH).
     /// Idempotent: safe to call multiple times.
     /// </summary>
     public static void RegisterGlobalHandlers()
@@ -45,6 +102,194 @@ public static class CrashReporter
             Report("TaskScheduler.UnobservedTaskException", args.Exception, isFatal: false);
             args.SetObserved();
         };
+
+#if WINDOWS || NET10_0_WINDOWS10_0_19041_0_OR_GREATER || WINDOWS10_0_17763_0_OR_GREATER
+        RegisterNativeExceptionFilter();
+#endif
+    }
+
+#if WINDOWS || NET10_0_WINDOWS10_0_19041_0_OR_GREATER || WINDOWS10_0_17763_0_OR_GREATER
+    private static void RegisterNativeExceptionFilter()
+    {
+        try
+        {
+            _nativeFilterDelegate = NativeUnhandledExceptionCallback;
+            SetUnhandledExceptionFilter(_nativeFilterDelegate);
+        }
+        catch
+        {
+            // Fail-safe: native handler registration should never crash startup
+        }
+    }
+
+    private static int NativeUnhandledExceptionCallback(IntPtr exceptionPointers)
+    {
+        try
+        {
+            uint exceptionCode = 0;
+            IntPtr exceptionAddress = IntPtr.Zero;
+
+            if (exceptionPointers != IntPtr.Zero)
+            {
+                try
+                {
+                    var pointers = Marshal.PtrToStructure<EXCEPTION_POINTERS>(exceptionPointers);
+                    if (pointers.ExceptionRecord != IntPtr.Zero)
+                    {
+                        var record = Marshal.PtrToStructure<EXCEPTION_RECORD>(pointers.ExceptionRecord);
+                        exceptionCode = record.ExceptionCode;
+                        exceptionAddress = record.ExceptionAddress;
+                    }
+                }
+                catch { }
+            }
+
+            var sb = new StringBuilder();
+            var timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff");
+            string codeName = exceptionCode switch
+            {
+                0xC0000005 => "STATUS_ACCESS_VIOLATION (0xC0000005)",
+                0xC00000FD => "STATUS_STACK_OVERFLOW (0xC00000FD)",
+                0xC0000008 => "STATUS_INVALID_HANDLE (0xC0000008)",
+                0xC000001D => "STATUS_ILLEGAL_INSTRUCTION (0xC000001D)",
+                0xC0000025 => "STATUS_NONCONTINUABLE_EXCEPTION (0xC0000025)",
+                _ => $"0x{exceptionCode:X8}"
+            };
+
+            sb.AppendLine("================================================================================");
+            sb.AppendLine($"[{timestamp} UTC] [FATAL/NATIVE_SEH_CRASH] Source: Win32.UnhandledExceptionFilter");
+            sb.AppendLine("================================================================================");
+            sb.AppendLine("-- NATIVE EXCEPTION CONTEXT --");
+            sb.AppendLine($"  Exception Code: {codeName}");
+            sb.AppendLine($"  Fault Address: 0x{exceptionAddress.ToInt64():X16}");
+            sb.AppendLine($"  Current Thread ID: {GetCurrentThreadId()}");
+            sb.AppendLine($"  Process ID: {GetCurrentProcessId()}");
+
+            AppendEnvironmentTelemetry(sb);
+
+            sb.AppendLine("================================================================================");
+            sb.AppendLine();
+
+            var logText = sb.ToString();
+
+            lock (WriteLock)
+            {
+                try
+                {
+                    var logFilePath = CrashLogPath.Value;
+                    var logDir = Path.GetDirectoryName(logFilePath);
+                    if (!string.IsNullOrEmpty(logDir) && !Directory.Exists(logDir))
+                    {
+                        Directory.CreateDirectory(logDir);
+                    }
+                    File.AppendAllText(logFilePath, logText, Encoding.UTF8);
+                }
+                catch { }
+            }
+
+            // Write MiniDump
+            try
+            {
+                var dumpPath = AppPaths.CrashDumpFilePath;
+                var dumpDir = Path.GetDirectoryName(dumpPath);
+                if (!string.IsNullOrEmpty(dumpDir) && !Directory.Exists(dumpDir))
+                {
+                    Directory.CreateDirectory(dumpDir);
+                }
+
+                using var fs = new FileStream(dumpPath, FileMode.Create, FileAccess.ReadWrite, FileShare.None);
+                var dumpExceptionInfo = new MINIDUMP_EXCEPTION_INFORMATION
+                {
+                    ThreadId = GetCurrentThreadId(),
+                    ExceptionPointers = exceptionPointers,
+                    ClientPointers = false
+                };
+
+                // MiniDumpWithIndirectlyReferencedMemory (0x40) | MiniDumpWithThreadInfo (0x1000)
+                uint dumpFlags = 0x00000000 | 0x00000040 | 0x00001000;
+                MiniDumpWriteDump(
+                    GetCurrentProcess(),
+                    GetCurrentProcessId(),
+                    fs.SafeFileHandle,
+                    dumpFlags,
+                    ref dumpExceptionInfo,
+                    IntPtr.Zero,
+                    IntPtr.Zero);
+            }
+            catch { }
+        }
+        catch { }
+
+        // EXCEPTION_CONTINUE_SEARCH (0) allows Windows Error Reporting / OS default crash handling to proceed
+        return 0;
+    }
+#endif
+
+    /// <summary>
+    /// Checks if a previous native unhandled crash minidump exists on disk, logs the post-mortem
+    /// incident to <c>crash.log</c>, and forwards telemetry to Sentry.
+    /// </summary>
+    public static void CheckAndReportPreviousCrashes()
+    {
+        try
+        {
+            var dumpPath = AppPaths.CrashDumpFilePath;
+            if (!File.Exists(dumpPath))
+            {
+                return;
+            }
+
+            var fileInfo = new FileInfo(dumpPath);
+            var dumpSizeKb = Math.Max(1, fileInfo.Length / 1024);
+            var crashTime = fileInfo.LastWriteTimeUtc;
+
+            Report(
+                "PostMortem.NativeCrashDetected",
+                new ApplicationException($"Previous session terminated abnormally with native unhandled crash (Minidump: {dumpSizeKb} KB, TimeUtc: {crashTime:yyyy-MM-dd HH:mm:ss})"),
+                new { MinidumpSizeKb = dumpSizeKb, TimestampUtc = crashTime },
+                isFatal: false);
+
+            try
+            {
+                if (Sentry.SentrySdk.IsEnabled)
+                {
+                    Sentry.SentrySdk.CaptureMessage(
+                        $"Previous session terminated with native SEH crash (Minidump: {dumpSizeKb} KB)",
+                        scope =>
+                        {
+                            scope.Level = Sentry.SentryLevel.Fatal;
+                            scope.SetTag("crash_type", "native_seh");
+                            scope.SetTag("post_mortem", "true");
+                            scope.SetExtra("dump_size_kb", dumpSizeKb);
+                            scope.SetExtra("crash_time_utc", crashTime.ToString("o"));
+                            if (File.Exists(AppPaths.CrashLogFilePath))
+                            {
+                                scope.AddAttachment(AppPaths.CrashLogFilePath);
+                            }
+                        });
+                }
+            }
+            catch { }
+
+            // Archive the dump file so we don't repeatedly report it on subsequent startups
+            try
+            {
+                var archivePath = Path.Combine(AppPaths.LogsDirectory, $"crash-{crashTime:yyyyMMdd-HHmmss}.dmp");
+                if (File.Exists(archivePath))
+                {
+                    File.Delete(archivePath);
+                }
+                File.Move(dumpPath, archivePath);
+            }
+            catch
+            {
+                try { File.Delete(dumpPath); } catch { }
+            }
+        }
+        catch
+        {
+            // Fail-safe
+        }
     }
 
     /// <summary>

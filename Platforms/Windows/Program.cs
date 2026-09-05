@@ -29,11 +29,14 @@ public static class Program
     [STAThread]
     static void Main(string[] args)
     {
+        EnsurePersistentBundleExtraction();
+
         LogDebug($"Main started with args: [{string.Join(", ", args)}]");
         LogDebug($"AppContext.BaseDirectory: {AppContext.BaseDirectory}");
         LogDebug($"Environment.CurrentDirectory: {Environment.CurrentDirectory}");
 
         CrashReporter.RegisterGlobalHandlers();
+        CrashReporter.CheckAndReportPreviousCrashes();
 
         AppDomain.CurrentDomain.UnhandledException += (s, e) =>
         {
@@ -129,6 +132,31 @@ public static class Program
             LogDebug($"CRASH in {source}: {ex}");
         }
         catch { }
+    }
+
+    /// <summary>
+    /// Configures the .NET single-file bundle extraction location to a persistent directory
+    /// (<c>%LocalAppData%\MostaqlK\bundle-cache</c>) so that Windows Storage Sense or background
+    /// temp file maintenance will never purge runtime DLLs and XAML assets during long-running sessions.
+    /// </summary>
+    private static void EnsurePersistentBundleExtraction()
+    {
+        try
+        {
+            var bundleCacheDir = MostaqlK.Core.Platform.AppPaths.BundleCacheDirectory;
+            Environment.SetEnvironmentVariable("DOTNET_BUNDLE_EXTRACT_BASE_DIR", bundleCacheDir, EnvironmentVariableTarget.Process);
+
+            var currentVal = Environment.GetEnvironmentVariable("DOTNET_BUNDLE_EXTRACT_BASE_DIR", EnvironmentVariableTarget.User);
+            if (!string.Equals(currentVal, bundleCacheDir, StringComparison.OrdinalIgnoreCase))
+            {
+                Environment.SetEnvironmentVariable("DOTNET_BUNDLE_EXTRACT_BASE_DIR", bundleCacheDir, EnvironmentVariableTarget.User);
+                LogDebug($"Configured DOTNET_BUNDLE_EXTRACT_BASE_DIR in User environment: {bundleCacheDir}");
+            }
+        }
+        catch (Exception ex)
+        {
+            LogDebug($"EnsurePersistentBundleExtraction note: {ex.Message}");
+        }
     }
 
     /// <summary>
