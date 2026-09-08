@@ -1,6 +1,8 @@
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
+using Microsoft.Windows.AppNotifications;
+using MostaqlK.Infrastructure.Notifications;
 using MostaqlK.Platforms.Windows;
 using MostaqlK.Services.Diagnostics;
 using System;
@@ -17,6 +19,13 @@ namespace MostaqlK.WinUI;
 /// </summary>
 public static class Program
 {
+    private const string SingletonMutexName = @"Local\MostaqlK.App.Singleton";
+    private const string WakeEventName = @"Local\MostaqlK.App.Wake";
+    private const string AppInstanceKey = "MostaqlK.App.Singleton.Instance";
+
+    private static Mutex? _singletonMutex;
+    private static EventWaitHandle? _wakeEvent;
+
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern uint GetModuleFileName(IntPtr hModule, StringBuilder lpFilename, int nSize);
 
@@ -53,16 +62,16 @@ public static class Program
             LogDebug($"[FirstChanceException] {e.Exception.GetType().FullName}: {e.Exception.Message}\n{e.Exception.StackTrace}");
         };
 
-        // Show native splash screen immediately on launch before any heavy runtime initialization
-        try
+        // Toast COM / notification-center clicks launch LocalServer32 (this exe) even while the
+        // tray process is still alive. Showing the splash before we know we are the primary
+        // instance is what made a 10h-idle app look like a cold start.
+        if (!TryAcquireSingletonMutex())
         {
-            LogDebug("Showing NativeSplashScreen");
-            NativeSplashScreen.Show();
+            HandleSecondaryInstance();
+            return;
         }
-        catch (Exception ex)
-        {
-            LogDebug($"NativeSplashScreen.Show threw: {ex}");
-        }
+
+        StartWakeListener();
 
         try
         {
@@ -87,6 +96,16 @@ public static class Program
 
             if (!isRedirect)
             {
+                try
+                {
+                    LogDebug("Showing NativeSplashScreen (primary instance)");
+                    NativeSplashScreen.Show();
+                }
+                catch (Exception ex)
+                {
+                    LogDebug($"NativeSplashScreen.Show threw: {ex}");
+                }
+
                 LogDebug("Calling Microsoft.UI.Xaml.Application.Start");
                 Microsoft.UI.Xaml.Application.Start((p) =>
                 {
@@ -100,8 +119,7 @@ public static class Program
             }
             else
             {
-                LogDebug("App redirected to existing instance. Hiding splash.");
-                NativeSplashScreen.Hide();
+                LogDebug("App redirected to existing instance; exiting without splash.");
             }
         }
         catch (Exception ex)
@@ -150,6 +168,7 @@ public static class Program
             if (!string.Equals(currentVal, bundleCacheDir, StringComparison.OrdinalIgnoreCase))
             {
                 Environment.SetEnvironmentVariable("DOTNET_BUNDLE_EXTRACT_BASE_DIR", bundleCacheDir, EnvironmentVariableTarget.User);
+                BroadcastEnvironmentChange();
                 LogDebug($"Configured DOTNET_BUNDLE_EXTRACT_BASE_DIR in User environment: {bundleCacheDir}");
             }
         }
@@ -238,7 +257,7 @@ public static class Program
 
         // Find or register a unique key for our application.
         // If the key is already registered, it returns the instance that registered it.
-        var keyInstance = AppInstance.FindOrRegisterForKey("MostaqlK.App.Singleton.Instance");
+        var keyInstance = AppInstance.FindOrRegisterForKey(AppInstanceKey);
 
         if (keyInstance.IsCurrent)
         {
@@ -263,14 +282,178 @@ public static class Program
     /// </summary>
     private static void OnActivated(object? sender, AppActivationArguments e)
     {
-        // When redirected activation occurs, we want to bring the existing window to the foreground.
-        // Since we are running in the context of the MauiWinUIApplication, we can use the 
-        // TrayIconService or App lifecycle hooks to restore the window.
-        
-        if (MauiWinUIApplication.Current is Microsoft.Maui.MauiWinUIApplication mauiApp)
+        TryOpenUrlFromActivation(e);
+        TryRestoreExistingWindow();
+    }
+
+    private static bool TryAcquireSingletonMutex()
+    {
+        try
         {
-            var trayIconService = mauiApp.Services.GetService<UI.TrayIcon.TrayIconService>();
-            trayIconService?.RequestRestore();
+            _singletonMutex = new Mutex(initiallyOwned: true, SingletonMutexName, out var createdNew);
+            if (createdNew)
+            {
+                return true;
+            }
+
+            _singletonMutex.Dispose();
+            _singletonMutex = null;
+            return false;
+        }
+        catch (AbandonedMutexException)
+        {
+            // Previous owner crashed without releasing; this process is now the primary.
+            return true;
+        }
+        catch (Exception ex)
+        {
+            LogDebug($"TryAcquireSingletonMutex failed (treating as primary): {ex}");
+            return true;
+        }
+    }
+
+    private static void StartWakeListener()
+    {
+        try
+        {
+            _wakeEvent = new EventWaitHandle(false, EventResetMode.AutoReset, WakeEventName);
+            var thread = new Thread(() =>
+            {
+                while (_wakeEvent is not null)
+                {
+                    try
+                    {
+                        _wakeEvent.WaitOne();
+                        TryRestoreExistingWindow();
+                    }
+                    catch (Exception ex)
+                    {
+                        LogDebug($"Wake listener: {ex.Message}");
+                    }
+                }
+            })
+            {
+                IsBackground = true,
+                Name = "MostaqlK.SingletonWake"
+            };
+            thread.Start();
+        }
+        catch (Exception ex)
+        {
+            LogDebug($"StartWakeListener failed: {ex.Message}");
+        }
+    }
+
+    private static void HandleSecondaryInstance()
+    {
+        LogDebug("Secondary instance (toast/COM/activation). No splash; hand off to running process.");
+
+        AppActivationArguments? args = null;
+        try
+        {
+            WinRT.ComWrappersSupport.InitializeComWrappers();
+            args = AppInstance.GetCurrent().GetActivatedEventArgs();
+            TryOpenUrlFromActivation(args);
+
+            foreach (var instance in AppInstance.GetInstances())
+            {
+                if (instance.IsCurrent)
+                {
+                    continue;
+                }
+
+                instance.RedirectActivationToAsync(args).AsTask().Wait(TimeSpan.FromSeconds(5));
+                LogDebug("Redirected activation to an existing AppInstance.");
+                break;
+            }
+        }
+        catch (Exception ex)
+        {
+            LogDebug($"Secondary AppInstance handoff failed: {ex}");
+            TryOpenUrlFromActivation(args);
+        }
+
+        try
+        {
+            if (EventWaitHandle.TryOpenExisting(WakeEventName, out var wake))
+            {
+                using (wake)
+                {
+                    wake.Set();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            LogDebug($"Secondary wake pulse failed: {ex.Message}");
+        }
+    }
+
+    private static void TryOpenUrlFromActivation(AppActivationArguments? args)
+    {
+        if (args is null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (args.Data is AppNotificationActivatedEventArgs toast &&
+                toast.Arguments.TryGetValue("openUrl", out var url) &&
+                !string.IsNullOrWhiteSpace(url))
+            {
+                NotificationUrlLauncher.OpenUrl(url, "Program.Activation");
+            }
+        }
+        catch (Exception ex)
+        {
+            LogDebug($"TryOpenUrlFromActivation: {ex.Message}");
+        }
+    }
+
+    private static void TryRestoreExistingWindow()
+    {
+        try
+        {
+            if (MauiWinUIApplication.Current is Microsoft.Maui.MauiWinUIApplication mauiApp)
+            {
+                mauiApp.Services.GetService<UI.TrayIcon.TrayIconService>()?.RequestRestore();
+            }
+        }
+        catch (Exception ex)
+        {
+            LogDebug($"TryRestoreExistingWindow: {ex.Message}");
+        }
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr SendMessageTimeout(
+        IntPtr hWnd,
+        uint msg,
+        UIntPtr wParam,
+        string lParam,
+        uint fuFlags,
+        uint uTimeout,
+        out UIntPtr lpdwResult);
+
+    private static void BroadcastEnvironmentChange()
+    {
+        try
+        {
+            const uint WM_SETTINGCHANGE = 0x001A;
+            const uint SMTO_ABORTIFHUNG = 0x0002;
+            SendMessageTimeout(
+                new IntPtr(0xFFFF),
+                WM_SETTINGCHANGE,
+                UIntPtr.Zero,
+                "Environment",
+                SMTO_ABORTIFHUNG,
+                1000,
+                out _);
+        }
+        catch
+        {
+            // Best-effort: Explorer/toast COM children pick up User env on next launch even without this.
         }
     }
 }
