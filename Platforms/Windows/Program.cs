@@ -94,16 +94,26 @@ public static class Program
                 isRedirect = false;
             }
 
+            bool isSilentStart = Array.Exists(args, arg => string.Equals(arg, "--silent-start", StringComparison.OrdinalIgnoreCase));
+            MostaqlK.App.IsSilentStart = isSilentStart;
+
             if (!isRedirect)
             {
-                try
+                if (!isSilentStart)
                 {
-                    LogDebug("Showing NativeSplashScreen (primary instance)");
-                    NativeSplashScreen.Show();
+                    try
+                    {
+                        LogDebug("Showing NativeSplashScreen (primary instance)");
+                        NativeSplashScreen.Show();
+                    }
+                    catch (Exception ex)
+                    {
+                        LogDebug($"NativeSplashScreen.Show threw: {ex}");
+                    }
                 }
-                catch (Exception ex)
+                else
                 {
-                    LogDebug($"NativeSplashScreen.Show threw: {ex}");
+                    LogDebug("Silent startup detected (--silent-start). Skipping NativeSplashScreen.");
                 }
 
                 LogDebug("Calling Microsoft.UI.Xaml.Application.Start");

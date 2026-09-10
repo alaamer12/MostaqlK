@@ -213,6 +213,21 @@ internal static class PlatformServiceRegistration
                             hasCentered = true;
                             CenterOnScreen(window);
                         }
+
+                        if (App.IsSilentStart)
+                        {
+                            App.IsSilentStart = false; // Reset so user clicks/restores operate normally
+                            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+                            var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
+                            var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
+                            appWindow?.Hide();
+
+                            var services = appRef?.Services ?? Microsoft.Maui.Controls.Application.Current?.Handler?.MauiContext?.Services;
+                            if (services?.GetService<AppLifecycleService>() is { } lifecycleService)
+                            {
+                                lifecycleService.IsInBackground = true;
+                            }
+                        }
                     };
                     // Keep the title bar colors in sync whenever the user switches the app's
                     // light/dark theme at runtime (e.g. via the Settings page's dark-mode toggle).

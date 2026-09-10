@@ -56,7 +56,8 @@ Location: `Core/Platform/`
 | `FilePreferences` | sealed class (`Core/Platform/FilePreferences.cs`) | Cross-platform, durable file-backed `IPreferences` implementation storing preferences as JSON in `Settings/preferences.dat`. Replaces default WinUI `ApplicationData.Current` storage to ensure full persistence across restarts for unpackaged and portable single-file executions. | Implemented |
 | `NativeSplashScreen` | static class (`Platforms/Windows/NativeSplashScreen.cs`) | Instant native Win32 splash window running on a dedicated STA background thread with double-buffered GDI rendering displayed immediately upon launch (<20ms) until the main WinUI/MAUI window is created and activated. | Implemented |
 | `CrashReporter` | static class (`Services/Diagnostics/CrashReporter.cs`) | Dedicated, thread-aware diagnostics and crash service recording managed and native Win32 SEH faults (`SetUnhandledExceptionFilter`, `MiniDumpWriteDump` minidump creation to `log/crash.dmp`, thread context, memory, and uptime) synchronously to `crash.log` and reporting post-mortem incidents with minidump telemetry to Sentry on subsequent launches. | Implemented |
-| `SecretProtector` | static partial class (`Infrastructure/Security/SecretProtector.cs`) | Encrypted secret store abstraction with per-platform partial implementations: `SecretProtector.Windows.cs` using DPAPI (`DataProtectionScope.CurrentUser`) and `_SecretProtector.Mobile.cs` using AES-GCM and hardware-backed storage for Android/iOS. | Implemented |
+| `SecretProtector` | sealed partial class (`Infrastructure/Security/SecretProtector.cs`) | Encrypted secret store abstraction with per-platform partial implementations: `SecretProtector.Windows.cs` using DPAPI (`DataProtectionScope.CurrentUser`) and `_SecretProtector.Mobile.cs` using AES-GCM and hardware-backed storage for Android/iOS. | Implemented |
+| `StartupService` | interface & class (`Services/StartupService.cs`, `Platforms/Windows/StartupService.Windows.cs`) | Platform-neutral abstraction (`IStartupService`) for "launch on startup" registration. Writes/deletes the `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` key on Windows with `--silent-start` flag; no-op stub on non-Windows platforms. | Implemented |
 
 ## Core helpers
 
@@ -198,6 +199,7 @@ flags: `--default-page=projects|project-details|settings|about`, `--project-id=<
 |---|---|
 | `--seed-design-data` | Replaces the local SQLite store with the dataset the MVP mockups are drawn against (`Infrastructure/Database/DesignDataSeeder.cs`), writing through the normal repository layer, and latches the `design_parity_mode` preference so the poll service and worker pool stay offline — otherwise freshly scraped projects would bury the seeded rows between parity captures. Idempotent: each run clears the project tables first. |
 | `--seed-design-data=off` | Clears the latch and restores live polling. The seeded rows stay until the next reseed or a real poll. |
+| `--silent-start` | Passed when the application is launched on Windows startup via the HKCU Run registry key. Skips showing `NativeSplashScreen` and hides the main application window directly into the system tray with `AppLifecycleService.IsInBackground = true`. |
 
 ## Diagnostics
 

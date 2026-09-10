@@ -28,6 +28,7 @@
             --setting-assets: #F97316;    /* orange — files/downloads */
             --setting-grouping: #14B8A6;  /* teal — notifications/messaging */
             --setting-rate: #EC4899;      /* pink — rate limiting & safety */
+            --setting-startup: #7C3AED;   /* violet — system startup */
         }
         html.dark {
             --accent-primary: #5CA8DE;
@@ -37,6 +38,7 @@
             --setting-assets: #FB923C;
             --setting-grouping: #2DD4BF;
             --setting-rate: #F472B6;
+            --setting-startup: #C084FC;
         }
 
         body { transition: background-color 0.2s ease, color 0.2s ease; }
@@ -345,6 +347,29 @@
 <div class="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
 <span id="rate-save-status" class="text-xs text-slate-400 dark:text-slate-500"></span>
 <button onclick="saveRateSettings()" class="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors" style="background-color: var(--setting-rate);">حفظ إعدادات الأداء والأمان</button>
+</div>
+</div>
+
+<!-- startup_enabled card (Windows auto-launch) -->
+<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+<div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between gap-4">
+<div>
+<h2 class="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+<i class="fa-solid fa-power-off text-sm" style="color: var(--setting-startup);"></i>
+                        تشغيل عند بدء النظام (Startup)
+                    </h2>
+<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">تشغيل التطبيق تلقائيًا في الخلفية (بدون شاشة ترحيب) عند تسجيل الدخول إلى الويندوز</p>
+</div>
+<button id="startup-enabled-toggle" class="w-10 h-6 rounded-full relative cursor-pointer focus:outline-none transition-colors shrink-0 bg-slate-300 dark:bg-slate-700" aria-pressed="false" aria-label="تفعيل التشغيل عند بدء النظام" onclick="toggleStartupEnabled()">
+<div id="startup-enabled-knob" class="w-4 h-4 bg-white rounded-full absolute top-1 shadow-sm transition-all" style="right: 0.25rem;"></div>
+</button>
+</div>
+
+<div class="px-6 py-4 space-y-3">
+<p class="text-xs text-slate-400 dark:text-slate-500 flex items-start gap-1.5">
+<i class="fa-regular fa-circle-question mt-0.5 shrink-0"></i>
+<span>عند التفعيل، يبدأ التطبيق العمل بصمت فور اقلاع الويندوز وتستمر عملية الفحص والتنبيهات في الخفاء دون إزعاج.</span>
+</p>
 </div>
 </div>
 

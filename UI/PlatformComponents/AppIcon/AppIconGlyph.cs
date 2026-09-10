@@ -119,4 +119,7 @@ public enum AppIconGlyph
     
     /// <summary>Onboarding badge lightning icon. Solid <c>fa-bolt</c> (f0e7).</summary>
     Bolt,
+
+    /// <summary>Settings page "تشغيل عند بدء النظام" card icon. Solid <c>fa-power-off</c> (f011).</summary>
+    PowerOff,
 }

@@ -31,6 +31,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private const string KeyGroupingThreshold = "settings_grouping_threshold";
     private const string KeyIsDarkMode = "settings_is_dark_mode";
     private const string KeySafeRequests = "settings_safe_requests";
+    private const string KeyStartupEnabled = "settings_startup_enabled";
 
     // configuration-reference.md: `poll_interval_seconds` default 30, `max_requests_per_minute`
     // default 2. This screen used to advertise a 60s default while PollService itself defaulted to
@@ -52,7 +53,14 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly GlobalAppStatusService _globalStatus;
     private readonly CookieStore _cookieStore;
     private readonly CloseBehaviorService _closeBehaviorService;
+    private readonly IStartupService _startupService;
     private bool _isLoading;
+
+    [ObservableProperty]
+    public partial bool StartupEnabled { get; set; }
+
+    /// <summary>Whether the Launch on Startup setting is supported and visible on this platform.</summary>
+    public bool IsStartupVisible => _startupService.IsSupported;
 
     [ObservableProperty]
     public partial int PollIntervalSeconds { get; set; }
@@ -121,7 +129,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         IProjectRepository projectRepository,
         GlobalAppStatusService globalStatus,
         CookieStore cookieStore,
-        CloseBehaviorService closeBehaviorService)
+        CloseBehaviorService closeBehaviorService,
+        IStartupService startupService)
     {
         _cookieStore = cookieStore;
         _pollService = pollService;
@@ -132,6 +141,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _projectRepository = projectRepository;
         _globalStatus = globalStatus;
         _closeBehaviorService = closeBehaviorService;
+        _startupService = startupService;
 
         LoadFromPreferences();
         RefreshCookieStatus();
@@ -443,6 +453,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         IncludeAssets = Preferences.Get(KeyIncludeAssets, false);
         NotificationGroupingEnabled = Preferences.Get(KeyNotificationGroupingEnabled, false);
         SafeRequests = Preferences.Get(KeySafeRequests, true);
+        StartupEnabled = Preferences.Get(KeyStartupEnabled, false);
         GroupingThreshold = Preferences.Get(KeyGroupingThreshold, 5);
         // Seed from the theme the app already resolved at startup (App.xaml.cs, which honours a
         // `--theme=light|dark` argument over the stored preference) and only fall back to the
@@ -559,6 +570,17 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         Preferences.Set(KeySafeRequests, value);
         ApplyPollSettings();
+    }
+
+    partial void OnStartupEnabledChanged(bool value)
+    {
+        if (_isLoading)
+        {
+            return;
+        }
+
+        Preferences.Set(KeyStartupEnabled, value);
+        _startupService.SetStartupEnabled(value);
     }
 
     partial void OnGroupingModeChanged(NotificationGroupingMode value)

@@ -326,6 +326,28 @@
                         </VerticalStackLayout>
                     </Border>
 
+                    <!-- startup_enabled card (Violet) -->
+                    <Border Padding="0" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                        <VerticalStackLayout>
+                            <VerticalStackLayout Padding="24,16" Spacing="4">
+                                <HorizontalStackLayout Spacing="8">
+                                    <platform:AppIcon Icon="PowerOff" TextColor="#7C3AED" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                                    <Label Text="تشغيل عند بدء النظام" FontSize="16" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                                </HorizontalStackLayout>
+                                <Label Text="تشغيل التطبيق تلقائيًا في الخلفية (بدون شاشة ترحيب) عند تسجيل الدخول إلى الويندوز" FontSize="12" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
+                            </VerticalStackLayout>
+                            <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
+                            <Grid ColumnDefinitions="*,Auto" Padding="24,16" VerticalOptions="Center">
+                                <Label Text="التشغيل التلقائي مع الويندوز" TextColor="{AppThemeBinding Light=#334155, Dark=#E2E8F0}" VerticalOptions="Center" FontFamily="Tajawal" />
+                                <platform:AppToggle Grid.Column="1"
+                                                    AutomationId="Settings_StartupToggle"
+                                                    IsToggled="{Binding StartupEnabled, Mode=TwoWay}"
+                                                    VerticalOptions="Center" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
                     <!-- Appearance card (Blue) -->
                     <Border Padding="0" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
                         <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>

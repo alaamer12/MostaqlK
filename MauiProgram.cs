@@ -168,6 +168,16 @@ public static class MauiProgram
 					sp.GetRequiredService<IPollService>(),
 					sp.GetRequiredService<DiscoveryQueue>()))!);
 
+#if WINDOWS
+		builder.Services.AddSingleton<MostaqlK.Platforms.Windows.WindowsStartupService>();
+#endif
+		builder.Services.AddSingleton<IStartupService>(sp =>
+			PlatformCapability<IStartupService>.Resolve(
+#if WINDOWS
+				windows: () => sp.GetRequiredService<MostaqlK.Platforms.Windows.WindowsStartupService>()
+#endif
+			) ?? new NullStartupService());
+
 		// X-button close-to-tray confirmation (Avast-style "keep running in background")
 		builder.Services.AddSingleton<CloseBehaviorService>();
 

@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Services;
 using MostaqlK.Services.Pipeline;
@@ -18,6 +18,8 @@ public partial class App : Application
 	// windows are always fullscreen and have no equivalent concept (see
 	// cross-platform-ui-conventions.md, Mechanism 1). CreateWindow/CreateMainWindow below add
 	// AppWindowMetrics.ChromeHeight only under #if WINDOWS.
+
+	public static bool IsSilentStart { get; set; }
 
 	private readonly CancellationTokenSource _pipelineCts = new();
 	private readonly IServiceProvider _services;
