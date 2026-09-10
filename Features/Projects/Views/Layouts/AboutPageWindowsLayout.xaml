@@ -11,7 +11,7 @@
 
         <sidebar:AppSidebar Grid.Column="0"
                              ActivePage="About"
-                             StatValue="{Binding GlobalStatus.ProjectsAddedTodayText}"
+                             StatValue="{Binding ProjectsAddedTodayText}"
                              ProjectsClicked="OnProjectsNavClicked"
                              AdvancedSearchClicked="OnAdvancedSearchNavClicked"
                              SettingsClicked="OnSettingsNavClicked"

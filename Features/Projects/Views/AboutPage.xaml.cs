@@ -7,15 +7,16 @@ public partial class AboutPage : ContentPage
 {
     private readonly View? _activeLayout;
 
-    public AboutPage()
+    public AboutPage(Services.GlobalAppStatusService globalStatus)
     {
         InitializeComponent();
+        BindingContext = globalStatus;
 
         var layoutFactory = PlatformSelect.For<Func<View>>(
-            windows: () => new AboutPageWindowsLayout(),
+            windows: () => new AboutPageWindowsLayout(globalStatus),
             android: () => new AboutPageMobileLayout(),
             ios: () => new AboutPageMobileLayout(),
-            macCatalyst: () => new AboutPageWindowsLayout()
+            macCatalyst: () => new AboutPageWindowsLayout(globalStatus)
         );
         _activeLayout = layoutFactory?.Invoke();
         Content = _activeLayout;

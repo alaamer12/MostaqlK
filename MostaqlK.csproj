@@ -190,10 +190,12 @@
 	</ItemGroup>
 
 	<Target Name="BuildWin">
+		<Exec Command="taskkill /f /im MostaqlK.exe /im VBCSCompiler.exe 2&gt;nul &amp; exit 0" IgnoreExitCode="true" />
 		<Exec Command="dotnet build MostaqlK.csproj -f net10.0-windows10.0.19041.0" StandardOutputImportance="High" StandardErrorImportance="High" />
 	</Target>
 
 	<Target Name="RunWin">
+		<Exec Command="taskkill /f /im MostaqlK.exe /im VBCSCompiler.exe 2&gt;nul &amp; exit 0" IgnoreExitCode="true" />
 		<Exec Command="dotnet run -f net10.0-windows10.0.19041.0" StandardOutputImportance="High" StandardErrorImportance="High" />
 	</Target>
 
@@ -202,6 +204,7 @@
 	</Target>
 
 	<Target Name="DeployWin">
+		<Exec Command="taskkill /f /im MostaqlK.exe /im VBCSCompiler.exe 2&gt;nul &amp; exit 0" IgnoreExitCode="true" />
 		<Exec Command="dotnet publish MostaqlK.csproj -f net10.0-windows10.0.19041.0 -c Release -p:PublishReadyToRun=true" StandardOutputImportance="High" StandardErrorImportance="High" />
 	</Target>
 

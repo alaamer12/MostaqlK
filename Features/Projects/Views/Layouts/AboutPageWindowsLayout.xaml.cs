@@ -17,6 +17,11 @@ public partial class AboutPageWindowsLayout : ContentView
         }
     }
 
+    public AboutPageWindowsLayout(Services.GlobalAppStatusService globalStatus) : this()
+    {
+        BindingContext = globalStatus;
+    }
+
     private async void OnProjectsNavClicked(object? sender, EventArgs e)
     {
         await AppRoutes.NavigateAsync(AppRoutes.Projects);
