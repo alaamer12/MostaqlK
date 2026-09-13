@@ -95,11 +95,13 @@ public static class CrashReporter
             var ex = args.ExceptionObject as Exception ??
                      new Exception($"Non-Exception Unhandled Object: {args.ExceptionObject}");
             Report("AppDomain.UnhandledException", ex, isFatal: args.IsTerminating);
+            InteractionLogger.Fault("AppDomain.UnhandledException", ex);
         };
 
         TaskScheduler.UnobservedTaskException += (sender, args) =>
         {
             Report("TaskScheduler.UnobservedTaskException", args.Exception, isFatal: false);
+            InteractionLogger.Fault("TaskScheduler.UnobservedTaskException", args.Exception);
             args.SetObserved();
         };
 

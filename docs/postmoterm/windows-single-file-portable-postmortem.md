@@ -154,11 +154,14 @@ private static extern int WindowsAppRuntime_EnsureIsLoaded();
 In `InitializeWindowsAppRuntime()`:
 1. Resolves `Microsoft.WindowsAppRuntime.dll` using `NativeLibrary.TryLoad`.
 2. Queries the real extracted file path via `GetModuleFileName`.
-3. Normalizes the extracted path with a mandatory trailing backslash (`\`).
-4. Invokes `SetDllDirectory(dir)` to register the folder with the Win32 module loader.
-5. Prepends `dir` to the process `PATH` environment variable.
-6. Sets `MICROSOFT_WINDOWSAPPRUNTIME_BASE_DIRECTORY` to `dir`.
-7. Calls `WindowsAppRuntime_EnsureIsLoaded()` to initialize Undocked RegFree WinRT redirection tables.
+3. Pins the parent directory of that module with `BundleExtractionGuard` before any WinRT/XAML code can access loose extracted assets. (`AppContext.BaseDirectory` is the portable EXE directory, so it is intentionally not used.)
+4. Normalizes the extracted path with a mandatory trailing backslash (`\`).
+5. Invokes `SetDllDirectory(dir)` to register the folder with the Win32 module loader.
+6. Prepends `dir` to the process `PATH` environment variable.
+7. Sets `MICROSOFT_WINDOWSAPPRUNTIME_BASE_DIRECTORY` to `dir`.
+8. Calls `WindowsAppRuntime_EnsureIsLoaded()` to initialize Undocked RegFree WinRT redirection tables.
+
+> **Timing rule this section depends on (and its limit).** Every step above works because WinRT activation happens *after* `Program.Main` starts, so a variable set in-process is already visible when it is consumed. The same reasoning does **not** apply to `DOTNET_BUNDLE_EXTRACT_BASE_DIR`: single-file extraction is performed by the apphost *before* managed code runs, so no in-process write can redirect the current session's bundle. That distinction was missed in the follow-up eviction investigation, which is why its Layer 1 fix did not stop the hours-in crash — see `windows-single-file-temp-eviction-and-native-crash-handling.md` §2a/§2b. After `GetModuleFileName` resolves `Microsoft.WindowsAppRuntime.dll`, `InitializeWindowsAppRuntime` passes that module's parent directory — the real extraction tree, unlike `AppContext.BaseDirectory` which is the portable EXE directory — to `BundleExtractionGuard.PinDirectory` before further WinRT setup. The guard holds `FileShare.Read` handles over the extracted files instead of trying to move them.
 
 ### 2. Undocked RegFree WinRT MSBuild Property (`MostaqlK.csproj`)
 ```xml
@@ -216,7 +219,9 @@ private static void LogCrash(string source, Exception? ex)
 To guarantee that no failure escapes unlogged regardless of thread context:
 1. **`AppDomain.CurrentDomain.UnhandledException`**: Captures terminating unhandled exceptions across all managed threads.
 2. **`TaskScheduler.UnobservedTaskException`**: Catches unobserved exceptions in background async `Task` operations that would otherwise trigger termination on finalizer GC.
-3. **`AppDomain.CurrentDomain.FirstChanceException`**: Hooks into the CLR the instant *any* exception is thrown anywhere in the process—even if handled internally—logging the exception type, message, and stack trace to pinpoint hidden activation or file-load failures during bootstrap.
+3. **`AppDomain.CurrentDomain.FirstChanceException`**: Hooks into the CLR the instant an exception is thrown—even if handled internally—to pinpoint hidden file-load failures during bootstrap. **Narrowed since this document was written:** the hook now logs `FileNotFoundException` only (via `fnf.FileName`, the field that actually names the missing path) instead of every exception in the process.
+
+> **Why the broad form is unsafe.** `FirstChanceException` fires *before* the handler runs, including for exceptions thrown by the logging code itself. A `LogDebug` that touches the filesystem can throw (and internally throw more), each throw re-entering the hook, until the stack is exhausted — a `StackOverflowException` (`0xC0000005`'s cousin `0xC00000FD`), which kills the process with no handler able to run. The shipped version therefore (a) filters to one exception type, and (b) sits behind a `[ThreadStatic]` reentrancy guard plus a size-capped, self-rotating log file.
 
 ```csharp
 AppDomain.CurrentDomain.UnhandledException += (s, e) =>
@@ -231,9 +236,14 @@ TaskScheduler.UnobservedTaskException += (s, e) =>
 
 AppDomain.CurrentDomain.FirstChanceException += (s, e) =>
 {
-    LogDebug($"[FirstChanceException] {e.Exception.GetType().FullName}: {e.Exception.Message}\n{e.Exception.StackTrace}");
+    if (e.Exception is FileNotFoundException fnf)
+    {
+        LogDebug($"[FirstChanceException] Missing file: '{fnf.FileName}' ({fnf.Message})");
+    }
 };
 ```
+
+`UnhandledException` and `UnobservedTaskException` are registered in exactly one place — `CrashReporter.RegisterGlobalHandlers()` — which is idempotent and feeds both `crash.log` and `InteractionLogger`. Call sites must not add their own duplicates.
 
 #### C. Milestone Tracing & Diagnostic Inspection Flow
 Every phase of application startup was instrumented with clear milestone markers:

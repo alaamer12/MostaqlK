@@ -82,14 +82,35 @@ public class NewRibbonBadge : Grid
 
         UpdateThemeColors();
 
-        Loaded += (_, _) => RestartSweepIfNeeded();
-        Unloaded += (_, _) => _isAnimating = false;
+        Loaded += OnBadgeLoaded;
+        Unloaded += OnBadgeUnloaded;
+    }
+
+    private void OnBadgeLoaded(object? sender, EventArgs e)
+    {
+        // Application is an app-lifetime publisher, so a constructor subscription would root every
+        // badge this process ever realizes; the ribbon only needs to react while it is on screen.
+        if (Application.Current is { } app)
+        {
+            app.RequestedThemeChanged -= OnRequestedThemeChanged;
+            app.RequestedThemeChanged += OnRequestedThemeChanged;
+        }
+
+        UpdateThemeColors();
+        RestartSweepIfNeeded();
+    }
+
+    private void OnBadgeUnloaded(object? sender, EventArgs e)
+    {
+        _isAnimating = false;
 
         if (Application.Current is { } app)
         {
-            app.RequestedThemeChanged += (_, _) => UpdateThemeColors();
+            app.RequestedThemeChanged -= OnRequestedThemeChanged;
         }
     }
+
+    private void OnRequestedThemeChanged(object? sender, AppThemeChangedEventArgs e) => UpdateThemeColors();
 
     private static void OnIsActiveChanged(BindableObject bindable, object oldValue, object newValue)
     {

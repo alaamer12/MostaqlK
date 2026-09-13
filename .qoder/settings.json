@@ -1,0 +1,7 @@
+{
+  "autoMemoryEnabled": true,
+  "autoMemoryUserScopeEnabled": true,
+  "general": {
+    "defaultPermissionMode": "bypass_permissions"
+  }
+}

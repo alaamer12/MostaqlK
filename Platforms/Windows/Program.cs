@@ -47,19 +47,16 @@ public static class Program
         CrashReporter.RegisterGlobalHandlers();
         CrashReporter.CheckAndReportPreviousCrashes();
 
-        AppDomain.CurrentDomain.UnhandledException += (s, e) =>
-        {
-            CrashReporter.Report("Program.AppDomain.UnhandledException", e.ExceptionObject as Exception, isFatal: e.IsTerminating);
-        };
-
-        TaskScheduler.UnobservedTaskException += (s, e) =>
-        {
-            CrashReporter.Report("Program.TaskScheduler.UnobservedTaskException", e.Exception, isFatal: false);
-        };
-
+        // Scoped to missing files on purpose: a FileNotFoundException.FileName is the one detail
+        // that names what vanished, and logging *every* exception's full trace from here meant
+        // synchronous disk I/O on the throwing thread — a LogDebug failure would re-enter this
+        // handler and recurse toward a stack overflow.
         AppDomain.CurrentDomain.FirstChanceException += (s, e) =>
         {
-            LogDebug($"[FirstChanceException] {e.Exception.GetType().FullName}: {e.Exception.Message}\n{e.Exception.StackTrace}");
+            if (e.Exception is FileNotFoundException fnf)
+            {
+                LogDebug($"[FirstChanceException] Missing file: '{fnf.FileName}' ({fnf.Message})");
+            }
         };
 
         // Toast COM / notification-center clicks launch LocalServer32 (this exe) even while the
@@ -140,16 +137,42 @@ public static class Program
         }
     }
 
+    private const long DebugLogRollBytes = 2 * 1024 * 1024;
+
+    // Per-thread so a write that throws cannot re-enter LogDebug from an exception hook.
+    [ThreadStatic]
+    private static bool _isWritingDebugLog;
+
     private static void LogDebug(string msg)
     {
+        if (_isWritingDebugLog)
+        {
+            return;
+        }
+
+        _isWritingDebugLog = true;
         try
         {
             string line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {msg}\n";
             string logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MostaqlK", "log");
             Directory.CreateDirectory(logDir);
-            File.AppendAllText(Path.Combine(logDir, "startup-debug.log"), line);
+            var logPath = Path.Combine(logDir, "startup-debug.log");
+
+            var info = new FileInfo(logPath);
+            if (info.Exists && info.Length > DebugLogRollBytes)
+            {
+                // Move, not Replace: File.Replace throws when the backup target does not exist yet,
+                // which would swallow the line that triggered it and stop the log rolling entirely.
+                File.Move(logPath, Path.Combine(logDir, "startup-debug.log.old"), overwrite: true);
+            }
+
+            File.AppendAllText(logPath, line);
         }
         catch { }
+        finally
+        {
+            _isWritingDebugLog = false;
+        }
     }
 
     private static void LogCrash(string source, Exception? ex)
@@ -163,16 +186,19 @@ public static class Program
     }
 
     /// <summary>
-    /// Configures the .NET single-file bundle extraction location to a persistent directory
-    /// (<c>%LocalAppData%\MostaqlK\bundle-cache</c>) so that Windows Storage Sense or background
-    /// temp file maintenance will never purge runtime DLLs and XAML assets during long-running sessions.
+    /// Publishes <c>DOTNET_BUNDLE_EXTRACT_BASE_DIR=%LocalAppData%\MostaqlK\bundle-cache</c> into the
+    /// User environment so <em>future</em> launches started by a launcher with a refreshed environment
+    /// block extract there instead of <c>%TEMP%</c>.
+    ///
+    /// This cannot help the process that sets it: the apphost extracts the bundle to disk before the
+    /// managed entry point runs, so by the time <see cref="Main"/> executes the extraction directory is
+    /// already fixed. Protecting the running process is <see cref="BundleExtractionGuard"/>'s job.
     /// </summary>
     private static void EnsurePersistentBundleExtraction()
     {
         try
         {
             var bundleCacheDir = MostaqlK.Core.Platform.AppPaths.BundleCacheDirectory;
-            Environment.SetEnvironmentVariable("DOTNET_BUNDLE_EXTRACT_BASE_DIR", bundleCacheDir, EnvironmentVariableTarget.Process);
 
             var currentVal = Environment.GetEnvironmentVariable("DOTNET_BUNDLE_EXTRACT_BASE_DIR", EnvironmentVariableTarget.User);
             if (!string.Equals(currentVal, bundleCacheDir, StringComparison.OrdinalIgnoreCase))
@@ -210,6 +236,11 @@ public static class Program
                     string? dir = Path.GetDirectoryName(dllPath);
                     if (!string.IsNullOrEmpty(dir))
                     {
+                        // AppContext.BaseDirectory is the portable EXE's directory; the loaded module
+                        // identifies the actual apphost extraction tree that holds loose bundle assets.
+                        var pinned = BundleExtractionGuard.PinDirectory(dir);
+                        LogDebug($"BundleExtractionGuard pinned {pinned} file(s) under {dir}");
+
                         if (!dir.EndsWith('\\'))
                         {
                             dir += "\\";

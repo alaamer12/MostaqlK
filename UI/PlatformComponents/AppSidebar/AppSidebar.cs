@@ -68,14 +68,38 @@ public partial class AppSidebar : ContentView
         ApplyActiveState();
         SyncDarkModeToggleFromCurrentTheme();
         DarkModeToggle.Toggled += OnDarkModeToggleToggled;
+
+        Loaded += OnSidebarLoaded;
+        Unloaded += OnSidebarUnloaded;
+    }
+
+    private void OnSidebarLoaded(object? sender, EventArgs e)
+    {
+        // Bound to the on-screen lifetime on purpose: Application is an app-lifetime publisher, so a
+        // constructor subscription would root every sidebar this process ever builds — a new one per
+        // realized host page. Re-applying here also catches a theme flip while the rail was off screen.
         if (Application.Current is { } app)
         {
-            app.RequestedThemeChanged += (_, _) =>
-            {
-                ApplyActiveState();
-                SyncDarkModeToggleFromCurrentTheme();
-            };
+            app.RequestedThemeChanged -= OnRequestedThemeChanged;
+            app.RequestedThemeChanged += OnRequestedThemeChanged;
         }
+
+        ApplyActiveState();
+        SyncDarkModeToggleFromCurrentTheme();
+    }
+
+    private void OnSidebarUnloaded(object? sender, EventArgs e)
+    {
+        if (Application.Current is { } app)
+        {
+            app.RequestedThemeChanged -= OnRequestedThemeChanged;
+        }
+    }
+
+    private void OnRequestedThemeChanged(object? sender, AppThemeChangedEventArgs e)
+    {
+        ApplyActiveState();
+        SyncDarkModeToggleFromCurrentTheme();
     }
 
     private void SyncDarkModeToggleFromCurrentTheme()

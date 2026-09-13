@@ -39,22 +39,11 @@ public static class MauiProgram
 	/// hard-to-diagnose process crash. This cannot catch native/WinRT fast-fail failures (like
 	/// the dispatcher-teardown crash fixed via <c>App.RequestPipelineShutdown</c>), but it does
 	/// stop ordinary unhandled managed exceptions from taking the whole app down ungracefully.
+	/// <see cref="CrashReporter.RegisterGlobalHandlers"/> is the single registration site and is
+	/// idempotent, so the earlier call from <c>Platforms/Windows/Program.cs</c> is a no-op here.
 	/// </summary>
 	private static void RegisterGlobalExceptionLogging()
-	{
-		CrashReporter.RegisterGlobalHandlers();
-
-		AppDomain.CurrentDomain.UnhandledException += (_, args) =>
-			MostaqlK.Services.Diagnostics.InteractionLogger.Fault(
-				"AppDomain.UnhandledException",
-				args.ExceptionObject as Exception ?? new Exception(args.ExceptionObject?.ToString() ?? "Unknown"));
-
-		TaskScheduler.UnobservedTaskException += (_, args) =>
-		{
-			MostaqlK.Services.Diagnostics.InteractionLogger.Fault("TaskScheduler.UnobservedTaskException", args.Exception);
-			args.SetObserved();
-		};
-	}
+		=> CrashReporter.RegisterGlobalHandlers();
 
 	public static MauiApp CreateMauiApp()
 	{

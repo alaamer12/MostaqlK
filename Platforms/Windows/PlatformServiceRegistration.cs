@@ -233,7 +233,14 @@ internal static class PlatformServiceRegistration
                     // light/dark theme at runtime (e.g. via the Settings page's dark-mode toggle).
                     if (Microsoft.Maui.Controls.Application.Current is { } themedApp)
                     {
-                        themedApp.RequestedThemeChanged += (_, _) => ApplyTitleBarTheme(window);
+                        EventHandler<Microsoft.Maui.Controls.AppThemeChangedEventArgs> themeHandler =
+                            (_, _) => ApplyTitleBarTheme(window);
+                        themedApp.RequestedThemeChanged += themeHandler;
+
+                        // A named local so -= can actually match. Without it, this app-lifetime
+                        // publisher would keep every window this app ever creates — and its whole
+                        // native peer tree — alive long after it closed.
+                        window.Closed += (_, _) => themedApp.RequestedThemeChanged -= themeHandler;
                     }
 
                     void SetupMainDesktopServices()

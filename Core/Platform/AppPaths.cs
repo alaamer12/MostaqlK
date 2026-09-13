@@ -191,7 +191,9 @@ public static class AppPaths
 
     /// <summary>
     /// Directory for single-file runtime bundle extraction cache (<c>bundle-cache/</c>).
-    /// Prevents Windows Storage Sense and temp sweepers from purging DLLs/resources.
+    /// Used as <c>DOTNET_BUNDLE_EXTRACT_BASE_DIR</c> so launches that inherit it extract here instead of
+    /// <c>%TEMP%</c>, out of reach of Storage Sense and temp sweepers. A process that has already started
+    /// cannot be relocated by this setting — see <c>Platforms/Windows/BundleExtractionGuard.cs</c>.
     /// </summary>
     public static string BundleCacheDirectory
     {
