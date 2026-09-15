@@ -63,6 +63,8 @@ Before starting work:
 | Pick a skill | `using-agent-skills` |
 | Version bump / Release / Changelog | `version-bumping` |
 | System Tray / Tray Icons / Diagnostics | `tray-inspection` |
+| Invariant / Architectural Violations Audit | `check-violations` |
+| Review Validations / Hardening Coverage | `/review-validations` (see `.cursor/commands/review-validations.md`) |
 | Bug hunt / `/bug-hunter` | `bug-hunting-skill` |
 | Code review | `code-review-and-quality` |
 | API / tRPC design | `api-and-interface-design` |
@@ -71,6 +73,8 @@ Before starting work:
 | Junie CLI / Orchestration | `unit-agent` (orchestrate CLI subtasks) |
 | Parallel Workers / Review | `up-agents` (staggered worker pool + reviewer) |
 | Blind Multi-Agent Discovery / Audits | `treasure-findings` (blind orthogonal discovery + synthesis) |
+| Multi-Platform Decoupling / Refactor | `senior-refactor` (zero-coupling, #if elimination, unit hierarchies, layout swapping) |
+| Orthogonal Discovery Scouts | `orthogonal-scout-empirical` (syntax/regex/leak scans), `orthogonal-scout-structural` (type/unit/contract audits) |
 | Multi-agent research | `pool-agents` (via command or notation) |
 | PowerShell / Scripting | `powershell-master` |
 | CLI execution / Repo checks | `terminal-ops` |

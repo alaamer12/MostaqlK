@@ -18,6 +18,7 @@ This repo keeps its skills in **`.cursor/skills/`**. Each skill is a directory w
 | Skill | Path | Use when |
 |-------|------|----------|
 | **using-agent-skills** | `.cursor/skills/using-agent-skills/` | You need to pick a skill (this file) |
+| **check-violations** | `.cursor/skills/check-violations/` | Auditing architectural invariants & violations |
 | **version-bumping** | `.cursor/skills/version-bumping/` | Bumping versions, sync manifests/PE metadata, Keep a Changelog, tags |
 | **tray-inspection** | `.cursor/skills/tray-inspection/` | Inspecting Windows tray items, memory reading, icon extraction, status badge generation |
 | **bug-hunting-skill** | `.cursor/skills/bug-hunting-skill/` | Hunting bugs, code audit, `/bug-hunter` subagent — React failure-mode patterns |
@@ -33,6 +34,7 @@ This repo keeps its skills in **`.cursor/skills/`**. Each skill is a directory w
 | **treasure-findings** | `.cursor/skills/treasure-findings/` | `treasure-findings N` — blind multi-agent orthogonal discovery + master synthesis |
 | **professional-typing** | `.cursor/skills/professional-typing/` | Semantic types, .d.ts, Zod, validateConfig for configs/APIs |
 | **quality-gate** | `.cursor/skills/quality-gate/` | `quality-gate` — lint, typecheck, tests, smoke, ship-ready verify |
+| **senior-refactor** | `.junie/skills/senior-refactor/` | Decoupling multi-platform codebases, `#if PLATFORM` elimination, partial-class splitting, base-specialization unit hierarchies, View Barrel layout swapping |
 
 ---
 
@@ -44,6 +46,10 @@ When a task arrives, map it to a skill:
 Task arrives
     │
     ├── Don't know which skill? ──────────→ using-agent-skills (this file)
+    │
+    ├── Review validations / check & add ─→ /review-validations (command)
+    │
+    ├── Invariant / code violations audit ─→ check-violations
     │
     ├── Version bump / release / changelog → version-bumping
     │
