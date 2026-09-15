@@ -52,12 +52,6 @@ public partial class PipelineRadar : ContentView
         _state.ReducedMotion = MotionPreferences.IsReducedMotionRequested;
         ApplyTheme();
         ApplyDiameter(Diameter);
-
-        // Colours are computed in C#, so they have to be re-applied when the theme flips.
-        if (Application.Current is not null)
-        {
-            Application.Current.RequestedThemeChanged += OnRequestedThemeChanged;
-        }
     }
 
     private void OnRequestedThemeChanged(object? sender, AppThemeChangedEventArgs e)
@@ -315,7 +309,21 @@ public partial class PipelineRadar : ContentView
         }
 
         _state.ReducedMotion = MotionPreferences.IsReducedMotionRequested;
+
         Attach(IPlatformApplication.Current?.Services.GetService<GlobalAppStatusService>());
+
+        // Colours are computed in C#, so they have to be re-applied when the theme flips. Paired with
+        // the -= in Detach(): subscribing here rather than in the constructor keeps the subscription
+        // inside the handler's lifetime, which matters because Application is an app-lifetime
+        // publisher and would otherwise root every radar this process builds. After Attach() on
+        // purpose — Attach calls Detach when it swaps services, which would undo this.
+        if (Application.Current is { } app)
+        {
+            app.RequestedThemeChanged -= OnRequestedThemeChanged;
+            app.RequestedThemeChanged += OnRequestedThemeChanged;
+        }
+        ApplyTheme();
+
         Wake();
     }
 
@@ -336,6 +344,13 @@ public partial class PipelineRadar : ContentView
 
     private void Detach()
     {
+        // Ahead of the _status guard: the theme subscription is taken in OnHandlerChanged and has to
+        // be dropped on teardown regardless of whether a status service was ever attached.
+        if (Application.Current is { } app)
+        {
+            app.RequestedThemeChanged -= OnRequestedThemeChanged;
+        }
+
         if (_status is null)
         {
             return;

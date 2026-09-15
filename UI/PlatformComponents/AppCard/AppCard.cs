@@ -52,14 +52,35 @@ public partial class AppCard : Border
         // Add tactile feedback behavior
         Behaviors.Add(new PressableEffect { ApplyHoverHighlight = true });
 
+        Loaded += OnCardLoaded;
+        Unloaded += OnCardUnloaded;
+    }
+
+    private void OnCardLoaded(object? sender, EventArgs e)
+    {
         // Read/unread accent colors differ per theme (ReadBorderLight/Dark, AccentPrimary/Dark in
         // Colors.xaml) - re-apply whenever the OS/app theme flips, same pattern as
-        // AppSidebar/SplitterHandle/PipelineRadar.
+        // AppSidebar/SplitterHandle/PipelineRadar. Scoped to the on-screen lifetime because
+        // Application is an app-lifetime publisher: subscribing here from the constructor would
+        // root every card this process ever realizes, native peer included.
         if (Application.Current is { } app)
         {
-            app.RequestedThemeChanged += (_, _) => UpdateThemeColors();
+            app.RequestedThemeChanged -= OnRequestedThemeChanged;
+            app.RequestedThemeChanged += OnRequestedThemeChanged;
+        }
+
+        UpdateThemeColors();
+    }
+
+    private void OnCardUnloaded(object? sender, EventArgs e)
+    {
+        if (Application.Current is { } app)
+        {
+            app.RequestedThemeChanged -= OnRequestedThemeChanged;
         }
     }
+
+    private void OnRequestedThemeChanged(object? sender, AppThemeChangedEventArgs e) => UpdateThemeColors();
 
     private static void OnIsUnreadChanged(BindableObject bindable, object oldValue, object newValue)
     {
