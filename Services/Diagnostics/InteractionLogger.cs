@@ -102,7 +102,13 @@ public static class InteractionLogger
 
             lock (Gate)
             {
-                File.AppendAllText(LogFilePath.Value, entry.ToString(), Encoding.UTF8);
+                var logFilePath = AppPaths.LogFilePath;
+                var logDir = Path.GetDirectoryName(logFilePath);
+                if (!string.IsNullOrEmpty(logDir) && !Directory.Exists(logDir))
+                {
+                    Directory.CreateDirectory(logDir);
+                }
+                File.AppendAllText(logFilePath, entry.ToString(), Encoding.UTF8);
             }
         }
         catch

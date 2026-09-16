@@ -19,7 +19,7 @@ namespace MostaqlK.UITests;
 [TestFixture]
 public class ProjectDetailsPageTests
 {
-    private static readonly string InteractionLogPath = AppPaths.LogFilePath;
+    private static string InteractionLogPath => AppPaths.LogFilePath;
 
     private static WindowsDriver<WindowsElement> Driver => AppiumSetup.Driver!;
 

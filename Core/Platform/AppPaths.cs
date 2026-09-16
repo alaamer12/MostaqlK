@@ -37,7 +37,7 @@ public interface IAppDirectoryProvider
     string PreferencesFilePath { get; }
 
     /// <summary>
-    /// Diagnostics log directory (<c>log/</c>) inside the application directory.
+    /// Diagnostics log directory (<c>log/yyyy-MM-dd/</c>) inside the application directory for today's date.
     /// </summary>
     string LogsDirectory { get; }
 
@@ -90,7 +90,6 @@ public static class AppPaths
     private static readonly Lazy<string> BaseAppDir = new(ResolveAppDirectory);
     private static readonly Lazy<string> BaseDataDir = new(ResolveDataDirectory);
     private static readonly Lazy<string> BaseSettingsDir = new(ResolveSettingsDirectory);
-    private static readonly Lazy<string> BaseLogsDir = new(ResolveLogsDirectory);
     private static readonly Lazy<string> BaseCacheDir = new(ResolveCacheDirectory);
 
     private static readonly object InitLock = new();
@@ -144,13 +143,18 @@ public static class AppPaths
     public static string PreferencesFilePath => Path.Combine(SettingsDirectory, "preferences.dat");
 
     /// <summary>
-    /// Application logs directory (<c>log/</c>) inside the application directory.
+    /// Root diagnostics log directory (<c>log/</c>) inside the application directory.
+    /// </summary>
+    public static string BaseLogsDirectory => Path.Combine(AppDirectory, "log");
+
+    /// <summary>
+    /// Application logs directory (<c>log/yyyy-MM-dd/</c>) for today's ISO date inside the application directory.
     /// </summary>
     public static string LogsDirectory
     {
         get
         {
-            var dir = BaseLogsDir.Value;
+            var dir = ResolveLogsDirectory();
             EnsureDirectoryExists(dir);
             return dir;
         }
@@ -224,6 +228,7 @@ public static class AppPaths
             try
             {
                 CleanupLegacyDirectories();
+                PurgeOldLogs(retentionDays: 7);
 
                 EnsureDirectoryExists(AppDirectory);
                 EnsureDirectoryExists(DataDirectory);
@@ -322,7 +327,8 @@ public static class AppPaths
 
     private static string ResolveLogsDirectory()
     {
-        return Path.Combine(AppDirectory, "log");
+        var isoDate = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        return Path.Combine(AppDirectory, "log", isoDate);
     }
 
     private static string ResolveCacheDirectory()
@@ -401,6 +407,70 @@ public static class AppPaths
             {
                 // Best-effort cleanup
             }
+        }
+    }
+
+    /// <summary>
+    /// Deletes daily log directories (<c>log/yyyy-MM-dd</c>) and legacy log files older than the retention period (default 7 days).
+    /// </summary>
+    /// <param name="retentionDays">Number of days of logs to retain. Defaults to 7.</param>
+    public static void PurgeOldLogs(int retentionDays = 7)
+    {
+        try
+        {
+            var baseLogsDir = BaseLogsDirectory;
+            if (!Directory.Exists(baseLogsDir)) return;
+
+            var cutoffDate = DateTime.UtcNow.Date.AddDays(-retentionDays);
+
+            // 1. Enumerate and delete daily subdirectories (log/yyyy-MM-dd) older than retention period
+            foreach (var subDir in Directory.GetDirectories(baseLogsDir))
+            {
+                try
+                {
+                    var dirName = Path.GetFileName(subDir);
+                    if (DateTime.TryParseExact(dirName, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var dirDate))
+                    {
+                        if (dirDate < cutoffDate)
+                        {
+                            Directory.Delete(subDir, recursive: true);
+                        }
+                    }
+                    else
+                    {
+                        var lastWrite = Directory.GetLastWriteTimeUtc(subDir);
+                        if (lastWrite < cutoffDate)
+                        {
+                            Directory.Delete(subDir, recursive: true);
+                        }
+                    }
+                }
+                catch
+                {
+                    // Best-effort cleanup per directory
+                }
+            }
+
+            // 2. Enumerate and delete loose files directly in base logs directory older than retention period
+            foreach (var file in Directory.GetFiles(baseLogsDir))
+            {
+                try
+                {
+                    var lastWrite = File.GetLastWriteTimeUtc(file);
+                    if (lastWrite < cutoffDate)
+                    {
+                        File.Delete(file);
+                    }
+                }
+                catch
+                {
+                    // Best-effort cleanup per file
+                }
+            }
+        }
+        catch
+        {
+            // Best-effort log retention purge
         }
     }
 }

@@ -85,11 +85,16 @@ public static class ToastActivator
             try
             {
                 var services = Microsoft.Maui.IPlatformApplication.Current?.Services;
+                if (services is null)
+                {
+                    InteractionLogger.Mark("ToastActivator.NavigateFromActivation", "NoServices");
+                    return;
+                }
 
-                var appLifecycleService = services?.GetService<Services.AppLifecycleService>();
+                var appLifecycleService = services.GetService<Services.AppLifecycleService>();
                 if (appLifecycleService is { IsInBackground: true })
                 {
-                    var trayService = services?.GetService<UI.TrayIcon.TrayIconService>();
+                    var trayService = services.GetService<UI.TrayIcon.TrayIconService>();
                     trayService?.OnOpen();
                 }
 
@@ -105,6 +110,7 @@ public static class ToastActivator
             catch (Exception ex)
             {
                 InteractionLogger.Fault("ToastActivator.NavigateFromActivation", ex, new { Arguments = invokedArgs });
+                MostaqlK.Services.Diagnostics.CrashReporter.Report("ToastActivator.NavigateFromActivation", ex, new { Arguments = invokedArgs }, isFatal: false);
             }
         });
     }

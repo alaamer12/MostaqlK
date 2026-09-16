@@ -67,7 +67,7 @@ public sealed class WorkerPool
                 _globalStatus.UpdateQueueCount(_discoveryQueue.Count);
             }
 
-            // Cleanup: Prune very old backlog entries (e.g. > 30 days) to prevent bloat.
+            // Cleanup: Prune very old backlog entries (e.g. > 30 days) and expired logs (> 7 days).
             _ = Task.Run(async () =>
             {
                 try
@@ -77,6 +77,15 @@ public sealed class WorkerPool
                 catch (Exception ex)
                 {
                     CrashReporter.Report("WorkerPool.CleanOldBacklog", ex);
+                }
+
+                try
+                {
+                    MostaqlK.Core.Platform.AppPaths.PurgeOldLogs(7);
+                }
+                catch (Exception ex)
+                {
+                    CrashReporter.Report("WorkerPool.PurgeOldLogs", ex);
                 }
             }, cancellationToken);
 

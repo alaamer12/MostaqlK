@@ -19,7 +19,6 @@ namespace MostaqlK.Services.Diagnostics;
 public static class CrashReporter
 {
     private static readonly object WriteLock = new();
-    private static readonly Lazy<string> CrashLogPath = new(() => AppPaths.CrashLogFilePath);
     private static int _isRegistered;
     private static readonly DateTime ProcessStartTimeUtc = DateTime.UtcNow;
 
@@ -178,7 +177,7 @@ public static class CrashReporter
             {
                 try
                 {
-                    var logFilePath = CrashLogPath.Value;
+                    var logFilePath = AppPaths.CrashLogFilePath;
                     var logDir = Path.GetDirectoryName(logFilePath);
                     if (!string.IsNullOrEmpty(logDir) && !Directory.Exists(logDir))
                     {
@@ -235,58 +234,98 @@ public static class CrashReporter
     {
         try
         {
-            var dumpPath = AppPaths.CrashDumpFilePath;
-            if (!File.Exists(dumpPath))
+            // Search in today's log directory as well as base log directory / subdirectories
+            var dumpPaths = new List<string>();
+            var todayDump = AppPaths.CrashDumpFilePath;
+            if (File.Exists(todayDump))
             {
-                return;
+                dumpPaths.Add(todayDump);
             }
 
-            var fileInfo = new FileInfo(dumpPath);
-            var dumpSizeKb = Math.Max(1, fileInfo.Length / 1024);
-            var crashTime = fileInfo.LastWriteTimeUtc;
+            var legacyRootDump = Path.Combine(AppPaths.BaseLogsDirectory, "crash.dmp");
+            if (File.Exists(legacyRootDump) && !dumpPaths.Contains(legacyRootDump))
+            {
+                dumpPaths.Add(legacyRootDump);
+            }
 
-            Report(
-                "PostMortem.NativeCrashDetected",
-                new ApplicationException($"Previous session terminated abnormally with native unhandled crash (Minidump: {dumpSizeKb} KB, TimeUtc: {crashTime:yyyy-MM-dd HH:mm:ss})"),
-                new { MinidumpSizeKb = dumpSizeKb, TimestampUtc = crashTime },
-                isFatal: false);
+            if (Directory.Exists(AppPaths.BaseLogsDirectory))
+            {
+                try
+                {
+                    foreach (var dmp in Directory.GetFiles(AppPaths.BaseLogsDirectory, "crash.dmp", SearchOption.AllDirectories))
+                    {
+                        if (!dumpPaths.Contains(dmp))
+                        {
+                            dumpPaths.Add(dmp);
+                        }
+                    }
+                }
+                catch { }
+            }
 
+            foreach (var dumpPath in dumpPaths)
+            {
+                try
+                {
+                    if (!File.Exists(dumpPath)) continue;
+
+                    var fileInfo = new FileInfo(dumpPath);
+                    var dumpSizeKb = Math.Max(1, fileInfo.Length / 1024);
+                    var crashTime = fileInfo.LastWriteTimeUtc;
+
+                    Report(
+                        "PostMortem.NativeCrashDetected",
+                        new ApplicationException($"Previous session terminated abnormally with native unhandled crash (Minidump: {dumpSizeKb} KB, TimeUtc: {crashTime:yyyy-MM-dd HH:mm:ss})"),
+                        new { MinidumpSizeKb = dumpSizeKb, TimestampUtc = crashTime, DumpPath = dumpPath },
+                        isFatal: false);
+
+                    try
+                    {
+                        if (Sentry.SentrySdk.IsEnabled)
+                        {
+                            Sentry.SentrySdk.CaptureMessage(
+                                $"Previous session terminated with native SEH crash (Minidump: {dumpSizeKb} KB)",
+                                scope =>
+                                {
+                                    scope.Level = Sentry.SentryLevel.Fatal;
+                                    scope.SetTag("crash_type", "native_seh");
+                                    scope.SetTag("post_mortem", "true");
+                                    scope.SetExtra("dump_size_kb", dumpSizeKb);
+                                    scope.SetExtra("crash_time_utc", crashTime.ToString("o"));
+                                    if (File.Exists(AppPaths.CrashLogFilePath))
+                                    {
+                                        scope.AddAttachment(AppPaths.CrashLogFilePath);
+                                    }
+                                });
+                        }
+                    }
+                    catch { }
+
+                    // Archive the dump file in its parent directory
+                    try
+                    {
+                        var parentDir = Path.GetDirectoryName(dumpPath) ?? AppPaths.LogsDirectory;
+                        var archivePath = Path.Combine(parentDir, $"crash-{crashTime:yyyyMMdd-HHmmss}.dmp");
+                        if (File.Exists(archivePath))
+                        {
+                            File.Delete(archivePath);
+                        }
+                        File.Move(dumpPath, archivePath);
+                    }
+                    catch
+                    {
+                        try { File.Delete(dumpPath); } catch { }
+                    }
+                }
+                catch { }
+            }
+
+            // Enforce log retention policy (prune daily directories and legacy logs older than 7 days)
             try
             {
-                if (Sentry.SentrySdk.IsEnabled)
-                {
-                    Sentry.SentrySdk.CaptureMessage(
-                        $"Previous session terminated with native SEH crash (Minidump: {dumpSizeKb} KB)",
-                        scope =>
-                        {
-                            scope.Level = Sentry.SentryLevel.Fatal;
-                            scope.SetTag("crash_type", "native_seh");
-                            scope.SetTag("post_mortem", "true");
-                            scope.SetExtra("dump_size_kb", dumpSizeKb);
-                            scope.SetExtra("crash_time_utc", crashTime.ToString("o"));
-                            if (File.Exists(AppPaths.CrashLogFilePath))
-                            {
-                                scope.AddAttachment(AppPaths.CrashLogFilePath);
-                            }
-                        });
-                }
+                AppPaths.PurgeOldLogs(7);
             }
             catch { }
-
-            // Archive the dump file so we don't repeatedly report it on subsequent startups
-            try
-            {
-                var archivePath = Path.Combine(AppPaths.LogsDirectory, $"crash-{crashTime:yyyyMMdd-HHmmss}.dmp");
-                if (File.Exists(archivePath))
-                {
-                    File.Delete(archivePath);
-                }
-                File.Move(dumpPath, archivePath);
-            }
-            catch
-            {
-                try { File.Delete(dumpPath); } catch { }
-            }
         }
         catch
         {
@@ -348,7 +387,7 @@ public static class CrashReporter
             {
                 try
                 {
-                    var logFilePath = CrashLogPath.Value;
+                    var logFilePath = AppPaths.CrashLogFilePath;
                     var logDir = Path.GetDirectoryName(logFilePath);
                     if (!string.IsNullOrEmpty(logDir) && !Directory.Exists(logDir))
                     {

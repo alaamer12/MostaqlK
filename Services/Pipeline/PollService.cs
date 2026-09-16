@@ -21,6 +21,7 @@ public sealed class PollService : IPollService
     private Task? _loopTask;
     private readonly SemaphoreSlim _checkNowSignal = new(0);
     private volatile bool _isPaused;
+    private DateTime _lastLogRetentionCheckUtc = DateTime.MinValue;
 
     /// <summary>
     /// Poll interval in seconds. Settable at runtime (see <c>SettingsViewModel</c>); the loop
@@ -122,6 +123,13 @@ public sealed class PollService : IPollService
                     // The loop used to discard this Result entirely, which is the exact point where a
                     // permanent listing failure became invisible. Every cycle now reports its outcome.
                     ReportCycle(await PollOnceAsync(cancellationToken));
+                }
+
+                // Periodically purge expired logs (> 7 days) during continuous background operation
+                if (DateTime.UtcNow - _lastLogRetentionCheckUtc >= TimeSpan.FromHours(12))
+                {
+                    _lastLogRetentionCheckUtc = DateTime.UtcNow;
+                    _ = Task.Run(() => MostaqlK.Core.Platform.AppPaths.PurgeOldLogs(7));
                 }
             }
         }

@@ -154,7 +154,7 @@ public static class Program
         try
         {
             string line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {msg}\n";
-            string logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MostaqlK", "log");
+            string logDir = MostaqlK.Core.Platform.AppPaths.LogsDirectory;
             Directory.CreateDirectory(logDir);
             var logPath = Path.Combine(logDir, "startup-debug.log");
 
