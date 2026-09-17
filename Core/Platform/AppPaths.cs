@@ -412,61 +412,14 @@ public static class AppPaths
 
     /// <summary>
     /// Deletes daily log directories (<c>log/yyyy-MM-dd</c>) and legacy log files older than the retention period (default 7 days).
+    /// Safe against locked files and never touches today's active logging folder.
     /// </summary>
     /// <param name="retentionDays">Number of days of logs to retain. Defaults to 7.</param>
     public static void PurgeOldLogs(int retentionDays = 7)
     {
         try
         {
-            var baseLogsDir = BaseLogsDirectory;
-            if (!Directory.Exists(baseLogsDir)) return;
-
-            var cutoffDate = DateTime.UtcNow.Date.AddDays(-retentionDays);
-
-            // 1. Enumerate and delete daily subdirectories (log/yyyy-MM-dd) older than retention period
-            foreach (var subDir in Directory.GetDirectories(baseLogsDir))
-            {
-                try
-                {
-                    var dirName = Path.GetFileName(subDir);
-                    if (DateTime.TryParseExact(dirName, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var dirDate))
-                    {
-                        if (dirDate < cutoffDate)
-                        {
-                            Directory.Delete(subDir, recursive: true);
-                        }
-                    }
-                    else
-                    {
-                        var lastWrite = Directory.GetLastWriteTimeUtc(subDir);
-                        if (lastWrite < cutoffDate)
-                        {
-                            Directory.Delete(subDir, recursive: true);
-                        }
-                    }
-                }
-                catch
-                {
-                    // Best-effort cleanup per directory
-                }
-            }
-
-            // 2. Enumerate and delete loose files directly in base logs directory older than retention period
-            foreach (var file in Directory.GetFiles(baseLogsDir))
-            {
-                try
-                {
-                    var lastWrite = File.GetLastWriteTimeUtc(file);
-                    if (lastWrite < cutoffDate)
-                    {
-                        File.Delete(file);
-                    }
-                }
-                catch
-                {
-                    // Best-effort cleanup per file
-                }
-            }
+            LogDirectoryPurger.Purge(BaseLogsDirectory, retentionDays, DateTime.UtcNow);
         }
         catch
         {

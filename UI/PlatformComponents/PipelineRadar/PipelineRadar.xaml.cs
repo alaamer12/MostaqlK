@@ -1,4 +1,5 @@
 using System.Globalization;
+using MostaqlK.Core.Diagnostics;
 using MostaqlK.Core.Formatting;
 using MostaqlK.Services;
 
@@ -312,6 +313,12 @@ public partial class PipelineRadar : ContentView
 
         Attach(IPlatformApplication.Current?.Services.GetService<GlobalAppStatusService>());
 
+        if (IPlatformApplication.Current?.Services.GetService<AppLifecycleService>() is { } lifecycle)
+        {
+            lifecycle.IsInBackgroundChanged -= OnIsInBackgroundChanged;
+            lifecycle.IsInBackgroundChanged += OnIsInBackgroundChanged;
+        }
+
         // Colours are computed in C#, so they have to be re-applied when the theme flips. Paired with
         // the -= in Detach(): subscribing here rather than in the constructor keeps the subscription
         // inside the handler's lifetime, which matters because Application is an app-lifetime
@@ -351,6 +358,11 @@ public partial class PipelineRadar : ContentView
             app.RequestedThemeChanged -= OnRequestedThemeChanged;
         }
 
+        if (IPlatformApplication.Current?.Services.GetService<AppLifecycleService>() is { } lifecycle)
+        {
+            lifecycle.IsInBackgroundChanged -= OnIsInBackgroundChanged;
+        }
+
         if (_status is null)
         {
             return;
@@ -363,6 +375,18 @@ public partial class PipelineRadar : ContentView
         _status = null;
         _isTicking = false;
     }
+
+    private void OnIsInBackgroundChanged(bool isInBackground) => OnMainThread(() =>
+    {
+        if (isInBackground)
+        {
+            _isTicking = false;
+        }
+        else
+        {
+            Wake();
+        }
+    });
 
     // ------------------------------------------------------------------ pipeline events in
 
@@ -453,7 +477,14 @@ public partial class PipelineRadar : ContentView
     {
         _idleGrace = IdleGraceSeconds;
 
-        if (_isFrozen || _isTicking || Handler is null)
+        var isInBackground = false;
+        try
+        {
+            isInBackground = IPlatformApplication.Current?.Services.GetService<AppLifecycleService>()?.IsInBackground == true;
+        }
+        catch { }
+
+        if (!BackgroundCanvasPolicy.AllowWake(_isFrozen, _isTicking, Handler is not null, isInBackground))
         {
             return;
         }
@@ -476,6 +507,19 @@ public partial class PipelineRadar : ContentView
 
     private void OnFrame()
     {
+        var isInBackground = false;
+        try
+        {
+            isInBackground = IPlatformApplication.Current?.Services.GetService<AppLifecycleService>()?.IsInBackground == true;
+        }
+        catch { }
+
+        if (!BackgroundCanvasPolicy.AllowFrame(isInBackground))
+        {
+            _isTicking = false;
+            return;
+        }
+
         var now = _clock.Elapsed.TotalSeconds;
         var dt = now - _lastTickSeconds;
         _lastTickSeconds = now;

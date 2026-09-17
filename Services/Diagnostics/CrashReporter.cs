@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using Microsoft.Win32.SafeHandles;
+using MostaqlK.Core.Diagnostics;
 using MostaqlK.Core.Platform;
 
 namespace MostaqlK.Services.Diagnostics;
@@ -110,12 +111,14 @@ public static class CrashReporter
     }
 
 #if WINDOWS || NET10_0_WINDOWS10_0_19041_0_OR_GREATER || WINDOWS10_0_17763_0_OR_GREATER
+    private static IntPtr _previousFilter = IntPtr.Zero;
+
     private static void RegisterNativeExceptionFilter()
     {
         try
         {
             _nativeFilterDelegate = NativeUnhandledExceptionCallback;
-            SetUnhandledExceptionFilter(_nativeFilterDelegate);
+            _previousFilter = SetUnhandledExceptionFilter(_nativeFilterDelegate);
         }
         catch
         {
@@ -145,17 +148,14 @@ public static class CrashReporter
                 catch { }
             }
 
+            if (!NativeExceptionPolicy.ShouldWriteMinidump(exceptionCode))
+            {
+                return 0; // EXCEPTION_CONTINUE_SEARCH
+            }
+
             var sb = new StringBuilder();
             var timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff");
-            string codeName = exceptionCode switch
-            {
-                0xC0000005 => "STATUS_ACCESS_VIOLATION (0xC0000005)",
-                0xC00000FD => "STATUS_STACK_OVERFLOW (0xC00000FD)",
-                0xC0000008 => "STATUS_INVALID_HANDLE (0xC0000008)",
-                0xC000001D => "STATUS_ILLEGAL_INSTRUCTION (0xC000001D)",
-                0xC0000025 => "STATUS_NONCONTINUABLE_EXCEPTION (0xC0000025)",
-                _ => $"0x{exceptionCode:X8}"
-            };
+            var codeName = NativeExceptionPolicy.NameFor(exceptionCode);
 
             sb.AppendLine("================================================================================");
             sb.AppendLine($"[{timestamp} UTC] [FATAL/NATIVE_SEH_CRASH] Source: Win32.UnhandledExceptionFilter");

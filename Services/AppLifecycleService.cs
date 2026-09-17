@@ -12,6 +12,11 @@ public sealed class AppLifecycleService
     private bool _isReadyToNotify;
 
     /// <summary>
+    /// Raised whenever <see cref="IsInBackground"/> changes.
+    /// </summary>
+    public event Action<bool>? IsInBackgroundChanged;
+
+    /// <summary>
     /// Gets whether the application window is currently hidden (minimized to tray).
     /// </summary>
     public bool IsInBackground
@@ -22,6 +27,7 @@ public sealed class AppLifecycleService
             if (_isInBackground == value) return;
             _isInBackground = value;
             InteractionLogger.Mark("AppLifecycle.IsInBackgroundChanged", "A", new { IsInBackground = value });
+            IsInBackgroundChanged?.Invoke(value);
         }
     }
 

@@ -2,10 +2,12 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
 using Microsoft.Windows.AppNotifications;
+using MostaqlK.Core.Diagnostics;
 using MostaqlK.Infrastructure.Notifications;
 using MostaqlK.Platforms.Windows;
 using MostaqlK.Services.Diagnostics;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -39,6 +41,11 @@ public static class Program
     static void Main(string[] args)
     {
         EnsurePersistentBundleExtraction();
+
+        if (TryRelaunchOutOfVolatileExtract(args))
+        {
+            return;
+        }
 
         LogDebug($"Main started with args: [{string.Join(", ", args)}]");
         LogDebug($"AppContext.BaseDirectory: {AppContext.BaseDirectory}");
@@ -187,12 +194,8 @@ public static class Program
 
     /// <summary>
     /// Publishes <c>DOTNET_BUNDLE_EXTRACT_BASE_DIR=%LocalAppData%\MostaqlK\bundle-cache</c> into the
-    /// User environment so <em>future</em> launches started by a launcher with a refreshed environment
-    /// block extract there instead of <c>%TEMP%</c>.
-    ///
-    /// This cannot help the process that sets it: the apphost extracts the bundle to disk before the
-    /// managed entry point runs, so by the time <see cref="Main"/> executes the extraction directory is
-    /// already fixed. Protecting the running process is <see cref="BundleExtractionGuard"/>'s job.
+    /// User environment so later launches inherit it. The current process is relocated by
+    /// <see cref="TryRelaunchOutOfVolatileExtract"/> when the apphost already unpacked into %TEMP%.
     /// </summary>
     private static void EnsurePersistentBundleExtraction()
     {
@@ -200,17 +203,67 @@ public static class Program
         {
             var bundleCacheDir = MostaqlK.Core.Platform.AppPaths.BundleCacheDirectory;
 
-            var currentVal = Environment.GetEnvironmentVariable("DOTNET_BUNDLE_EXTRACT_BASE_DIR", EnvironmentVariableTarget.User);
+            var currentVal = Environment.GetEnvironmentVariable(BundleExtractPolicy.ExtractBaseEnvVar, EnvironmentVariableTarget.User);
             if (!string.Equals(currentVal, bundleCacheDir, StringComparison.OrdinalIgnoreCase))
             {
-                Environment.SetEnvironmentVariable("DOTNET_BUNDLE_EXTRACT_BASE_DIR", bundleCacheDir, EnvironmentVariableTarget.User);
+                Environment.SetEnvironmentVariable(BundleExtractPolicy.ExtractBaseEnvVar, bundleCacheDir, EnvironmentVariableTarget.User);
                 BroadcastEnvironmentChange();
-                LogDebug($"Configured DOTNET_BUNDLE_EXTRACT_BASE_DIR in User environment: {bundleCacheDir}");
+                LogDebug($"Configured {BundleExtractPolicy.ExtractBaseEnvVar} in User environment: {bundleCacheDir}");
             }
         }
         catch (Exception ex)
         {
             LogDebug($"EnsurePersistentBundleExtraction note: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Portable single-file: if this process is already running from <c>%TEMP%\.net\...</c>,
+    /// start a sibling with extract dir set to LocalAppData and exit. Must run before the
+    /// singleton mutex so the child becomes the primary instance.
+    /// </summary>
+    private static bool TryRelaunchOutOfVolatileExtract(string[] args)
+    {
+        try
+        {
+            var extractDir = AppContext.BaseDirectory;
+            var persistent = MostaqlK.Core.Platform.AppPaths.BundleCacheDirectory;
+            var already = BundleExtractPolicy.HasRelocateArg(args);
+            if (!BundleExtractPolicy.ShouldRelaunch(extractDir, Path.GetTempPath(), persistent, already))
+            {
+                LogDebug($"Bundle extract dir is durable (or relocate already attempted): {extractDir}");
+                return false;
+            }
+
+            var exe = Environment.ProcessPath;
+            if (string.IsNullOrEmpty(exe) || !File.Exists(exe))
+            {
+                LogDebug("Cannot relaunch portable extract: ProcessPath missing");
+                return false;
+            }
+
+            var childArgs = BundleExtractPolicy.ArgsWithoutRelocate(args);
+            var psi = new ProcessStartInfo
+            {
+                FileName = exe,
+                UseShellExecute = false,
+                WorkingDirectory = Path.GetDirectoryName(exe) ?? Environment.CurrentDirectory,
+            };
+            psi.Environment[BundleExtractPolicy.ExtractBaseEnvVar] = persistent;
+            psi.ArgumentList.Add(BundleExtractPolicy.RelocateArg);
+            foreach (var arg in childArgs)
+            {
+                psi.ArgumentList.Add(arg);
+            }
+
+            LogDebug($"Relaunching portable exe out of volatile extract into {persistent}");
+            Process.Start(psi);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            LogDebug($"TryRelaunchOutOfVolatileExtract note: {ex.Message}");
+            return false;
         }
     }
 
