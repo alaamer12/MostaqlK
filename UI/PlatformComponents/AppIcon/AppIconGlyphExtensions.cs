@@ -134,7 +134,15 @@ public static class AppIconGlyphExtensions
     /// custom fonts in <see cref="AppIcon"/>'s class doc. Direct absolute-path file loading is
     /// the one approach confirmed to actually work.
     /// </summary>
-    public static ImageSource ToImageSource(this AppIconGlyph icon, Color? textColor)
+    /// <remarks>
+    /// Returns <c>null</c> (renders nothing) when the resolved PNG was never generated - e.g. the
+    /// catch-all <c>_white</c> variant requested for an icon that only ships its base file. Before
+    /// this check MAUI's <c>FileImageSourceService.GetLocal</c> threw a <see cref="FileNotFoundException"/>
+    /// for every such request (the recurring <c>Missing file: ''</c> line in <c>startup-debug.log</c>)
+    /// and then fell back to an <c>ms-appx:///</c> URI that loads nothing in an unpackaged app, so the
+    /// visible result is identical - just without the exception. Existence is checked once per file.
+    /// </remarks>
+    public static ImageSource? ToImageSource(this AppIconGlyph icon, Color? textColor)
     {
         var baseName = icon.ToImageBaseName();
         var isActive = Array.IndexOf(ActiveVariantIcons, baseName) >= 0
@@ -143,6 +151,21 @@ public static class AppIconGlyphExtensions
         var variant = isActive ? "_active" : (textColor is null ? null : ToColourVariant(baseName, textColor));
         var fileName = $"{baseName}{variant}.scale-200.png";
         var fullPath = Path.Combine(AppContext.BaseDirectory, fileName);
-        return ImageSource.FromFile(fullPath);
+        return FileExists(fullPath) ? ImageSource.FromFile(fullPath) : null;
     }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, bool> ExistenceCache =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    private static bool FileExists(string fullPath) =>
+        ExistenceCache.GetOrAdd(fullPath, static path =>
+        {
+            var exists = File.Exists(path);
+            if (!exists)
+            {
+                System.Diagnostics.Debug.WriteLine($"[AppIcon] icon asset not generated, rendering nothing: {Path.GetFileName(path)}");
+            }
+
+            return exists;
+        });
 }

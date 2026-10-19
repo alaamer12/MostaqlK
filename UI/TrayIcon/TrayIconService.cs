@@ -162,6 +162,8 @@ public class TrayIconService
 
     private static void OnQuit()
     {
+        // Intentional exit: the out-of-process supervisor must not relaunch the app.
+        MostaqlK.Core.Diagnostics.ExitIntent.MarkIntentional();
         MainThread.BeginInvokeOnMainThread(() => Application.Current?.Quit());
     }
 }

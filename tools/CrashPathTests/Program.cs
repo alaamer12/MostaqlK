@@ -143,6 +143,36 @@ Check("DXGI device-removed is named",
 Check("stowed exception is named",
     NativeExceptionPolicy.NameFor(NativeExceptionPolicy.StatusStowedException).Contains("STOWED", StringComparison.Ordinal));
 
+// --- Watchdog (native fail-fast relaunch) ------------------------------------
+
+Check("watchdog args parsed",
+    WatchdogPolicy.TryParseWatchdogArgs(new[] { WatchdogPolicy.WatchdogArg, "1234" }, out var wpid) && wpid == 1234);
+Check("normal launch is not a watchdog",
+    !WatchdogPolicy.TryParseWatchdogArgs(new[] { "--silent-start" }, out _));
+Check("bad pid is not a watchdog",
+    !WatchdogPolicy.TryParseWatchdogArgs(new[] { WatchdogPolicy.WatchdogArg, "abc" }, out _));
+Check("primary spawns watchdog",
+    WatchdogPolicy.ShouldSpawnWatchdog(Array.Empty<string>(), isDebuggerAttached: false, disableEnvValue: null));
+Check("supervised relaunch does not spawn a second watchdog",
+    !WatchdogPolicy.ShouldSpawnWatchdog(WatchdogPolicy.RelaunchArgs(), false, null));
+Check("debugger suppresses watchdog",
+    !WatchdogPolicy.ShouldSpawnWatchdog(Array.Empty<string>(), true, null));
+Check("env var suppresses watchdog",
+    !WatchdogPolicy.ShouldSpawnWatchdog(Array.Empty<string>(), false, "1"));
+var wnow = new DateTime(2026, 10, 19, 13, 49, 35, DateTimeKind.Utc);
+Check("fail-fast is relaunched",
+    WatchdogPolicy.Decide(false, false, Array.Empty<DateTime>(), wnow) == WatchdogDecision.Relaunch);
+Check("intentional exit is not relaunched",
+    WatchdogPolicy.Decide(true, false, Array.Empty<DateTime>(), wnow) == WatchdogDecision.StopCleanExit);
+Check("system shutdown is not relaunched",
+    WatchdogPolicy.Decide(false, true, Array.Empty<DateTime>(), wnow) == WatchdogDecision.StopSystemShutdown);
+Check("crash loop stops relaunching",
+    WatchdogPolicy.Decide(false, false, Enumerable.Range(1, WatchdogPolicy.MaxRestartsInWindow).Select(i => wnow.AddMinutes(-i)).ToArray(), wnow) == WatchdogDecision.StopCrashLoop);
+Check("old restarts outside window do not count",
+    WatchdogPolicy.Decide(false, false, Enumerable.Range(1, 10).Select(i => wnow.AddHours(-i)).ToArray(), wnow) == WatchdogDecision.Relaunch);
+Check("relaunch goes back to tray, supervised",
+    WatchdogPolicy.RelaunchArgs() is ["--silent-start", WatchdogPolicy.SupervisedArg]);
+
 // --- Portable single-file extract (TEMP eviction) ----------------------------
 
 var tempRoot = Path.Combine(Path.GetTempPath(), "mostaqlk-extract-policy-" + Guid.NewGuid().ToString("N"));

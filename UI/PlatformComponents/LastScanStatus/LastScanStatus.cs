@@ -188,7 +188,9 @@ public partial class LastScanStatus : ContentView
     {
         var token = ++_spinToken;
         RefreshGlyph.Rotation = 0;
-        while (token == _spinToken && IsChecking && Handler is not null)
+        // Hidden in the tray (or reduced motion): this spins on every poll cycle for the app's whole
+        // lifetime, so it must not keep driving native transform updates nobody can see.
+        while (token == _spinToken && IsChecking && Handler is not null && !MotionPreferences.IsReducedMotionRequested)
         {
             await RefreshGlyph.RotateToAsync(-360, 900, Easing.Linear);
             RefreshGlyph.Rotation = 0;

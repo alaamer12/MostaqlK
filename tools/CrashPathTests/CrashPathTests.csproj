@@ -15,6 +15,7 @@
 		<Compile Include="..\..\Core\Diagnostics\NativeExceptionPolicy.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Diagnostics\BackgroundCanvasPolicy.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Diagnostics\BundleExtractPolicy.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Diagnostics\WatchdogPolicy.cs" LinkBase="Core" />
 	</ItemGroup>
 
 </Project>

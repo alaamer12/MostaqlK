@@ -12,14 +12,27 @@ namespace MostaqlK.UI.PlatformComponents;
 /// </summary>
 public static partial class MotionPreferences
 {
+    private static volatile bool _isAmbientMotionSuspended;
+
     /// <summary>
     /// True when the user asked the OS to minimise animations. Falls back to <c>false</c> (motion
     /// allowed) whenever the platform does not expose the setting, so the visualisation still works.
+    /// Also true while <see cref="IsAmbientMotionSuspended"/> (window hidden in the tray).
     /// </summary>
     public static bool IsReducedMotionRequested
     {
         get
         {
+            // Nobody can see an animation while the window is hidden in the tray, but every frame
+            // still drives native XAML work (and, before TransformReuseMapping, native garbage the
+            // finalizer thread had to release - the long-idle background crash). Treat "hidden"
+            // exactly like "the user asked for reduced motion" so every unit that already honours
+            // this flag goes quiet in the background for free.
+            if (_isAmbientMotionSuspended)
+            {
+                return true;
+            }
+
             var isReduced = false;
             // partial void: no-op on platforms without a .Windows/.Android/... partial, leaving
             // isReduced = false (motion allowed) — same fallback the previous #if WINDOWS / #else
@@ -27,6 +40,16 @@ public static partial class MotionPreferences
             ResolveReducedMotion(ref isReduced);
             return isReduced;
         }
+    }
+
+    /// <summary>
+    /// True while the app window is hidden (tray / background). Cheap static read, safe to poll from
+    /// per-frame tickers. Driven by <c>AppLifecycleService.IsInBackgroundChanged</c> (wired at startup).
+    /// </summary>
+    public static bool IsAmbientMotionSuspended
+    {
+        get => _isAmbientMotionSuspended;
+        set => _isAmbientMotionSuspended = value;
     }
 
     /// <summary>

@@ -335,6 +335,9 @@ internal static class PlatformServiceRegistration
                             if (action == CloseAction.Exit)
                             {
                                 isExitConfirmed = true;
+                                // Tell the out-of-process supervisor this exit is on purpose, *before*
+                                // teardown starts, so even a crash during shutdown is not relaunched.
+                                MostaqlK.Core.Diagnostics.ExitIntent.MarkIntentional();
                                 appWindow.Destroy();
                             }
                             else
@@ -395,6 +398,9 @@ internal static class PlatformServiceRegistration
                 })
                 .OnClosed((window, args) =>
                 {
+                    // The main window only really closes when the app is exiting (close-to-tray
+                    // cancels AppWindow.Closing), so this is an intentional exit for the supervisor.
+                    MostaqlK.Core.Diagnostics.ExitIntent.MarkIntentional();
                     // FIX (fast-fail crash on the X button, exit code -1073741189 / 0xC000027B):
                     // stop the pipeline's background loops (PollService/WorkerPool) BEFORE the
                     // native window/dispatcher is fully torn down, so they cannot try to marshal
@@ -405,6 +411,53 @@ internal static class PlatformServiceRegistration
                 }));
         });
 
-        return app => appRef = app;
+        return app =>
+        {
+            appRef = app;
+            InstallBackgroundCrashHardening(app);
+        };
+    }
+
+    /// <summary>
+    /// Long-idle background crash hardening (see <see cref="AppWatchdog"/> for the dump analysis):
+    /// <list type="bullet">
+    /// <item><see cref="TransformReuseMapping"/> - stops MAUI allocating two native XAML transforms per
+    /// animation frame (the garbage whose finalizer-thread release fail-fasted WinUI).</item>
+    /// <item>Background motion suspension - while hidden in the tray every ambient animation goes quiet
+    /// (<see cref="MostaqlK.UI.PlatformComponents.MotionPreferences.IsAmbientMotionSuspended"/>).</item>
+    /// <item><see cref="MostaqlK.Services.Diagnostics.ProcessHeartbeat"/> - periodic health line so the time
+    /// and state of any future death is always on disk.</item>
+    /// </list>
+    /// Runs right after <c>builder.Build()</c>, i.e. after MAUI's own mapper remaps and before the first
+    /// handler exists.
+    /// </summary>
+    private static void InstallBackgroundCrashHardening(MauiApp app)
+    {
+        TransformReuseMapping.Install();
+
+        var lifecycle = app.Services.GetService<AppLifecycleService>();
+        if (lifecycle is not null)
+        {
+            MostaqlK.UI.PlatformComponents.MotionPreferences.IsAmbientMotionSuspended = lifecycle.IsInBackground;
+            lifecycle.IsInBackgroundChanged += isInBackground =>
+            {
+                MostaqlK.UI.PlatformComponents.MotionPreferences.IsAmbientMotionSuspended = isInBackground;
+                MostaqlK.Services.Diagnostics.ProcessHeartbeat.Mark(isInBackground ? "to-background" : "to-foreground");
+                try
+                {
+                    Sentry.SentrySdk.AddBreadcrumb(isInBackground ? "Window hidden to tray" : "Window restored", "app.lifecycle");
+                }
+                catch
+                {
+                    // telemetry only
+                }
+            };
+        }
+
+        MostaqlK.Services.Diagnostics.ProcessHeartbeat.Start(() =>
+            lifecycle is null ? "bg=?" : lifecycle.IsInBackground ? "bg=1" : "bg=0");
+
+        // Post-mortem: send native fail-fast crashes (watchdog records + WER dumps) to Sentry.
+        NativeCrashForwarder.ScheduleForward();
     }
 }

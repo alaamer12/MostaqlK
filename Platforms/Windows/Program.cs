@@ -40,6 +40,14 @@ public static class Program
     [STAThread]
     static void Main(string[] args)
     {
+        // Supervisor mode (`--watchdog <pid>`): a tiny sibling process that only waits for the tray app
+        // to die and relaunches it after a native fail-fast. Must run before *anything* else - it never
+        // touches WinUI, the singleton mutex, the splash screen or the bundle relocation logic.
+        if (AppWatchdog.TryRunAsWatchdog(args))
+        {
+            return;
+        }
+
         EnsurePersistentBundleExtraction();
 
         if (TryRelaunchOutOfVolatileExtract(args))
@@ -62,7 +70,11 @@ public static class Program
         {
             if (e.Exception is FileNotFoundException fnf)
             {
-                LogDebug($"[FirstChanceException] Missing file: '{fnf.FileName}' ({fnf.Message})");
+                // The first few occurrences also carry the throw site: an empty FileName alone (the
+                // dozens of "Missing file: ''" lines per session) does not say who asked for it.
+                var occurrence = Interlocked.Increment(ref _missingFileCount);
+                var site = occurrence <= 5 ? $" at {new StackTrace(1, false).ToString().Replace(Environment.NewLine, " | ")}" : string.Empty;
+                LogDebug($"[FirstChanceException] Missing file: '{fnf.FileName}' ({fnf.Message}){site}");
             }
         };
 
@@ -76,6 +88,9 @@ public static class Program
         }
 
         StartWakeListener();
+
+        // Primary instance only: clean-exit event + out-of-process supervisor (see AppWatchdog).
+        AppWatchdog.InitializeForPrimaryInstance(args, LogDebug);
 
         try
         {
@@ -145,6 +160,8 @@ public static class Program
     }
 
     private const long DebugLogRollBytes = 2 * 1024 * 1024;
+
+    private static int _missingFileCount;
 
     // Per-thread so a write that throws cannot re-enter LogDebug from an exception hook.
     [ThreadStatic]

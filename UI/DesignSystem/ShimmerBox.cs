@@ -45,6 +45,14 @@ public class ShimmerBox : ContentView
         _isAnimating = true;
         while (_isAnimating)
         {
+            if (MostaqlK.UI.PlatformComponents.MotionPreferences.IsAmbientMotionSuspended)
+            {
+                // Window hidden in the tray: park the sweep instead of animating an invisible view.
+                _sweep.TranslationX = 0;
+                await Task.Delay(1000);
+                continue;
+            }
+
             var travel = Math.Max(0, Width - _sweep.Width);
             await _sweep.TranslateToAsync(travel, 0, 1400, Easing.Linear);
             _sweep.TranslationX = 0;

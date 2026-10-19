@@ -61,6 +61,24 @@ public static class MauiProgram
 			{
 				options.Dsn = "https://90ccacc6ea89ac1af8c0f8cd27a97722@o4507036129361920.ingest.us.sentry.io/4512017976131584";
 				options.Debug = false;
+				options.Release = $"mostaqlk@{typeof(MauiProgram).Assembly.GetName().Version}";
+#if DEBUG
+				options.Environment = "debug";
+#else
+				options.Environment = "production";
+#endif
+				// Desktop app: one global scope for the whole process, not per async flow.
+				options.IsGlobalModeEnabled = true;
+				options.AttachStacktrace = true;
+				options.MaxBreadcrumbs = 200;
+				// Persist envelopes (and the open session) to disk before sending. A native fail-fast kills
+				// the process instantly; without a disk cache anything still queued in memory is lost, and
+				// the dead session can never be flagged. With it, the next launch uploads what was queued
+				// and reports the killed session as abnormal (Release Health -> crash-free sessions).
+				options.CacheDirectoryPath = Path.Combine(AppPaths.CacheDirectory, "sentry");
+				options.AutoSessionTracking = true;
+				// Gzipped WER minidumps forwarded post-mortem (Platforms/Windows/NativeCrashForwarder.cs).
+				options.MaxAttachmentSize = 40 * 1024 * 1024;
 			})
 			.ConfigureFonts(fonts =>
 			{

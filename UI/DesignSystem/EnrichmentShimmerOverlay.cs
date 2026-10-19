@@ -164,6 +164,12 @@ public class EnrichmentShimmerOverlay : ContentView
                 return;
             }
 
+            // Window hidden in the tray: freeze the band where it is; the shared ticker resumes it on restore.
+            if (MostaqlK.UI.PlatformComponents.MotionPreferences.IsAmbientMotionSuspended)
+            {
+                return;
+            }
+
             var travel = Width + _band.WidthRequest;
             if (travel <= 0)
             {
