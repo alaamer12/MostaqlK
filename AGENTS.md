@@ -22,6 +22,14 @@ These are the source of truth for project context. Do not contradict them withou
 
 ---
 
+## Versioning & per-version data
+
+- **Format:** `MAJOR.MINOR.PATCH.TAG{n}` (e.g. `1.0.4.dev1`). The base comes from `MostaqlK.csproj`; `ApplicationDisplayVersion` and `InformationalVersion` carry the full tag.
+- **Every change that needs a rebuild increments the tag** (`dev1` → `dev2` → …) and `ApplicationVersion` (build code). Do not change the base version unless asked.
+- **Per-version data:** on desktop, all data (logs, Cache, Data, Settings, bundle-cache, pending-crashes) lives under `%LocalAppData%\MostaqlK\<version-tag>\` (`AppPaths.VersionTag`). Windows crash dumps stay in WER's `%LocalAppData%\CrashDumps`.
+
+---
+
 ## Units — read before any implementation or planning
 
 **[`UNITS.md`](UNITS.md)** catalogs every existing UI builder block (`AppButton`, `AppCard`, `NavigationControl`, `ShimmerBox`, `TrayIconService`, etc.) grouped by mechanism (Platform Components, Platform Concepts, Design System, Tray Icon).

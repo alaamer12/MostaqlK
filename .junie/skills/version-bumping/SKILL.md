@@ -29,6 +29,15 @@ Use this skill whenever incrementing a version, cutting a release, or reviewing 
 
 ---
 
+## 0. Project Version Format (MostaqlK)
+
+- Format is `MAJOR.MINOR.PATCH.TAG{n}`, e.g. `1.0.4.dev1`.
+- Every rebuild-requiring change increments the tag (`dev1` → `dev2` → …) and `ApplicationVersion`. Keep the base version unless the user asks to bump it.
+- Set `ApplicationDisplayVersion` and `InformationalVersion` to the full tag, `Version` to the base, and `FileVersion`/`AssemblyVersion` to the 4-part numeric form (`1.0.4.1`).
+- Desktop data lives under `%LocalAppData%\MostaqlK\<version-tag>\` (`AppPaths.VersionTag`), so each build has its own logs, Cache, Data, Settings and bundle-cache.
+
+---
+
 ## 1. Semantic Versioning (SemVer 2.0.0) Rules
 
 Given a version number `MAJOR.MINOR.PATCH`:

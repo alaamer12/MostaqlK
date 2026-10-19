@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Reflection;
 
 namespace MostaqlK.Core.Platform;
 
@@ -87,7 +88,7 @@ public interface IAppDirectoryProvider
 /// </summary>
 public static class AppPaths
 {
-    private static readonly Lazy<string> BaseAppDir = new(ResolveAppDirectory);
+    private static readonly Lazy<string> BaseAppDir = new(ResolveVersionedAppDirectory);
     private static readonly Lazy<string> BaseDataDir = new(ResolveDataDirectory);
     private static readonly Lazy<string> BaseSettingsDir = new(ResolveSettingsDirectory);
     private static readonly Lazy<string> BaseCacheDir = new(ResolveCacheDirectory);
@@ -96,6 +97,14 @@ public static class AppPaths
     private static bool _initialized;
 
     public static string AppName => "MostaqlK";
+
+    /// <summary>
+    /// Build tag in <c>MAJOR.MINOR.PATCH.TAG{n}</c> form (e.g. <c>0.1.0.dev1</c>), read from the <c>InformationalVersion</c> set in <c>MostaqlK.csproj</c>.
+    /// Names the per-build directory so every rebuild keeps its own data, logs and cache.
+    /// </summary>
+    public static string VersionTag { get; } =
+        typeof(AppPaths).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0.dev0";
+
     public static string PackageName => "com.mostaqlk";
 
     /// <summary>
@@ -255,6 +264,16 @@ public static class AppPaths
         {
             Directory.CreateDirectory(dir);
         }
+    }
+
+    private static string ResolveVersionedAppDirectory()
+    {
+        var root = ResolveAppDirectory();
+#if ANDROID || IOS
+        return root;
+#else
+        return Path.Combine(root, VersionTag);
+#endif
     }
 
     private static string ResolveAppDirectory()
