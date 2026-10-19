@@ -34,7 +34,8 @@ Use this skill whenever incrementing a version, cutting a release, or reviewing 
 - Format is `MAJOR.MINOR.PATCH.TAG{n}`, e.g. `1.0.4.dev1`.
 - Every rebuild-requiring change increments the tag (`dev1` → `dev2` → …) and `ApplicationVersion`. Keep the base version unless the user asks to bump it.
 - Set `ApplicationDisplayVersion` and `InformationalVersion` to the full tag, `Version` to the base, and `FileVersion`/`AssemblyVersion` to the 4-part numeric form (`1.0.4.1`).
-- Desktop data lives under `%LocalAppData%\MostaqlK\<version-tag>\` (`AppPaths.VersionTag`), so each build has its own logs, Cache, Data, Settings and bundle-cache.
+- Desktop app data (Data, Settings, Cache, bundle-cache) stays in the shared `%LocalAppData%\MostaqlK\` root. Logs and crash files live under `%LocalAppData%\MostaqlK\<version-tag>\` (`AppPaths.VersionDirectory`), so each build keeps its own evidence.
+- On the first launch of a new tag, missing Data and Settings files are copied from the newest older version folder. Old log folders are pruned by the 7-day retention.
 
 ---
 

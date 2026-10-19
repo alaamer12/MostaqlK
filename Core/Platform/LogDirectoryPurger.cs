@@ -72,6 +72,51 @@ public static class LogDirectoryPurger
         }
     }
 
+    /// <summary>
+    /// Applies the same retention to the <c>log/</c> folders of previous builds (sibling version folders) and removes
+    /// a sibling version folder once it holds no files and has been idle past the retention period.
+    /// Never touches the current build's folder or the shared app data in the root.
+    /// </summary>
+    public static void PruneSiblingVersions(string appRootDir, string currentTag, int retentionDays, DateTime utcNow)
+    {
+        if (string.IsNullOrWhiteSpace(appRootDir) || !Directory.Exists(appRootDir))
+        {
+            return;
+        }
+
+        var cutoffDate = utcNow.Date.AddDays(-Math.Max(1, retentionDays));
+
+        foreach (var versionDir in Directory.GetDirectories(appRootDir))
+        {
+            try
+            {
+                var name = Path.GetFileName(versionDir);
+                if (string.Equals(name, currentTag, StringComparison.OrdinalIgnoreCase)
+                    || name.Length == 0
+                    || !char.IsDigit(name[0]))
+                {
+                    continue;
+                }
+
+                var siblingLogs = Path.Combine(versionDir, "log");
+                if (Directory.Exists(siblingLogs))
+                {
+                    Purge(siblingLogs, retentionDays, utcNow);
+                }
+
+                var hasFiles = Directory.GetFiles(versionDir, "*", SearchOption.AllDirectories).Length > 0;
+                if (!hasFiles && Directory.GetLastWriteTimeUtc(versionDir) < cutoffDate)
+                {
+                    Directory.Delete(versionDir, recursive: true);
+                }
+            }
+            catch
+            {
+                // Best-effort cleanup per version folder
+            }
+        }
+    }
+
     public static void TryDeleteDirectorySafely(string dirPath)
     {
         try

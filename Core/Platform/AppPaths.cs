@@ -88,7 +88,8 @@ public interface IAppDirectoryProvider
 /// </summary>
 public static class AppPaths
 {
-    private static readonly Lazy<string> BaseAppDir = new(ResolveVersionedAppDirectory);
+    private static readonly Lazy<string> BaseAppDir = new(ResolveAppDirectory);
+    private static readonly Lazy<string> BaseVersionDir = new(ResolveVersionedAppDirectory);
     private static readonly Lazy<string> BaseDataDir = new(ResolveDataDirectory);
     private static readonly Lazy<string> BaseSettingsDir = new(ResolveSettingsDirectory);
     private static readonly Lazy<string> BaseCacheDir = new(ResolveCacheDirectory);
@@ -100,12 +101,25 @@ public static class AppPaths
 
     /// <summary>
     /// Build tag in <c>MAJOR.MINOR.PATCH.TAG{n}</c> form (e.g. <c>0.1.0.dev1</c>), read from the <c>InformationalVersion</c> set in <c>MostaqlK.csproj</c>.
-    /// Names the per-build directory so every rebuild keeps its own data, logs and cache.
+    /// Names the per-build folder that holds logs and crash files, so each rebuild keeps its own diagnostic evidence. App data stays in the shared root.
     /// </summary>
     public static string VersionTag { get; } =
         typeof(AppPaths).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0.dev0";
 
     public static string PackageName => "com.mostaqlk";
+
+    /// <summary>
+    /// Per-build folder holding logs and crash files: the version tag subfolder of <see cref="AppDirectory"/> on desktop, the same folder on mobile.
+    /// </summary>
+    public static string VersionDirectory
+    {
+        get
+        {
+            var dir = BaseVersionDir.Value;
+            EnsureDirectoryExists(dir);
+            return dir;
+        }
+    }
 
     /// <summary>
     /// Root application directory for MostaqlK.
@@ -154,7 +168,7 @@ public static class AppPaths
     /// <summary>
     /// Root diagnostics log directory (<c>log/</c>) inside the application directory.
     /// </summary>
-    public static string BaseLogsDirectory => Path.Combine(AppDirectory, "log");
+    public static string BaseLogsDirectory => Path.Combine(VersionDirectory, "log");
 
     /// <summary>
     /// Application logs directory (<c>log/yyyy-MM-dd/</c>) for today's ISO date inside the application directory.
@@ -236,10 +250,12 @@ public static class AppPaths
 
             try
             {
+                MigratePreviousVersionData();
                 CleanupLegacyDirectories();
                 PurgeOldLogs(retentionDays: 7);
 
                 EnsureDirectoryExists(AppDirectory);
+                EnsureDirectoryExists(VersionDirectory);
                 EnsureDirectoryExists(DataDirectory);
                 EnsureDirectoryExists(SettingsDirectory);
                 EnsureDirectoryExists(LogsDirectory);
@@ -263,6 +279,54 @@ public static class AppPaths
         if (!Directory.Exists(dir))
         {
             Directory.CreateDirectory(dir);
+        }
+    }
+
+    private static void MigratePreviousVersionData()
+    {
+#if ANDROID || IOS
+        return;
+#else
+        try
+        {
+            var root = AppDirectory;
+            if (string.Equals(root, VersionDirectory, StringComparison.OrdinalIgnoreCase)) return;
+            if (File.Exists(Path.Combine(root, "Data", "mostaqlk.db"))) return;
+
+            var source = Directory.GetDirectories(root)
+                .Where(d => !string.Equals(d, VersionDirectory, StringComparison.OrdinalIgnoreCase))
+                .Where(d => File.Exists(Path.Combine(d, "Data", "mostaqlk.db")))
+                .OrderByDescending(d => Directory.GetLastWriteTimeUtc(d))
+                .FirstOrDefault();
+            if (source == null) return;
+
+            CopyMissingFiles(Path.Combine(source, "Data"), Path.Combine(root, "Data"));
+            CopyMissingFiles(Path.Combine(source, "Settings"), Path.Combine(root, "Settings"));
+        }
+        catch
+        {
+            // Migration is best-effort; it must never block startup.
+        }
+#endif
+    }
+
+    private static void CopyMissingFiles(string source, string target)
+    {
+        if (!Directory.Exists(source)) return;
+        Directory.CreateDirectory(target);
+
+        foreach (var file in Directory.GetFiles(source))
+        {
+            var dest = Path.Combine(target, Path.GetFileName(file));
+            if (!File.Exists(dest))
+            {
+                File.Copy(file, dest);
+            }
+        }
+
+        foreach (var dir in Directory.GetDirectories(source))
+        {
+            CopyMissingFiles(dir, Path.Combine(target, Path.GetFileName(dir)));
         }
     }
 
@@ -347,7 +411,7 @@ public static class AppPaths
     private static string ResolveLogsDirectory()
     {
         var isoDate = DateTime.UtcNow.ToString("yyyy-MM-dd");
-        return Path.Combine(AppDirectory, "log", isoDate);
+        return Path.Combine(VersionDirectory, "log", isoDate);
     }
 
     private static string ResolveCacheDirectory()
@@ -439,6 +503,10 @@ public static class AppPaths
         try
         {
             LogDirectoryPurger.Purge(BaseLogsDirectory, retentionDays, DateTime.UtcNow);
+            if (!string.Equals(VersionDirectory, AppDirectory, StringComparison.OrdinalIgnoreCase))
+            {
+                LogDirectoryPurger.PruneSiblingVersions(AppDirectory, VersionTag, retentionDays, DateTime.UtcNow);
+            }
         }
         catch
         {

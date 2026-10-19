@@ -26,7 +26,9 @@ These are the source of truth for project context. Do not contradict them withou
 
 - **Format:** `MAJOR.MINOR.PATCH.TAG{n}` (e.g. `1.0.4.dev1`). The base comes from `MostaqlK.csproj`; `ApplicationDisplayVersion` and `InformationalVersion` carry the full tag.
 - **Every change that needs a rebuild increments the tag** (`dev1` → `dev2` → …) and `ApplicationVersion` (build code). Do not change the base version unless asked.
-- **Per-version data:** on desktop, all data (logs, Cache, Data, Settings, bundle-cache, pending-crashes) lives under `%LocalAppData%\MostaqlK\<version-tag>\` (`AppPaths.VersionTag`). Windows crash dumps stay in WER's `%LocalAppData%\CrashDumps`.
+- **Per-version logs, shared app data:** on desktop, app data (Data, Settings, Cache, bundle-cache, pending-crashes) stays in the shared `%LocalAppData%\MostaqlK\` root so every build sees the same database and settings. Logs and crash files (`log\`, `crash.dmp`, `crash.log`) live under `%LocalAppData%\MostaqlK\<version-tag>\` (`AppPaths.VersionDirectory`), so each build keeps its own evidence. Windows crash dumps stay in WER's `%LocalAppData%\CrashDumps`.
+- **Retention:** `AppPaths.PurgeOldLogs` applies the 7-day retention to the current build's `log\` folder and to previous version folders (`LogDirectoryPurger.PruneSiblingVersions`), and never touches the shared root data.
+- **Migration:** on the first launch of a new tag, `AppPaths` copies missing Data and Settings files from the newest older version folder, leaving the old folder untouched.
 
 ---
 
