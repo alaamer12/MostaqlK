@@ -1,12 +1,15 @@
 # Windows Portable Single-File Release: Deep-Dive Root Cause Analysis & Technical Retrospective
 
 ## Executive Summary
+
 This document provides a comprehensive technical retrospective on diagnosing, tracing, and resolving all build, packaging, runtime linking, and startup failures encountered while delivering a true standalone single-file portable Windows executable (`MostaqlK.exe`) for MostaqlK (.NET MAUI 10 WinUI 3 / Windows App SDK unpackaged).
 
 ---
 
 ## 1. Objectives & Scope
+
 The target release specification required:
+
 1. **Single Artifact Output**: Publishing with `-Type Portable` must produce strictly **one** standalone executable file (`MostaqlK.exe`) in the publish folder (`bin\Release\net10.0-windows10.0.19041.0\win-x64\publish\`).
 2. **Zero Companion Dependencies**: No companion `.dll`, `.pdb`, `.pri`, `.manifest`, or asset subdirectories (`ar`, `ar-SA`, `Microsoft.UI.Xaml`, `Resources`) beside the executable on disk.
 3. **True Portability**: The executable must run anywhere (e.g. desktop, flash drive, isolated directory) without requiring pre-installed .NET runtimes, Windows App Runtime packages, or external assets.
@@ -19,11 +22,14 @@ The target release specification required:
 ### Phase 1: Multi-Targeting & Packaging Build Failures
 
 #### Bug 1.1: NuGet Multi-Targeting Restore Failure (Error NU1102)
+
 - **Symptom**:
   Executing `dotnet publish MostaqlK.csproj -f net10.0-windows10.0.19041.0 -c Release -r win-x64` failed during the restore phase:
+
   ```text
   error NU1102: Unable to find package Microsoft.NETCore.App.Runtime.Mono.win-x64 with version (= 10.0.3)
   ```
+
 - **Hypothesis**:
   `MostaqlK.csproj` multi-targets four target frameworks in `<TargetFrameworks>` (`net10.0-android`, `net10.0-ios`, `net10.0-maccatalyst`, `net10.0-windows10.0.19041.0`). When `-r win-x64` is passed on the command line, MSBuild's global restore pass applies the `win-x64` RID across *all* target frameworks defined in `<TargetFrameworks>`. Because Android and iOS use the Mono runtime pack (which has no `win-x64` package), restore breaks.
 - **Root Cause**:
@@ -32,6 +38,7 @@ The target release specification required:
   In `scripts/release-windows.ps1`, pass `-p:TargetFrameworks=$target` in addition to `-f $target`. This overrides `<TargetFrameworks>` during that execution so MSBuild evaluates strictly the Windows TFM.
 
 #### Bug 1.2: Windows App SDK Single-File Verification Failure
+
 - **Symptom**:
   Build failed in the `WindowsAppSDKSingleFileVerifyConfiguration` target with errors demanding specific unpackaged single-file settings.
 - **Hypothesis**:
@@ -43,6 +50,7 @@ The target release specification required:
   3. `<WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>` to instruct WinAppSDK targets to embed the native C++ runtime.
 - **Solution**:
   Added a dedicated conditional `<PropertyGroup>` in `MostaqlK.csproj`:
+
   ```xml
   <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows' and '$(PublishSingleFile)' == 'true'">
       <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
@@ -56,7 +64,9 @@ The target release specification required:
 ### Phase 2: Eliminating Extraneous Artifacts and Debug Symbols
 
 #### Problem & Symptoms
+
 After resolving build errors, the output directory contained `MostaqlK.exe`, but also `MostaqlK.pdb` and leftover directories:
+
 ```text
 bin\Release\net10.0-windows10.0.19041.0\win-x64\publish\
 ├── MostaqlK.exe
@@ -69,10 +79,12 @@ bin\Release\net10.0-windows10.0.19041.0\win-x64\publish\
 ```
 
 #### Root Cause Analysis
+
 1. `.NET` compiles with debug symbols enabled by default in Release mode unless explicitly turned off.
 2. WinUI 3 and .NET MAUI build tasks stage intermediate assets and localized satellite files into the publish folder before single-file aggregation. The single-file bundler extracts/bundles the files into the executable but leaves empty directory structures behind.
 
 #### Solution
+
 1. Configured `-p:DebugType=None` and `-p:DebugSymbols=false` for Portable mode in `scripts/release-windows.ps1`.
 2. Added post-publish directory sanitization in `scripts/release-windows.ps1`:
    - Deletes any leftover `.pdb` files.
@@ -84,11 +96,12 @@ bin\Release\net10.0-windows10.0.19041.0\win-x64\publish\
 ### Phase 3: Silent Runtime Crash & Native Startup Failure
 
 #### Problem Statement
+
 When running the standalone `MostaqlK.exe` alone in an isolated folder, the application process exited within 50–200 ms with no GUI, no error dialog, and no log entries.
 
 #### Detailed Investigation & Hypothesis Testing
 
-```
+```text
 +--------------------------------------------------------------------------------------------------+
 |                                    Single-File Self-Extractor                                    |
 |  MostaqlK.exe extracts native bundle to: %TEMP%\.net\MostaqlK\<hash>\                            |
@@ -152,6 +165,7 @@ private static extern int WindowsAppRuntime_EnsureIsLoaded();
 ```
 
 In `InitializeWindowsAppRuntime()`:
+
 1. Resolves `Microsoft.WindowsAppRuntime.dll` using `NativeLibrary.TryLoad`.
 2. Queries the real extracted file path via `GetModuleFileName`.
 3. Pins the parent directory of that module with `BundleExtractionGuard` before any WinRT/XAML code can access loose extracted assets. (`AppContext.BaseDirectory` is the portable EXE directory, so it is intentionally not used.)
@@ -164,11 +178,13 @@ In `InitializeWindowsAppRuntime()`:
 > **Timing rule this section depends on (and its limit).** Every step above works because WinRT activation happens *after* `Program.Main` starts, so a variable set in-process is already visible when it is consumed. The same reasoning does **not** apply to `DOTNET_BUNDLE_EXTRACT_BASE_DIR`: single-file extraction is performed by the apphost *before* managed code runs, so no in-process write can redirect the current session's bundle. That distinction was missed in the follow-up eviction investigation, which is why its Layer 1 fix did not stop the hours-in crash — see `windows-single-file-temp-eviction-and-native-crash-handling.md` §2a/§2b. After `GetModuleFileName` resolves `Microsoft.WindowsAppRuntime.dll`, `InitializeWindowsAppRuntime` passes that module's parent directory — the real extraction tree, unlike `AppContext.BaseDirectory` which is the portable EXE directory — to `BundleExtractionGuard.PinDirectory` before further WinRT setup. The guard holds `FileShare.Read` handles over the extracted files instead of trying to move them.
 
 ### 2. Undocked RegFree WinRT MSBuild Property (`MostaqlK.csproj`)
+
 ```xml
 <WindowsAppSdkUndockedRegFreeWinRTInitialize>true</WindowsAppSdkUndockedRegFreeWinRTInitialize>
 ```
 
 ### 3. Native Win32 GDI Splash Screen (`Platforms/Windows/NativeSplashScreen.cs`)
+
 - Runs on a dedicated STA background thread immediately on entry (`< 20ms`).
 - Renders Mostaql brand blue (`#2386C8`), rounded corners, Arabic title and subtitle, and an animated spinner.
 - Ensures the user receives immediate visual feedback while WinUI and MAUI components load.
@@ -181,6 +197,7 @@ During single-file bootstrap, standard .NET MAUI logging (`Microsoft.Extensions.
 To achieve complete observability, a dedicated zero-dependency bootstrap diagnostic engine was implemented in `Platforms/Windows/Program.cs`:
 
 #### A. Architecture & File Strategy
+
 - **Log Location**: `%LocalAppData%\MostaqlK\log\`
   - `startup-debug.log`: Chronological step-by-step milestone trace with millisecond timestamps (`[yyyy-MM-dd HH:mm:ss.fff]`), tracking every subsystem transition.
   - `crash.log`: Dedicated failure log capturing complete stack traces, inner exceptions, and crash sources.
@@ -216,7 +233,9 @@ private static void LogCrash(string source, Exception? ex)
 ```
 
 #### B. Triple-Hook Global Exception Trapping
+
 To guarantee that no failure escapes unlogged regardless of thread context:
+
 1. **`AppDomain.CurrentDomain.UnhandledException`**: Captures terminating unhandled exceptions across all managed threads.
 2. **`TaskScheduler.UnobservedTaskException`**: Catches unobserved exceptions in background async `Task` operations that would otherwise trigger termination on finalizer GC.
 3. **`AppDomain.CurrentDomain.FirstChanceException`**: Hooks into the CLR the instant an exception is thrown—even if handled internally—to pinpoint hidden file-load failures during bootstrap. **Narrowed since this document was written:** the hook now logs `FileNotFoundException` only (via `fnf.FileName`, the field that actually names the missing path) instead of every exception in the process.
@@ -246,7 +265,9 @@ AppDomain.CurrentDomain.FirstChanceException += (s, e) =>
 `UnhandledException` and `UnobservedTaskException` are registered in exactly one place — `CrashReporter.RegisterGlobalHandlers()` — which is idempotent and feeds both `crash.log` and `InteractionLogger`. Call sites must not add their own duplicates.
 
 #### C. Milestone Tracing & Diagnostic Inspection Flow
+
 Every phase of application startup was instrumented with clear milestone markers:
+
 1. **Process & Context Information**:
    - Logs launch arguments, `AppContext.BaseDirectory`, and `Environment.CurrentDirectory`.
 2. **Native Runtime Location & Module Linking**:
@@ -264,6 +285,7 @@ Every phase of application startup was instrumented with clear milestone markers
    - Traces `new App()` constructor completion.
 
 #### D. How Logs Were Traced & Analyzed During Diagnosis
+
 - **Real-Time Triage**: Monitored `%LocalAppData%\MostaqlK\log\startup-debug.log` while testing `MostaqlK.exe` in isolated folders.
 - **Root Cause Pinpointing**: By comparing the last milestone logged before process termination against the `FirstChanceException` trace, we immediately identified that execution halted on `Microsoft.WindowsAppRuntime.dll` SxS redirection before reaching `Application.Start`.
 - **Validation**: When the fix was applied, the log confirmed successful traversal of every milestone from `Main started` through `NativeLibrary.TryLoad`, `WindowsAppRuntime_EnsureIsLoaded`, `InitializeComWrappers`, and finally `App() created successfully`.
@@ -273,7 +295,9 @@ Every phase of application startup was instrumented with clear milestone markers
 ## 5. Verification & Validation Evidence
 
 ### Automated Verification via Screen Capture Tool (`tools/snip_tool.py`)
+
 Using the project's Python screen inspection tool, the standalone `MostaqlK.exe` was executed in isolation:
+
 - Confirmed the process remained alive and active (PIDs 2532 and 15112).
 - Confirmed top-level window dimensions (840x740) matching the configured desktop window size.
 - Captured full screen snip confirming proper rendering of:
@@ -283,20 +307,27 @@ Using the project's Python screen inspection tool, the standalone `MostaqlK.exe`
   - Native Windows chrome and backdrop
 
 ### Build Commands Verified
+
 1. **Portable Single-File Build**:
+
    ```powershell
    powershell -ExecutionPolicy Bypass -File scripts\release-windows.ps1 -Type Portable
    ```
+
    **Output**: `bin\Release\net10.0-windows10.0.19041.0\win-x64\publish\MostaqlK.exe` (~129.67 MB, 1 file, 0 subdirectories).
 
 2. **Directory Unpacked Build**:
+
    ```powershell
    powershell -ExecutionPolicy Bypass -File scripts\release-windows.ps1 -Type Directory
    ```
+
    **Output**: Full unpacked directory distribution with satellite locale filtering.
 
 3. **Deployment Wrapper**:
+
    ```powershell
    powershell -ExecutionPolicy Bypass -File scripts\deploy.ps1 -Platform Windows -Type Portable
    ```
+
    **Output**: Parameter passthrough validated with clean single-file generation.

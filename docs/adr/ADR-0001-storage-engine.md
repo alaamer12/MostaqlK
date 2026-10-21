@@ -1,7 +1,7 @@
 # ADR-0001 — Storage Engine: SQLite with FTS5 and App-Side Fuzzy Search
 
 | Field | Value |
-|---|---|
+| --- | --- |
 | **Status** | Accepted |
 | **Date** | 2026-08-09 |
 | **Deciders** | Project team |
@@ -44,6 +44,7 @@ MostaqlK is a local-first Windows desktop application (with a planned Android co
 The "textbook correct" approach: use `spellfix1` for edit-distance fuzzy search and the ICU extension for proper Unicode/Arabic tokenization and collation.
 
 **Rejected because:**
+
 - Both `spellfix1` and ICU are native shared libraries (`.dll` on Windows) that must be compiled for each target architecture and bundled alongside the application.
 - Unpackaged desktop apps load extensions via `sqlite3_load_extension()`, which requires the user's machine to allow extension loading and the exact native binary to be present at the expected path.
 - Distribution complexity is high: the app would need to ship architecture-specific native binaries (x64, ARM64) that are not part of any standard NuGet package.
@@ -57,6 +58,7 @@ This option is documented as a future alternative if search quality requirements
 A pure .NET embedded document database (no native dependencies). Single-file, stores BSON documents.
 
 **Rejected because:**
+
 - No SQL — queries are expressed as C# LINQ or its own query DSL. A dynamic query builder that compiles user filter chips into structured queries would require reimplementing every operator against LiteDB's own API.
 - No FTS5 or equivalent built-in full-text search. Fuzzy search would require loading the entire relevant collection into memory and applying string-distance algorithms there — unacceptable at scale.
 - Write performance is lower than SQLite for sequential inserts (the pipeline's dominant workload).
@@ -67,6 +69,7 @@ A pure .NET embedded document database (no native dependencies). Single-file, st
 An in-process analytical database (OLAP). Single-file, excellent for complex aggregations and window functions.
 
 **Rejected because:**
+
 - DuckDB is designed for read-heavy analytical workloads, not frequent transactional writes. The pipeline performs continuous single-row inserts (up to `max_requests_per_minute` times per minute); DuckDB's columnar storage is optimized for bulk reads, not OLTP-style inserts.
 - The .NET client is less mature than `Microsoft.Data.Sqlite`.
 - Adds significant binary size overhead for workloads that SQLite handles equally well.
@@ -76,6 +79,7 @@ An in-process analytical database (OLAP). Single-file, excellent for complex agg
 A SQLite-compatible fork with additional capabilities (native vector search, experimental sync primitives).
 
 **Not rejected outright but deferred:**
+
 - Speaks the same SQL dialect as SQLite — migration is a swap of the connection string and NuGet package.
 - The .NET client (`libsql-client-dotnet`) is less mature and less battle-tested than `Microsoft.Data.Sqlite`.
 - Offers no concrete benefit over SQLite for v1/v2 workloads.
@@ -86,6 +90,7 @@ A SQLite-compatible fork with additional capabilities (native vector search, exp
 An ORM layer on top of SQLite that generates SQL from C# attributes and LINQ.
 
 **Rejected as the primary .NET client** (SQLite itself is still used — only the client library is rejected):
+
 - `sqlite-net-pcl` abstracts SQL, which is convenient for simple CRUD but actively harmful for the query builder use case.
 - Dynamic filter compilation (`WHERE {field} {op} @val AND ...`) requires dropping down to raw SQL anyway.
 - No first-class FTS5 table support — virtual tables must be managed via raw SQL strings regardless.
@@ -100,7 +105,7 @@ An ORM layer on top of SQLite that generates SQL from C# attributes and LINQ.
 ### Storage layer
 
 | Component | Choice | Rationale |
-|---|---|---|
+| --- | --- | --- |
 | Database engine | **SQLite** | Single-file, battle-tested, handles hundreds of tables and tens of millions of rows without issue, WAL mode for concurrent access |
 | .NET client library | **`Microsoft.Data.Sqlite`** | Thin ADO.NET wrapper, full raw SQL control, maintained by Microsoft, MAUI-compatible on both Windows and Android |
 | Journal mode | **WAL** (`PRAGMA journal_mode=WAL`) | Enables concurrent readers while the pipeline writer is active — set once on `DatabaseInitializer.InitializeAsync()` |
@@ -110,7 +115,7 @@ An ORM layer on top of SQLite that generates SQL from C# attributes and LINQ.
 ### Full-text search layer (v2)
 
 | Component | Choice | Rationale |
-|---|---|---|
+| --- | --- | --- |
 | FTS mechanism | **SQLite FTS5 virtual table** | Built into the SQLite core binary — no extension DLL, no deployment risk. Maintains an inverted index over `title`, `description`, and `skills` |
 | FTS maintenance | **Same transaction as `projects` insert** | Keeps the FTS index always in sync with the projects table. No batch reindex jobs |
 | Tokenizer | FTS5 `unicode61` (default) | Handles basic Unicode segmentation. Insufficient for Arabic on its own — mitigated by normalization (see below) |
@@ -122,6 +127,7 @@ A two-layer pipeline:
 **Layer 1 — Normalize at write time and query time (app code):**
 
 Before inserting into the FTS table, and before querying it, apply the same normalization function:
+
 - Fold Alef variants: `أ` / `إ` / `آ` / `ا` → `ا`
 - Strip diacritics (tashkeel): remove combining Arabic marks (Unicode range U+064B–U+065F)
 - Normalize `ة` → `ه` and `ى` → `ي`

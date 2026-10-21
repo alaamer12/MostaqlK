@@ -6,6 +6,7 @@ shared UI/feature/core code instead of being isolated behind `PlatformSelect.For
 and `UNITS.md`.
 
 ## Finding 1: Ad hoc `#if WINDOWS` for "Reveal in Explorer" instead of a shared capability
+
 - File: `Features/Projects/ViewModels/ProjectDetailsViewModel.cs:68-78`
 - Description: `AttachmentItemViewModel.RevealAsync()` branches on `#if WINDOWS` directly inside a
   Features view-model to call `System.Diagnostics.Process.Start("explorer.exe", ...)`, with a
@@ -18,6 +19,7 @@ and `UNITS.md`.
   `ProjectDetailsViewModel` never contains a compiler directive itself.
 
 ## Finding 2: `MotionPreferences` embeds a raw WinUI type inline via `#if WINDOWS` instead of a `.Windows.cs` partial
+
 - File: `UI/PlatformComponents/MotionPreferences.cs:19-31`
 - Description: Per `UNITS.md` and the cross-platform conventions doc, "Platform Components" that
   need per-OS behavior are supposed to be a shared partial class plus a `<Unit>.Windows.cs` file
@@ -32,6 +34,7 @@ and `UNITS.md`.
   `UI/PlatformComponents/`.
 
 ## Finding 3: `UI/TrayIcon/TrayIconService.cs` — no cross-platform break found, verified clean
+
 - File: `UI/TrayIcon/TrayIconService.cs` (whole file)
 - Description: Not a defect — recorded for completeness since Tray Icon was called out
   explicitly in the audit brief. `TrayIconService` itself contains no WinUI/Win32 types; it only
@@ -48,6 +51,7 @@ and `UNITS.md`.
   sites are themselves properly Windows-gated.
 
 ## Finding 4: `Core/*` is fully platform-clean
+
 - File: `Core/*` (whole directory)
 - Description: Not a defect — recorded for completeness. `Core/DomainError.cs`,
   `Core/ErrorAttributes.cs`, `Core/ErrorCodeRegistry.cs`, `Core/ErrorOutcomeAttribute.cs`,
@@ -57,6 +61,7 @@ and `UNITS.md`.
 - Suggested fix: None.
 
 ## Finding 5: `UI/PlatformConcepts/ActionMenu.cs` and `Drawer.cs` are intentional Windows-only scaffolds, not violations
+
 - File: `UI/PlatformConcepts/ActionMenu.cs`, `UI/PlatformConcepts/Drawer.cs`
 - Description: Not a defect — recorded for completeness. Both correctly use
   `PlatformSelect.For<T>()` with `android`/`ios`/`macCatalyst` branches explicitly set to `null`
@@ -66,6 +71,7 @@ and `UNITS.md`.
   support — they are deliberate per V1 scope.
 
 ## Summary
+
 - Finding 1: Ad hoc `#if WINDOWS` for "Reveal in Explorer" instead of a shared capability
 - Finding 2: `MotionPreferences` embeds a raw WinUI type inline via `#if WINDOWS` instead of a `.Windows.cs` partial
 - Finding 3: `UI/TrayIcon/TrayIconService.cs` — no cross-platform break found, verified clean

@@ -27,7 +27,7 @@ Status legend: `Scaffold` = stub only, no real logic yet. `Implemented` = real l
 Location: `Features/<Feature>/Views/` & `Features/<Feature>/Views/Layouts/`
 
 | Unit | Base MAUI type | Purpose | Status |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `ProjectCard` | `ContentView` (`Features/Projects/Views/ProjectCard.xaml`) | Platform-agnostic shell delegating layout instantiation to `ProjectCardWindowsLayout` (desktop 4-column rich card) or `ProjectCardMobileLayout` (streamlined touch card) via `PlatformSelect.For<Func<View>>()`. | Implemented |
 | `ProjectCardWindowsLayout` | `ContentView` (`Features/Projects/Views/Layouts/ProjectCardWindowsLayout.xaml`) | Rich desktop card layout containing client ratings, 4 stats columns (`Budget`, `Proposals`, `AvgBid`, `Execution`), full skill pills, and direct external action button. | Implemented |
 | `ProjectCardMobileLayout` | `ContentView` (`Features/Projects/Views/Layouts/ProjectCardMobileLayout.xaml`) | Streamlined mobile project card with vertical hierarchy (Card Type 3 in mobile spec: Title, status pill, excerpt, skills flex wrap, proposals/time/budget footer, swipe gestures). | Implemented |
@@ -47,7 +47,7 @@ Location: `Features/<Feature>/Views/` & `Features/<Feature>/Views/Layouts/`
 Location: `Core/Platform/`
 
 | Unit | Type | Purpose | Status |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `CurrentPlatform` | static class (`Core/Platform/CurrentPlatform.cs`) | One of the two canonical exempt files (the other being `PlatformSelect`) containing a compile-time `#if` ladder to resolve the running platform (`AppPlatform.Windows/Android/iOS/MacCatalyst`), exposed as `CurrentPlatform.Current`/`IsWindows`/`IsMobile`. Never re-detected at runtime — the running platform is fixed for the process's lifetime. Every capability-mapping site and future cross-platform audit should read the platform from here instead of ad hoc `#if WINDOWS` checks. | Implemented |
 | `PlatformCapability<T>` | generic static class (`Core/Platform/PlatformCapability.cs`) | Declares, once per capability, what it resolves to per platform via `Resolve(windows:, android:, ios:, macCatalyst:)`, including an explicit `null` for platforms with no answer (e.g. the tray icon has no mobile equivalent at all). `WindowsOnly(windows)` is a convenience overload for exactly that no-mobile-equivalent case. Replaces ad hoc `#if WINDOWS`/null-check per call site. | Implemented |
 | `AppWindowMetrics` | internal static class (`Platforms/Windows/AppWindowMetrics.cs`) | Windows-only window-chrome constants (`CaptionHeight`, `FrameInset`, `ChromeHeight`) and the `AppButtonBase`→`AppButtonWindows` style-injection workaround, extracted out of the shared `App.xaml.cs` (mobile windows are always fullscreen, so neither concept applies there). Called only under `#if WINDOWS` from `App.xaml.cs`. | Implemented |
@@ -69,7 +69,7 @@ Location: `Core/Platform/`
 Location: `Core/`
 
 | Unit | Type | Purpose | Status |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `Debouncer` | sealed class (`Core/Debouncer.cs`) | Shared cancel-and-restart debounce helper: `Debouncer(TimeSpan delay)` + `Schedule(Func<CancellationToken, Task>)` cancels any pending call and restarts the delay so only the most recent schedule fires. Used by `DebouncedEntry` (keystroke debounce) and `ProjectFeedViewModel` (pipeline auto-reload debounce) so neither hand-rolls its own `CancellationTokenSource` restart mechanic. Optional `SetDelay` keeps bindable `DebounceMilliseconds` in sync. | Implemented |
 | `StringNormalization` | static class (`Core/Utilities/StringNormalization.cs`) | Single authoritative ground for Arabic string normalization: ASCII digit conversion (`ToAsciiDigits`), diacritics stripping (`StripDiacritics`), orthographic label folding (`NormalizeLabel`), and HTML cleaning (`CleanHtml`). Used across parsers, search, and linguistic formatters. | Implemented |
 | `ArabicNameFormatter` | static class (`Core/Formatting/ArabicNameFormatter.cs`) | Authoritative single ground for client name formatting, Arabic definite article ("ال") prefix stripping (`StripArticle`), and client avatar initials extraction (`GetInitials`, `GetFirstLetter`). | Implemented |
@@ -85,7 +85,7 @@ Location: `Core/`
 Location: `UI/PlatformComponents/<Unit>/<Unit>.cs` (+ `<Unit>.Windows.cs`)
 
 | Unit | Base MAUI type | Purpose | Status |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `AppButton` | `Button` | Shared button used across all features. | Implemented |
 | `AppCard` | `Border` | Project-feed card surface; carries `IsUnread`/`IsRead` bindable state for the unread accent-border treatment. Colors (surface background, accent/read border) are set in code from `UpdateThemeColors()` and re-applied on `Application.RequestedThemeChanged` — subscribed on `Loaded`, released on `Unloaded` per the Event lifetime rule, since a card is created per feed item — so both the read and unread states have real light/dark parity instead of one hardcoded color pair. | Implemented |
 | `AppEntry` | `Entry` | Shared text input (search box, settings forms). Base of the `DebouncedEntry`/`SearchInputField` inheritance chain. | Implemented |
@@ -120,7 +120,7 @@ Only `.Windows.cs` partials exist today (V1 = Windows-only). `.Android.cs` / `.i
 Location: `UI/PlatformConcepts/<Unit>.cs`
 
 | Unit | Mobile shape (future) | Windows shape (current) | Purpose | Status |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `NavigationControl` | Bottom tabs | `Grid`-based side panel (nav rail + content), composed via `NavigationControl.Build(navRail, content)` from real page content/commands (see `MainWindowPage`). | Primary app navigation surface. Composes 2-column SidePanel on Desktop and 2-row BottomNav on Mobile. | Implemented |
 | `ModalPresenter` | Bottom sheet | Native WinUI `ContentDialog` (confirmation) | Overlay/modal presentation. Windows V1 backs real confirmation dialogs via native `ContentDialog` (`ShowConfirmationAsync`: title/message/primary/secondary, optional remember-checkbox, RTL `FlowDirection`, `IsSecondary` only on explicit secondary pick). Used by `ConfirmationBox`/`ExitConfirmationBox`; must not depend on MAUI Shell/navigation (callers include `AppWindow.Closing` while the window may be tearing down). Split per the barrel convention: `ModalPresenter.cs` (shared shell, `partial`, no `#if`), `ModalPresenter.Windows.cs` (real `ContentDialog`), `_ModalPresenter.Mobile.cs` (shared TODO/safe-default stub, exported by `ModalPresenter.Android.cs`/`ModalPresenter.MaciOS.cs`). Mobile stays TODO until V3. | Implemented |
 | `Drawer` | Swipe drawer / BottomSheet | Flyout (`FlyoutPage` stand-in) | Secondary/contextual side panel. Composes right-pinned Flyout on Desktop and bottom/end Drawer on Mobile. | Implemented |
@@ -134,7 +134,7 @@ Naming rule: names must stay neutral/abstract (e.g. `NavigationControl`, not `Si
 Location: `UI/DesignSystem/`
 
 | Unit | Type | Purpose | Status |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `DesignTokens` | static class | Brand colors, spacing scale, corner-radius tokens (Mostaql blue, Slate palette, light/dark). | Implemented |
 | `ShimmerBox` | `ContentView` | Skeleton-loading placeholder; sweeping shimmer animation. | Implemented |
 | `TruncatingLabel` | `Label` | Text truncation with `MaxChars` cap + `…` ellipsis. | Scaffold |
@@ -156,14 +156,14 @@ notifications, local archive, search, final CTA) — no auth/login screens exist
 `.repertoire/.steering/v2/tech/identity-and-auth.md`. The MAUI `Letterbox` unit itself is still not
 implemented in `UI/DesignSystem/`.
 
-## Block Components & Layout Barrels
+## Block Components & Layout Barrels (Projects)
 
 Location: `Features/Projects/Views/` and `Features/Projects/Views/Layouts/`
 
 Composite block components and pages that delegate their active layout tree to platform-specific views using the View Barrel pattern (`PlatformSelect.For<Func<View>>()`).
 
 | Unit | Type | Purpose | Status |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `ProjectCard` | `ContentView` (`Features/Projects/Views/ProjectCard.xaml(.cs)`) | Host view barrel shell for the project feed card. Dynamically resolves its visual layout via `PlatformSelect.For<Func<View>>()`. Inherits `BindingContext` (`ProjectCardViewModel`) down to active child layout views without duplicated ViewModel logic. | Implemented |
 | `ProjectCardWindowsLayout` | `ContentView` (`Features/Projects/Views/Layouts/ProjectCardWindowsLayout.xaml(.cs)`) | Desktop layout for `ProjectCard`: 4-column metadata grid (`PublishTime`, `Budget`, `Delivery`, `Execution`, `Proposals`), client initials avatar and rating row, skill tag pills, external link button, `NewRibbonBadge`, and `EnrichmentShimmerOverlay`. | Implemented |
 | `ProjectCardMobileLayout` | `ContentView` (`Features/Projects/Views/Layouts/ProjectCardMobileLayout.xaml(.cs)`) | Streamlined mobile layout for `ProjectCard`: compact title + enrichment badge, 2-line tail-truncated description, compact budget and unread status strip, `NewRibbonBadge`, and `EnrichmentShimmerOverlay`. | Implemented |
@@ -188,7 +188,7 @@ Not UI units (no visual surface of their own), but shared presentation helpers e
 must reuse instead of hand-rolling its own string interpolation.
 
 | Unit | Type | Purpose | Status |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `BudgetFormatter` | static class | Turns the raw scraped `projects.budget` text into the mockup's presentation form — `2,500 - 5,500 ر.س` (thousands separator, no decimals, low value first, Saudi Riyal suffix). Storage keeps the source string untouched. Used by `ProjectCardViewModel.Budget`. | Implemented |
 | `ArabicRelativeTime` | static class | Arabic relative-time wording (`منذ 3 دقائق`, `منذ 8 ساعات`) and day-count pluralisation (`يوم واحد`/`يومان`/`7 أيام`/`20 يوم`). Used by `ProjectCardViewModel.PostedRelative` (fallback when `posted_relative` is empty) and `.Delivery`. | Implemented |
 | `LastScanText` | static class | Single source of truth for the "آخر فحص" wording: `Elapsed`/`Labelled` produce `منذ لحظات` (<5s), `منذ 42 ثانية` (<1min), then delegate to `ArabicRelativeTime.Since` for minutes and above. The sub-minute band is deliberate — the poll interval is measured in seconds, so falling straight to minutes reads as a stalled pipeline. Used by the `LastScanStatus` unit, `PipelineRadar`'s discovery tooltip and `PipelineDashboardPanel`'s drill-in block; nothing may re-implement it. | Implemented |
@@ -201,7 +201,7 @@ flags: `--default-page=projects|project-details|settings|about`, `--project-id=<
 `--theme=light|dark`, and:
 
 | Flag | Effect |
-|---|---|
+| --- | --- |
 | `--seed-design-data` | Replaces the local SQLite store with the dataset the MVP mockups are drawn against (`Infrastructure/Database/DesignDataSeeder.cs`), writing through the normal repository layer, and latches the `design_parity_mode` preference so the poll service and worker pool stay offline — otherwise freshly scraped projects would bury the seeded rows between parity captures. Idempotent: each run clears the project tables first. |
 | `--seed-design-data=off` | Clears the latch and restores live polling. The seeded rows stay until the next reseed or a real poll. |
 | `--silent-start` | Passed when the application is launched on Windows startup via the HKCU Run registry key. Skips showing `NativeSplashScreen` and hides the main application window directly into the system tray with `AppLifecycleService.IsInBackground = true`. |
@@ -211,7 +211,7 @@ flags: `--default-page=projects|project-details|settings|about`, `--project-id=<
 Location: `Services/Diagnostics/`
 
 | Unit | Type | Purpose | Status |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `InteractionLogger` | static class | Structured rolling log sink under `Microsoft.Maui.Storage.FileSystem.AppDataDirectory/interaction-log.txt` (cross-platform MAUI API — on the unpackaged Windows build this is `%LocalAppData%\User Name\com.companyname.mostaqlk\Data\`, matching `MostaqlK.UITests`' `InteractionLogPath`). `Enter`/`Exit`/`Fault` bracket a traced command; `Mark(checkpoint, variant, data)` is the A/B checkpoint helper ("A"=branch taken/enter, "B"=other branch/skip) used to prove which code path actually executed instead of guessing from UI behaviour alone. All writes are best-effort and never throw. | Implemented |
 | `TraceInteractionAttribute` / `TraceScope` | attribute + `IDisposable` scope | `[TraceInteraction("Name")]` documents that a command/handler (`TogglePolling`, `RefreshCommand`, `SaveCommand`, `SelectCommand`, `ResolveCommand`, sidebar nav handlers, ...) is traced; the method body wraps itself in `using var _ = TraceScope.Begin("Name", parameters)` (calling `MarkFaulted` on catch) so entry/exit/exceptions land in `InteractionLogger` for both humans and Appium tests to inspect. No IL weaving — the attribute is documentation, the `TraceScope` call is what actually logs. | Implemented |
 | `ErrorOutcomeAttribute` (`Core/ErrorOutcomeAttribute.cs`) | attribute + `ErrorOutcome` enum | Companion to `[ErrorCode]`/`[ErrorCategory]`/`[NeitherContract]` in `Core/ErrorAttributes.cs` (see `.repertoire/.steering/base/tech/errors-handling.md`). `[ErrorOutcome(ErrorOutcome.Handled\|Ignored\|Rethrown, Label = "...")]` is applied to the method enclosing a catch block/`Result<T>.Err` arm to document what happens to the captured `DomainError`/exception — surfaced, deliberately swallowed (best-effort path), or rethrown/propagated. Purely documentation/tooling metadata, consumed by the static checker in `tools/ErrorHandlingAudit` (see `docs/error-handling-audit.md`). | Implemented |
@@ -249,7 +249,7 @@ silently (idempotent, no dialog shown again); closing from the tray icon's own "
 entry always exits directly, unaffected by this flow.
 
 | Unit | Type | Purpose | Status |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `CloseAction` / `CloseBehaviorService` | enum + platform-neutral service (`Services/`) | `CloseAction.MinimizeToTray` \| `Exit`. The service only reads/writes `Preferences` (`close_behavior_remembered`, `close_behavior_action`) — no WinUI dependency, so the persisted decision itself stays testable. `GetRememberedAction()` returns `null` until the user checks "remember my choice" once. | Implemented |
 | `ModalPresenter` / `ConfirmationBox` / `ExitConfirmationBox` | Platform Concept + Design System base + specialization | See Platform Concepts and Design System tables above. The former `Platforms/Windows/ConfirmationDialog` + `CloseConfirmationDialog` pair was re-homed here: mechanism in `ModalPresenter`, shared wording API in `ConfirmationBox`, exit wording + `CloseAction` mapping in `ExitConfirmationBox`. | Implemented |
 | `PlatformServiceRegistration.ConfigureWindowsLifecycleEvents` | static method (`Platforms/Windows/PlatformServiceRegistration.cs`) | Hosts the tray-icon wiring, this whole close-to-tray confirmation flow, and native title-bar restoration — moved verbatim out of `MauiProgram.cs`'s previously-inline `#if WINDOWS` `ConfigureLifecycleEvents` block (~175 lines) so the shared composition-root file carries no in-body platform logic. Returns an `Action<MauiApp>` the caller invokes once, right after `builder.Build()`, to supply the app reference the lifecycle callbacks need. | Implemented |
@@ -280,7 +280,7 @@ Two ways to reset a remembered choice, both reading/writing the same
 Location: `Infrastructure/Notifications/`, `Services/NotificationDispatcher.cs`, `Services/NotificationGrouper.cs`, `Services/INotificationSender.cs`
 
 | Unit | Type | Purpose | Status |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `INotificationSender` | interface (`Services/INotificationSender.cs`) | Platform-neutral boundary for native notification delivery (`SendAsync(IReadOnlyList<ProjectSummary>, CancellationToken)`). `NotificationDispatcher` depends only on this interface — never on a concrete Windows type — so a future Android/iOS sender can plug in without touching the grouper/dispatcher. V1 implementation: `WindowsToastSender` (registered in `MauiProgram` under `#if WINDOWS` as `AddSingleton<INotificationSender, WindowsToastSender>()`). | Implemented |
 | `IFileRevealService` / `FileRevealService` | interface + static accessor (`Services/IFileRevealService.cs`, `Services/FileRevealService.cs`) | Platform-neutral boundary for revealing a local file in the OS file manager. Resolved once via `PlatformCapability<IFileRevealService>.Resolve(...)` (every platform has a shape — not `WindowsOnly`). Windows impl opens `explorer.exe /select,"path"` (byte-identical to the former inline call in `AttachmentItemViewModel.RevealAsync`); other platforms open the containing folder via `Launcher`. Call sites use `FileRevealService.Current.RevealAsync(path)` — no ad hoc `#if WINDOWS`. | Implemented |
 | `AppLifecycleService` | singleton service | Tracks the high-level lifecycle state: `IsInBackground` (true when hidden to tray) and `IsReadyToNotify` (true once the main UI has appeared). Used by the notification pipeline to filter out early startup toasts and to ensure native popups only fire when the app is actually in the background, matching the "antivirus-style" requirement. | Implemented |
@@ -339,7 +339,7 @@ first bug, and reading it then revealed the true, environment-level root cause:*
 Location: `Infrastructure/Security/`, `Infrastructure/Database/SecretRepository.cs`, `Services/CookieStore.cs`, `Infrastructure/Http/CookieJar.cs`
 
 | Unit | Type | Purpose | Status |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `SecretProtector` | static class | Encrypts/decrypts small secrets before they touch SQLite. On Windows the key is derived by the OS from the current user account (DPAPI, `CurrentUser` scope, plus app-specific entropy), so the stored blob is useless on another machine/user and no key material lives beside the ciphertext; non-Windows falls back to AES-GCM under a machine+user-derived key (obfuscation only). `TryUnprotect` returns `null` rather than throwing on a foreign/corrupt blob. | Implemented |
 | `ISecretRepository` / `SecretRepository` | repository | `app_secrets(key, value, updated_at)` key/value store, values always written through `SecretProtector`. The table is created idempotently by `SqliteConnectionFactory.EnsureSecretsTable` — deliberately **not** a `user_version` bump, which would make every already-installed V1 database throw `SchemaVersionMismatch`. | Implemented |
 | `CookieStore` | singleton service | Owns the Mostaql session cookie end to end: validates an uploaded cookie file via `CookieJar.ParseFile`, persists it encrypted, keeps the decrypted header in memory, and installs itself as `CookieJar.SecureProvider` so `MostaqlScraper`/`AssetDownloadService` pick it up without knowing its origin. Initialized eagerly in `MauiProgram` so the first poll cycle is already authenticated. | Implemented |
@@ -447,7 +447,7 @@ element in the app uses a Tajawal face**. The registered alias is picked from th
 element's Tailwind weight class in the mockup:
 
 | Mockup weight class | `FontFamily` | Typical use |
-|---|---|---|
+| --- | --- | --- |
 | none / `font-normal` | `Tajawal` | body copy, descriptions, metadata, entries, placeholders |
 | `font-medium` | `TajawalMedium` | buttons, active sidebar nav row, badges/pills, section sub-labels |
 | `font-semibold` / `font-bold` / `font-extrabold` | `TajawalBold` | page and card titles, stat values, emphasised inline counts |

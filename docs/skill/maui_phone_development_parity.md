@@ -7,6 +7,7 @@ This master engineering document serves as the comprehensive architectural refer
 ## 1. Architectural Foundation & Single Ground Principles
 
 ### 1.1 Single Ground Architecture
+
 - **The Golden Rule**: Every business rule, navigation identifier, linguistic calculation, formatting decision, and design token has exactly **one** authoritative implementation. Bugs in cross-platform UI stem from duplicated decisions rather than duplicated syntax.
 - **Branded Typed Navigation Ground (`Core/Navigation/AppRoutes.cs`)**:
   - Replaces fragile, untyped URI strings (`"//dashboard"`, `"//projects"`) with branded `AppRoute` record structs.
@@ -18,7 +19,9 @@ This master engineering document serves as the comprehensive architectural refer
     - **Mobile (`_ShellDestinations.Mobile.cs`)**: 4-tab RTL `TabBar` (`الرئيسية`, `المشاريع`, `البحث`, `المزيد`) bound to bundle raster icon assets.
 
 ### 1.2 View Barrel Layout Swapping
+
 Primary and composite surfaces operate as lightweight host containers delegating visual trees via `PlatformSelect.For<Func<View>>()`. The host owns view models and lifecycle events, while platform-specific visual trees are completely decoupled:
+
 - `Features/Projects/Views/MainWindowPage.xaml` $\to$ `Layouts/MainWindowWindowsLayout` vs. `Layouts/MainWindowMobileLayout`
 - `Features/Projects/Views/ProjectCard.xaml` $\to$ `Layouts/ProjectCardWindowsLayout` vs. `Layouts/ProjectCardMobileLayout`
 - `Features/Projects/Views/ProjectDetailsPage.xaml` $\to$ `Layouts/ProjectDetailsWindowsLayout` vs. `Layouts/ProjectDetailsMobileLayout`
@@ -27,6 +30,7 @@ Primary and composite surfaces operate as lightweight host containers delegating
 - `Features/Onboarding/Views/OnboardingPage.xaml` $\to$ `Layouts/OnboardingWindowsLayout` vs. `Layouts/OnboardingMobileLayout`
 
 ### 1.3 Zero `#if PLATFORM` in Shared Business Logic
+
 - Direct preprocessor directives (`#if ANDROID`, `#if WINDOWS`, `#if IOS`) are strictly prohibited in shared services, view models, and domain models.
 - Platform divergence is managed through:
   - Partial class file naming: `X.cs`, `X.Windows.cs`, `_X.Mobile.cs`, `X.Android.cs`, `X.iOS.cs`.
@@ -38,9 +42,11 @@ Primary and composite surfaces operate as lightweight host containers delegating
 ## 2. Dynamic Debug Launch Flags & State Simulation
 
 ### 2.1 The Challenge
+
 Manual click-throughs on an emulator or physical device during automated visual testing are slow, fragile, and unable to reliably reach deep UI states (such as multi-level filter drawers, modal confirmation sheets, or no-result search states).
 
 ### 2.2 Intent Extra & CLI Argument Projection
+
 We implemented the `StartupArguments` platform concept (`Core/Platform/StartupArguments.cs`, `StartupArguments.Windows.cs`, `_StartupArguments.Mobile.cs`). Android launch intent extras (`-e <key> <val>`) sent via ADB are projected into the identical `--key=value` string array consumed on Windows:
 
 ```bash
@@ -54,8 +60,9 @@ adb shell am start -S \
 ```
 
 ### 2.3 Supported Mobile Startup Flags
+
 | Flag / Intent Extra | Target Screen / State | Description |
-|---|---|---|
+| --- | --- | --- |
 | `--default-page=dashboard` | الرئيسية (Dashboard) | Opens the central dashboard with power button and daily stats |
 | `--default-page=projects` | المشاريع (Projects) | Opens the projects feed with horizontal filter chips |
 | `--default-page=search` | البحث (Search) | Opens the search interface |
@@ -69,7 +76,7 @@ adb shell am start -S \
 | `--design-data=1` | Mock Data Seeder | Seeds SQLite with deterministic fixture records for visual parity |
 | `--project-id=<id>` | Target Project | Navigates directly to a specific project by database ID |
 | `--more-opened` | More Screen (Expanded) | Expands all settings accordion cards simultaneously |
-| `--more-closed` | More Screen (Collapsed)| Collapses all settings accordion cards |
+| `--more-closed` | More Screen (Collapsed) | Collapses all settings accordion cards |
 | `--more-bottomsheet-visible` | More Screen (Modal) | Renders the data-purge confirmation bottom sheet |
 | `--search-keyword-chosen` | Search Screen | Renders active keyword tag in search bar |
 | `--search-manual-input` | Search Screen | Renders active text input state with clear icon |
@@ -115,6 +122,7 @@ This section details the concrete, in-process mechanics of how screenshots were 
 A recurring pitfall in cross-platform visual testing is **frame misalignment**. If a screenshot is vertically offset by even $12\text{px}$ (e.g., due to an uncropped OS status bar or browser toolbar), every horizontal border, divider line, card edge, and text baseline falls on different pixel rows. The SSIM algorithm then interprets the entire screen as high-frequency noise, causing similarity scores to collapse from $90\%$ to $40\%$ despite visually correct UI components.
 
 #### Device vs. Viewport Mathematics
+
 - **Pixel 6 API 29 Physical Display**:
   - Raw framebuffer resolution: $1080 \times 2400\text{ px}$.
   - Screen density: $420\text{ dpi}$ (approx. $2.625\times$ to $3.0\times$ density scale).
@@ -124,15 +132,18 @@ A recurring pitfall in cross-platform visual testing is **frame misalignment**. 
 
 - **Playwright Reference Capture Normalization**:
   - In `tools/capture_mobile_designs.py`, headless Chromium is initialized with:
+
     ```python
     viewport = {"width": 360, "height": 735}
     device_scale_factor = 3.0
     ```
+
   - Physical output dimensions: $360 \times 3.0 = 1080\text{ px}$ width, $735 \times 3.0 = 2205 \approx 2206\text{ px}$ height.
   - This guarantees that both the design reference baseline and the emulator capture live in the **exact same $1080 \times 2206\text{ px}$ coordinate space**.
 
 - **ADB Frame Capture & Crop Pipeline**:
   - In `tools/run_visual_parity_tests.py`:
+
     ```python
     # 1. Grab raw framebuffer directly from device surfaceflinger
     subprocess.run(["adb", "exec-out", "screencap", "-p"], stdout=raw_file)
@@ -149,6 +160,7 @@ A recurring pitfall in cross-platform visual testing is **frame misalignment**. 
 ### 4.2 The Mathematical Comparison Engines & Diagnostic Tools
 
 #### 1. Structural Similarity Index (SSIM)
+
 Rather than simple Mean Squared Error (MSE)—which is overly sensitive to slight subpixel anti-aliasing differences—SSIM compares local luminance $l(x,y)$, contrast $c(x,y)$, and structural correlation $s(x,y)$:
 
 $$\text{SSIM}(x,y) = [l(x,y)]^\alpha \cdot [c(x,y)]^\beta \cdot [s(x,y)]^\gamma$$
@@ -161,7 +173,9 @@ $$\text{SSIM}(x, y) = \frac{(2\mu_x\mu_y + C_1)(2\sigma_{xy} + C_2)}{(\mu_x^2 + 
 - **Grayscale vs. Multi-Channel**: Converted to grayscale for structural geometry evaluation while color fidelity is independently validated via palette clustering.
 
 #### 2. K-Means Dominant Color Palette Similarity in CIELAB Space
+
 To ensure dark mode and brand colors matched design tokens without being skewed by anti-aliasing edges:
+
 - Both images are converted from sRGB to the perceptually uniform **CIELAB** color space ($L^*, a^*, b^*$).
 - K-Means clustering ($k = 5$) extracts the 5 dominant color centroids $(C_i)$ and their population proportions $(w_i)$.
 - Palette distance is computed via the Euclidean distance $\Delta E^*_{ab} = \sqrt{(\Delta L^*)^2 + (\Delta a^*)^2 + (\Delta b^*)^2}$ weighted across cluster pairs:
@@ -169,12 +183,14 @@ To ensure dark mode and brand colors matched design tokens without being skewed 
 - Achieved **$\ge 0.997$** across all 24 screen/theme variations.
 
 #### 3. $4 \times 4$ Regional Grid Scoring & Heatmap Interpretation
+
 - The screen is divided into a $4 \times 4$ matrix (16 regions of $270 \times 551\text{ px}$ each).
 - **Diagnostic Role**:
   - **Row 0 (Top)**: Evaluates the Brand Header, Title Bar, and Search Bar.
   - **Rows 1 & 2 (Middle)**: Evaluates Feed Cards, Filter Drawers, Accordion contents, and Stat Grids.
   - **Row 3 (Bottom)**: Evaluates Sticky CTA Action Bars and Bottom Navigation TabBars.
 - When `tools/compare_images.py` ran, regional scores pinpointed the exact quadrant of failure:
+
   ```text
   Regional Score Grid (4x4):
   [ 94.2%  92.8%  93.5%  94.0% ]  <-- Top App Bar (Healthy)
@@ -182,6 +198,7 @@ To ensure dark mode and brand colors matched design tokens without being skewed 
   [ 86.1%  85.4%  86.0%  85.8% ]  <-- Content Body (Healthy)
   [ 28.4%  31.2%  29.5%  30.1% ]  <-- Bottom Bar (COLLAPSED / MISALIGNED!)
   ```
+
   Seeing Row 3 drop to $\approx 30\%$ immediately alerted us to bottom-bar obscuration or missing buttons before manual inspection.
 
 - **Heatmap Image (`heat.png` / `diff.png`)**:
@@ -196,6 +213,7 @@ To ensure dark mode and brand colors matched design tokens without being skewed 
 During the visual parity runs, several subtle platform discrepancies were detected through diff heatmaps and regional logs:
 
 #### Notice 1: The "Ghost" TabBar Overlap on Project Details
+
 - **Discrepancy Observed**: In `tools/temp/mobile/project-details/heat.png`, the entire bottom $180\text{ px}$ of the screen was saturated in bright red. The regional score for Row 3 was $29.8\%$.
 - **Investigation**: In MAUI Shell, pushing a new page into the navigation stack does not automatically collapse Android's native `BottomNavigationView` unless explicitly instructed. As a result, the bottom tab bar remained visible, pushing the Project Details sticky action bar ("فتح في مستقل" and Bookmark) off-screen.
 - **Adjustment Made**:
@@ -205,6 +223,7 @@ During the visual parity runs, several subtle platform discrepancies were detect
 - **Outcome**: The Row 3 regional score surged from $29.8\%$ to **$94.1\%$**, and overall SSIM reached **$80.26\%$** ($0.9984$ palette match).
 
 #### Notice 2: Native Android EditText Underline Streaks
+
 - **Discrepancy Observed**: In `tools/temp/mobile/search/diff.png`, faint horizontal purple/teal lines appeared underneath every `AppEntry` and `SearchBar` input box, even though CSS mockups specified clean, bordered rounded capsules.
 - **Investigation**: Android's native `EditText` includes a built-in Material theme underline drawable (`BackgroundTintList`). Even when setting MAUI's `BackgroundColor="Transparent"`, the native drawable remained active underneath.
 - **Adjustment Made**:
@@ -212,6 +231,7 @@ During the visual parity runs, several subtle platform discrepancies were detect
 - **Outcome**: Completely eliminated the underline artifacts across all search and filter drawer inputs.
 
 #### Notice 3: Accordion Spacing Accumulation in Settings/More
+
 - **Discrepancy Observed**: In `tools/temp/mobile/more_opened/diff.png`, the first accordion card aligned with $91\%$ accuracy, but each subsequent accordion card drifted downwards by $8\text{ px}$, causing the 4th card to miss its design baseline by over $32\text{ px}$.
 - **Investigation**: The MAUI `VerticalStackLayout` applied a default `Spacing="8"`, which compounded with the card container's `Margin="0,0,0,12"`. In CSS flexbox, only `gap` or margins applied, not both.
 - **Adjustment Made**:
@@ -220,6 +240,7 @@ During the visual parity runs, several subtle platform discrepancies were detect
 - **Outcome**: Alignment drift was eliminated; `more_opened` similarity jumped from $68.08\%$ to **$83.49\%$**.
 
 #### Notice 4: Arabic Typography Baselines & Line Heights
+
 - **Discrepancy Observed**: In project cards and search chips, Arabic text (`Tajawal`) appeared slightly clipped at the top or shifted $3\text{ px}$ below the vertical center compared to Chromium's text rendering.
 - **Investigation**: Android's `TextView` includes default font padding (`includeFontPadding="true"`), which reserves extra space for glyph accents that diverged from CSS `line-height: 1.4`.
 - **Adjustment Made**:
@@ -232,6 +253,7 @@ During the visual parity runs, several subtle platform discrepancies were detect
 ## 5. Chronological Issue Resolution & Engineering Walkthrough
 
 ### 5.1 Cross-Platform Icon & Image Asset Resolution
+
 - **User Prompt**: *"it looks a lot of icons and images are not loaded... also the mostaqlk image"*
 - **Root Cause Analysis**:
   - `AppIconGlyphExtensions.ToImageSource` previously constructed Windows disk paths (`AppContext.BaseDirectory` + `.scale-200.png`).
@@ -242,6 +264,7 @@ During the visual parity runs, several subtle platform discrepancies were detect
   - Created `Resources/Images/app_logo.png` specifically for in-app views, keeping `logo.png` dedicated to launcher/splash definitions.
 
 ### 5.2 Total Elimination of Unicode / Emoji Icons
+
 - **User Prompt**: *"...check our tools/ we have script to detect unicodes icons, it must be no unicode icon"*
 - **Root Cause Analysis**:
   - Raw Unicode emojis (`⚡`, `📋`, `🎯`, `🔔`, `🌙`, `💻`, `▼`) were scattered across XAML views. These glyphs rendered inconsistently across Android OS releases and had misaligned vertical baselines.
@@ -251,6 +274,7 @@ During the visual parity runs, several subtle platform discrepancies were detect
   - Replaced all raw text glyphs with dedicated `<design:AppIcon Icon="..." />` components. Re-ran scan to prove 0 emojis remain.
 
 ### 5.3 Debug Intent Routing & Splash Screen Handling
+
 - **User Prompt**: *"you need to handle is splash screen better, i think it always opens the on-boarding screen whatever the reason, you need to handle debug sttes better"*
 - **Root Cause Analysis**:
   - `App.xaml.cs` checked `OnboardingStateService.IsCompleted` before inspecting launch arguments. When unseeded, all launches were redirected to `OnboardingPage`, preventing direct testing of secondary screens.
@@ -260,6 +284,7 @@ During the visual parity runs, several subtle platform discrepancies were detect
   - Updated Android splash screen background from template `#512BD4` to brand blue `#2386C8`.
 
 ### 5.4 Settings / More Screen Multi-State Redesign
+
 - **User Prompt**: *"are you fucking with me, first of the more page is not from the design at all, this page must be at least 90% similarity... capture design mockups images from more.html... accordion opened... bottom-sheet visible"*
 - **Root Cause Analysis**:
   - `SettingsPanelMobileLayout.xaml` was initially a static list of native MAUI controls rather than matching the grouped card design in `.repertoire/design/postmvp/mobile/more.html`.
@@ -271,6 +296,7 @@ During the visual parity runs, several subtle platform discrepancies were detect
   - Captured 3 distinct design baselines (`more_closed`, `more_opened`, `more-bottomsheet-visible`) and added corresponding debug flags.
 
 ### 5.5 Centralized Dark Theme Management (`ThemeManager`)
+
 - **User Prompt**: *"bro i think the dark theme is not working, fix it i click on the dark theme button nothing happens... remove the default statusbar indigo color from maui... make it the default system status bar not overriden"*
 - **Root Cause Analysis**:
   - Multiple components maintained isolated boolean flags for dark theme, failing to update the global `Application.Current.UserAppTheme`.
@@ -281,6 +307,7 @@ During the visual parity runs, several subtle platform discrepancies were detect
   - Configured `MainActivity.cs` with `Window.ClearFlags(WindowManagerFlags.DrawsSystemBarBackgrounds)` to preserve the native status bar.
 
 ### 5.6 Onboarding Badge Green Icon
+
 - **User Prompt**: *"F:\Projects\Mobile\C#\MostaqlK\Capture.PNG icon is missed here, you may need to download it"*
 - **Root Cause Analysis**:
   - The onboarding badge used `AppIcon Icon="Bolt"` with dynamic color `#168F42` in light mode. No pre-tinted green SVG was compiled, causing fallback to slate.
@@ -290,6 +317,7 @@ During the visual parity runs, several subtle platform discrepancies were detect
   - Updated `AppIconGlyphExtensions.cs` to map `icon_bolt` + `#168F42` to the `_green` asset.
 
 ### 5.7 Advanced Search: 14-State Interactive Matrix
+
 - **User Prompt**: *"the search page is not completed yet, you missed a lot of things, you should capture a lot of different designs in the search, like keywrod-chosen, manual-input-entry, open-sortability-bottomsheet, open-drawer, open-drawer-with-opened-bottomsheet-options, no-search-result"*
 - **Root Cause Analysis**:
   - `search.html` defined an extensive multi-layered interaction model: sticky search bar, horizontal category filter chips, Layer 1 sliding filter drawer, Layer 2 checklist and numeric range bottom sheets, and empty states.
@@ -299,6 +327,7 @@ During the visual parity runs, several subtle platform discrepancies were detect
   - Scripted `capture_mobile_designs.py` to capture all 7 light and 7 dark states, achieving up to 90.56% SSIM parity.
 
 ### 5.8 Frame Normalization & Viewport Alignment
+
 - **User Prompt**: *"you may cut images in a way to ensure the frame is same, because this can make thre similarity goes down"*
 - **Root Cause Analysis**:
   - Discrepancies between Playwright browser viewports (which included desktop browser scrollbars or default scale factors) and Android physical displays caused artificial vertical squishing in SSIM scoring.
@@ -307,11 +336,13 @@ During the visual parity runs, several subtle platform discrepancies were detect
   - Updated `run_visual_parity_tests.py` to crop Android OS status bar using PIL box `(0, 64, 1080, 2270)`, aligning frame dimensions perfectly to 1080x2206.
 
 ### 5.9 Elimination of Native Android EditText Underlines
+
 - **User Prompt**: *"Remove the default Android EditText/TextInput underline. All input fields should have no native Android underline/background drawable; their appearance must be controlled entirely by the app's custom styling."*
 - **Root Cause Analysis**:
   - Native Android `EditText` controls render an OS-level underline/tint drawable beneath the control background.
 - **Solution Implemented**:
   - Added `PlatformServiceRegistration.RemoveNativeInputUnderlines()` in `Platforms/Android/`:
+
     ```csharp
     public static void RemoveNativeInputUnderlines()
     {
@@ -336,6 +367,7 @@ During the visual parity runs, several subtle platform discrepancies were detect
     ```
 
 ### 5.10 Persistent Separator Lines in Search & Drawer
+
 - **User Prompt**: *"bro it is still exists in some components, like in the search the project-card result, also in the drawer, all items inside there have this line"*
 - **Root Cause Analysis**:
   - Hardcoded divider boxes and default entry underlines in search card results, drawer rows, and bottom-sheet option lists were visible in dark mode.
@@ -344,6 +376,7 @@ During the visual parity runs, several subtle platform discrepancies were detect
   - Stripped text decorations from "مسح الكل" chip actions.
 
 ### 5.11 Onboarding Next Button Icon & Center Alignment
+
 - **User Prompt**: *"F:\Projects\Mobile\C#\MostaqlK\sa.PNG this problem still not resolved which is the icon for on-boarding next button... now make the button aligned center instead of left"*
 - **Root Cause Analysis**:
   - The Next button in `OnboardingMobileLayout.xaml` was a standard button without an icon and anchored to `Start` (left edge in LTR).
@@ -353,6 +386,7 @@ During the visual parity runs, several subtle platform discrepancies were detect
   - Replaced button with rounded action container centered horizontally (`HorizontalOptions="Center"`).
 
 ### 5.12 Search Filter Drawer Opening Direction (RTL)
+
 - **User Prompt**: *"also the drawer it opens from left, make it opens from right"*
 - **Root Cause Analysis**:
   - The drawer was anchored to `HorizontalOptions="End"` (which slides from left in RTL).
@@ -360,6 +394,7 @@ During the visual parity runs, several subtle platform discrepancies were detect
   - Updated `SearchMobileLayout.xaml` to anchor drawer at `HorizontalOptions="Start"` with translation origin at `+360dp`, ensuring it slides in naturally from the right in RTL.
 
 ### 5.13 Project Details Dynamic Binding & Fallback Data
+
 - **User Prompt**: *"i noticed the project details do not work, when i click on the project in home screen which is 'تطوير تطبيق ززز' nothing happen... it opens says could not load the project"*
 - **Root Cause Analysis**:
   - `DashboardProjectCard` and `RecentScanRow` components were static placeholders with unhandled tap gestures.
@@ -370,6 +405,7 @@ During the visual parity runs, several subtle platform discrepancies were detect
   - Added fallback design fixture data in `ProjectDetailsViewModel` to guarantee seamless rendering during visual testing and offline runs.
 
 ### 5.14 Project Details Sticky Action Bar & Shell TabBar Suppression
+
 - **User Prompt**: *"are you fooling me, in the design the bottom tabs are hidden and there is two buttons at bottom as you see here sad.PNG SO HOW THE FUCK THIS IS 90% SIMILARITY"*
 - **Root Cause Analysis**:
   - The Shell `TabBar` remained visible when navigating to `ProjectDetailsPage`, obscuring the sticky bottom action bar (Bookmark button and "فتح في مستقل" CTA button).
@@ -386,7 +422,9 @@ During the visual parity runs, several subtle platform discrepancies were detect
 ## 6. Tooling Guide (`tools/` Deep Dive)
 
 ### 6.1 `tools/capture_mobile_designs.py`
+
 Automates headless Chromium capture of HTML/CSS mockups in `.repertoire/design/postmvp/mobile/`:
+
 - **Command**: `python tools/capture_mobile_designs.py`
 - **Capabilities**:
   - Spawns local HTTP server on port 8080.
@@ -396,7 +434,9 @@ Automates headless Chromium capture of HTML/CSS mockups in `.repertoire/design/p
   - Outputs reference baselines to `tools/temp/mobile/<screen_name>/design.png`.
 
 ### 6.2 `tools/run_visual_parity_tests.py`
+
 Master automation orchestrator interfacing with connected Android devices / emulators:
+
 - **Command**: `python tools/run_visual_parity_tests.py [--screen <name>] [--theme <light|dark>]`
 - **Capabilities**:
   - Force-stops and relaunches `MainActivity` with corresponding intent extras via ADB.
@@ -405,7 +445,9 @@ Master automation orchestrator interfacing with connected Android devices / emul
   - Invokes `compare_images.py` to calculate SSIM, palette match, and emit `heat.png`.
 
 ### 6.3 `tools/compare_images.py` & `tools/image_similarity.py`
+
 Mathematical image comparison engine:
+
 - **Command**: `python tools/compare_images.py <design.png> <current.png> <diff.png> <crop_offset>`
 - **Outputs**:
   - SSIM percentage.
@@ -414,13 +456,17 @@ Mathematical image comparison engine:
   - Visual difference heatmap.
 
 ### 6.4 `tools/find_unicode_icons.py`
+
 Static code auditor to guarantee zero unmanaged Unicode emojis in the repository:
+
 - **Command**: `python tools/find_unicode_icons.py`
 - **Scan Targets**: All `.xaml` and `.cs` files across `Features/`, `UI/`, `Platforms/`.
 - **Exit Code**: Returns 0 when no raw emojis exist; returns 1 with file paths and line numbers if emojis are detected.
 
 ### 6.5 `tools/manage_icons.py`
+
 Automated icon asset compiler:
+
 - **Command**: `python tools/manage_icons.py`
 - **Capabilities**:
   - Downloads official FontAwesome SVG icons.
@@ -434,7 +480,7 @@ Automated icon asset compiler:
 The table below reflects the visual parity benchmark results executed on the `Pixel_6_API_29` Android emulator against `.repertoire/design/postmvp/mobile/` reference mockups:
 
 | Screen / State | Theme | SSIM Similarity | Palette Match | Status |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `search_no_results` | Light | **90.56%** | 0.999 | High Fidelity ($\ge 90\%$) |
 | `search` | Light | **89.76%** | 0.998 | High Fidelity |
 | `search_manual_input` | Light | **87.02%** | 0.998 | High Fidelity |
@@ -455,7 +501,7 @@ The table below reflects the visual parity benchmark results executed on the `Pi
 | `more-bottomsheet-visible` | Light | **79.89%** | 0.994 | High Fidelity |
 | `search_drawer_sheet_dark` | Dark | **77.00%** | 0.996 | High Fidelity |
 | `dashboard_dark` | Dark | **74.91%** | 0.998 | High Fidelity |
-| `more-bottomsheet-visible_dark`| Dark | **74.12%** | 0.998 | High Fidelity |
+| `more-bottomsheet-visible_dark` | Dark | **74.12%** | 0.998 | High Fidelity |
 | `more_closed_dark` | Dark | **72.38%** | 0.997 | High Fidelity |
 | `search_drawer_dark` | Dark | **72.23%** | 0.997 | High Fidelity |
 | `more_opened_dark` | Dark | **68.08%** | 0.996 | High Fidelity |
@@ -466,20 +512,25 @@ The table below reflects the visual parity benchmark results executed on the `Pi
 ## 8. Verification & Build Gate Playbook
 
 ### 8.1 Windows Desktop Build Gate
+
 ```powershell
 dotnet build MostaqlK.csproj -f net10.0-windows10.0.19041.0 -c Debug
 ```
+
 - **Acceptance Criteria**: `0 Error(s), 0 Warning(s)`.
 - Verifies that mobile additions have caused zero regressions to desktop XAML, ViewModels, or platform bindings.
 
 ### 7.2 Android Compilation & Deployment Gate
+
 ```powershell
 dotnet build MostaqlK.csproj -f net10.0-android -c Debug
 ```
+
 - **Acceptance Criteria**: `0 Error(s), 0 Warning(s)`.
 - Verifies that all platform partials, mappers, drawables, and native service registrations compile cleanly for Android.
 
 ### 7.3 Static Architectural Verification
+
 ```powershell
 # Verify no unmanaged unicode emojis in XAML
 python tools/find_unicode_icons.py
@@ -487,13 +538,16 @@ python tools/find_unicode_icons.py
 # Verify zero forbidden #if PLATFORM in shared code
 grep -rnE "#if (WINDOWS|ANDROID|IOS|MACCATALYST)" Core/ Features/ Services/ Infrastructure/
 ```
+
 - **Acceptance Criteria**:
   - `tools/find_unicode_icons.py` returns 0 hits.
   - Grep returns zero hits in shared logic (permitted only in `CurrentPlatform.cs`, `PlatformSelect.cs`, and `MauiProgram.cs`).
 
 ### 7.4 Automated Visual Parity Test Suite
+
 ```powershell
 # Run full comparison suite across all 24 screen/state variations
 python tools/run_visual_parity_tests.py
 ```
+
 - **Acceptance Criteria**: All 24 screen and state variations capture cleanly, produce valid diff heatmaps, and score $\ge 0.997+$ on palette similarity and high structural alignment.

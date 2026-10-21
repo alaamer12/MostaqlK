@@ -46,7 +46,7 @@ Invocation: `dotnet run --project tools/ErrorHandlingAudit -- <rootDir> [--out <
 ## Violations fixed this pass (D-MissingTag → `[ErrorOutcome]`)
 
 | File | Methods tagged | Outcome(s) used |
-|---|---|---|
+| --- | --- | --- |
 | `Infrastructure/Database/ProjectRepository.cs` | `InsertSummaryAsync`, `UpsertDetailsAsync`, `GetAllKnownProjectIdsAsync`, `GetRecentAsync`, `GetNewestProjectIdAsync`, `GetDetailsAsync`, `CountAddedTodayAsync`, `CountTrackedAsync`, `ClearAllAsync`, `DeleteByProjectIdRangeAsync` (10) | `Handled` — each catches `SqliteException` and returns `Result<T>.Err(DatabaseErrors.QueryFailed(...))`. |
 | `Infrastructure/Database/OwnerRepository.cs` | `UpsertAsync`, `GetByIdAsync`, `DeleteByIdRangeAsync` (3) | `Handled` — same catch-and-`Result.Err` pattern. |
 | `Infrastructure/Database/AssetRepository.cs` | `InsertAsync`, `GetByProjectIdAsync` (2) | `Handled` — same pattern. |
@@ -63,7 +63,7 @@ Invocation: `dotnet run --project tools/ErrorHandlingAudit -- <rootDir> [--out <
 10 flagged lines and 6 known-compliant call sites were manually inspected to sanity-check the rules:
 
 | Site | Verdict | Reasoning |
-|---|---|---|
+| --- | --- | --- |
 | `Core/Result.cs:31,35` (A) | **False positive** | Guard-clause `InvalidOperationException` inside `Result<T>` plumbing itself (the type the whole `DomainError` convention is built on) — not a raised domain error. |
 | `Core/Result.cs:41,44` (C) | **False positive** | Flags the generic `Func<DomainError,TResult>`/`Action<DomainError>` delegate *parameters* of `Match`/`Switch`, not an actual unread site — the callback body (elsewhere) is what would read the message. |
 | `Infrastructure/Http/MostaqlScraper.cs:92` (A) | **False positive** | `new TimeoutException(...)` is passed as the `cause` argument into `HttpErrors.Timeout(url, cause)` on the same line/expression — the resulting `DomainError` *is* factory-built; only the inner cause is a raw exception. |
@@ -77,7 +77,7 @@ Invocation: `dotnet run --project tools/ErrorHandlingAudit -- <rootDir> [--out <
 ## Violations
 
 | File:Line | Rule | Snippet |
-|---|---|---|
+| --- | --- | --- |
 | `Core/Result.cs:31` | A-FactoryBypass | `new InvalidOperationException("Cannot access Value on an error Result.")` |
 | `Core/Result.cs:35` | A-FactoryBypass | `new InvalidOperationException("Cannot access Error on an ok Result.")` |
 | `Core/Result.cs:41` | C-UnreadMessage | `Func<DomainError, TResult> onError` |

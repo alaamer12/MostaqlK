@@ -9,7 +9,7 @@ Preferences for AI agents working in this repository. Follow these on every task
 **At the start of every conversation — regardless of the task — read these files and keep them in mind for all decisions:**
 
 | File | Purpose |
-|------|---------|
+| ------ | --------- |
 | [`.repertoire/.steering/base/structure.md`](.repertoire/.steering/base/structure.md) | Directory structure and high-level boundaries across the app. |
 | [`.repertoire/.steering/base/product/README.md`](.repertoire/.steering/base/product/README.md) | Base Product docs index — unchanging architecture, data model, and overall design concepts. |
 | [`.repertoire/.steering/base/tech/README.md`](.repertoire/.steering/base/tech/README.md) | Base Tech docs index — unchanging conventions for C#, SQL, errors, and UI components. |
@@ -69,7 +69,7 @@ Before starting work:
 4. **State which skill(s) you used** when reporting results.
 
 | Task hint | Skill |
-|-----------|-------|
+| ----------- | ------- |
 | Pick a skill | `using-agent-skills` |
 | Version bump / Release / Changelog | `version-bumping` |
 | System Tray / Tray Icons / Diagnostics | `tray-inspection` |
@@ -147,7 +147,7 @@ When the user says **"pool of agents"** or uses notation like **`x->2x->4x`**, r
 ### Shorthand
 
 | User says | Meaning |
-|-----------|---------|
+| ----------- | --------- |
 | `pool of agents x->2x->4x` | 2 parallel subagents; each spawns 2 more (= 4 leaves) |
 | `pool of agents x->3x` | 3 parallel subagents, no further fan-out |
 | `pool of agents x->2x->4x->8x` | 2 → 4 → 8 over three worker depths |
@@ -187,7 +187,7 @@ When spawning a subagent (Task tool or any delegated work), the **parent (master
 
 **Paste the block below as the first thing in every subagent prompt** so the subagent inherits the baseline rules:
 
-```
+```text
 === MANDATORY AGENT PREFERENCES (read and follow) ===
 
 1. CONTEXT — Read at conversation start and consider for every decision:
