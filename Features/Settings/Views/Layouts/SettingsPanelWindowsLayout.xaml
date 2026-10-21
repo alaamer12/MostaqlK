@@ -266,7 +266,7 @@
                                 <Border Style="{StaticResource SettingsInputBorderStyle}">
                                     <Entry AutomationId="Settings_SessionCookieEntry"
                                            Text="{Binding SessionCookieInput, Mode=TwoWay}"
-                                           Placeholder="الصق قيمة Mostaql_session هنا..."
+                                           Placeholder="{Binding CookiePastePlaceholder}"
                                            IsPassword="True"
                                            FlowDirection="LeftToRight"
                                            Style="{StaticResource SettingsInputStyle}" />

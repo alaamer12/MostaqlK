@@ -102,6 +102,30 @@ public sealed partial class SettingsViewModel : ObservableObject
     public string CookieSectionTitle =>
         $"كوكي جلسة {SourceName} ({SourceNameLatin} Session Cookie)";
 
+    /// <summary>
+    /// Cosmetic sentence-case of the descriptor's session cookie name for placeholder copy
+    /// (the storage/parsing fact stays the exact lowercase value).
+    /// </summary>
+    private string SessionCookieNameDisplay
+    {
+        get
+        {
+            var name = MostaqlK.Core.Sources.SourceRegistryProvider.DescriptorFor(_source)?.SessionCookieName;
+            if (string.IsNullOrEmpty(name))
+            {
+                return "Cookie";
+            }
+
+            return char.ToUpperInvariant(name[0]) + name[1..];
+        }
+    }
+
+    /// <summary>Input hint naming just the session cookie key ("Mostaql_session...").</summary>
+    public string SessionKeyPlaceholder => $"{SessionCookieNameDisplay}...";
+
+    /// <summary>Full paste instruction for the cookie field.</summary>
+    public string CookiePastePlaceholder => $"الصق قيمة {SessionCookieNameDisplay} هنا...";
+
     private string SourceName => MostaqlK.Core.Sources.SourceRegistryProvider.DescriptorFor(_source)?.DisplayNameAr ?? "المصدر";
     private string SourceNameLatin => MostaqlK.Core.Sources.SourceRegistryProvider.DescriptorFor(_source)?.DisplayNameLatin ?? SourceName;
 

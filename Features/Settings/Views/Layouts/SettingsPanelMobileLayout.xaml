@@ -153,7 +153,7 @@
                         <Border Style="{StaticResource SettingsInputBorderStyle}">
                             <Entry AutomationId="Settings_Mobile_SessionCookieEntry"
                                    Text="{Binding SessionCookieInput, Mode=TwoWay}"
-                                   Placeholder="Mostaql_session..."
+                                   Placeholder="{Binding SessionKeyPlaceholder}"
                                    IsPassword="True"
                                    FlowDirection="LeftToRight"
                                    Style="{StaticResource SettingsInputStyle}" />

@@ -359,7 +359,12 @@ public static class DetailParser
     }
 
     private static readonly string[] SiteSuffixSeparators = [" - ", " | ", " – "];
-    private static readonly string[] SiteKeywords = ["مستقل", "Mostaql", "Mostaqlk"];
+    private static readonly string[] SiteKeywords =
+    [
+        MostaqlSource.Instance.DisplayNameAr,
+        MostaqlSource.Instance.DisplayNameLatin,
+        "Mostaqlk", // the app's OWN display name also shows up in page titles — product identity, not a site fact
+    ];
 
     private static string StripSiteSuffix(string title)
     {
