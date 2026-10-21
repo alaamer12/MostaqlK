@@ -14,7 +14,7 @@ namespace MostaqlK.Services;
 /// </summary>
 public sealed partial class GlobalAppStatusService : ObservableObject
 {
-    private readonly SourceRegistry _registry;
+    private readonly Dictionary<SourceId, SourcePipelineStatus> _statuses = new();
     private readonly Dictionary<SourcePipelineStatus, EventBridge> _bridges = new();
     private readonly object _gate = new();
 
@@ -27,7 +27,6 @@ public sealed partial class GlobalAppStatusService : ObservableObject
 
     public GlobalAppStatusService(SourceRegistry registry)
     {
-        _registry = registry;
         _active = new SourcePipelineStatus(SourceId.Default, registry);
     }
 
@@ -54,8 +53,6 @@ public sealed partial class GlobalAppStatusService : ObservableObject
             }
         }
     }
-
-    private readonly Dictionary<SourceId, SourcePipelineStatus> _statuses = new();
 
     /// <summary>Called once by <see cref="SourcePipelineOrchestrator"/> while it builds the pipelines.</summary>
     public void Attach(IEnumerable<SourcePipelineStatus> statuses, SourceId activeSource)

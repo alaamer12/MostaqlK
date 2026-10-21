@@ -32,8 +32,8 @@ public sealed partial class SourcePipelineStatus : ObservableObject
     private long Token(SourceProjectId key) => _registry.ToInternalId(key);
 
     /// <summary>
-    /// Every property here is written from the pipeline's own background loops (<c>PollService`,
-    /// `EnrichmentWorker</c>), while the bindings that read them live in the footer and the pipeline
+    /// Every property here is written from the pipeline's own background loops (<c>PollService</c>,
+    /// <c>EnrichmentWorker</c>), while the bindings that read them live in the footer and the pipeline
     /// dashboard. Raising <c>PropertyChanged</c> off the UI thread is a real crash risk on WinUI, so
     /// the notification is marshalled once, centrally, rather than at every call site.
     /// </summary>
