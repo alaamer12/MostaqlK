@@ -48,6 +48,14 @@ public interface ISourceDescriptor
     public string CookieSecretKey { get; }
 
     /// <summary>
+    /// Name of this site's session cookie (e.g. the Laravel/framework cookie the site issues).
+    /// The Settings cookie-upload flow uses it to auto-complete a bare pasted value into a
+    /// <c>name=value</c> header; null when the site's session cookie name is unknown, in which
+    /// case the user must paste a full <c>Cookie:</c>-style export.
+    /// </summary>
+    public string? SessionCookieName { get; }
+
+    /// <summary>
     /// The pre-namespacing <c>app_secrets</c> key this source used before sessions became
     /// per-source. <see cref="CookieStore"/> reads it when the new key is
     /// absent and rewrites the value under <see cref="CookieSecretKey"/>, so an existing user's

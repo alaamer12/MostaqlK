@@ -325,6 +325,7 @@ internal static class Program
         public string? OwnerFallbackMeta => null;
         public SourceCapabilities Capabilities => new(true, true, false);
         public string CookieSecretKey => "cookie_" + Id.Value;
+        public string? SessionCookieName => null;
         public string LegacyCookieSecretKey => "cookie_legacy_" + Id.Value;
         public string LegacyCookieEnvInlineVar => "TEST_COOKIE_" + Id.Value.ToUpperInvariant();
         public string LegacyCookieEnvFileVar => "TEST_COOKIE_" + Id.Value.ToUpperInvariant() + "_FILE";

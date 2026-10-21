@@ -334,10 +334,12 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             IsCookieBusy = true;
             var content = SessionCookieInput.Trim();
-            // If just a raw value or header was entered, format appropriately for saving
-            if (!content.Contains("mostaql_session") && !content.Contains("Cookie:"))
+            // If just a raw value or header was entered, format appropriately for saving — the
+            // session cookie NAME is the source's own fact, taken from its descriptor.
+            var sessionName = MostaqlK.Core.Sources.SourceRegistryProvider.DescriptorFor(_source)?.SessionCookieName;
+            if (sessionName is not null && !content.Contains(sessionName) && !content.Contains("Cookie:"))
             {
-                content = $"mostaql_session={content}";
+                content = $"{sessionName}={content}";
             }
 
             var save = _cookieStore.SaveFromFileContentAsync(content);
