@@ -41,7 +41,15 @@ public sealed class MostaqlDiscovery : ISourceDiscovery
 
         try
         {
-            return Result<IReadOnlyList<ProjectSummary>>.Ok(_strategy.ParseListing(htmlResult.Value));
+            var summaries = _strategy.ParseListing(htmlResult.Value);
+            // Stamp provenance so every downstream stage (diff, store, UI) knows the source
+            // without the shared code ever naming it.
+            foreach (var summary in summaries)
+            {
+                summary.Source = MostaqlSource.Instance.Id;
+            }
+
+            return Result<IReadOnlyList<ProjectSummary>>.Ok(summaries);
         }
         catch (Exception ex)
         {
@@ -81,6 +89,8 @@ public sealed class MostaqlEnrichment : ISourceEnrichment
         try
         {
             var details = _strategy.ParseDetail(projectId.ProjectId, htmlResult.Value);
+            details.Source = projectId.Source;
+            details.Owner.Source = projectId.Source;
             details.Url = url;
             return Result<ProjectDetails>.Ok(details);
         }

@@ -73,8 +73,14 @@ public sealed class WinRtVariation : IToastVariation
 
         var logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Images", "logo.png");
 
+        // Only non-default sources append a parameter, so mostaql launch strings stay byte-
+        // identical to older builds (an absent sourceId resolves to the default source).
+        var sourceParam = project.Source == MostaqlK.Core.Sources.SourceId.Default
+            ? string.Empty
+            : $"&amp;sourceId={Uri.EscapeDataString(project.Source.Value)}";
+
         var toastXmlString = $@"
-<toast lang='ar-SA' launch='projectId={project.ProjectId}'>
+<toast lang='ar-SA' launch='projectId={project.ProjectId}{sourceParam}'>
     <visual lang='ar-SA'>
         <binding template='ToastGeneric'>
             <image placement='appLogoOverride' src='file:///{logoPath}' />

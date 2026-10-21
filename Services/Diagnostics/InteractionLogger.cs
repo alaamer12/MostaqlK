@@ -128,9 +128,4 @@ public static class InteractionLogger
             return data.ToString() ?? "<unserializable>";
         }
     }
-
-    private static string ResolveLogFilePath()
-    {
-        return AppPaths.LogFilePath;
-    }
 }

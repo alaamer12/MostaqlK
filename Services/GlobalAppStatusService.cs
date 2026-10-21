@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using MostaqlK.Core.Sources;
 
 namespace MostaqlK.Services;
 
@@ -9,6 +10,20 @@ namespace MostaqlK.Services;
 /// </summary>
 public sealed partial class GlobalAppStatusService : ObservableObject
 {
+    /// <summary>
+    /// Radar/worker tokens are the DB's globally-unique internal row ids
+    /// (descriptor band + site id), so two sources' projects never alias each other
+    /// in the pipeline visuals. Callers pass <see cref="SourceProjectId"/>; the
+    /// conversion happens here, once.
+    /// </summary>
+    private readonly SourceRegistry _registry;
+
+    public GlobalAppStatusService(SourceRegistry registry)
+    {
+        _registry = registry;
+    }
+
+    private long Token(SourceProjectId key) => _registry.ToInternalId(key);
     /// <summary>
     /// Every property here is written from the pipeline's own background loops (`PollService`,
     /// `EnrichmentWorker`), while the bindings that read them live in the footer and the pipeline
@@ -271,16 +286,17 @@ public sealed partial class GlobalAppStatusService : ObservableObject
     /// <summary>Raised when a queued project leaves the pipeline without being enriched.</summary>
     public event Action<long>? ProjectRemovedFromQueue;
 
-    public void NotifyProjectDiscovered(long projectId, string title = "")
+    public void NotifyProjectDiscovered(SourceProjectId projectId, string title = "")
     {
         ProjectsDiscoveredCount++;
+        var token = Token(projectId);
         lock (_queueSync)
         {
-            _queueEnqueuedAt[projectId] = DateTimeOffset.UtcNow;
-            RegisterTitle(projectId, title);
+            _queueEnqueuedAt[token] = DateTimeOffset.UtcNow;
+            RegisterTitle(token, title);
         }
 
-        ProjectDiscovered?.Invoke(projectId, title);
+        ProjectDiscovered?.Invoke(token, title);
     }
 
     /// <summary>
@@ -319,60 +335,63 @@ public sealed partial class GlobalAppStatusService : ObservableObject
         }
     }
 
-    public void NotifyProjectAssignedToWorker(int workerIndex, long projectId, string title = "")
+    public void NotifyProjectAssignedToWorker(int workerIndex, SourceProjectId projectId, string title = "")
     {
         if (workerIndex < 0 || workerIndex >= 3) return;
 
+        var token = Token(projectId);
         lock (_queueSync)
         {
-            if (_queueEnqueuedAt.Remove(projectId, out var enqueuedAt))
+            if (_queueEnqueuedAt.Remove(token, out var enqueuedAt))
             {
                 _waitSecondsTotal += Math.Max(0, (DateTimeOffset.UtcNow - enqueuedAt).TotalSeconds);
                 _waitSamples++;
             }
         }
 
-        var resolved = string.IsNullOrWhiteSpace(title) ? TitleOf(projectId) : title.Trim();
+        var resolved = string.IsNullOrWhiteSpace(title) ? TitleOf(token) : title.Trim();
 
         var worker = Workers[workerIndex];
-        worker.CurrentProjectId = projectId;
+        worker.CurrentProjectId = token;
         // The id is only a last resort now: the caller's title wins, then the title remembered from
         // discovery, and `#id` only remains for a project recovered from the persisted backlog whose
         // listing row this process never saw (it is replaced by the real title the moment the detail
         // page is parsed - see UpdateWorkerProjectTitle).
-        worker.CurrentProjectTitle = string.IsNullOrEmpty(resolved) ? $"#{projectId}" : resolved;
+        worker.CurrentProjectTitle = string.IsNullOrEmpty(resolved) ? $"#{token}" : resolved;
 
-        ProjectAssignedToWorker?.Invoke(workerIndex, projectId, worker.CurrentProjectTitle);
+        ProjectAssignedToWorker?.Invoke(workerIndex, token, worker.CurrentProjectTitle);
     }
 
     /// <summary>
     /// Replaces a worker's current project title once a better one is known (the enriched detail
     /// page). Ignored if the worker has already moved on to another project.
     /// </summary>
-    public void UpdateWorkerProjectTitle(int workerIndex, long projectId, string title)
+    public void UpdateWorkerProjectTitle(int workerIndex, SourceProjectId projectId, string title)
     {
         if (workerIndex < 0 || workerIndex >= 3 || string.IsNullOrWhiteSpace(title)) return;
 
+        var token = Token(projectId);
         lock (_queueSync)
         {
-            RegisterTitle(projectId, title);
+            RegisterTitle(token, title);
         }
 
         var worker = Workers[workerIndex];
-        if (worker.CurrentProjectId != projectId) return;
+        if (worker.CurrentProjectId != token) return;
 
         worker.CurrentProjectTitle = title.Trim();
-        ProjectAssignedToWorker?.Invoke(workerIndex, projectId, worker.CurrentProjectTitle);
+        ProjectAssignedToWorker?.Invoke(workerIndex, token, worker.CurrentProjectTitle);
     }
 
-    public void NotifyProjectRemovedFromQueue(long projectId)
+    public void NotifyProjectRemovedFromQueue(SourceProjectId projectId)
     {
+        var token = Token(projectId);
         lock (_queueSync)
         {
-            _queueEnqueuedAt.Remove(projectId);
+            _queueEnqueuedAt.Remove(token);
         }
 
-        ProjectRemovedFromQueue?.Invoke(projectId);
+        ProjectRemovedFromQueue?.Invoke(token);
     }
 
     /// <summary>Publishes the backlog size, keeping <see cref="QueuePressure"/> in sync with it.</summary>

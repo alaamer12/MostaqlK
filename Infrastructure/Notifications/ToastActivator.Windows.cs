@@ -100,7 +100,11 @@ public static class ToastActivator
 
                 if (args.TryGetValue(AppRoutes.ProjectIdQueryParam, out var projectIdStr) && long.TryParse(projectIdStr, out var projectId))
                 {
-                    await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(projectId));
+                    args.TryGetValue(AppRoutes.SourceIdQueryParam, out var sourceStr);
+                    var source = MostaqlK.Core.Sources.SourceId.TryFrom(sourceStr, out var parsedSource)
+                        ? parsedSource
+                        : MostaqlK.Core.Sources.SourceId.Default;
+                    await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(source, projectId));
                 }
                 else
                 {

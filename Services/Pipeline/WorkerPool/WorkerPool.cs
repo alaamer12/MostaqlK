@@ -103,7 +103,7 @@ public sealed class WorkerPool
         catch (Exception ex)
         {
             CrashReporter.Report("WorkerPool.StartAsync", ex);
-            return Result<bool>.Err(EnrichErrors.Unexpected(0, ex));
+            return Result<bool>.Err(EnrichErrors.Unexpected(new MostaqlK.Core.Sources.SourceProjectId(MostaqlK.Core.Sources.SourceId.Default, 0), ex));
         }
     }
 

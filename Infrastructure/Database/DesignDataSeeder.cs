@@ -1,4 +1,5 @@
 using MostaqlK.Core;
+using MostaqlK.Core.Sources;
 using MostaqlK.Models;
 using MostaqlK.Services.Diagnostics;
 
@@ -155,21 +156,21 @@ public sealed class DesignDataSeeder
         const long SeedOwnerMinId = 9300000;
         const long SeedOwnerMaxId = 9300000 + DesignCardCount - 1;
 
-        var archivedResult = await _projectRepository.DeleteByProjectIdRangeAsync(archivedMinId, archivedMaxId, cancellationToken);
+        var archivedResult = await _projectRepository.DeleteByProjectIdRangeAsync(SourceId.Mostaql, archivedMinId, archivedMaxId, cancellationToken);
         if (!archivedResult.IsOk)
         {
             scope.MarkFaulted(new InvalidOperationException(archivedResult.Error.ToString()));
             return Result<int>.Err(archivedResult.Error);
         }
 
-        var designCardsResult = await _projectRepository.DeleteByProjectIdRangeAsync(DesignCardMinId, DesignCardMaxId, cancellationToken);
+        var designCardsResult = await _projectRepository.DeleteByProjectIdRangeAsync(SourceId.Mostaql, DesignCardMinId, DesignCardMaxId, cancellationToken);
         if (!designCardsResult.IsOk)
         {
             scope.MarkFaulted(new InvalidOperationException(designCardsResult.Error.ToString()));
             return Result<int>.Err(designCardsResult.Error);
         }
 
-        var ownersResult = await _ownerRepository.DeleteByIdRangeAsync(SeedOwnerMinId, SeedOwnerMaxId, cancellationToken);
+        var ownersResult = await _ownerRepository.DeleteByIdRangeAsync(SourceId.Mostaql, SeedOwnerMinId, SeedOwnerMaxId, cancellationToken);
         if (!ownersResult.IsOk)
         {
             scope.MarkFaulted(new InvalidOperationException(ownersResult.Error.ToString()));

@@ -35,4 +35,15 @@ public sealed class SourceRegistry
     }
 
     public bool Contains(SourceId id) => _byId.ContainsKey(id);
+
+    /// <summary>Site-local id → globally-unique internal row id (see <see cref="ISourceDescriptor.InternalIdBand"/>).</summary>
+    public long ToInternalId(SourceProjectId key) => Band(key.Source) + key.ProjectId;
+
+    /// <summary>Internal row id → the composite key.</summary>
+    public SourceProjectId FromInternalId(SourceId source, long internalId) => new(source, internalId - Band(source));
+
+    /// <summary>Internal row id → the site-local numeric id (what parsers emit and URLs carry).</summary>
+    public long ToSiteProjectId(SourceId source, long internalId) => internalId - Band(source);
+
+    private long Band(SourceId source) => Get(source).InternalIdBand;
 }

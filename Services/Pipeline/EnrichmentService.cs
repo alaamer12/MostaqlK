@@ -21,11 +21,11 @@ public sealed class EnrichmentService : IEnrichmentService
         _assetDownloadService = assetDownloadService;
     }
 
-    public async Task<Result<ProjectDetails>> EnrichAsync(long projectId, CancellationToken cancellationToken = default)
+    public async Task<Result<ProjectDetails>> EnrichAsync(SourceProjectId projectId, CancellationToken cancellationToken = default)
     {
         await _rateLimiter.WaitForTokenAsync(cancellationToken);
-        var result = await _enrichment.EnrichAsync(SourceProjectId.Of(_enrichment.Source, projectId), cancellationToken);
-        
+        var result = await _enrichment.EnrichAsync(projectId, cancellationToken);
+
         if (result.IsOk && DownloadAssets)
         {
             var details = result.Value;

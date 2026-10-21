@@ -21,7 +21,6 @@ public static class NativeSplashScreen
 
     // Win32 Constants
     private const int WS_POPUP = unchecked((int)0x80000000);
-    private const int WS_VISIBLE = 0x10000000;
     private const int WS_EX_TOPMOST = 0x00000008;
     private const int WS_EX_TOOLWINDOW = 0x00000080;
     private const int SW_SHOW = 5;
@@ -32,13 +31,9 @@ public static class NativeSplashScreen
     private const int SM_CXSCREEN = 0;
     private const int SM_CYSCREEN = 1;
     private const int DT_CENTER = 0x00000001;
-    private const int DT_VCENTER = 0x00000004;
     private const int DT_SINGLELINE = 0x00000020;
     private const int DT_NOPREFIX = 0x00000800;
     private const int TRANSPARENT = 1;
-    private const int HWND_TOPMOST = -1;
-    private const uint SWP_NOSIZE = 0x0001;
-    private const uint SWP_NOMOVE = 0x0002;
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct WNDCLASSEX

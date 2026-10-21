@@ -1,3 +1,5 @@
+using MostaqlK.Core.Sources;
+
 namespace MostaqlK.Models;
 
 /// <summary>
@@ -6,6 +8,10 @@ namespace MostaqlK.Models;
 /// </summary>
 public sealed class ProjectDetails
 {
+    /// <summary>Which monitored site this project came from.</summary>
+    public SourceId Source { get; set; } = SourceId.Default;
+
+    /// <summary>The site-local numeric id, unique only within <see cref="Source"/>.</summary>
     public long ProjectId { get; set; }
 
     public string Title { get; set; } = string.Empty;

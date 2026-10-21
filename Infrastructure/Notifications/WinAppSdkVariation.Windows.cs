@@ -44,6 +44,10 @@ public sealed class WinAppSdkVariation : IToastVariation
 
         if (args.Arguments.TryGetValue("projectId", out var projectIdStr) && long.TryParse(projectIdStr, out var projectId))
         {
+            args.Arguments.TryGetValue("sourceId", out var sourceStr);
+            var source = MostaqlK.Core.Sources.SourceId.TryFrom(sourceStr, out var parsedSource)
+                ? parsedSource
+                : MostaqlK.Core.Sources.SourceId.Default;
             MainThread.BeginInvokeOnMainThread(async () =>
             {
                 try
@@ -59,7 +63,7 @@ public sealed class WinAppSdkVariation : IToastVariation
                         trayService?.OnOpen();
                     }
 
-                    await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(projectId));
+                    await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(source, projectId));
                 }
                 catch (Exception ex)
                 {
@@ -126,6 +130,13 @@ public sealed class WinAppSdkVariation : IToastVariation
             .AddText(project.Title, new AppNotificationTextProperties().SetMaxLines(1))
             .AddText(description)
             .AddArgument("projectId", project.ProjectId.ToString());
+
+        // Only non-default sources add an argument, so mostaql toast payloads stay byte-identical
+        // to what older builds produced (a payload without sourceId resolves to the default source).
+        if (project.Source != MostaqlK.Core.Sources.SourceId.Default)
+        {
+            builder.AddArgument("sourceId", project.Source.Value);
+        }
 
         if (!string.IsNullOrWhiteSpace(project.Url))
         {

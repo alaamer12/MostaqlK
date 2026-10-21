@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Maui.Storage;
 using MostaqlK.Core;
 using MostaqlK.Core.Navigation;
+using MostaqlK.Core.Sources;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Infrastructure.Database.SearchIndex;
 using MostaqlK.Models;
@@ -215,7 +216,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         RefreshHeaderStatus();
         try
         {
-            var today = await _projectRepository.CountAddedTodayAsync();
+            var today = await _projectRepository.CountAddedTodayAsync(SourceId.Default);
             if (requestToken != _loadRequestToken)
             {
                 // A newer LoadAsync call has already started (and will apply its own results
@@ -228,7 +229,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
             }
 
             var result = string.IsNullOrWhiteSpace(searchQueryAtRequestTime)
-                ? await _projectRepository.GetRecentAsync(RecentLimit)
+                ? await _projectRepository.GetRecentAsync(SourceId.Default, RecentLimit)
                 : await _ftsQueryService.SearchAsync(searchQueryAtRequestTime.Trim());
 
             if (requestToken != _loadRequestToken)
@@ -296,7 +297,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
             {
                 // No filter active: status-bar totals count the whole store, not just the
                 // page of rows loaded above.
-                var tracked = await _projectRepository.CountTrackedAsync();
+                var tracked = await _projectRepository.CountTrackedAsync(SourceId.Default);
                 if (requestToken != _loadRequestToken)
                 {
                     return;
@@ -403,7 +404,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         // would resurrect every row still marked unread there, making the badge jump back up as
         // soon as a single new project arrives (the bug: 4 unread -> mark all read -> 0 -> one
         // new project arrives -> 7, because the DB still had the original 4 as unread).
-        var result = await _projectRepository.MarkAllAsReadAsync();
+        var result = await _projectRepository.MarkAllAsReadAsync(SourceId.Default);
         if (!result.IsOk)
         {
             InteractionLogger.Fault("ProjectFeedViewModel.MarkAllReadAsync", new InvalidOperationException(result.Error.InternalMessage));
@@ -428,13 +429,13 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
 
             // Persist to the DB for the same reason as MarkAllReadAsync above - otherwise the
             // next reload's DB-backed unread count would still count this row as unread.
-            var result = await _projectRepository.MarkAsReadAsync(card.Project.ProjectId);
+            var result = await _projectRepository.MarkAsReadAsync(new SourceProjectId(card.Project.Source, card.Project.ProjectId));
             if (!result.IsOk)
             {
                 InteractionLogger.Fault("ProjectFeedViewModel.SelectProjectAsync", new InvalidOperationException(result.Error.InternalMessage));
             }
 
-            await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(card.Project.ProjectId));
+            await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(card.Project.Source, card.Project.ProjectId));
         }
         catch (Exception ex)
         {

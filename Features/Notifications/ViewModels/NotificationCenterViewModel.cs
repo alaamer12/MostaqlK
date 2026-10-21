@@ -79,6 +79,6 @@ public sealed partial class NotificationCenterViewModel : ObservableObject, IDis
             return;
         }
 
-        await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(item.ProjectId));
+        await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(item.Source, item.ProjectId));
     }
 }

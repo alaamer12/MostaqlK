@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MostaqlK.Core.Formatting;
+using MostaqlK.Core.Sources;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Infrastructure.Http;
 using MostaqlK.Models;
@@ -253,7 +254,7 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public async Task LoadAsync(long projectId)
+    public async Task LoadAsync(SourceProjectId projectId)
     {
         IsLoading = true;
         HasError = false;

@@ -43,6 +43,14 @@ public interface ISourceDescriptor
     /// <summary>Preferences container (FilePreferences sharedName) holding this source's settings.</summary>
     public string SettingsContainerId { get; }
 
+    /// <summary>
+    /// Offset added to a site-local numeric id to get the app's globally-unique internal
+    /// row id (projects/owners/backlog keys). 0 means "internal == site id" — Mostaql keeps
+    /// it so every pre-v2 row, child-table reference and FTS rowid stays valid untouched.
+    /// Later sources get a band so high that their ids can never collide with a Mostaql id.
+    /// </summary>
+    public long InternalIdBand { get; }
+
     /// <summary>The projects-listing URL this source polls, with the source-shaped query appended.</summary>
     public string BuildListingUrl(string? queryParams);
 

@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using MostaqlK.Core;
+using MostaqlK.Core.Sources;
 using MostaqlK.Models;
 
 namespace MostaqlK.Infrastructure.Database;
@@ -8,11 +9,15 @@ namespace MostaqlK.Infrastructure.Database;
 public sealed class OwnerRepository : IOwnerRepository
 {
     private readonly SqliteConnectionFactory _connectionFactory;
+    private readonly SourceRegistry _registry;
 
-    public OwnerRepository(SqliteConnectionFactory connectionFactory)
+    public OwnerRepository(SqliteConnectionFactory connectionFactory, SourceRegistry registry)
     {
         _connectionFactory = connectionFactory;
+        _registry = registry;
     }
+
+    private long InternalId(Owner owner) => _registry.ToInternalId(new SourceProjectId(owner.Source, owner.OwnerId));
 
     [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result<bool>.Err")]
     public async Task<Result<bool>> UpsertAsync(Owner owner, CancellationToken cancellationToken = default)
@@ -26,11 +31,11 @@ public sealed class OwnerRepository : IOwnerRepository
             // other owner fields are never overwritten.
             command.CommandText = """
                 INSERT INTO owners
-                    (owner_id, name, profile_url, avatar_url, rating, completed_projects_count,
+                    (owner_id, source_id, name, profile_url, avatar_url, rating, completed_projects_count,
                      hiring_rate_percent, registered_at, open_projects_count, 
                      in_progress_projects_count, ongoing_communications_count, last_seen_at)
                 VALUES
-                    (@owner_id, @name, @profile_url, @avatar_url, @rating, @completed_projects_count,
+                    (@owner_id, @source_id, @name, @profile_url, @avatar_url, @rating, @completed_projects_count,
                      @hiring_rate_percent, @registered_at, @open_projects_count, 
                      @in_progress_projects_count, @ongoing_communications_count, @last_seen_at)
                 ON CONFLICT(owner_id) DO UPDATE SET
@@ -43,7 +48,8 @@ public sealed class OwnerRepository : IOwnerRepository
                     in_progress_projects_count = excluded.in_progress_projects_count,
                     ongoing_communications_count = excluded.ongoing_communications_count;
                 """;
-            command.Parameters.AddWithValue("@owner_id", owner.OwnerId);
+            command.Parameters.AddWithValue("@owner_id", InternalId(owner));
+            command.Parameters.AddWithValue("@source_id", owner.Source.Value);
             command.Parameters.AddWithValue("@name", owner.Name);
             command.Parameters.AddWithValue("@profile_url", owner.ProfileUrl is null ? DBNull.Value : owner.ProfileUrl);
             command.Parameters.AddWithValue("@avatar_url", owner.AvatarUrl is null ? DBNull.Value : owner.AvatarUrl);
@@ -66,19 +72,19 @@ public sealed class OwnerRepository : IOwnerRepository
     }
 
     [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result.Err")]
-    public async Task<Result<Owner?>> GetByIdAsync(long ownerId, CancellationToken cancellationToken = default)
+    public async Task<Result<Owner?>> GetByIdAsync(SourceId source, long ownerId, CancellationToken cancellationToken = default)
     {
         try
         {
             using var connection = _connectionFactory.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = """
-                SELECT owner_id, name, profile_url, avatar_url, rating, completed_projects_count, hiring_rate_percent,
+                SELECT owner_id, source_id, name, profile_url, avatar_url, rating, completed_projects_count, hiring_rate_percent,
                        registered_at, open_projects_count, in_progress_projects_count, ongoing_communications_count
                 FROM owners
                 WHERE owner_id = @owner_id;
                 """;
-            command.Parameters.AddWithValue("@owner_id", ownerId);
+            command.Parameters.AddWithValue("@owner_id", _registry.ToInternalId(new SourceProjectId(source, ownerId)));
 
             using var reader = await command.ExecuteReaderAsync(cancellationToken);
             if (!await reader.ReadAsync(cancellationToken))
@@ -86,19 +92,21 @@ public sealed class OwnerRepository : IOwnerRepository
                 return Result<Owner?>.Ok(null);
             }
 
+            var rowSource = SourceId.From(reader.GetString(1));
             var owner = new Owner
             {
-                OwnerId = reader.GetInt64(0),
-                Name = reader.GetString(1),
-                ProfileUrl = reader.IsDBNull(2) ? null : reader.GetString(2),
-                AvatarUrl = reader.IsDBNull(3) ? null : reader.GetString(3),
-                Rating = reader.IsDBNull(4) ? null : reader.GetDouble(4),
-                CompletedProjectsCount = reader.IsDBNull(5) ? null : reader.GetInt32(5),
-                HiringRatePercent = reader.IsDBNull(6) ? null : reader.GetDouble(6),
-                RegisteredAt = reader.IsDBNull(7) ? null : reader.GetString(7),
-                OpenProjectsCount = reader.IsDBNull(8) ? null : reader.GetInt32(8),
-                InProgressProjectsCount = reader.IsDBNull(9) ? null : reader.GetInt32(9),
-                OngoingCommunicationsCount = reader.IsDBNull(10) ? null : reader.GetInt32(10),
+                Source = rowSource,
+                OwnerId = _registry.ToSiteProjectId(rowSource, reader.GetInt64(0)),
+                Name = reader.GetString(2),
+                ProfileUrl = reader.IsDBNull(3) ? null : reader.GetString(3),
+                AvatarUrl = reader.IsDBNull(4) ? null : reader.GetString(4),
+                Rating = reader.IsDBNull(5) ? null : reader.GetDouble(5),
+                CompletedProjectsCount = reader.IsDBNull(6) ? null : reader.GetInt32(6),
+                HiringRatePercent = reader.IsDBNull(7) ? null : reader.GetDouble(7),
+                RegisteredAt = reader.IsDBNull(8) ? null : reader.GetString(8),
+                OpenProjectsCount = reader.IsDBNull(9) ? null : reader.GetInt32(9),
+                InProgressProjectsCount = reader.IsDBNull(10) ? null : reader.GetInt32(10),
+                OngoingCommunicationsCount = reader.IsDBNull(11) ? null : reader.GetInt32(11),
             };
 
             return Result<Owner?>.Ok(owner);
@@ -110,15 +118,16 @@ public sealed class OwnerRepository : IOwnerRepository
     }
 
     [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result<int>.Err")]
-    public async Task<Result<int>> DeleteByIdRangeAsync(long minOwnerId, long maxOwnerId, CancellationToken cancellationToken = default)
+    public async Task<Result<int>> DeleteByIdRangeAsync(SourceId source, long minOwnerId, long maxOwnerId, CancellationToken cancellationToken = default)
     {
         try
         {
             using var connection = _connectionFactory.CreateConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "DELETE FROM owners WHERE owner_id BETWEEN @min_id AND @max_id;";
-            command.Parameters.AddWithValue("@min_id", minOwnerId);
-            command.Parameters.AddWithValue("@max_id", maxOwnerId);
+            command.CommandText = "DELETE FROM owners WHERE source_id = @source AND owner_id BETWEEN @min_id AND @max_id;";
+            command.Parameters.AddWithValue("@source", source.Value);
+            command.Parameters.AddWithValue("@min_id", _registry.ToInternalId(new SourceProjectId(source, minOwnerId)));
+            command.Parameters.AddWithValue("@max_id", _registry.ToInternalId(new SourceProjectId(source, maxOwnerId)));
 
             var rowsAffected = await command.ExecuteNonQueryAsync(cancellationToken);
             return Result<int>.Ok(rowsAffected);
@@ -137,7 +146,7 @@ public sealed class OwnerRepository : IOwnerRepository
             using var connection = _connectionFactory.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = """
-                SELECT owner_id, name, profile_url, avatar_url, rating, completed_projects_count, hiring_rate_percent,
+                SELECT owner_id, source_id, name, profile_url, avatar_url, rating, completed_projects_count, hiring_rate_percent,
                        registered_at, open_projects_count, in_progress_projects_count, ongoing_communications_count
                 FROM owners;
                 """;
@@ -146,19 +155,21 @@ public sealed class OwnerRepository : IOwnerRepository
             using var reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
             {
+                var rowSource = SourceId.From(reader.GetString(1));
                 results.Add(new Owner
                 {
-                    OwnerId = reader.GetInt64(0),
-                    Name = reader.GetString(1),
-                    ProfileUrl = reader.IsDBNull(2) ? null : reader.GetString(2),
-                    AvatarUrl = reader.IsDBNull(3) ? null : reader.GetString(3),
-                    Rating = reader.IsDBNull(4) ? null : reader.GetDouble(4),
-                    CompletedProjectsCount = reader.IsDBNull(5) ? null : reader.GetInt32(5),
-                    HiringRatePercent = reader.IsDBNull(6) ? null : reader.GetDouble(6),
-                    RegisteredAt = reader.IsDBNull(7) ? null : reader.GetString(7),
-                    OpenProjectsCount = reader.IsDBNull(8) ? null : reader.GetInt32(8),
-                    InProgressProjectsCount = reader.IsDBNull(9) ? null : reader.GetInt32(9),
-                    OngoingCommunicationsCount = reader.IsDBNull(10) ? null : reader.GetInt32(10),
+                    Source = rowSource,
+                    OwnerId = _registry.ToSiteProjectId(rowSource, reader.GetInt64(0)),
+                    Name = reader.GetString(2),
+                    ProfileUrl = reader.IsDBNull(3) ? null : reader.GetString(3),
+                    AvatarUrl = reader.IsDBNull(4) ? null : reader.GetString(4),
+                    Rating = reader.IsDBNull(5) ? null : reader.GetDouble(5),
+                    CompletedProjectsCount = reader.IsDBNull(6) ? null : reader.GetInt32(6),
+                    HiringRatePercent = reader.IsDBNull(7) ? null : reader.GetDouble(7),
+                    RegisteredAt = reader.IsDBNull(8) ? null : reader.GetString(8),
+                    OpenProjectsCount = reader.IsDBNull(9) ? null : reader.GetInt32(9),
+                    InProgressProjectsCount = reader.IsDBNull(10) ? null : reader.GetInt32(10),
+                    OngoingCommunicationsCount = reader.IsDBNull(11) ? null : reader.GetInt32(11),
                 });
             }
 

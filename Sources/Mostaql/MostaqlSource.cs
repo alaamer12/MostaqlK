@@ -40,6 +40,10 @@ public sealed class MostaqlSource : ISourceDescriptor
 
     public string SettingsContainerId => "mostaql";
 
+    // Internal row ids stay equal to mostaql.com's own project/owner ids, so every
+    // pre-v2 DB row, child-table reference and FTS rowid remains valid without rewriting.
+    public long InternalIdBand => 0;
+
     public string BuildListingUrl(string? queryParams)
     {
         var url = "https://mostaql.com/projects";

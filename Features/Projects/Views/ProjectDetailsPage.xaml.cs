@@ -1,3 +1,4 @@
+using MostaqlK.Core.Sources;
 using MostaqlK.Features.Projects.ViewModels;
 using MostaqlK.Features.Projects.Views.Layouts;
 using MostaqlK.Infrastructure.Database;
@@ -6,6 +7,7 @@ using MostaqlK.UI.PlatformComponents;
 namespace MostaqlK.Features.Projects.Views;
 
 [QueryProperty(nameof(ProjectId), "projectId")]
+[QueryProperty(nameof(SourceIdParam), "sourceId")]
 public partial class ProjectDetailsPage : ContentPage
 {
     private readonly ProjectDetailsViewModel _viewModel;
@@ -13,6 +15,9 @@ public partial class ProjectDetailsPage : ContentPage
     private readonly View? _activeLayout;
 
     public string? ProjectId { get; set; }
+
+    /// <summary>Source the project belongs to; absent (deep links from older builds) means the default source.</summary>
+    public string? SourceIdParam { get; set; }
 
     public ProjectDetailsPage(ProjectDetailsViewModel viewModel, IProjectRepository projectRepository)
     {
@@ -34,14 +39,17 @@ public partial class ProjectDetailsPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        var source = SourceId.TryFrom(SourceIdParam, out var parsedSource)
+            ? parsedSource
+            : SourceId.Default;
         if (string.IsNullOrWhiteSpace(ProjectId))
         {
-            var newest = await _projectRepository.GetNewestProjectIdAsync();
+            var newest = await _projectRepository.GetNewestProjectIdAsync(source);
             if (!newest.IsOk)
             {
                 _viewModel.SetError(newest.Error.ExternalMessage);
             }
-            else if (newest.Value is long newestId)
+            else if (newest.Value is SourceProjectId newestId)
             {
                 await _viewModel.LoadAsync(newestId);
             }
@@ -52,7 +60,7 @@ public partial class ProjectDetailsPage : ContentPage
         }
         else if (long.TryParse(ProjectId, out var projectId) && projectId > 0)
         {
-            await _viewModel.LoadAsync(projectId);
+            await _viewModel.LoadAsync(new SourceProjectId(source, projectId));
         }
         else
         {

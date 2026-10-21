@@ -189,10 +189,10 @@ public sealed class PollService : IPollService
             }
 
             _globalStatus.DiscoveryProgress = 0.9;
-            
+
             var summariesById = listingResult.Value
                 .Where(summary => summary.ProjectId > 0)
-                .GroupBy(summary => summary.ProjectId)
+                .GroupBy(summary => new SourceProjectId(summary.Source, summary.ProjectId))
                 .ToDictionary(group => group.Key, group => group.First());
 
             var enqueued = 0;

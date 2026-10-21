@@ -23,12 +23,15 @@ public partial class AppShell : Shell
     private async void OnLoaded(object? sender, EventArgs e)
     {
         Loaded -= OnLoaded;
+        MostaqlK.Core.Sources.SourceId detailsSource = MostaqlK.Core.Sources.SourceId.TryFrom(_startup.SourceId, out var parsedSource)
+            ? parsedSource
+            : MostaqlK.Core.Sources.SourceId.Default;
         var route = _startup.DefaultPage switch
         {
             StartupPage.Settings => AppRoutes.Settings,
             StartupPage.About => AppRoutes.About,
             StartupPage.ProjectDetails => _startup.ProjectId.HasValue
-                ? AppRoutes.ProjectDetails(_startup.ProjectId.Value)
+                ? AppRoutes.ProjectDetails(detailsSource, _startup.ProjectId.Value)
                 : AppRoutes.ProjectDetails(),
             _ => AppRoutes.Projects
         };
@@ -38,12 +41,13 @@ public partial class AppShell : Shell
 
 public enum StartupPage { Projects, ProjectDetails, Settings, About }
 
-public sealed record StartupNavigation(StartupPage DefaultPage, long? ProjectId)
+public sealed record StartupNavigation(StartupPage DefaultPage, long? ProjectId, string? SourceId = null)
 {
     public static StartupNavigation FromArguments(string[] args)
     {
         var page = StartupPage.Projects;
         long? projectId = null;
+        string? sourceId = null;
         foreach (var arg in args)
         {
             if (arg.StartsWith("--default-page=", StringComparison.OrdinalIgnoreCase))
@@ -60,8 +64,12 @@ public sealed record StartupNavigation(StartupPage DefaultPage, long? ProjectId)
             {
                 projectId = id;
             }
+            else if (arg.StartsWith("--source-id=", StringComparison.OrdinalIgnoreCase) && arg[12..].Length > 0)
+            {
+                sourceId = arg[12..];
+            }
         }
-        return new StartupNavigation(page, projectId);
+        return new StartupNavigation(page, projectId, sourceId);
     }
 
     /// <summary>

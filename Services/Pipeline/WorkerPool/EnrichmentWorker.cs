@@ -1,5 +1,6 @@
 using MostaqlK.Core;
 using MostaqlK.Core.Formatting;
+using MostaqlK.Core.Sources;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Models;
 using MostaqlK.Services;
@@ -115,7 +116,7 @@ public sealed class EnrichmentWorker
     }
 
     [ErrorOutcome(ErrorOutcome.Ignored, Label = "Expected NotImplementedException integration gaps (Step 4/5 not yet landed) tolerated silently")]
-    private async Task ProcessAsync(long projectId, CancellationToken cancellationToken)
+    private async Task ProcessAsync(SourceProjectId projectId, CancellationToken cancellationToken)
     {
         DomainError? lastError = null;
         ProjectDetails? details = null;
@@ -215,6 +216,7 @@ public sealed class EnrichmentWorker
     {
         return new()
         {
+            Source = details.Source,
             ProjectId = details.ProjectId,
             Title = details.Title,
             Url = details.Url,

@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Storage;
+using MostaqlK.Core.Sources;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Infrastructure.Http;
 using MostaqlK.Services;
@@ -485,7 +486,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private async Task LoadProjectsAddedTodayAsync()
     {
-        var result = await _projectRepository.CountAddedTodayAsync();
+        var result = await _projectRepository.CountAddedTodayAsync(SourceId.Default);
         if (!result.IsError)
         {
             _globalStatus.SetProjectsAddedToday(result.Value);
