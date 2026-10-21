@@ -17,8 +17,6 @@ using MostaqlK.Services;
 using MostaqlK.Services.Diagnostics;
 using MostaqlK.Services.Onboarding;
 using MostaqlK.Services.Pipeline;
-using MostaqlK.Services.Pipeline.DiffEngine;
-using MostaqlK.Services.Pipeline.WorkerPool;
 using MostaqlK.Sources.Mostaql;
 using MostaqlK.UI.DesignSystem;
 using MostaqlK.UI.TrayIcon;
@@ -144,26 +142,20 @@ public static class MauiProgram
         builder.Services.AddSingleton<ISecretRepository, SecretRepository>();
         builder.Services.AddSingleton<CookieStore>();
 
-        // Pipeline services
-        builder.Services.AddSingleton<InFlightTracker>();
-        builder.Services.AddSingleton<DiscoveryQueue>();
-        // The shared budget is `max_requests_per_minute` (configuration-reference.md: default 2), and
-        // the user's saved value must be honoured from the very first poll cycle - it used to be read
-        // only by SettingsViewModel, which is Transient and never constructed unless the Settings page
-        // was opened, so the running limiter always kept its hard-coded startup numbers.
-        // `settings_safe_requests` (the "الطلبات الآمنة" checkbox) decides whether that budget is
-        // enforced with the documented spacing or with the older, much faster burst behaviour.
-        builder.Services.AddSingleton<TokenBucketRateLimiter>(_ => new TokenBucketRateLimiter(
-            Microsoft.Maui.Storage.Preferences.Get(
-                "settings_max_requests_per_minute",
-                TokenBucketRateLimiter.DefaultRequestsPerMinute),
-            Microsoft.Maui.Storage.Preferences.Get("settings_safe_requests", true)));
-        builder.Services.AddSingleton<SqliteCommittedProvider>();
-        builder.Services.AddSingleton<InFlightSetProvider>();
-        builder.Services.AddSingleton<DiffEngine>();
-        builder.Services.AddSingleton<IEnrichmentService, EnrichmentService>();
-        builder.Services.AddSingleton<IPollService, PollService>();
-        builder.Services.AddSingleton<WorkerPool>();
+        // Pipeline services: one full engine per registered source, assembled by the factory
+        // and grouped by the orchestrator. The per-source components (queue, tracker, limiter,
+        // poll loop, worker pool) are NOT registered globally - only the active pipeline's
+        // instances are surfaced below, so the settings UI, status bar, feed, and tray keep
+        // injecting the exact objects the running engine uses. Adding a source changes nothing
+        // here: its pipeline appears next to the existing one with its own budget and telemetry.
+        builder.Services.AddSingleton<SourcePipelineFactory>();
+        builder.Services.AddSingleton<SourcePipelineOrchestrator>();
+        builder.Services.AddSingleton(sp => sp.GetRequiredService<SourcePipelineOrchestrator>().Active.Queue);
+        builder.Services.AddSingleton(sp => sp.GetRequiredService<SourcePipelineOrchestrator>().Active.Tracker);
+        builder.Services.AddSingleton(sp => sp.GetRequiredService<SourcePipelineOrchestrator>().Active.Limiter);
+        builder.Services.AddSingleton<IEnrichmentService>(sp => sp.GetRequiredService<SourcePipelineOrchestrator>().Active.Enrichment);
+        builder.Services.AddSingleton<IPollService>(sp => sp.GetRequiredService<SourcePipelineOrchestrator>().Active.Poll);
+        builder.Services.AddSingleton(sp => sp.GetRequiredService<SourcePipelineOrchestrator>().Active.Pool);
         builder.Services.AddSingleton<OnboardingStateService>();
 
         // Notifications
@@ -223,6 +215,11 @@ public static class MauiProgram
 #endif
 
         var app = builder.Build();
+
+        // Construct every source pipeline once, immediately after the container exists: this is
+        // what attaches the per-source status objects to GlobalAppStatusService, and it must
+        // happen before the first window binds to the projection.
+        _ = app.Services.GetRequiredService<SourcePipelineOrchestrator>();
 
         // Resolve the cookie store immediately (it is what installs CookieJar.SecureProvider) and
         // load the stored session, so the first poll cycle is already authenticated rather than

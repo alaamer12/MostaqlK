@@ -7,7 +7,6 @@ using MostaqlK.Infrastructure.Database;
 using MostaqlK.Services;
 using MostaqlK.Services.Onboarding;
 using MostaqlK.Services.Pipeline;
-using MostaqlK.Services.Pipeline.WorkerPool;
 
 namespace MostaqlK;
 
@@ -139,48 +138,18 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// Starts the Poll Service + Worker Pool background loops. Only THIS launch's explicit
-    /// --seed-design-data argument keeps the pipeline offline — a persisted preference from a
-    /// previous run can no longer do so (see fix note above `explicitlySeededThisLaunch`).
-    ///
-    /// FIX (whole-window freeze while a fresh database was being filled): this used to be called
-    /// directly from the constructor, which runs on the UI thread and carries WinUI's
-    /// SynchronizationContext. Calling StartAsync directly meant every `await` inside
-    /// `PollService.RunLoopAsync` and inside each `EnrichmentWorker.RunAsync` resumed *on the UI
-    /// thread* - so the ~165 KB listing parse, every detail-page parse and every SQLite write for
-    /// the whole backlog executed on the dispatcher and the window stopped responding until the
-    /// queue drained. `Task.Run` starts both loops on the thread pool with no captured context;
-    /// UI-bound state still reaches the UI safely because `GlobalAppStatusService` marshals its own
-    /// PropertyChanged.
+    /// Starts every source pipeline's Poll Service + Worker Pool background loops. Only THIS
+    /// launch's explicit --seed-design-data argument keeps the pipeline offline — a persisted
+    /// preference from a previous run can no longer do so (see fix note above
+    /// <c>explicitlySeededThisLaunch</c>). The persisted interval/pause state and the thread-pool
+    /// start-up rule (the whole-window-freeze FIX) now live in
+    /// <c>SourcePipelineOrchestrator.StartAll</c>.
     /// </summary>
     private void StartPipeline(IServiceProvider services, bool explicitlySeededThisLaunch)
     {
         if (!explicitlySeededThisLaunch)
         {
-            var pollService = services.GetRequiredService<IPollService>();
-            var workerPool = services.GetRequiredService<WorkerPool>();
-
-            // The poll interval is persisted but was only ever read by the Transient
-            // SettingsViewModel, so an untouched app ignored the user's saved value entirely.
-            pollService.PollIntervalSeconds = Math.Clamp(
-                Microsoft.Maui.Storage.Preferences.Get("settings_poll_interval_seconds", pollService.PollIntervalSeconds),
-                10,
-                3600);
-
-            // Persist the Start/Pause state: the app now "reserves the state it closed with".
-            // Defaults to false (paused) on the very first run to satisfy the "first run not activated" requirement.
-            var isPollingActive = Microsoft.Maui.Storage.Preferences.Get("settings_is_polling_active", false);
-            pollService.SetPaused(!isPollingActive);
-
-            // If debug-via-json is requested, force-enable polling to ensure we have data to export.
-            if (Environment.GetCommandLineArgs().Contains("--debug-via-json"))
-            {
-                pollService.SetPaused(false);
-            }
-
-            var pipelineToken = _pipelineCts.Token;
-            _ = Task.Run(() => pollService.StartAsync(pipelineToken), pipelineToken);
-            _ = Task.Run(() => workerPool.StartAsync(pipelineToken), pipelineToken);
+            services.GetRequiredService<SourcePipelineOrchestrator>().StartAll(_pipelineCts.Token);
             MostaqlK.Services.Diagnostics.InteractionLogger.Mark("App.Startup.PipelineStarted", "A");
         }
         else

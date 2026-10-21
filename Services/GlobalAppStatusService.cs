@@ -1,34 +1,141 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using MostaqlK.Core.Sources;
+using MostaqlK.Services.Pipeline;
 
 namespace MostaqlK.Services;
 
 /// <summary>
-/// A singleton service that holds global application state that must persist across page
-/// navigations, specifically sidebar statistics like projects added today and unread
-/// notification counts.
+/// Singleton UI-facing status. Per-source pipeline telemetry lives in
+/// <see cref="SourcePipelineStatus"/> instances owned by each <see cref="SourcePipeline"/>;
+/// this service projects the ACTIVE source's instance (property-changed events and pipeline
+/// events are re-raised verbatim, so every existing XAML binding and radar/dashboard
+/// subscription resolves unchanged) and keeps the genuinely global state (the unread
+/// notification badge) plus cross-source aggregates for the tray.
 /// </summary>
 public sealed partial class GlobalAppStatusService : ObservableObject
 {
-    /// <summary>
-    /// Radar/worker tokens are the DB's globally-unique internal row ids
-    /// (descriptor band + site id), so two sources' projects never alias each other
-    /// in the pipeline visuals. Callers pass <see cref="SourceProjectId"/>; the
-    /// conversion happens here, once.
-    /// </summary>
     private readonly SourceRegistry _registry;
+    private readonly Dictionary<SourcePipelineStatus, EventBridge> _bridges = new();
+    private readonly object _gate = new();
+
+    /// <summary>
+    /// Before the orchestrator attaches the real pipelines, the projection targets a private
+    /// detached instance so early-constructed consumers (transient VMs during startup) never
+    /// null-ref; it simply shows zeros.
+    /// </summary>
+    private SourcePipelineStatus _active;
 
     public GlobalAppStatusService(SourceRegistry registry)
     {
         _registry = registry;
+        _active = new SourcePipelineStatus(SourceId.Default, registry);
     }
 
-    private long Token(SourceProjectId key) => _registry.ToInternalId(key);
+    /// <summary>The projected source's status; use <see cref="StatusFor"/> for any other source.</summary>
+    public SourcePipelineStatus Active => _active;
+
+    public SourcePipelineStatus StatusFor(SourceId source)
+    {
+        lock (_gate)
+        {
+            return _statuses.TryGetValue(source, out var status)
+                ? status
+                : throw new KeyNotFoundException($"No pipeline status for source '{source}'.");
+        }
+    }
+
+    public IReadOnlyCollection<SourcePipelineStatus> All
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _statuses.Values.ToList();
+            }
+        }
+    }
+
+    private readonly Dictionary<SourceId, SourcePipelineStatus> _statuses = new();
+
+    /// <summary>Called once by <see cref="SourcePipelineOrchestrator"/> while it builds the pipelines.</summary>
+    public void Attach(IEnumerable<SourcePipelineStatus> statuses, SourceId activeSource)
+    {
+        lock (_gate)
+        {
+            foreach (var status in statuses)
+            {
+                _statuses[status.Source] = status;
+            }
+
+            if (!_statuses.TryGetValue(activeSource, out var active))
+            {
+                throw new KeyNotFoundException($"Active source '{activeSource}' has no pipeline status.");
+            }
+
+            SwitchProjection(active);
+        }
+    }
+
     /// <summary>
-    /// Every property here is written from the pipeline's own background loops (`PollService`,
-    /// `EnrichmentWorker`), while the bindings that read them live in the footer and the pipeline
-    /// dashboard. Raising <c>PropertyChanged</c> off the UI thread is a real crash risk on WinUI, so
-    /// the notification is marshalled once, centrally, rather than at every call site.
+    /// Switches which source the UI projection follows (the v3 rail will call this). Only the
+    /// active source's events are bridged, so a background source can never paint this source's
+    /// radar.
+    /// </summary>
+    public void SetActiveProjection(SourceId source)
+    {
+        lock (_gate)
+        {
+            if (_statuses.TryGetValue(source, out var next) && !ReferenceEquals(next, _active))
+            {
+                SwitchProjection(next);
+            }
+        }
+    }
+
+    private void SwitchProjection(SourcePipelineStatus next)
+    {
+        _active.PropertyChanged -= OnActivePropertyChanged;
+        if (_bridges.Remove(_active, out var oldBridge))
+        {
+            oldBridge.Detach();
+        }
+
+        _active = next;
+        _active.PropertyChanged += OnActivePropertyChanged;
+        _bridges[_active] = new EventBridge(this, _active);
+        // Empty property name = "everything changed", so all bindings re-read from the new target.
+        OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(string.Empty));
+    }
+
+    // --- Cross-source aggregates (tray) ---
+
+    /// <summary>Any source scanning right now.</summary>
+    public bool AnyScanning
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _statuses.Count == 0 ? _active.IsScanning : _statuses.Values.Any(s => s.IsScanning);
+            }
+        }
+    }
+
+    /// <summary>Any source whose last scan attempt failed.</summary>
+    public bool AnyScanFailed
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _statuses.Count == 0 ? _active.LastScanFailed : _statuses.Values.Any(s => s.LastScanFailed);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Same dispatcher-marshalling + teardown guard as <see cref="SourcePipelineStatus"/>,
+    /// because re-raised notifications arrive on the pipeline's background threads too.
     /// </summary>
     protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
     {
@@ -56,367 +163,16 @@ public sealed partial class GlobalAppStatusService : ObservableObject
         }
     }
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ProjectsAddedTodayText))]
-    public partial int ProjectsAddedTodayCount { get; set; }
+    private void OnActivePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        => OnPropertyChanged(e);
+
+    // --- Global state (not per source) ---
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(UnreadNotificationCountText))]
     public partial int UnreadNotificationCount { get; set; }
 
-    // --- Pipeline Radar Metrics ---
-
-    /// <summary>Discovery Tier (Outer Ring): 0 to 1.0 represents scan progress.</summary>
-    [ObservableProperty]
-    public partial double DiscoveryProgress { get; set; }
-
-    /// <summary>Queue Tier (Middle Ring): 0 to 1.0 represents backlog pressure.</summary>
-    [ObservableProperty]
-    public partial double QueuePressure { get; set; }
-
-    /// <summary>Enrichment Tier (Inner Ring): Bitmask or float representing worker activity.</summary>
-    [ObservableProperty]
-    public partial double EnrichmentActivity { get; set; }
-
-    /// <summary>Detailed states for each worker (0-2).</summary>
-    public WorkerState[] WorkerStates { get; } = new WorkerState[3];
-
-    /// <summary>Per-worker telemetry surfaced by the radar's worker tooltip.</summary>
-    public WorkerTelemetry[] Workers { get; } =
-    [
-        new WorkerTelemetry(0),
-        new WorkerTelemetry(1),
-        new WorkerTelemetry(2),
-    ];
-
-    /// <summary>Backlog capacity the queue ring/utilisation percentage is measured against.</summary>
-    [ObservableProperty]
-    public partial int QueueCapacity { get; set; } = 50;
-
-    /// <summary>Number of project ids currently waiting in the discovery backlog.</summary>
-    [ObservableProperty]
-    public partial int QueueCount { get; set; }
-
-    /// <summary>Total projects discovered since the app started (radar discovery tooltip).</summary>
-    [ObservableProperty]
-    public partial int ProjectsDiscoveredCount { get; set; }
-
-    /// <summary>When the last listing scan completed, used for "Last scan: 1.4s ago".</summary>
-    [ObservableProperty]
-    public partial DateTimeOffset? LastScanCompletedAt { get; set; }
-
-    /// <summary>Configured poll interval, mirrored from <c>PollService.PollIntervalSeconds</c>.</summary>
-    [ObservableProperty]
-    public partial int ScanIntervalSeconds { get; set; } = 30;
-
-    /// <summary>True while a listing scan is in flight (drives the radar's scanning segment).</summary>
-    [ObservableProperty]
-    public partial bool IsScanning { get; set; }
-
-    // --- Scan outcome ---
-    // A scan that fails, and a scan that succeeds but finds nothing new, used to look identical to
-    // the user: both left every number at zero. Only `LastScanCompletedAt` moved, and only on
-    // success, so a permanently failing endpoint was indistinguishable from "no new projects".
-    // These properties make the outcome of the *attempt* visible.
-
-    /// <summary>When the last scan attempt started, successful or not.</summary>
-    [ObservableProperty]
-    public partial DateTimeOffset? LastScanAttemptedAt { get; set; }
-
-    /// <summary>Number of scan attempts since the app started.</summary>
-    [ObservableProperty]
-    public partial int ScanAttemptCount { get; set; }
-
-    /// <summary>Projects returned by the last successful listing fetch (new + already known).</summary>
-    [ObservableProperty]
-    public partial int LastScanSeenCount { get; set; }
-
-    /// <summary>Genuinely new projects enqueued by the last successful scan.</summary>
-    [ObservableProperty]
-    public partial int LastScanNewCount { get; set; }
-
-    /// <summary>True when the most recent scan attempt failed; drives the panel's error line.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ConnectionText))]
-    [NotifyPropertyChangedFor(nameof(IsConnectionHealthy))]
-    public partial bool LastScanFailed { get; set; }
-
-    /// <summary>
-    /// Footer connection line. It used to be the hard-coded string "الاتصال: متصل" next to a
-    /// permanently green dot, so the app cheerfully claimed to be connected while every single scan
-    /// was being rejected.
-    /// </summary>
-    public string ConnectionText => LastScanFailed ? "الاتصال: فشل الفحص" : "الاتصال: متصل";
-
-    /// <summary>Drives which of the two footer dots is shown (green vs red).</summary>
-    public bool IsConnectionHealthy => !LastScanFailed;
-
-    /// <summary>The failing error's code (e.g. <c>HTTP.UNEXPECTED_STATUS</c>) for the log/diagnostics.</summary>
-    [ObservableProperty]
-    public partial string? LastScanErrorCode { get; set; }
-
-    /// <summary>The user-facing half of the failing <see cref="Core.DomainError"/>.</summary>
-    [ObservableProperty]
-    public partial string? LastScanErrorMessage { get; set; }
-
-    /// <summary>The failing error's remediation hint, when it carries one.</summary>
-    [ObservableProperty]
-    public partial string? LastScanFixMessage { get; set; }
-
-    /// <summary>
-    /// Publishes a failed scan attempt. Callers must also log through
-    /// <c>InteractionLogger.Failure</c> - this is the on-screen half, not a replacement for the log.
-    /// </summary>
-    public void NotifyScanFailed(Core.DomainError error)
-    {
-        LastScanFailed = true;
-        LastScanErrorCode = error.Code;
-        LastScanErrorMessage = error.ExternalMessage;
-        LastScanFixMessage = error.FixMessage;
-    }
-
-    /// <summary>Publishes a successful scan attempt, clearing any previous failure.</summary>
-    public void NotifyScanSucceeded(int seenCount, int newCount)
-    {
-        LastScanFailed = false;
-        LastScanErrorCode = null;
-        LastScanErrorMessage = null;
-        LastScanFixMessage = null;
-        LastScanSeenCount = seenCount;
-        LastScanNewCount = newCount;
-        LastScanCompletedAt = DateTimeOffset.UtcNow;
-    }
-
-    // Enqueue timestamps, so the queue tooltip can report the oldest item and the average wait.
-    private readonly Dictionary<long, DateTimeOffset> _queueEnqueuedAt = new();
-    private readonly object _queueSync = new();
-
-    /// <summary>
-    /// Project id -> title, remembered from the discovery listing so every later pipeline stage can
-    /// name a project semantically. Guarded by <c>_queueSync</c>.
-    /// </summary>
-    private readonly Dictionary<long, string> _projectTitles = new();
-    private const int MaxRememberedTitles = 512;
-    private double _waitSecondsTotal;
-    private int _waitSamples;
-
-    /// <summary>Age of the oldest item still waiting in the backlog, in seconds.</summary>
-    public double OldestQueuedItemSeconds
-    {
-        get
-        {
-            lock (_queueSync)
-            {
-                if (_queueEnqueuedAt.Count == 0)
-                {
-                    return 0;
-                }
-
-                var oldest = DateTimeOffset.MaxValue;
-                foreach (var enqueuedAt in _queueEnqueuedAt.Values)
-                {
-                    if (enqueuedAt < oldest)
-                    {
-                        oldest = enqueuedAt;
-                    }
-                }
-
-                return Math.Max(0, (DateTimeOffset.UtcNow - oldest).TotalSeconds);
-            }
-        }
-    }
-
-    /// <summary>Rolling average time a project spent queued before a worker claimed it.</summary>
-    public double AverageQueueWaitSeconds
-    {
-        get
-        {
-            lock (_queueSync)
-            {
-                return _waitSamples == 0 ? 0 : _waitSecondsTotal / _waitSamples;
-            }
-        }
-    }
-
-    public event Action<int, WorkerState>? WorkerStateChanged;
-
-    public void UpdateWorkerState(int index, WorkerState state)
-    {
-        if (index < 0 || index >= 3) return;
-        if (WorkerStates[index] == state) return;
-
-        WorkerStates[index] = state;
-        var worker = Workers[index];
-        worker.State = state;
-
-        switch (state)
-        {
-            case WorkerState.Processing:
-                worker.ProcessingStartedAt = DateTimeOffset.UtcNow;
-                break;
-
-            case WorkerState.Completed:
-                worker.CompletedCount++;
-                worker.LastProcessingSeconds = worker.ElapsedSeconds;
-                worker.ProcessingStartedAt = null;
-                break;
-
-            case WorkerState.Error:
-                worker.ErrorCount++;
-                worker.LastProcessingSeconds = worker.ElapsedSeconds;
-                worker.ProcessingStartedAt = null;
-                break;
-
-            default:
-                worker.ProcessingStartedAt = null;
-                worker.CurrentProjectTitle = string.Empty;
-                worker.CurrentProjectId = null;
-                break;
-        }
-
-        WorkerStateChanged?.Invoke(index, state);
-    }
-
-    /// <summary>Raised when a brand new project id enters the pipeline (discovery -> backlog).</summary>
-    public event Action<long, string>? ProjectDiscovered;
-
-    /// <summary>Raised when a worker claims a queued project (backlog -> enrichment).</summary>
-    public event Action<int, long, string>? ProjectAssignedToWorker;
-
-    /// <summary>Raised when a queued project leaves the pipeline without being enriched.</summary>
-    public event Action<long>? ProjectRemovedFromQueue;
-
-    public void NotifyProjectDiscovered(SourceProjectId projectId, string title = "")
-    {
-        ProjectsDiscoveredCount++;
-        var token = Token(projectId);
-        lock (_queueSync)
-        {
-            _queueEnqueuedAt[token] = DateTimeOffset.UtcNow;
-            RegisterTitle(token, title);
-        }
-
-        ProjectDiscovered?.Invoke(token, title);
-    }
-
-    /// <summary>
-    /// Remembers the human-readable title a project was discovered with, so every later stage can
-    /// name it. The pipeline only writes a project row once it has been *enriched*, so between
-    /// discovery and completion the listing snapshot is the single place a title exists at all -
-    /// which is why the worker cards used to show a bare `#1267826` instead of the project name.
-    /// Must be called while holding <c>_queueSync</c>.
-    /// </summary>
-    private void RegisterTitle(long projectId, string title)
-    {
-        if (string.IsNullOrWhiteSpace(title))
-        {
-            return;
-        }
-
-        _projectTitles[projectId] = title.Trim();
-
-        // Bounded: a long-running session discovers thousands of projects and only the in-flight
-        // ones are ever asked about, so the oldest entries are dropped rather than kept forever.
-        if (_projectTitles.Count > MaxRememberedTitles)
-        {
-            foreach (var stale in _projectTitles.Keys.Take(_projectTitles.Count - MaxRememberedTitles).ToList())
-            {
-                _projectTitles.Remove(stale);
-            }
-        }
-    }
-
-    /// <summary>The remembered title for a project, or an empty string when we never saw one.</summary>
-    public string TitleOf(long projectId)
-    {
-        lock (_queueSync)
-        {
-            return _projectTitles.TryGetValue(projectId, out var title) ? title : string.Empty;
-        }
-    }
-
-    public void NotifyProjectAssignedToWorker(int workerIndex, SourceProjectId projectId, string title = "")
-    {
-        if (workerIndex < 0 || workerIndex >= 3) return;
-
-        var token = Token(projectId);
-        lock (_queueSync)
-        {
-            if (_queueEnqueuedAt.Remove(token, out var enqueuedAt))
-            {
-                _waitSecondsTotal += Math.Max(0, (DateTimeOffset.UtcNow - enqueuedAt).TotalSeconds);
-                _waitSamples++;
-            }
-        }
-
-        var resolved = string.IsNullOrWhiteSpace(title) ? TitleOf(token) : title.Trim();
-
-        var worker = Workers[workerIndex];
-        worker.CurrentProjectId = token;
-        // The id is only a last resort now: the caller's title wins, then the title remembered from
-        // discovery, and `#id` only remains for a project recovered from the persisted backlog whose
-        // listing row this process never saw (it is replaced by the real title the moment the detail
-        // page is parsed - see UpdateWorkerProjectTitle).
-        worker.CurrentProjectTitle = string.IsNullOrEmpty(resolved) ? $"#{token}" : resolved;
-
-        ProjectAssignedToWorker?.Invoke(workerIndex, token, worker.CurrentProjectTitle);
-    }
-
-    /// <summary>
-    /// Replaces a worker's current project title once a better one is known (the enriched detail
-    /// page). Ignored if the worker has already moved on to another project.
-    /// </summary>
-    public void UpdateWorkerProjectTitle(int workerIndex, SourceProjectId projectId, string title)
-    {
-        if (workerIndex < 0 || workerIndex >= 3 || string.IsNullOrWhiteSpace(title)) return;
-
-        var token = Token(projectId);
-        lock (_queueSync)
-        {
-            RegisterTitle(token, title);
-        }
-
-        var worker = Workers[workerIndex];
-        if (worker.CurrentProjectId != token) return;
-
-        worker.CurrentProjectTitle = title.Trim();
-        ProjectAssignedToWorker?.Invoke(workerIndex, token, worker.CurrentProjectTitle);
-    }
-
-    public void NotifyProjectRemovedFromQueue(SourceProjectId projectId)
-    {
-        var token = Token(projectId);
-        lock (_queueSync)
-        {
-            _queueEnqueuedAt.Remove(token);
-        }
-
-        ProjectRemovedFromQueue?.Invoke(token);
-    }
-
-    /// <summary>Publishes the backlog size, keeping <see cref="QueuePressure"/> in sync with it.</summary>
-    public void UpdateQueueCount(int count)
-    {
-        QueueCount = Math.Max(0, count);
-        QueuePressure = QueueCapacity <= 0 ? 0 : Math.Min(1.0, QueueCount / (double)QueueCapacity);
-    }
-
-    /// <summary>Triggered whenever a snapshot is taken, driving the radar sweep.</summary>
-    [ObservableProperty]
-    public partial bool IsSnapshotActive { get; set; }
-
-    public string ProjectsAddedTodayText => ProjectsAddedTodayCount.ToString();
     public string UnreadNotificationCountText => UnreadNotificationCount.ToString();
-
-    public void IncrementProjectsAddedToday()
-    {
-        ProjectsAddedTodayCount++;
-    }
-
-    public void SetProjectsAddedToday(int count)
-    {
-        ProjectsAddedTodayCount = count;
-    }
 
     public void IncrementUnreadNotificationCount(int by = 1)
     {
@@ -426,5 +182,150 @@ public sealed partial class GlobalAppStatusService : ObservableObject
     public void ResetUnreadNotificationCount()
     {
         UnreadNotificationCount = 0;
+    }
+
+    // --- Active-source projection (get/set pass through; notifications re-raised) ---
+
+    public int ProjectsAddedTodayCount
+    {
+        get => _active.ProjectsAddedTodayCount;
+        set => _active.ProjectsAddedTodayCount = value;
+    }
+
+    public string ProjectsAddedTodayText => _active.ProjectsAddedTodayText;
+
+    public double DiscoveryProgress
+    {
+        get => _active.DiscoveryProgress;
+        set => _active.DiscoveryProgress = value;
+    }
+
+    public double QueuePressure
+    {
+        get => _active.QueuePressure;
+        set => _active.QueuePressure = value;
+    }
+
+    public double EnrichmentActivity
+    {
+        get => _active.EnrichmentActivity;
+        set => _active.EnrichmentActivity = value;
+    }
+
+    public WorkerState[] WorkerStates => _active.WorkerStates;
+
+    public WorkerTelemetry[] Workers => _active.Workers;
+
+    public int QueueCapacity
+    {
+        get => _active.QueueCapacity;
+        set => _active.QueueCapacity = value;
+    }
+
+    public int QueueCount => _active.QueueCount;
+
+    public int ProjectsDiscoveredCount => _active.ProjectsDiscoveredCount;
+
+    public DateTimeOffset? LastScanCompletedAt => _active.LastScanCompletedAt;
+
+    public int ScanIntervalSeconds => _active.ScanIntervalSeconds;
+
+    public bool IsScanning => _active.IsScanning;
+
+    public DateTimeOffset? LastScanAttemptedAt => _active.LastScanAttemptedAt;
+
+    public int ScanAttemptCount => _active.ScanAttemptCount;
+
+    public int LastScanSeenCount => _active.LastScanSeenCount;
+
+    public int LastScanNewCount => _active.LastScanNewCount;
+
+    public bool LastScanFailed => _active.LastScanFailed;
+
+    public string ConnectionText => _active.ConnectionText;
+
+    public bool IsConnectionHealthy => _active.IsConnectionHealthy;
+
+    public string? LastScanErrorCode => _active.LastScanErrorCode;
+
+    public string? LastScanErrorMessage => _active.LastScanErrorMessage;
+
+    public string? LastScanFixMessage => _active.LastScanFixMessage;
+
+    public double OldestQueuedItemSeconds => _active.OldestQueuedItemSeconds;
+
+    public double AverageQueueWaitSeconds => _active.AverageQueueWaitSeconds;
+
+    public bool IsSnapshotActive => _active.IsSnapshotActive;
+
+    // The pipeline components write their own SourcePipelineStatus now; these remain for any
+    // non-pipeline caller and forward to the active source.
+
+    public void NotifyScanFailed(Core.DomainError error) => _active.NotifyScanFailed(error);
+
+    public void NotifyScanSucceeded(int seenCount, int newCount) => _active.NotifyScanSucceeded(seenCount, newCount);
+
+    public void UpdateWorkerState(int index, WorkerState state) => _active.UpdateWorkerState(index, state);
+
+    public void NotifyProjectDiscovered(SourceProjectId projectId, string title = "") => _active.NotifyProjectDiscovered(projectId, title);
+
+    public void NotifyProjectAssignedToWorker(int workerIndex, SourceProjectId projectId, string title = "")
+        => _active.NotifyProjectAssignedToWorker(workerIndex, projectId, title);
+
+    public void UpdateWorkerProjectTitle(int workerIndex, SourceProjectId projectId, string title)
+        => _active.UpdateWorkerProjectTitle(workerIndex, projectId, title);
+
+    public void NotifyProjectRemovedFromQueue(SourceProjectId projectId) => _active.NotifyProjectRemovedFromQueue(projectId);
+
+    public void UpdateQueueCount(int count) => _active.UpdateQueueCount(count);
+
+    public string TitleOf(long projectId) => _active.TitleOf(projectId);
+
+    public void IncrementProjectsAddedToday() => _active.IncrementProjectsAddedToday();
+
+    public void SetProjectsAddedToday(int count) => _active.SetProjectsAddedToday(count);
+
+    /// <summary>
+    /// Event pass-through: radar/dashboard components subscribe here and receive the active
+    /// source's events only; the bridge re-attaches whenever the projection target changes.
+    /// </summary>
+    public event Action<int, WorkerState>? WorkerStateChanged;
+
+    public event Action<long, string>? ProjectDiscovered;
+
+    public event Action<int, long, string>? ProjectAssignedToWorker;
+
+    public event Action<long>? ProjectRemovedFromQueue;
+
+    private sealed class EventBridge
+    {
+        private readonly GlobalAppStatusService _owner;
+        private readonly SourcePipelineStatus _status;
+
+        public EventBridge(GlobalAppStatusService owner, SourcePipelineStatus status)
+        {
+            _owner = owner;
+            _status = status;
+            status.WorkerStateChanged += OnWorkerStateChanged;
+            status.ProjectDiscovered += OnProjectDiscovered;
+            status.ProjectAssignedToWorker += OnProjectAssignedToWorker;
+            status.ProjectRemovedFromQueue += OnProjectRemovedFromQueue;
+        }
+
+        public void Detach()
+        {
+            _status.WorkerStateChanged -= OnWorkerStateChanged;
+            _status.ProjectDiscovered -= OnProjectDiscovered;
+            _status.ProjectAssignedToWorker -= OnProjectAssignedToWorker;
+            _status.ProjectRemovedFromQueue -= OnProjectRemovedFromQueue;
+        }
+
+        private void OnWorkerStateChanged(int index, WorkerState state) => _owner.WorkerStateChanged?.Invoke(index, state);
+
+        private void OnProjectDiscovered(long id, string title) => _owner.ProjectDiscovered?.Invoke(id, title);
+
+        private void OnProjectAssignedToWorker(int workerIndex, long id, string title) => _owner.ProjectAssignedToWorker?.Invoke(workerIndex, id, title);
+
+        private void OnProjectRemovedFromQueue(long id) => _owner.ProjectRemovedFromQueue?.Invoke(id);
     }
 }
