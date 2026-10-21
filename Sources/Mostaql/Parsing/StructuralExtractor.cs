@@ -677,7 +677,7 @@ public static class StructuralExtractor
         }
 
         var requiresAuth = !string.IsNullOrEmpty(url) &&
-            (url.Contains("/register") || url.Contains("/login") || url.Contains("/download/") || url.Contains("mostaql.com/attachments/"));
+            (url.Contains("/register") || url.Contains("/login") || url.Contains("/download/") || url.Contains($"{MostaqlSource.Instance.Domain}/attachments/"));
 
         return new AttachmentCandidate(
             Filename: filename,

@@ -607,7 +607,7 @@ public static class DetailParser
                 {
                     if (!url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                     {
-                        url = "https://mostaql.com" + (url.StartsWith('/') ? "" : "/") + url;
+                        url = MostaqlSource.Instance.BuildAbsoluteUrl(url);
                     }
                     return url;
                 }
@@ -624,7 +624,7 @@ public static class DetailParser
         var fallbackUrl = anyProfileLink?.GetAttributeValue("href", string.Empty);
         if (!string.IsNullOrEmpty(fallbackUrl) && !fallbackUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
         {
-            fallbackUrl = "https://mostaql.com" + (fallbackUrl.StartsWith('/') ? "" : "/") + fallbackUrl;
+            fallbackUrl = MostaqlSource.Instance.BuildAbsoluteUrl(fallbackUrl);
         }
         return string.IsNullOrEmpty(fallbackUrl) ? null : fallbackUrl;
     }

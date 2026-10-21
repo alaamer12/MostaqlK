@@ -29,6 +29,11 @@
 		<!-- Models gained a SourceId field in the composite-identity step; the value object is
 		     dependency-free, so it is linked here for the same reason the models are. -->
 		<Compile Include="..\..\Core\Sources\SourceId.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Sources\SourceProjectId.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Sources\BrandTokenSet.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Sources\SourceCapabilities.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Sources\ISourceDescriptor.cs" LinkBase="Core" />
+		<Compile Include="..\..\Sources\Mostaql\MostaqlSource.cs" LinkBase="Sources" />
 		<Compile Include="..\..\Sources\Mostaql\Parsing\DetailParser.cs" LinkBase="Parsers" />
 		<Compile Include="..\..\Sources\Mostaql\Parsing\ListingParser.cs" LinkBase="Parsers" />
 		<Compile Include="..\..\Sources\Mostaql\Parsing\StructuralExtractor.cs" LinkBase="Parsers" />

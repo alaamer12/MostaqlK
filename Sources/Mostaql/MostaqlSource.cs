@@ -16,7 +16,12 @@ public sealed class MostaqlSource : ISourceDescriptor
     public string DisplayNameAr => "مستقل";
     public string DisplayNameLatin => "Mostaql";
 
-    public string Domain => "mostaql.com";
+    // The site's host, stated once for the whole module: every URL this class builds and every
+    // parser absolutization goes through these two constants.
+    private const string Host = "mostaql.com";
+    private const string SiteRoot = "https://" + Host;
+
+    public string Domain => Host;
 
     public string RailGlyph => "م";
 
@@ -75,7 +80,7 @@ public sealed class MostaqlSource : ISourceDescriptor
 
     public string BuildListingUrl(string? queryParams)
     {
-        var url = "https://mostaql.com/projects";
+        var url = SiteRoot + "/projects";
         if (!string.IsNullOrWhiteSpace(queryParams))
         {
             var normalized = queryParams.Trim();
@@ -90,11 +95,19 @@ public sealed class MostaqlSource : ISourceDescriptor
         return url;
     }
 
-    public string BuildProjectUrl(long siteProjectId) => $"https://mostaql.com/project/{siteProjectId}";
+    public string BuildProjectUrl(long siteProjectId) => $"{SiteRoot}/project/{siteProjectId}";
 
+    /// <summary>
+    /// Scheme-rooted absolutization for hrefs the parsers found: absolute URLs pass through,
+    /// root-relative paths get the host, bare paths get host + separator. Shared between the
+    /// module's own static parsers (via <see cref="Instance"/>) and any consumer holding the
+    /// descriptor, so every URL this site emits is built one way.
+    /// </summary>
     public string BuildAbsoluteUrl(string pathOrUrl) =>
-        pathOrUrl.StartsWith('/') ? "https://mostaql.com" + pathOrUrl : pathOrUrl;
+        pathOrUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+            ? pathOrUrl
+            : SiteRoot + (pathOrUrl.StartsWith('/') ? "" : "/") + pathOrUrl;
 
     public bool IsSameSiteUrl(string url) =>
-        url.Contains("mostaql.com", StringComparison.OrdinalIgnoreCase);
+        url.Contains(Host, StringComparison.OrdinalIgnoreCase);
 }
