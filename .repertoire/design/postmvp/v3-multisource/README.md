@@ -1,5 +1,10 @@
 # V3 — Source-Morph UI (Mostaql + Nafezly)
 
+> **→ Implementation requirements live in
+> [`.repertoire/.steering/v3/product/multi-source-requirements.md`](../../.steering/v3/product/multi-source-requirements.md)**
+> — read it before writing any code; it supersedes improvisation.
+
+
 Design for v3: the app watches multiple platforms, and **each source is a full
 identity, not a filter**. A minimized icon rail (left) holds the sources; clicking
 one morphs the *entire application* — brand colors, chrome, content, footer — into
