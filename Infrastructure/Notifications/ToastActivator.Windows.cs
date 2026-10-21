@@ -16,7 +16,7 @@ namespace MostaqlK.Infrastructure.Notifications;
 /// from the Start Menu shortcut's <c>System.AppUserModel.ToastActivatorCLSID</c> property (see
 /// <see cref="ToastAumidRegistrar"/>). Without this, clicking the toast body silently does nothing
 /// — which was the root cause of "buttons ARE NOT WORKING" for the general click (the explicit
-/// "عرض على مستقل" button uses protocol activation and is launched by the OS directly, so it did
+/// the source-link toast button uses protocol activation and is launched by the OS directly, so it did
 /// not depend on this).
 /// </para>
 /// </summary>

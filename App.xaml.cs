@@ -52,8 +52,9 @@ public partial class App : Application
         // A `--theme=light|dark` startup argument overrides the stored preference so each page can be
         // captured deterministically in both themes during design-parity verification.
         // If no preference has been explicitly set, it defaults to matching system (AppTheme.Unspecified).
-        bool? storedIsDarkMode = Microsoft.Maui.Storage.Preferences.ContainsKey("settings_is_dark_mode")
-            ? Microsoft.Maui.Storage.Preferences.Get("settings_is_dark_mode", false)
+        var settings = services.GetRequiredService<MostaqlK.Core.Sources.ISettingsRepository>();
+        bool? storedIsDarkMode = settings.ContainsGlobal(MostaqlK.Core.Sources.SettingsKeys.IsDarkMode)
+            ? settings.GetGlobal(MostaqlK.Core.Sources.SettingsKeys.IsDarkMode, false)
             : null;
         UserAppTheme = StartupNavigation.ResolveTheme(Environment.GetCommandLineArgs(), storedIsDarkMode);
 

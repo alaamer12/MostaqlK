@@ -140,7 +140,7 @@ public sealed class WinAppSdkVariation : IToastVariation
 
         if (!string.IsNullOrWhiteSpace(project.Url))
         {
-            builder.AddButton(new AppNotificationButton("عرض على مستقل")
+            builder.AddButton(new AppNotificationButton(NotificationCopy.ViewOnSource(project.Source))
                 .AddArgument("openUrl", project.Url));
         }
 
@@ -159,7 +159,7 @@ public sealed class WinAppSdkVariation : IToastVariation
         var firstUrl = projects.Select(p => p.Url).FirstOrDefault(u => !string.IsNullOrWhiteSpace(u));
         if (!string.IsNullOrWhiteSpace(firstUrl))
         {
-            builder.AddButton(new AppNotificationButton("عرض على مستقل")
+            builder.AddButton(new AppNotificationButton(NotificationCopy.ViewOnSource(projects.First(p => !string.IsNullOrWhiteSpace(p.Url)).Source))
                 .AddArgument("openUrl", firstUrl));
         }
 

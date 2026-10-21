@@ -12,10 +12,21 @@ public interface ISettingsRepository
 
     public void Set<T>(SourceId source, string key, T value);
 
+    /// <summary>
+    /// True when a value exists for <paramref name="key"/> for this source — either under the
+    /// namespaced container or as a legacy flat key. Callers that must distinguish "unset" from
+    /// "set to the type's default" (e.g. the tri-state dark-mode theme seed) need this rather than
+    /// inferring from <see cref="Get{T}"/>'s fallback.
+    /// </summary>
+    public bool Contains(SourceId source, string key);
+
     /// <summary>Global (not per-source) access — dark mode, startup, etc.</summary>
     public T GetGlobal<T>(string key, T fallback);
 
     public void SetGlobal<T>(string key, T value);
+
+    /// <summary>True when a value exists for this global key in the flat container.</summary>
+    public bool ContainsGlobal(string key);
 }
 
 /// <summary>

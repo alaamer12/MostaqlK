@@ -69,7 +69,7 @@ internal static class Program
         using (var connection = factory.CreateConnection())
         {
             var version = GetUserVersion(connection);
-            Check(version == 2, $"user_version is 2 after upgrade (got {version})");
+            Check(version == 3, $"user_version is 3 after full upgrade chain (got {version})");
 
             var columns = ReadColumnNames(connection, "projects");
             Check(columns.Contains("source_id") && columns.Contains("site_project_id"), "projects has source_id + site_project_id");
@@ -78,6 +78,11 @@ internal static class Program
 
             var indexNames = ReadIndexNames(connection, "projects");
             Check(indexNames.Contains("ux_projects_source_site"), "unique index ux_projects_source_site exists");
+            Check(ReadIndexNames(connection, "owners").Contains("ux_owners_source_owner"), "unique index ux_owners_source_owner exists");
+
+            var backlogPk = ReadPrimaryKeyColumns(connection, "discovery_backlog");
+            Check(backlogPk.SequenceEqual(["source_id", "project_id"]),
+                $"discovery_backlog is keyed (source_id, project_id) (got {string.Join(",", backlogPk)})");
 
             Check(SingleScalar(connection, "SELECT COUNT(*) FROM projects WHERE source_id = 'mostaql' AND site_project_id = project_id;") == 3,
                 "all 3 v1 rows backfilled to source mostaql with site_project_id = project_id");
@@ -106,7 +111,7 @@ internal static class Program
         var factory = new SqliteConnectionFactory(dbPath);
         using (var connection = factory.CreateConnection())
         {
-            Check(GetUserVersion(connection) == 2, "user_version stays 2");
+            Check(GetUserVersion(connection) == 3, "user_version stays 3");
         }
 
         var afterCounts = ReadCounts(dbPath);
@@ -123,7 +128,7 @@ internal static class Program
         var factory = new SqliteConnectionFactory(dbPath);
         using var connection = factory.CreateConnection();
 
-        Check(GetUserVersion(connection) == 2, "fresh db reaches user_version 2 without running the 0002 step");
+        Check(GetUserVersion(connection) == 3, "fresh db reaches the current user_version without running numbered steps");
 
         var columns = ReadColumnNames(connection, "projects");
         Check(columns.Contains("source_id") && columns.Contains("site_project_id"), "fresh projects table already carries the v2 columns");
@@ -310,16 +315,23 @@ internal static class Program
     {
         public SourceId Id { get; } = id;
         public string DisplayNameAr => Id.Value;
+        public string DisplayNameLatin => Id.Value;
         public string Domain => Id.Value + ".test";
         public string RailGlyph => "X";
-        public BrandTokenSet Brands => new("#000000", "#000000", "#000000", "#FFFFFF");
+        public BrandTokenSet Brands => new("#000000", "#000000", "#000000", "#FFFFFF", "#0000FF", "#4040FF");
         public int DefaultPollIntervalSeconds => 30;
         public int DefaultRequestsPerMinute => 2;
         public string CurrencySuffix => "";
         public string? OwnerFallbackMeta => null;
         public SourceCapabilities Capabilities => new(true, true, false);
         public string CookieSecretKey => "cookie_" + Id.Value;
+        public string LegacyCookieSecretKey => "cookie_legacy_" + Id.Value;
+        public string LegacyCookieEnvInlineVar => "TEST_COOKIE_" + Id.Value.ToUpperInvariant();
+        public string LegacyCookieEnvFileVar => "TEST_COOKIE_" + Id.Value.ToUpperInvariant() + "_FILE";
         public string SettingsContainerId => Id.Value;
+        public string UserAgent => "test-agent";
+        public string AcceptHeader => "text/html";
+        public string AcceptLanguageHeader => "en";
         public long InternalIdBand => band;
         public string BuildListingUrl(string? queryParams) => $"https://{Domain}/projects";
         public string BuildProjectUrl(long siteProjectId) => $"https://{Domain}/projects/{siteProjectId}";
@@ -420,5 +432,24 @@ internal static class Program
         }
 
         return names;
+    }
+
+    /// <summary>The table's PRIMARY KEY columns in key order (PRAGMA table_info pk&gt;0 gives position).</summary>
+    private static List<string> ReadPrimaryKeyColumns(SqliteConnection connection, string table)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = $"PRAGMA table_info({table});";
+        var keyed = new List<(int Position, string Name)>();
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var position = reader.GetInt32(5);
+            if (position > 0)
+            {
+                keyed.Add((position, reader.GetString(1)));
+            }
+        }
+
+        return keyed.OrderBy(k => k.Position).Select(k => k.Name).ToList();
     }
 }

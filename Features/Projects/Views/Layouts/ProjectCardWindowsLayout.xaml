@@ -183,13 +183,13 @@
                     </HorizontalStackLayout>
                 </Grid>
 
-                <!-- "عرض في مستقل" - opens the project's live listing on mostaql.com in the OS browser.
-                     Reusable MostaqlLinkButton (UI/PlatformComponents/MostaqlLinkButton) replaces the
+                <!-- The source-link chip - opens the project's live listing on its own site in the OS browser.
+                     Reusable SourceLinkButton (UI/PlatformComponents/SourceLinkButton) replaces the
                      previous inline PressableBorder implementation. -->
-                <components:MostaqlLinkButton
-                        Command="{Binding OpenOnMostaqlCommand}"
+                <components:SourceLinkButton
+                        Command="{Binding OpenOnSourceCommand}"
                         Margin="0,16,0,0"
-                        AutomationId="ProjectCard_OpenOnMostaqlButton" />
+                        AutomationId="ProjectCard_OpenOnSourceButton" />
 
             </VerticalStackLayout>
         </components:AppCard>

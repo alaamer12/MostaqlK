@@ -7,9 +7,6 @@ namespace MostaqlK.Infrastructure.Database;
 /// <inheritdoc cref="ISecretRepository"/>
 public sealed class SecretRepository : ISecretRepository
 {
-    /// <summary>Key under which the Mostaql session cookie header is stored.</summary>
-    public const string MostaqlCookieKey = "mostaql_cookie";
-
     private readonly SqliteConnectionFactory _connectionFactory;
 
     public SecretRepository(SqliteConnectionFactory connectionFactory)

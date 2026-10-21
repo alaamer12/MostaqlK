@@ -34,7 +34,9 @@ public sealed class EnrichmentService : IEnrichmentService
                 // We fire and forget or await? 
                 // The issue description says: "زيد هذا من استهلاك القرص والوقت اللازم لكل عنصر في طابور الإثراء."
                 // So it should be part of the enrichment time.
-                await _assetDownloadService.ResolveAsync(asset, cancellationToken);
+                // The project's own source selects which session/policy the download uses, so a
+                // nafezly asset would use the nafezly jar — never this source's cookie.
+                await _assetDownloadService.ResolveAsync(projectId.Source, asset, cancellationToken);
             }
         }
 

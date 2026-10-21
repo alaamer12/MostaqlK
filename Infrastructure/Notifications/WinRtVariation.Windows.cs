@@ -67,7 +67,7 @@ public sealed class WinRtVariation : IToastVariation
         var actionsXml = string.IsNullOrWhiteSpace(project.Url)
             ? string.Empty
             : $@"<actions>
-        <action content='عرض على مستقل' 
+        <action content='{NotificationCopy.ViewOnSource(project.Source)}' 
                 arguments='openUrl={Uri.EscapeDataString(project.Url)}' />
     </actions>";
 
@@ -101,11 +101,12 @@ public sealed class WinRtVariation : IToastVariation
     {
         var header = $"يوجد {projects.Count} مشاريع جديدة — تفقدها هنا";
 
-        var firstUrl = projects.Select(p => p.Url).FirstOrDefault(u => !string.IsNullOrWhiteSpace(u));
+        var firstUrlProject = projects.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.Url));
+        var firstUrl = firstUrlProject?.Url;
         var actionsXml = string.IsNullOrWhiteSpace(firstUrl)
             ? string.Empty
             : $@"<actions>
-        <action content='عرض على مستقل' 
+        <action content='{NotificationCopy.ViewOnSource(firstUrlProject!.Source)}' 
                 arguments='openUrl={Uri.EscapeDataString(firstUrl!)}' />
     </actions>";
 

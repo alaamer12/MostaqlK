@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Maui.Storage;
 using MostaqlK.Core;
 using MostaqlK.Core.Navigation;
 using MostaqlK.Core.Sources;
@@ -26,14 +25,14 @@ namespace MostaqlK.Features.Projects.ViewModels;
 public sealed partial class ProjectFeedViewModel : ObservableObject
 {
     private const int RecentLimit = 100;
-    private const string KeyPollIntervalSeconds = "settings_poll_interval_seconds";
-    private const string KeyMaxRequestsPerMinute = "settings_max_requests_per_minute";
 
     private readonly IProjectRepository _projectRepository;
     private readonly FtsQueryService _ftsQueryService;
     private readonly IPollService _pollService;
     private readonly TokenBucketRateLimiter _rateLimiter;
     private readonly GlobalAppStatusService _globalStatus;
+    private readonly ISettingsRepository _settings;
+    private readonly SourceId _source = SourceId.Default;
 
     // Guards against overlapping LoadAsync calls racing each other: if the search box's
     // debounce fires more than once in quick succession (e.g. WinAppDriver/remote SendKeys
@@ -141,13 +140,15 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         FtsQueryService ftsQueryService,
         IPollService pollService,
         TokenBucketRateLimiter rateLimiter,
-        GlobalAppStatusService globalStatus)
+        GlobalAppStatusService globalStatus,
+        ISettingsRepository settings)
     {
         _projectRepository = projectRepository;
         _ftsQueryService = ftsQueryService;
         _pollService = pollService;
         _rateLimiter = rateLimiter;
         _globalStatus = globalStatus;
+        _settings = settings;
 
         RefreshHeaderStatus();
 
@@ -199,8 +200,8 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
 
     public void RefreshHeaderStatus()
     {
-        PollIntervalSeconds = Preferences.Get(KeyPollIntervalSeconds, _pollService.PollIntervalSeconds);
-        RequestsPerMinute = Preferences.Get(KeyMaxRequestsPerMinute, Math.Max(1, _rateLimiter.Capacity));
+        PollIntervalSeconds = _settings.Get(_source, SettingsKeys.PollIntervalSeconds, _pollService.PollIntervalSeconds);
+        RequestsPerMinute = _settings.Get(_source, SettingsKeys.MaxRequestsPerMinute, Math.Max(1, _rateLimiter.Capacity));
         IsPollingActive = !_pollService.IsPaused;
     }
 
@@ -374,7 +375,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
             IsPollingActive = !_pollService.IsPaused;
 
             // Persist the state: "reserve the state it closed with"
-            Preferences.Set("settings_is_polling_active", IsPollingActive);
+            _settings.SetGlobal(SettingsKeys.IsPollingActive, IsPollingActive);
 
             OnPropertyChanged(nameof(PollIntervalText));
             OnPropertyChanged(nameof(LiveStatusText));

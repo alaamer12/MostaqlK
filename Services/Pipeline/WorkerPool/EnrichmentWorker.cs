@@ -115,7 +115,7 @@ public sealed class EnrichmentWorker
         }
     }
 
-    [ErrorOutcome(ErrorOutcome.Ignored, Label = "Expected NotImplementedException integration gaps (Step 4/5 not yet landed) tolerated silently")]
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Per-project persist/notify failures routed to CrashReporter so the worker loop survives")]
     private async Task ProcessAsync(SourceProjectId projectId, CancellationToken cancellationToken)
     {
         DomainError? lastError = null;
@@ -185,12 +185,6 @@ public sealed class EnrichmentWorker
                 InteractionLogger.Mark("EnrichmentWorker.UpsertSuccess", "D", new { projectId });
             }
         }
-        catch (NotImplementedException)
-        {
-            // Expected integration gap: Step 4 (ProjectRepository/DB schema) is not
-            // implemented yet. Tolerated here so the pipeline can be exercised end-to-end
-            // ahead of that step landing.
-        }
         catch (Exception ex)
         {
             CrashReporter.Report("EnrichmentWorker.UpsertException", ex, new { projectId });
@@ -201,10 +195,6 @@ public sealed class EnrichmentWorker
             await _notificationDispatcher.NotifyNewProjectsAsync(
                 new List<Models.ProjectSummary> { ToSummary(details) },
                 cancellationToken);
-        }
-        catch (NotImplementedException)
-        {
-            // Expected integration gap: Step 5 (NotificationDispatcher) is not implemented yet.
         }
         catch (Exception ex)
         {

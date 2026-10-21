@@ -43,9 +43,6 @@ public sealed class DesignDataSeeder
     /// </summary>
     private const int RequestsPerMinute = 12;
 
-    /// <summary>Mirrors <c>ProjectFeedViewModel.KeyMaxRequestsPerMinute</c> / the settings page.</summary>
-    private const string MaxRequestsPerMinutePreferenceKey = "settings_max_requests_per_minute";
-
     /// <summary>The two projects.html feed cards plus the project-details.html project.</summary>
     private const int DesignCardCount = 3;
 
@@ -55,11 +52,13 @@ public sealed class DesignDataSeeder
 
     private readonly IProjectRepository _projectRepository;
     private readonly IOwnerRepository _ownerRepository;
+    private readonly ISettingsRepository _settings;
 
-    public DesignDataSeeder(IProjectRepository projectRepository, IOwnerRepository ownerRepository)
+    public DesignDataSeeder(IProjectRepository projectRepository, IOwnerRepository ownerRepository, ISettingsRepository settings)
     {
         _projectRepository = projectRepository;
         _ownerRepository = ownerRepository;
+        _settings = settings;
     }
 
     /// <summary>
@@ -85,7 +84,7 @@ public sealed class DesignDataSeeder
 
     public async Task<Result<int>> SeedAsync(CancellationToken cancellationToken = default)
     {
-        Microsoft.Maui.Storage.Preferences.Set(MaxRequestsPerMinutePreferenceKey, RequestsPerMinute);
+        _settings.Set(SourceId.Default, SettingsKeys.MaxRequestsPerMinute, RequestsPerMinute);
 
         var cleared = await _projectRepository.ClearAllAsync(cancellationToken);
         if (!cleared.IsOk)

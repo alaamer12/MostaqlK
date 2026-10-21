@@ -1,4 +1,3 @@
-using Microsoft.Maui.Storage;
 using MostaqlK.Core.Sources;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Infrastructure.Http;
@@ -22,19 +21,22 @@ public sealed class SourcePipelineFactory
     private readonly AssetDownloadService _assetDownloadService;
     private readonly INotificationDispatcher _notificationDispatcher;
     private readonly SourceRegistry _registry;
+    private readonly ISettingsRepository _settings;
 
     public SourcePipelineFactory(
         IProjectRepository projectRepository,
         IOwnerRepository ownerRepository,
         AssetDownloadService assetDownloadService,
         INotificationDispatcher notificationDispatcher,
-        SourceRegistry registry)
+        SourceRegistry registry,
+        ISettingsRepository settings)
     {
         _projectRepository = projectRepository;
         _ownerRepository = ownerRepository;
         _assetDownloadService = assetDownloadService;
         _notificationDispatcher = notificationDispatcher;
         _registry = registry;
+        _settings = settings;
     }
 
     public SourcePipeline Create(ISourceDescriptor descriptor, ISourceDiscovery discovery, ISourceEnrichment enrichment)
@@ -43,11 +45,11 @@ public sealed class SourcePipelineFactory
         var queue = new DiscoveryQueue();
         var tracker = new InFlightTracker();
 
-        // rpm/safe-requests are still global flat keys (per-source namespacing lands with the
-        // settings step); the descriptor supplies this source's documented defaults.
+        // Per-source budget read through the namespaced settings store (legacy flat key is the
+        // read-through fallback); the descriptor supplies this source's documented defaults.
         var limiter = new TokenBucketRateLimiter(
-            Preferences.Get("settings_max_requests_per_minute", descriptor.DefaultRequestsPerMinute),
-            Preferences.Get("settings_safe_requests", true));
+            _settings.Get(descriptor.Id, SettingsKeys.MaxRequestsPerMinute, descriptor.DefaultRequestsPerMinute),
+            _settings.Get(descriptor.Id, SettingsKeys.SafeRequests, true));
 
         var enrichmentService = new EnrichmentService(enrichment, limiter, _assetDownloadService);
         var diffEngine = new DiffEngine.DiffEngine(new SqliteCommittedProvider(_projectRepository), new InFlightSetProvider(tracker));

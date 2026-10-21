@@ -26,13 +26,16 @@
 		<Compile Include="..\..\Core\Formatting\PipelineTelemetryFormatter.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Formatting\TextTruncator.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Utilities\StringNormalization.cs" LinkBase="Core" />
+		<!-- Models gained a SourceId field in the composite-identity step; the value object is
+		     dependency-free, so it is linked here for the same reason the models are. -->
+		<Compile Include="..\..\Core\Sources\SourceId.cs" LinkBase="Core" />
 		<Compile Include="..\..\Sources\Mostaql\Parsing\DetailParser.cs" LinkBase="Parsers" />
 		<Compile Include="..\..\Sources\Mostaql\Parsing\ListingParser.cs" LinkBase="Parsers" />
 		<Compile Include="..\..\Sources\Mostaql\Parsing\StructuralExtractor.cs" LinkBase="Parsers" />
 		<Compile Include="..\..\Sources\Mostaql\Parsing\InferenceEngine.cs" LinkBase="Parsers" />
 		<Compile Include="..\..\Sources\Mostaql\Parsing\ParseErrors.cs" LinkBase="Parsers" />
 		<Compile Include="..\..\Sources\Mostaql\Parsing\ParseException.cs" LinkBase="Parsers" />
-		<Compile Include="..\..\Infrastructure\Http\CookieJar.cs" LinkBase="Http" />
+		<Compile Include="..\..\Infrastructure\Http\CookieParser.cs" LinkBase="Http" />
 		<Compile Include="..\..\Models\ProjectDetails.cs" LinkBase="Models" />
 		<Compile Include="..\..\Models\ProjectSummary.cs" LinkBase="Models" />
 		<Compile Include="..\..\Models\Owner.cs" LinkBase="Models" />

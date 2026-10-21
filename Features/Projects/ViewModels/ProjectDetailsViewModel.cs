@@ -17,6 +17,7 @@ namespace MostaqlK.Features.Projects.ViewModels;
 public sealed partial class AttachmentItemViewModel : ObservableObject
 {
     private readonly AssetDownloadService _assetDownloadService;
+    private readonly SourceId _source;
 
     public Asset Asset { get; }
 
@@ -38,10 +39,11 @@ public sealed partial class AttachmentItemViewModel : ObservableObject
 
     private string? _localPath;
 
-    public AttachmentItemViewModel(Asset asset, AssetDownloadService assetDownloadService)
+    public AttachmentItemViewModel(Asset asset, AssetDownloadService assetDownloadService, SourceId source)
     {
         Asset = asset;
         _assetDownloadService = assetDownloadService;
+        _source = source;
 
         // Initial state: if Asset already has a LocalPath, it's downloaded.
         if (!string.IsNullOrEmpty(asset.LocalPath) && File.Exists(asset.LocalPath))
@@ -88,7 +90,7 @@ public sealed partial class AttachmentItemViewModel : ObservableObject
         StatusMessage = "جارٍ التحميل...";
         try
         {
-            var resolution = await _assetDownloadService.ResolveAsync(Asset);
+            var resolution = await _assetDownloadService.ResolveAsync(_source, Asset);
             Status = resolution.Status;
             StatusMessage = resolution.Message ?? resolution.LocalPath ?? resolution.Url;
 
@@ -185,8 +187,8 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
 
     public AppIconGlyph EnrichmentBadgeIcon => EnrichmentBadgeStyle.GetIcon(EnrichmentStatus);
 
-    /// <summary>Formatted budget in canonical currency presentation (e.g., "2,500 - 5,500 ر.س").</summary>
-    public string Budget => Details?.Budget is not null ? BudgetFormatter.Format(Details.Budget) : "—";
+    /// <summary>Formatted budget with the project source's currency suffix (e.g., "2,500 - 5,500" + suffix).</summary>
+    public string Budget => Details?.Budget is not null ? BudgetFormatter.Format(Details.Budget, MostaqlK.Core.Sources.SourceRegistryProvider.DescriptorFor(Details.Source)?.CurrencySuffix ?? string.Empty) : "—";
 
     /// <summary>Formatted delivery duration in canonical Arabic plural form.</summary>
     public string Duration => Details?.DeliveryDays is int days ? ArabicRelativeTime.Days(days) : "—";
@@ -228,14 +230,14 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public async Task OpenOnMostaqlAsync()
+    public async Task OpenOnSourceAsync()
     {
         var url = Details?.Url;
         if (string.IsNullOrWhiteSpace(url))
         {
             if (Details?.ProjectId > 0)
             {
-                url = $"https://mostaql.com/project/{Details.ProjectId}";
+                url = MostaqlK.Core.Sources.SourceRegistryProvider.DescriptorFor(Details.Source)?.BuildProjectUrl(Details.ProjectId) ?? string.Empty;
             }
             else
             {
@@ -249,7 +251,7 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            MostaqlK.Services.Diagnostics.InteractionLogger.Fault("ProjectDetailsViewModel.OpenOnMostaqlAsync", ex);
+            MostaqlK.Services.Diagnostics.InteractionLogger.Fault("ProjectDetailsViewModel.OpenOnSourceAsync", ex);
         }
     }
 
@@ -287,7 +289,7 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
             Attachments.Clear();
             foreach (var asset in Details.Attachments)
             {
-                Attachments.Add(new AttachmentItemViewModel(asset, _assetDownloadService));
+                Attachments.Add(new AttachmentItemViewModel(asset, _assetDownloadService, Details.Source));
             }
         }
         finally

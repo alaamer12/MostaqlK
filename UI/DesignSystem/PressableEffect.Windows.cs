@@ -20,7 +20,7 @@ public partial class PressableEffect
     private bool _cursorApplied;
 
     // Whether THIS view's own highlight is currently being suppressed because a nested
-    // pressable descendant (e.g. ProjectCard's "عرض في مستقل" chip inside the card) is being
+    // pressable descendant (e.g. the ProjectCard source-link chip inside the card) is being
     // hovered/pressed - see SuppressForChildHover/ResumeAfterChildHover below.
     private bool _suppressedByChildHover;
 
@@ -37,7 +37,7 @@ public partial class PressableEffect
         // WinUI's PointerEntered/Exited are geometry-bound to each element's own bounding box:
         // they don't fire on an ancestor just because the pointer moved onto a nested child that's
         // still visually inside the ancestor's rect (e.g. moving from a ProjectCard's body onto its
-        // "عرض في مستقل" chip button). So when THIS view's own hover starts, tell the nearest
+        // source-link chip button). So when THIS view's own hover starts, tell the nearest
         // ancestor that also has a PressableEffect to step aside instead of showing both highlights
         // stacked on top of each other.
         FindAncestorPressable()?.SuppressForChildHover();

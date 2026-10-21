@@ -15,7 +15,7 @@ public sealed class SqliteConnectionFactory
     /// <c>Migrations/NNNN_*.sql</c> reference files; the executable copy of each step is the
     /// matching SQL constant below, applied in order by <see cref="EnsureSchema"/>.
     /// </summary>
-    private const int CurrentSchemaVersion = 2;
+    private const int CurrentSchemaVersion = 3;
 
     private readonly string _connectionString;
     private readonly object _migrationLock = new();
@@ -78,7 +78,8 @@ public sealed class SqliteConnectionFactory
             // Stepwise runner: each step upgrades exactly one version and is applied only when
             // the database is at that version, so re-runs are no-ops and a downgrade by an older
             // build surfaces as the mismatch throw above rather than a half-applied schema.
-            // The bootstrap schema already lands at v2, so version 0 never runs the 0002 step.
+            // The bootstrap schema already lands at the current version, so version 0 never
+            // runs the numbered steps.
             if (currentVersion == 0)
             {
                 RunStep(connection, InitialSchemaSql);
@@ -86,6 +87,12 @@ public sealed class SqliteConnectionFactory
             else if (currentVersion == 1)
             {
                 RunStep(connection, Migration0002Sql);
+                currentVersion = 2;
+            }
+
+            if (currentVersion == 2)
+            {
+                RunStep(connection, Migration0003Sql);
             }
 
             SetUserVersion(connection, CurrentSchemaVersion);
@@ -183,9 +190,31 @@ public sealed class SqliteConnectionFactory
         """;
 
     /// <summary>
-    /// Bootstrap ("version 0") schema - lands directly at the current v2 shape so fresh installs
-    /// never run the 0002 step; see <c>Migrations/0001_initial_schema.sql</c> for the historical
-    /// v1 statements.
+    /// v2 -&gt; v3 step (see <c>Migrations/0003_add_source_unique_keys.sql</c>): makes the composite
+    /// identity enforceable in storage instead of relying on internal-id band disjointness alone —
+    /// owners get a unique <c>(source_id, owner_id)</c> index and the discovery backlog is rebuilt
+    /// keyed <c>(source_id, project_id)</c>. Without these, an accidental band overlap would let two
+    /// sources' FNV-hashed owner ids silently overwrite each other through <c>ON CONFLICT(owner_id)</c>.
+    /// </summary>
+    private const string Migration0003Sql = """
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_owners_source_owner ON owners(source_id, owner_id);
+        CREATE TABLE discovery_backlog_new (
+            source_id TEXT NOT NULL,
+            project_id INTEGER NOT NULL,
+            discovered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            retry_count INTEGER DEFAULT 0,
+            PRIMARY KEY (source_id, project_id)
+        );
+        INSERT INTO discovery_backlog_new (source_id, project_id, discovered_at, retry_count)
+            SELECT source_id, project_id, discovered_at, retry_count FROM discovery_backlog;
+        DROP TABLE discovery_backlog;
+        ALTER TABLE discovery_backlog_new RENAME TO discovery_backlog;
+        """;
+
+    /// <summary>
+    /// Bootstrap ("version 0") schema - lands directly at the current schema version so new DBs
+    /// never run the numbered steps; see <c>Migrations/0001_initial_schema.sql</c> for the
+    /// historical v1 statements.
     /// </summary>
     private const string InitialSchemaSql = """
         CREATE TABLE IF NOT EXISTS projects (
@@ -228,6 +257,8 @@ public sealed class SqliteConnectionFactory
             last_seen_at TEXT NOT NULL
         );
 
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_owners_source_owner ON owners(source_id, owner_id);
+
         CREATE TABLE IF NOT EXISTS project_skills (
             project_id INTEGER NOT NULL,
             name TEXT NOT NULL,
@@ -250,10 +281,11 @@ public sealed class SqliteConnectionFactory
         );
 
         CREATE TABLE IF NOT EXISTS discovery_backlog (
-            project_id INTEGER PRIMARY KEY,
             source_id TEXT NOT NULL,
+            project_id INTEGER NOT NULL,
             discovered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            retry_count INTEGER DEFAULT 0
+            retry_count INTEGER DEFAULT 0,
+            PRIMARY KEY (source_id, project_id)
         );
 
         CREATE VIRTUAL TABLE IF NOT EXISTS projects_fts USING fts5(

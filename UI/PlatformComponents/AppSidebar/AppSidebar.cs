@@ -1,3 +1,4 @@
+using MostaqlK.Core.Sources;
 using MostaqlK.Services.Diagnostics;
 using MostaqlK.UI.PlatformComponents;
 
@@ -11,9 +12,9 @@ namespace MostaqlK.UI.PlatformComponents.AppSidebar;
 /// </summary>
 public partial class AppSidebar : ContentView
 {
-    // Same Preferences key SettingsViewModel persists dark-mode under, so a toggle from either
-    // the sidebar or the Settings page row stays in sync everywhere it appears.
-    private const string KeyIsDarkMode = "settings_is_dark_mode";
+    // Dark mode is a deliberately-global (app-wide, not per-source) setting persisted under the same
+    // SettingsKeys.IsDarkMode key SettingsViewModel writes, so a toggle from either the sidebar or
+    // the Settings page row stays in sync everywhere it appears.
 
     public static readonly BindableProperty StatValueProperty = BindableProperty.Create(
         nameof(StatValue), typeof(string), typeof(AppSidebar), "0");
@@ -123,7 +124,14 @@ public partial class AppSidebar : ContentView
         using var _ = TraceScope.Begin("Sidebar_DarkModeToggle");
         try
         {
-            Microsoft.Maui.Storage.Preferences.Set(KeyIsDarkMode, e.Value);
+            // Persist through the shared settings repository (global dark-mode key), the same one
+            // SettingsViewModel writes, so both surfaces stay in sync and the write is namespaced
+            // consistently with the rest of the app's settings.
+            if (IPlatformApplication.Current?.Services.GetService<ISettingsRepository>() is { } settingsRepository)
+            {
+                settingsRepository.SetGlobal(SettingsKeys.IsDarkMode, e.Value);
+            }
+
             if (Application.Current is { } app)
             {
                 app.UserAppTheme = e.Value ? AppTheme.Dark : AppTheme.Light;

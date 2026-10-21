@@ -1,5 +1,6 @@
 using MostaqlK.Core;
 using MostaqlK.Core.Platform;
+using MostaqlK.Core.Sources;
 using MostaqlK.Models;
 using MostaqlK.Services.Diagnostics;
 
@@ -42,8 +43,9 @@ public sealed record AttachmentResolution(AttachmentStatus Status, string? Url, 
 /// session) or a network failure → <see cref="AttachmentStatus.AuthFailed"/>, otherwise the file is saved and
 /// <see cref="AttachmentStatus.Downloaded"/> is returned.</item>
 /// </list>
-/// Never implements a login flow and never hardcodes a secret — the cookie is read purely from
-/// <c>MOSTAQL_COOKIE</c> / <c>MOSTAQL_COOKIE_FILE</c>, matching the Python original.
+/// Never implements a login flow and never hardcodes a secret — the caller names the source, whose
+/// <see cref="ICookieJar"/> and <see cref="ISourceDescriptor"/> supply the session and every
+/// site-specific string. Nothing here names a website: the same code serves any registered source.
 /// </summary>
 public sealed class AssetDownloadService
 {
@@ -54,17 +56,24 @@ public sealed class AssetDownloadService
     ];
 
     private readonly HttpClient _httpClient;
+    private readonly SourceRegistry _registry;
+    private readonly ICookieJarProvider _cookieJars;
 
-    public AssetDownloadService(HttpClient httpClient)
+    public AssetDownloadService(HttpClient httpClient, SourceRegistry registry, ICookieJarProvider cookieJars)
     {
         _httpClient = httpClient;
+        _registry = registry;
+        _cookieJars = cookieJars;
     }
 
     [ErrorOutcome(ErrorOutcome.Handled, Label = "Auth/network failure downloading the asset surfaced as AttachmentStatus.AuthFailed")]
-    public async Task<AttachmentResolution> ResolveAsync(Asset asset, CancellationToken cancellationToken = default)
+    public async Task<AttachmentResolution> ResolveAsync(SourceId source, Asset asset, CancellationToken cancellationToken = default)
     {
-        var cookieHeader = GetConfiguredCookieHeader();
-        InteractionLogger.Mark("AssetDownloadService.CookieSource", "A", new { Source = CookieJar.LastSource, HasCookie = !string.IsNullOrEmpty(cookieHeader) });
+        var descriptor = _registry.Get(source);
+        var cookieJar = _cookieJars.For(source);
+
+        var cookieHeader = cookieJar.Load();
+        InteractionLogger.Mark("AssetDownloadService.CookieSource", "A", new { Source = cookieJar.LastSource, HasCookie = !string.IsNullOrEmpty(cookieHeader) });
 
         // If it's explicitly marked as requiring auth but we have no cookie, we can't even try.
         if (asset.RequiresAuth && string.IsNullOrWhiteSpace(cookieHeader))
@@ -82,8 +91,8 @@ public sealed class AssetDownloadService
                 AttachmentStatus.ManualDownloadRequired,
                 null,
                 null,
-                $"'{asset.FileName}' requires a logged-in Mostaql session to download. " +
-                "No MOSTAQL_COOKIE/MOSTAQL_COOKIE_FILE configured, so it was NOT fetched automatically. " +
+                $"'{asset.FileName}' requires a logged-in {descriptor.DisplayNameAr} session on {descriptor.Domain} to download. " +
+                "No session cookie is configured, so it was NOT fetched automatically. " +
                 $"Please open this link in your own logged-in browser and download it manually: {asset.RawUrl}");
         }
 
@@ -103,12 +112,15 @@ public sealed class AssetDownloadService
         byte[] data;
         try
         {
+            // The injected HttpClient already carries this source's browser headers (its policy
+            // User-Agent/Accept/Accept-Language), so no per-request User-Agent override is added -
+            // the previous hardcoded Chrome/120 duplicate is gone; every request to a source now
+            // uses that source's single policy UA.
             using var request = new HttpRequestMessage(HttpMethod.Get, targetUrl);
             if (!string.IsNullOrWhiteSpace(cookieHeader))
             {
                 request.Headers.TryAddWithoutValidation("Cookie", cookieHeader);
             }
-            request.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
 
             using var response = await _httpClient.SendAsync(request, cancellationToken);
             response.EnsureSuccessStatusCode();
@@ -130,9 +142,9 @@ public sealed class AssetDownloadService
                 $"Download attempt for '{asset.FileName}' failed: {ex.Message}. Manual link: {targetUrl}");
         }
 
-        if (LooksLikeHtml(data) && targetUrl.Contains("mostaql.com"))
+        if (LooksLikeHtml(data) && descriptor.IsSameSiteUrl(targetUrl))
         {
-            // If we got HTML from mostaql.com, it's almost certainly a login redirect.
+            // Getting HTML back from a same-site asset URL is almost certainly a login redirect.
             return new AttachmentResolution(
                 AttachmentStatus.AuthFailed,
                 null,
@@ -148,15 +160,6 @@ public sealed class AssetDownloadService
 
         return new AttachmentResolution(AttachmentStatus.Downloaded, null, localPath, null);
     }
-
-    /// <summary>
-    /// Reads the optional auth cookie from configuration — never from a hardcoded value in code.
-    /// Delegates to <see cref="CookieJar"/> so this service, the scraper and the parser test
-    /// harness all understand exactly the same cookie sources and file formats (the previous
-    /// inline version joined raw lines verbatim, so a Netscape-format export or quoted values
-    /// produced a header the server silently rejected).
-    /// </summary>
-    private static string? GetConfiguredCookieHeader() => CookieJar.Load();
 
     private static bool LooksLikeHtml(byte[] data)
     {

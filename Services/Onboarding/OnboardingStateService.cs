@@ -1,25 +1,31 @@
 using Microsoft.Maui.Storage;
+using MostaqlK.Core.Sources;
 using MostaqlK.Services.Pipeline;
 
 namespace MostaqlK.Services.Onboarding;
 
-/// <summary>Owns the first-run onboarding preference and personalization query contract.</summary>
+/// <summary>Owns the first-run onboarding completion flag and the personalization query contract.</summary>
 public sealed class OnboardingStateService
 {
+    // Not a per-source settings key: a single app-global "has the user onboarded yet" latch, so it
+    // stays on the raw flat Preferences store. The personalization query is a per-source setting
+    // (SettingsKeys.QueryParams) and goes through the settings repository.
     public const string CompletionPreferenceKey = "onboarding_completed";
-    public const string QueryPreferenceKey = "settings_query_params";
 
     private readonly IPollService _pollService;
+    private readonly ISettingsRepository _settings;
+    private readonly SourceId _source = SourceId.Default;
     private int _completionRecorded;
 
-    public OnboardingStateService(IPollService pollService)
+    public OnboardingStateService(IPollService pollService, ISettingsRepository settings)
     {
         _pollService = pollService;
+        _settings = settings;
     }
 
     public bool IsCompleted => Preferences.Get(CompletionPreferenceKey, false);
 
-    public string QueryParams => Preferences.Get(QueryPreferenceKey, string.Empty);
+    public string QueryParams => _settings.Get(_source, SettingsKeys.QueryParams, string.Empty);
 
     public event EventHandler? Completed;
 
@@ -40,10 +46,10 @@ public sealed class OnboardingStateService
         }
 
         var normalizedQuery = queryParams?.Trim() ?? string.Empty;
-        Preferences.Set(QueryPreferenceKey, normalizedQuery);
+        _settings.Set(_source, SettingsKeys.QueryParams, normalizedQuery);
         _pollService.QueryParams = normalizedQuery;
         Preferences.Set(CompletionPreferenceKey, true);
-        Preferences.Set("settings_is_polling_active", true);
+        _settings.SetGlobal(SettingsKeys.IsPollingActive, true);
         Completed?.Invoke(this, EventArgs.Empty);
         return true;
     }

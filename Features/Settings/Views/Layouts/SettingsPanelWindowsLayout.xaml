@@ -171,7 +171,7 @@
                                     <platform:AppIcon Icon="Filter" TextColor="#14B8A6" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
                                     <Label Text="معايير استعلام الفحص (Query Params)" FontSize="16" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
                                 </HorizontalStackLayout>
-                                <Label Text="معاملات URL إضافية تُمرَّر لصفحة المشاريع في مستقل (مثل: category=software-dev)" FontSize="12" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
+                                <Label Text="{Binding QueryParamsHelperText}" FontSize="12" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
                             </VerticalStackLayout>
                             <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
                             <VerticalStackLayout Padding="24,16" Spacing="8">
@@ -247,7 +247,7 @@
                             <VerticalStackLayout Padding="24,16" Spacing="4">
                                 <HorizontalStackLayout Spacing="8">
                                     <platform:AppIcon Icon="FileLines" TextColor="#F43F5E" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
-                                    <Label Text="كوكي جلسة مستقل (Mostaql Session Cookie)" FontSize="16" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                                    <Label Text="{Binding CookieSectionTitle}" FontSize="16" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
                                 </HorizontalStackLayout>
                                 <Label Text="مطلوب فقط للوصول إلى المشاريع الخاصة أو المغلقة. يُخزَّن مشفّرًا بواسطة نظام التشغيل." FontSize="12" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
                             </VerticalStackLayout>

@@ -1,4 +1,3 @@
-using Microsoft.Maui.Storage;
 using MostaqlK.Core.Sources;
 
 namespace MostaqlK.Services.Pipeline;
@@ -13,14 +12,18 @@ namespace MostaqlK.Services.Pipeline;
 public sealed class SourcePipelineOrchestrator
 {
     private readonly Dictionary<SourceId, SourcePipeline> _bySource = new();
+    private readonly ISettingsRepository _settings;
 
     public SourcePipelineOrchestrator(
         SourcePipelineFactory factory,
         SourceRegistry registry,
         GlobalAppStatusService globalStatus,
+        ISettingsRepository settings,
         IEnumerable<ISourceDiscovery> discoveries,
         IEnumerable<ISourceEnrichment> enrichments)
     {
+        _settings = settings;
+
         var discoveryBySource = new Dictionary<SourceId, ISourceDiscovery>();
         foreach (var discovery in discoveries)
         {
@@ -74,22 +77,19 @@ public sealed class SourcePipelineOrchestrator
     /// </summary>
     public void StartAll(CancellationToken pipelineToken)
     {
-        var isPollingActive = Preferences.Get("settings_is_polling_active", false);
+        var isPollingActive = _settings.GetGlobal(SettingsKeys.IsPollingActive, false);
         var forceDebugPolling = Environment.GetCommandLineArgs().Contains("--debug-via-json");
 
         foreach (var pipeline in All)
         {
             // The poll interval is persisted but was only ever read by the Transient
-            // SettingsViewModel, so an untouched app ignored the user's saved value entirely.
-            // Persisted flat settings still target the default source (per-source namespacing
-            // lands with the settings step); other sources keep their descriptor cadence.
-            if (pipeline.Source == SourceId.Default)
-            {
-                pipeline.Poll.PollIntervalSeconds = Math.Clamp(
-                    Preferences.Get("settings_poll_interval_seconds", pipeline.Poll.PollIntervalSeconds),
-                    10,
-                    3600);
-            }
+            // SettingsViewModel, so an untouched app ignored the user's saved value entirely. It is
+            // now read per-source through the namespaced store (legacy flat key as read-through),
+            // and every source clamps to the same safe band.
+            pipeline.Poll.PollIntervalSeconds = Math.Clamp(
+                _settings.Get(pipeline.Source, SettingsKeys.PollIntervalSeconds, pipeline.Poll.PollIntervalSeconds),
+                10,
+                3600);
 
             // Persist the Start/Pause state: the app now "reserves the state it closed with".
             // Defaults to false (paused) on the very first run to satisfy the "first run not

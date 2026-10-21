@@ -18,26 +18,35 @@ MostaqlK/
 ├── MostaqlK.csproj
 │
 ├── Core/                            # Shared application kernel and platform infrastructure
-│   └── Platform/                    # Platform-neutral abstractions (CurrentPlatform, PlatformCapability)
+│   ├── Platform/                    # Platform-neutral abstractions (CurrentPlatform, PlatformCapability)
+│   ├── Sources/                     # Multi-source contracts ONLY: SourceId, SourceProjectId, ISourceDescriptor, SourceRegistry, capabilities, settings/strategy interfaces — zero website logic here
+│   ├── Formatting/                  # Culture/format helpers (budget, relative time, Arabic names)
+│   └── Navigation/                  # Typed shell routes (AppRoutes)
+│
+├── Sources/                         # One vertical module per monitored website — the ONLY place a site's facts may live
+│   └── Mostaql/                     # Descriptor, fetcher, discovery/enrichment services, Parsing/ (listing/detail parsers)
 │
 ├── Features/                        # User-facing features, organized by vertical slice
 │   ├── Projects/                    # Project list, details, and related view models
 │   ├── Notifications/               # Notification presentation and unread state
-│   └── Settings/                    # User-facing configuration
+│   ├── Settings/                    # User-facing configuration
+│   └── Onboarding/                  # First-run query presets
 │
 ├── UI/                              # Cross-feature UI system, not tied to one Features/ slice
-│   ├── PlatformComponents/          # Same-shape widgets with per-OS partial-class tweaks (AppButton, AppCard, ...)
+│   ├── PlatformComponents/          # Same-shape widgets with per-OS partial-class tweaks (AppButton, AppCard, SourceLinkButton, ...)
 │   ├── PlatformConcepts/            # Same-concept, different-shape-per-platform mappings (NavigationControl, ModalPresenter, ...)
 │   ├── TrayIcon/                    # Tray icon states and menu
-│   └── DesignSystem/                # Shared visual language and component primitives
+│   └── DesignSystem/                # Shared visual language and component primitives (incl. BrandTokens/)
 │
 ├── Models/                          # Shared domain and persistence models
 ├── Services/                        # Application use cases and service interfaces
-├── Infrastructure/                 # External I/O and technical implementations
-│   ├── Scraping/                    # Feed discovery and project enrichment
-│   ├── Storage/                     # SQLite access, repositories, and migrations
-│   ├── Notifications/               # Notification delivery implementation
-│   └── Networking/                  # HTTP clients and request policies
+│   └── Pipeline/                    # Per-source engine: SourcePipeline(+Factory/Orchestrator), PollService, EnrichmentService, DiscoveryQueue, InFlightTracker, rate limiter, DiffEngine/, WorkerPool/
+├── Infrastructure/                  # External I/O and technical implementations
+│   ├── Database/                    # SQLite access, repositories, Migrations/ (user_version-stepwise)
+│   ├── Http/                        # Cookie jar, asset downloads, HTTP errors, request policy plumbing
+│   ├── SearchIndex/                 # FTS5 query service
+│   ├── Security/                    # Secret protection (DPAPI etc.)
+│   └── Notifications/               # Notification delivery implementation (Windows toast variations, activator)
 │
 ├── Platforms/
 │   ├── Windows/                     # Windows tray, lifecycle, and desktop behavior
@@ -58,6 +67,7 @@ The project root remains the home for the MAUI entry points and project file. A 
 - Use dependency injection from `MauiProgram.cs` to connect interfaces to implementations.
 - Keep Arabic-first data handling and bilingual search behavior in shared layers, not in Windows-only code.
 - Treat `Resources/` and `Platforms/` as MAUI convention directories; change their project configuration only when the default conventions are insufficient.
+- **Per-source module rule:** everything a specific website knows — URL shapes, display name, cadence/rate defaults, currency suffix, cookie secret key, settings container, parsing logic, request-policy literals — lives in `Sources/<Name>/` behind `Core/Sources/` contracts. Adding a monitored website must mean exactly: one new `Sources/<Name>/` module folder + one `AddXxxSource()` line in `MauiProgram.cs`. Shared code (`Services/`, `Core/`, `Features/`, `UI/`, `Infrastructure/`) never hardcodes a site (`mostaql.com`, site display names, site-shaped budgets) — it reads `ISourceDescriptor` through `SourceRegistry`/`SourceRegistryProvider`.
 - Name every `UI/PlatformConcepts/` entry after its conceptual role (e.g. `NavigationControl`, `ModalPresenter`), never after a single platform's native widget name; see [`cross-platform-ui-conventions.md`](../v1/tech/cross-platform-ui-conventions.md) for the full convention and the `PlatformComponents/` vs `PlatformConcepts/` decision guide.
 - Express platform variance only via `X.cs`/`X.Windows.cs`/`X.Android.cs`/`X.iOS.cs`/`X.MaciOS.cs`/`_X.{Family}.cs` per-platform files, never via in-body `#if PLATFORM` outside the two canonical exempt files (`Core/Platform/CurrentPlatform.cs` and `UI/PlatformComponents/PlatformSelect.cs`); see [`cross-platform-ui-conventions.md`](../v1/tech/cross-platform-ui-conventions.md) for the full rule and examples.
 
@@ -68,12 +78,12 @@ The project root remains the home for the MAUI entry points and project file. A 
 Implement the first vertical slice with these responsibilities:
 
 ```text
-Services/              polling and pipeline orchestration
-Infrastructure/Scraping/   discover and enrich projects
-Infrastructure/Storage/    persist projects in the embedded database
+Services/              polling and pipeline orchestration (per-source SourcePipeline instances)
+Sources/Mostaql/       discover and enrich projects for that site
+Infrastructure/Database/   persist projects in the embedded database
 Infrastructure/Notifications/  notify the user
 Platforms/Windows/     tray-resident desktop behavior
-Features/Projects/      project list and details window
+Features/Projects/     project list and details window
 ```
 
 The MVP flow is `poll → discover → enrich → store → notify → display`. Projects follow the store-and-forget policy: once stored, they are not re-fetched or updated.

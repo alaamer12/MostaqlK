@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — multi-source pre-phase (1.0.4.dev3…dev7)
+
+### Added
+
+- `Core/Sources/` multi-source contracts (`SourceId`, `SourceProjectId`, `ISourceDescriptor`, `SourceCapabilities`, `SourceRegistry`, discovery/enrichment + listing/detail strategy interfaces, `ISettingsRepository`) and `Sources/Mostaql/` — the first vertical source module holding every mostaql.com fact (descriptor, fetcher, parsers, listing/enrichment services, `AddMostaqlSource()` DI registration).
+- Versioned SQLite schema step `PRAGMA user_version` 1→2 (`Migrations/0002_add_source_identity.sql`): `source_id` + `site_project_id` on projects, `source_id` on owners/backlog, unique `(source_id, site_project_id)`; Mostaql's internal-id band is 0 so all pre-existing rows, child tables, and FTS references stay valid untouched. Fresh installs bootstrap at v2 directly. Verified by the new `tools/DbMigrationTests` harness against a real v1 database.
+- Per-source pipeline engine: `SourcePipeline` + `SourcePipelineFactory` + `SourcePipelineOrchestrator` give each registered website its own queue, in-flight tracker, rate budget, diff providers, poll loop, worker pool, and `SourcePipelineStatus` telemetry; `GlobalAppStatusService` became the active-source projection facade (bindings unchanged) with tray aggregates.
+- Brand tokens unit: `UI/DesignSystem/BrandTokens/` (`IBrandTokenProvider` + `SourceBrandTokenProvider`) sourced from each descriptor's `BrandTokenSet`.
+
+### Changed
+
+- Composite `SourceProjectId` identity threaded through repositories, discovery queue, in-flight tracker, diff engine, workers, backlog, notifications, routes (`ProjectDetails?sourceId=&projectId=`, absent `sourceId` = default source so old deep links keep working), and toast activation arguments.
+- Shared code de-coupled from mostaql.com: error texts take the site name from the descriptor; link chip renamed `MostaqlLinkButton` → `SourceLinkButton` (descriptor-driven label + brand palette); toast button copy resolves the source display name; `BudgetFormatter` takes the source's currency suffix; card/details view-models build fallback URLs via `descriptor.BuildProjectUrl`; owner fallback meta comes from the descriptor.
+
 ## [1.0.4] - 2026-09-02
 
 ### Added

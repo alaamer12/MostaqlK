@@ -1,6 +1,7 @@
 using MostaqlK.Core.Navigation;
 using MostaqlK.Features.Projects.Views;
 using MostaqlK.Features.Settings.Views;
+using MostaqlK.Services;
 using MostaqlK.Services.Pipeline;
 
 namespace MostaqlK.UI.TrayIcon;
@@ -43,6 +44,8 @@ public class TrayIconService
 {
     private readonly IPollService _pollService;
     private readonly DiscoveryQueue _discoveryQueue;
+    private readonly GlobalAppStatusService? _globalStatus;
+    private readonly List<SourcePipelineStatus> _hookedStatuses = [];
 
     /// <summary>Current icon state, updated by the Poll Service / Worker Pool.</summary>
     public TrayIconState State { get; private set; } = TrayIconState.Idle;
@@ -63,10 +66,11 @@ public class TrayIconService
     /// </summary>
     public List<TrayMenuItem> MenuItems { get; } = new();
 
-    public TrayIconService(IPollService pollService, DiscoveryQueue discoveryQueue)
+    public TrayIconService(IPollService pollService, DiscoveryQueue discoveryQueue, GlobalAppStatusService? globalStatus = null)
     {
         _pollService = pollService;
         _discoveryQueue = discoveryQueue;
+        _globalStatus = globalStatus;
 
         MenuItems.Add(new TrayMenuItem("Open", OnOpen));
         MenuItems.Add(new TrayMenuItem("Pause / Resume", OnPauseResume));
@@ -76,6 +80,57 @@ public class TrayIconService
         MenuItems.Add(new TrayMenuItem("Quit", OnQuit));
 
         _pollService.StatusChanged += OnPollServiceStatusChanged;
+
+        if (_globalStatus is not null)
+        {
+            // Cross-source aggregation: every source's pipeline telemetry is watched, so one
+            // source failing or scanning shows in the tray no matter which one the UI projects.
+            // With a single registered source this mirrors the historical Active-only behavior.
+            foreach (var status in _globalStatus.All)
+            {
+                status.PropertyChanged += OnAnyPipelineStatusChanged;
+                _hookedStatuses.Add(status);
+            }
+        }
+    }
+
+    private void OnAnyPipelineStatusChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is null
+            or nameof(SourcePipelineStatus.IsScanning)
+            or nameof(SourcePipelineStatus.LastScanFailed)
+            or nameof(SourcePipelineStatus.QueueCount))
+        {
+            RecomputeAggregatedState();
+        }
+    }
+
+    private void RecomputeAggregatedState()
+    {
+        if (_globalStatus is null || _hookedStatuses.Count == 0)
+        {
+            return;
+        }
+
+        var state = TrayIconState.Idle;
+        if (_hookedStatuses.Any(s => s.LastScanFailed))
+        {
+            state = TrayIconState.Error;
+        }
+        else if (_hookedStatuses.Any(s => s.IsScanning))
+        {
+            state = TrayIconState.Polling;
+        }
+        else if (_hookedStatuses.Any(s => s.QueueCount > 0))
+        {
+            state = TrayIconState.BacklogDraining;
+        }
+        else if (_pollService.Status == PollServiceStatus.BacklogDraining)
+        {
+            state = TrayIconState.BacklogDraining;
+        }
+
+        SetState(state);
     }
 
     private void OnPollServiceStatusChanged(PollServiceStatus status)

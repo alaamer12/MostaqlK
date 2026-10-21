@@ -406,30 +406,64 @@ public static class Program
     /// </summary>
     private static void TestCookieJarParsing()
     {
-        var devTools = CookieJar.ParseFile("mostaqlweb=\"abc%3D\"\nXSRF-TOKEN=\"def\"\n_ga=\"noise\"");
+        var devTools = CookieParser.ParseFile("mostaqlweb=\"abc%3D\"\nXSRF-TOKEN=\"def\"\n_ga=\"noise\"");
         Check("quoted name=value lines parse and unquote", devTools == "mostaqlweb=abc%3D; XSRF-TOKEN=def", devTools);
         Check("analytics cookies are dropped", devTools?.Contains("_ga") == false, devTools);
 
-        var oneLine = CookieJar.ParseFile("a=1; b=2; c=3");
+        var oneLine = CookieParser.ParseFile("a=1; b=2; c=3");
         Check("a single copied Cookie header line parses", oneLine == "a=1; b=2; c=3", oneLine);
 
-        var netscape = CookieJar.ParseFile(
+        var netscape = CookieParser.ParseFile(
             "# Netscape HTTP Cookie File\n" +
             ".mostaql.com\tTRUE\t/\tTRUE\t1799999999\tmostaqlweb\tabc%3D\n" +
             ".mostaql.com\tTRUE\t/\tTRUE\t1799999999\tXSRF-TOKEN\tdef\n");
         Check("Netscape/curl 7-column export parses", netscape == "mostaqlweb=abc%3D; XSRF-TOKEN=def", netscape);
         Check("comment lines are ignored", netscape?.Contains('#') == false, netscape);
 
-        var duplicated = CookieJar.ParseFile("mostaqlweb=old\nmostaqlweb=new");
+        var duplicated = CookieParser.ParseFile("mostaqlweb=old\nmostaqlweb=new");
         Check("a re-login duplicate keeps the last value only", duplicated == "mostaqlweb=new", duplicated);
 
-        Check("empty input yields null rather than an empty header", CookieJar.ParseFile("   ") is null);
-        Check("a file with only analytics yields null", CookieJar.ParseFile("_gid=x\n_ga=y") is null);
+        Check("empty input yields null rather than an empty header", CookieParser.ParseFile("   ") is null);
+        Check("a file with only analytics yields null", CookieParser.ParseFile("_gid=x\n_ga=y") is null);
     }
 
     // -----------------------------------------------------------------
     // Live mode - parse a real URL end-to-end (opt-in, needs network)
     // -----------------------------------------------------------------
+
+    /// <summary>
+    /// The harness's own cookie resolution: explicit path, then the legacy dev env vars, then a
+    /// repo-root <c>cookies.txt</c> walk-up - the same sources the app's per-source
+    /// <c>CookieJar</c> uses, but self-contained (no DI/descriptor) and always for mostaql. Parses
+    /// through the shared <see cref="CookieParser"/> so both understand identical file formats.
+    /// </summary>
+    private static (string? Header, string? Source) ResolveHarnessCookie(string? explicitPath)
+    {
+        if (!string.IsNullOrWhiteSpace(explicitPath) && File.Exists(explicitPath))
+        {
+            return (CookieParser.ParseFile(File.ReadAllText(explicitPath)), explicitPath);
+        }
+
+        var inline = Environment.GetEnvironmentVariable("MOSTAQL_COOKIE");
+        if (!string.IsNullOrWhiteSpace(inline))
+        {
+            return (CookieParser.ParseFile(inline), "MOSTAQL_COOKIE (dev)");
+        }
+
+        var envPath = Environment.GetEnvironmentVariable("MOSTAQL_COOKIE_FILE");
+        if (!string.IsNullOrWhiteSpace(envPath) && File.Exists(envPath))
+        {
+            return (CookieParser.ParseFile(File.ReadAllText(envPath)), envPath + " (dev)");
+        }
+
+        var discovered = CookieParser.FindUpwards("cookies.txt");
+        if (discovered is not null)
+        {
+            return (CookieParser.ParseFile(File.ReadAllText(discovered)), discovered + " (dev)");
+        }
+
+        return (null, null);
+    }
 
     private static async Task<int> RunAuditLive(int limit, string? cookiePath)
     {
@@ -437,10 +471,10 @@ public static class Program
         using var http = new HttpClient();
         http.DefaultRequestHeaders.Add("User-Agent", LiveUserAgent);
 
-        var cookieHeader = CookieJar.Load(cookiePath);
+        var (cookieHeader, cookieSource) = ResolveHarnessCookie(cookiePath);
         if (cookieHeader is not null)
         {
-            Console.WriteLine($"Cookie:       loaded ({CookieJar.LastSource}, {cookieHeader.Split(';').Length} cookies)");
+            Console.WriteLine($"Cookie:       loaded ({cookieSource}, {cookieHeader.Split(';').Length} cookies)");
             http.DefaultRequestHeaders.TryAddWithoutValidation("Cookie", cookieHeader);
         }
         else
@@ -472,7 +506,7 @@ public static class Program
                 var details = DetailParser.Parse(summary.ProjectId, projectHtml);
 
                 // Format values through domain formatters and presentation properties
-                var budgetFormatted = BudgetFormatter.Format(details.Budget);
+                var budgetFormatted = BudgetFormatter.Format(details.Budget, "ر.س");
                 var durationFormatted = details.DeliveryDays is int days ? ArabicRelativeTime.Days(days) : "—";
                 var publishFormatted = ArabicRelativeTime.Since(details.DiscoveredAt);
                 var proposalFormatted = ArabicProposalParser.Format(details.ProposalCount);
@@ -521,10 +555,10 @@ public static class Program
         using var http = new HttpClient();
         http.DefaultRequestHeaders.Add("User-Agent", LiveUserAgent);
 
-        var cookieHeader = CookieJar.Load(cookiePath);
+        var (cookieHeader, cookieSource) = ResolveHarnessCookie(cookiePath);
         if (cookieHeader is not null)
         {
-            Console.WriteLine($"Cookie:       loaded ({CookieJar.LastSource}, {cookieHeader.Split(';').Length} cookies)");
+            Console.WriteLine($"Cookie:       loaded ({cookieSource}, {cookieHeader.Split(';').Length} cookies)");
             http.DefaultRequestHeaders.TryAddWithoutValidation("Cookie", cookieHeader);
         }
         else

@@ -50,9 +50,14 @@ public sealed partial class OnboardingViewModel : ObservableObject
         _ => "فحص مستمر"
     };
 
+    /// <summary>Display name of the first monitored source (rail-wide multi-source naming lands with v3).</summary>
+    private static string SourceDisplayName =>
+        MostaqlK.Core.Sources.SourceRegistryProvider.DescriptorFor(MostaqlK.Core.Sources.SourceId.Default)?.DisplayNameAr
+        ?? "المصدر";
+
     public string CurrentTitle => CurrentStep switch
     {
-        0 => "نرصد مشاريع مستقل لحظة نشرها",
+        0 => $"نرصد مشاريع {SourceDisplayName} لحظة نشرها",
         1 => "تنبيهات فورية عند وصول الجديد",
         2 => "أرشيفك المحلي يبقى معك",
         3 => "ابحث بذكاء عن الفرص المناسبة",

@@ -16,10 +16,14 @@ public sealed class MostaqlFetcher
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(15);
 
     private readonly HttpClient _httpClient;
+    private readonly ICookieJar _cookieJar;
 
-    public MostaqlFetcher(HttpClient httpClient)
+    public MostaqlFetcher(HttpClient httpClient, ICookieJarProvider cookieJarProvider)
     {
         _httpClient = httpClient;
+        // The module reaches for its OWN source's jar, never a global one, so a second source's
+        // session can never ride along on a Mostaql request.
+        _cookieJar = cookieJarProvider.For(MostaqlSource.Instance.Id);
     }
 
     [ErrorOutcome(ErrorOutcome.Handled, Label = "Non-success/timeout/exception responses returned as Result<string>.Err")]
@@ -32,7 +36,7 @@ public sealed class MostaqlFetcher
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            var cookie = CookieJar.Load();
+            var cookie = _cookieJar.Load();
             if (cookie is { Length: > 0 })
             {
                 request.Headers.TryAddWithoutValidation("Cookie", cookie);

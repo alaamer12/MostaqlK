@@ -100,25 +100,14 @@ public static class MauiProgram
 
         // Infrastructure
         builder.Services.AddSingleton<Microsoft.Maui.Storage.IPreferences>(FilePreferences.Default);
-        // mostaql.com sits behind a bot filter that answers a *header-less* request with HTTP 403
-        // before any HTML is produced. A bare `new HttpClient()` sends no User-Agent at all, so every
-        // single poll cycle failed at the listing fetch - verified directly against the endpoint:
-        // no User-Agent => 403 (118 bytes), a normal browser User-Agent => 200 (~165 KB). That is
-        // why the pipeline looked dead while the "last scan" counter kept ticking.
-        // Cross-platform note: this User-Agent impersonates a Windows desktop Chrome browser to
-        // satisfy mostaql.com's bot filter (see comment above) - it describes what the SCRAPED
-        // SITE sees, not the OS this app actually runs on, so it is intentionally identical on
-        // every target (Android/iOS included) and does not need per-platform extraction.
-        builder.Services.AddSingleton<HttpClient>(_ =>
-        {
-            var http = new HttpClient();
-            http.DefaultRequestHeaders.UserAgent.ParseAdd(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36");
-            http.DefaultRequestHeaders.Accept.ParseAdd(
-                "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
-            http.DefaultRequestHeaders.AcceptLanguage.ParseAdd("ar,en-US;q=0.9,en;q=0.8");
-            return http;
-        });
+        // Per-source request headers come from the source descriptor via the policy factory, so the
+        // bot-filter User-Agent (and its why) live in Sources/Mostaql rather than inline here. The
+        // mostaql policy is seeded with the exact Chrome/126 + Accept + Accept-Language the app sent
+        // before, so the bot-filter behavior is unchanged (see MostaqlSource for the full rationale).
+        builder.Services.AddSingleton<IHttpClientPolicyFactory, HttpClientPolicyFactory>();
+        builder.Services.AddSingleton<HttpClient>(sp =>
+            sp.GetRequiredService<IHttpClientPolicyFactory>()
+                .Create(sp.GetRequiredService<SourceRegistry>().Get(SourceId.Default)));
         builder.Services.AddSingleton<SqliteConnectionFactory>();
         // Source modules: each monitored website registers itself here. Adding a website
         // to the app = one more AddXxxSource() line + one module folder; nothing above or
@@ -126,6 +115,11 @@ public static class MauiProgram
         builder.Services.AddMostaqlSource();
         builder.Services.AddSingleton<SourceRegistry>(sp =>
             new SourceRegistry(sp.GetServices<ISourceDescriptor>()));
+        // One isolated cookie jar + one namespaced settings store per registered source.
+        builder.Services.AddSingleton<ICookieJarProvider, CookieJarProvider>();
+        builder.Services.AddSingleton<ISettingsRepository, FilePreferencesSettingsRepository>();
+        // Live brand palette of whichever source owns the UI identity (SourceLinkButton et al.).
+        builder.Services.AddSingleton<MostaqlK.UI.DesignSystem.BrandTokens.IBrandTokenProvider, MostaqlK.UI.DesignSystem.BrandTokens.SourceBrandTokenProvider>();
         builder.Services.AddSingleton<IProjectRepository, ProjectRepository>();
         builder.Services.AddSingleton<IOwnerRepository, OwnerRepository>();
         builder.Services.AddSingleton<IAssetRepository, AssetRepository>();
@@ -138,7 +132,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<AssetDownloadService>();
         builder.Services.AddSingleton<DesignDataSeeder>();
         // Session cookie uploaded from Settings, held encrypted in `app_secrets` (DPAPI/CurrentUser)
-        // and republished to CookieJar so the scraper/downloader can resolve real attachment URLs.
+        // and republished into this source's cookie jar so the fetcher/downloader can resolve real
+        // attachment URLs.
         builder.Services.AddSingleton<ISecretRepository, SecretRepository>();
         builder.Services.AddSingleton<CookieStore>();
 
@@ -168,7 +163,8 @@ public static class MauiProgram
             PlatformCapability<TrayIconService>.WindowsOnly(() =>
                 new TrayIconService(
                     sp.GetRequiredService<IPollService>(),
-                    sp.GetRequiredService<DiscoveryQueue>()))!);
+                    sp.GetRequiredService<DiscoveryQueue>(),
+                    sp.GetRequiredService<GlobalAppStatusService>()))!);
 
 #if WINDOWS
 		builder.Services.AddSingleton<MostaqlK.Platforms.Windows.WindowsStartupService>();
@@ -221,9 +217,9 @@ public static class MauiProgram
         // happen before the first window binds to the projection.
         _ = app.Services.GetRequiredService<SourcePipelineOrchestrator>();
 
-        // Resolve the cookie store immediately (it is what installs CookieJar.SecureProvider) and
-        // load the stored session, so the first poll cycle is already authenticated rather than
-        // silently anonymous until the user happens to open Settings.
+        // Resolve the cookie store immediately (it is what installs the decrypted header into this
+        // source's cookie jar) and load the stored session, so the first poll cycle is already
+        // authenticated rather than silently anonymous until the user happens to open Settings.
         _ = app.Services.GetRequiredService<CookieStore>().InitializeAsync();
 
 #if WINDOWS
