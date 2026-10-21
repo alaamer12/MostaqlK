@@ -8,14 +8,14 @@ namespace MostaqlK.Core.Sources;
 /// </summary>
 public interface ISettingsRepository
 {
-    T Get<T>(SourceId source, string key, T fallback);
+    public T Get<T>(SourceId source, string key, T fallback);
 
-    void Set<T>(SourceId source, string key, T value);
+    public void Set<T>(SourceId source, string key, T value);
 
     /// <summary>Global (not per-source) access — dark mode, startup, etc.</summary>
-    T GetGlobal<T>(string key, T fallback);
+    public T GetGlobal<T>(string key, T fallback);
 
-    void SetGlobal<T>(string key, T value);
+    public void SetGlobal<T>(string key, T value);
 }
 
 /// <summary>

@@ -10,7 +10,7 @@ namespace MostaqlK.Core.Sources;
 /// </summary>
 public interface ISourceModule
 {
-    ISourceDescriptor Descriptor { get; }
+    public ISourceDescriptor Descriptor { get; }
 
-    void Register(IServiceCollection services);
+    public void Register(IServiceCollection services);
 }

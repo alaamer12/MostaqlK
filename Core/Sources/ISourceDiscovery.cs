@@ -9,10 +9,10 @@ namespace MostaqlK.Core.Sources;
 /// </summary>
 public interface ISourceDiscovery
 {
-    SourceId Source { get; }
+    public SourceId Source { get; }
 
     /// <summary><paramref name="queryParams"/> is source-shaped (its own URL query string); null/empty = default listing.</summary>
-    Task<Result<IReadOnlyList<ProjectSummary>>> DiscoverAsync(
+    public Task<Result<IReadOnlyList<ProjectSummary>>> DiscoverAsync(
         string? queryParams,
         CancellationToken cancellationToken = default);
 }
@@ -22,9 +22,9 @@ public interface ISourceDiscovery
 /// </summary>
 public interface ISourceEnrichment
 {
-    SourceId Source { get; }
+    public SourceId Source { get; }
 
-    Task<Result<ProjectDetails>> EnrichAsync(
+    public Task<Result<ProjectDetails>> EnrichAsync(
         SourceProjectId projectId,
         CancellationToken cancellationToken = default);
 }

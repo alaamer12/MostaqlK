@@ -247,7 +247,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
             }
 
             var existingById = Projects.ToDictionary(p => p.Project.ProjectId);
-            
+
             // 1. Remove items no longer in the result set (or to be re-ordered)
             var newIds = result.Value.Select(p => p.ProjectId).ToHashSet();
             for (int i = Projects.Count - 1; i >= 0; i--)
@@ -371,10 +371,10 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
             var nextPaused = IsPollingActive;
             _pollService.SetPaused(nextPaused);
             IsPollingActive = !_pollService.IsPaused;
-            
+
             // Persist the state: "reserve the state it closed with"
             Preferences.Set("settings_is_polling_active", IsPollingActive);
-            
+
             OnPropertyChanged(nameof(PollIntervalText));
             OnPropertyChanged(nameof(LiveStatusText));
             OnPropertyChanged(nameof(PollToggleLabel));

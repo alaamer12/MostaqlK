@@ -1,9 +1,9 @@
-using Windows.UI.Notifications;
-using Windows.Data.Xml.Dom;
 using MostaqlK.Core;
 using MostaqlK.Core.Formatting;
 using MostaqlK.Models;
 using MostaqlK.Services.Diagnostics;
+using Windows.Data.Xml.Dom;
+using Windows.UI.Notifications;
 
 namespace MostaqlK.Infrastructure.Notifications;
 
@@ -18,7 +18,7 @@ public sealed class WinRtVariation : IToastVariation
     public void EnsureRegistered()
     {
         if (_registered) return;
-        
+
         // Unpackaged apps MUST have a Start Menu shortcut with a matching AUMID for 
         // ToastNotificationManager to accept the notification.
         ToastAumidRegistrar.EnsureRegistered();
@@ -27,7 +27,7 @@ public sealed class WinRtVariation : IToastVariation
         // activator registered, clicking the toast body silently does nothing (see ToastActivator).
         ToastActivator.Register();
         _registered = true;
-        
+
         InteractionLogger.Mark("WinRtVariation.EnsureRegistered", "A", new { Aumid = ToastAumidRegistrar.Aumid });
     }
 
@@ -57,8 +57,8 @@ public sealed class WinRtVariation : IToastVariation
         var originalDescription = project.Description ?? string.Empty;
         var description = TextTruncator.Truncate(originalDescription, 200);
 
-        InteractionLogger.Mark("WinRtVariation.BuildIndividualToastXml", "A", new 
-        { 
+        InteractionLogger.Mark("WinRtVariation.BuildIndividualToastXml", "A", new
+        {
             TitleLength = project.Title?.Length ?? 0,
             DescriptionLength = originalDescription.Length,
             TruncatedLength = description.Length
@@ -70,7 +70,7 @@ public sealed class WinRtVariation : IToastVariation
         <action content='عرض على مستقل' 
                 arguments='openUrl={Uri.EscapeDataString(project.Url)}' />
     </actions>";
-        
+
         var logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Images", "logo.png");
 
         var toastXmlString = $@"

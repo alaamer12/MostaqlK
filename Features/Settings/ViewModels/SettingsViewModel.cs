@@ -1,5 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Maui.ApplicationModel;
+using Microsoft.Maui.Storage;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Infrastructure.Http;
 using MostaqlK.Services;
@@ -7,8 +9,6 @@ using MostaqlK.Services.Diagnostics;
 using MostaqlK.Services.Pipeline;
 using MostaqlK.Services.Pipeline.WorkerPool;
 using MostaqlK.UI.DesignSystem;
-using Microsoft.Maui.Storage;
-using Microsoft.Maui.ApplicationModel;
 
 namespace MostaqlK.Features.Settings.ViewModels;
 

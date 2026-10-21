@@ -71,9 +71,9 @@ public partial class PressableEffect : Behavior<View>
         _pointerRecognizer.PointerExited += OnPointerExited;
         _pointerRecognizer.PointerPressed += OnPointerPressed;
         _pointerRecognizer.PointerReleased += OnPointerReleased;
-        
+
         bindable.GestureRecognizers.Add(_pointerRecognizer);
-        
+
         _tapRecognizer = new TapGestureRecognizer();
         _tapRecognizer.Tapped += (s, e) => ResetPressEffect();
         bindable.GestureRecognizers.Add(_tapRecognizer);

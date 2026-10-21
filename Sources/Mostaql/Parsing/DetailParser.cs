@@ -558,7 +558,7 @@ public static class DetailParser
                         ?? ownerCard.SelectSingleNode(".//a[contains(@href, '/u/')]")
                         ?? ownerCard.SelectSingleNode(".//h5")
                         ?? ownerCard.SelectSingleNode(".//h3");
-            
+
             if (nameNode is not null)
             {
                 var text = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(nameNode.InnerText));
@@ -574,12 +574,12 @@ public static class DetailParser
         }
 
         // 3. Last resort: find any link to a user profile within the details area and take its text
-        var detailsArea = root.SelectSingleNode("//*[@id='projectDetailsTab']") 
+        var detailsArea = root.SelectSingleNode("//*[@id='projectDetailsTab']")
                        ?? root.SelectSingleNode("//div[contains(@class, 'project-details')]")
                        ?? root.SelectSingleNode("//article");
 
         var profileLink = ((detailsArea ?? root).SelectNodes(".//a[contains(@href, '/u/')]") ?? Enumerable.Empty<HtmlNode>())
-            .FirstOrDefault(a => 
+            .FirstOrDefault(a =>
             {
                 var text = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(a.InnerText));
                 return text.Length is > 0 and <= 60;
@@ -615,7 +615,7 @@ public static class DetailParser
         }
 
         // Fallback: search anywhere for /u/ links if owner card lookup failed, but scoped to details
-        var detailsArea = root.SelectSingleNode("//*[@id='projectDetailsTab']") 
+        var detailsArea = root.SelectSingleNode("//*[@id='projectDetailsTab']")
                        ?? root.SelectSingleNode("//div[contains(@class, 'project-details')]")
                        ?? root.SelectSingleNode("//article")
                        ?? root;
@@ -624,7 +624,7 @@ public static class DetailParser
         var fallbackUrl = anyProfileLink?.GetAttributeValue("href", string.Empty);
         if (!string.IsNullOrEmpty(fallbackUrl) && !fallbackUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
         {
-             fallbackUrl = "https://mostaql.com" + (fallbackUrl.StartsWith('/') ? "" : "/") + fallbackUrl;
+            fallbackUrl = "https://mostaql.com" + (fallbackUrl.StartsWith('/') ? "" : "/") + fallbackUrl;
         }
         return string.IsNullOrEmpty(fallbackUrl) ? null : fallbackUrl;
     }
@@ -647,7 +647,7 @@ public static class DetailParser
             {
                 idAttr = ownerCard.SelectSingleNode(".//*[@data-user-id]")?.GetAttributeValue("data-user-id", string.Empty);
             }
-            
+
             if (long.TryParse(idAttr, out var id)) return id;
 
             // Try to find it in links
@@ -668,11 +668,11 @@ public static class DetailParser
         if (username == null)
         {
             // Fallback: search within the project details area, NOT the whole root which includes header/nav
-            var detailsArea = root.SelectSingleNode("//*[@id='projectDetailsTab']") 
+            var detailsArea = root.SelectSingleNode("//*[@id='projectDetailsTab']")
                            ?? root.SelectSingleNode("//div[contains(@class, 'project-details')]")
                            ?? root.SelectSingleNode("//article")
                            ?? root;
-            
+
             var anyProfileLink = detailsArea.SelectSingleNode(".//a[contains(@href, '/u/')]");
             var href = anyProfileLink?.GetAttributeValue("href", string.Empty) ?? string.Empty;
             if (!string.IsNullOrEmpty(href))
@@ -704,7 +704,7 @@ public static class DetailParser
                     ?? (StructuralExtractor.FindOwnerCard(root) ?? root).SelectSingleNode(".//a[contains(@href, '/u/')]")
                     ?? (StructuralExtractor.FindOwnerCard(root) ?? root).SelectSingleNode(".//h5")
                     ?? (StructuralExtractor.FindOwnerCard(root) ?? root).SelectSingleNode(".//h3");
-        
+
         var ownerName = nameNode != null ? StructuralExtractor.Normalize(HtmlEntity.DeEntitize(nameNode.InnerText)) : null;
         if (!string.IsNullOrEmpty(ownerName))
         {

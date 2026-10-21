@@ -9,7 +9,7 @@ namespace MostaqlK.Core.Sources;
 public interface IListingStrategy
 {
     /// <summary>Throws <c>ParseException</c> when the page shape is unrecognized.</summary>
-    IReadOnlyList<ProjectSummary> ParseListing(string html);
+    public IReadOnlyList<ProjectSummary> ParseListing(string html);
 }
 
 /// <summary>
@@ -19,5 +19,5 @@ public interface IListingStrategy
 public interface IDetailStrategy
 {
     /// <summary><paramref name="siteProjectId"/> is the site-local numeric id.</summary>
-    ProjectDetails ParseDetail(long siteProjectId, string html);
+    public ProjectDetails ParseDetail(long siteProjectId, string html);
 }

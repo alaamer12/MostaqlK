@@ -123,7 +123,7 @@ public sealed partial class OnboardingViewModel : ObservableObject
         IsSaving = false;
         IsSaved = true;
         await Task.Delay(700);
-        
+
         // Signal completion first; the view/app handles window swap.
         // We set IsTransitioning to false BEFORE calling Complete to ensure
         // the property change settles before the window starts closing.

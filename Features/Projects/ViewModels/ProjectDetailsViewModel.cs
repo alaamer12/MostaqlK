@@ -41,7 +41,7 @@ public sealed partial class AttachmentItemViewModel : ObservableObject
     {
         Asset = asset;
         _assetDownloadService = assetDownloadService;
-        
+
         // Initial state: if Asset already has a LocalPath, it's downloaded.
         if (!string.IsNullOrEmpty(asset.LocalPath) && File.Exists(asset.LocalPath))
         {
@@ -100,7 +100,7 @@ public sealed partial class AttachmentItemViewModel : ObservableObject
             {
                 IsDownloaded = true;
                 _localPath = resolution.LocalPath;
-                
+
                 // On Windows, we can open the file directly.
                 await Microsoft.Maui.ApplicationModel.Launcher.Default.OpenAsync(new Microsoft.Maui.ApplicationModel.OpenFileRequest
                 {
@@ -173,7 +173,7 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     public bool ShowDetails => !IsLoading && !HasError && Details is not null;
 
     public GlobalAppStatusService GlobalStatus => _globalStatus;
-    
+
     public EnrichmentStatus EnrichmentStatus => Details?.EnrichmentStatus ?? EnrichmentStatus.Pending;
 
     public string EnrichmentBadgeText => EnrichmentBadgeStyle.GetText(EnrichmentStatus);

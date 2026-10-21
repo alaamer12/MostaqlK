@@ -54,7 +54,7 @@ public static class StructuralExtractor
     /// links, in lieu of Python's full `mimetypes` DB (which .NET has no equivalent single
     /// source for). Covers the extensions realistically seen on Mostaql project pages.
     /// </summary>
-private static readonly HashSet<string> KnownFileExtensions = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> KnownFileExtensions = new(StringComparer.OrdinalIgnoreCase)
 {
     // ==========================================
     // 1. DOCUMENTS & OFFICE SUITES
@@ -334,7 +334,7 @@ private static readonly HashSet<string> KnownFileExtensions = new(StringComparer
                         {
                             var normalizedLabel = NormalizeLabel(label);
                             var normalizedText = NormalizeLabel(text);
-                            
+
                             if (!results.ContainsKey(normalizedLabel) && normalizedText.StartsWith(normalizedLabel) && normalizedText.Length > normalizedLabel.Length)
                             {
                                 // Try to extract the value from the remaining text
@@ -343,11 +343,11 @@ private static readonly HashSet<string> KnownFileExtensions = new(StringComparer
                                 // This is tricky with Arabic, so we'll just take the part that isn't the label.
                                 if (rawText.Contains(label))
                                 {
-                                     var value = rawText.Replace(label, "").Trim(StringNormalization.LabelTrimChars);
-                                     if (!string.IsNullOrEmpty(value))
-                                     {
-                                         results[normalizedLabel] = value;
-                                     }
+                                    var value = rawText.Replace(label, "").Trim(StringNormalization.LabelTrimChars);
+                                    if (!string.IsNullOrEmpty(value))
+                                    {
+                                        results[normalizedLabel] = value;
+                                    }
                                 }
                             }
                         }
@@ -390,10 +390,10 @@ private static readonly HashSet<string> KnownFileExtensions = new(StringComparer
 
         // 3. Last resort: If we're inside the project details area, and there's a card 
         // that looks like a profile, use it.
-        var detailsArea = root.SelectSingleNode("//*[@id='projectDetailsTab']") 
+        var detailsArea = root.SelectSingleNode("//*[@id='projectDetailsTab']")
                        ?? root.SelectSingleNode("//div[contains(@class, 'project-details')]")
                        ?? root.SelectSingleNode("//article");
-        
+
         if (detailsArea != null)
         {
             var profileLink = detailsArea.SelectSingleNode(".//a[contains(@href, '/u/')]");
@@ -401,7 +401,7 @@ private static readonly HashSet<string> KnownFileExtensions = new(StringComparer
             {
                 // Walk up to find the card wrapping this link
                 var cardCandidate = profileLink.Ancestors("div")
-                    .FirstOrDefault(d => d.GetAttributeValue("class", "").Contains("card") 
+                    .FirstOrDefault(d => d.GetAttributeValue("class", "").Contains("card")
                                       || d.GetAttributeValue("class", "").Contains("box"));
                 if (cardCandidate != null) return cardCandidate;
             }
@@ -676,7 +676,7 @@ private static readonly HashSet<string> KnownFileExtensions = new(StringComparer
             }
         }
 
-        var requiresAuth = !string.IsNullOrEmpty(url) && 
+        var requiresAuth = !string.IsNullOrEmpty(url) &&
             (url.Contains("/register") || url.Contains("/login") || url.Contains("/download/") || url.Contains("mostaql.com/attachments/"));
 
         return new AttachmentCandidate(

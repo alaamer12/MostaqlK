@@ -12,5 +12,5 @@ public interface IFileRevealService
     /// Reveals <paramref name="localPath"/> in the platform file manager. On Windows this opens
     /// Explorer with the file selected; elsewhere it opens the containing folder.
     /// </summary>
-    Task RevealAsync(string localPath);
+    public Task RevealAsync(string localPath);
 }

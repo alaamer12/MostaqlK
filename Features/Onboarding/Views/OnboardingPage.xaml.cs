@@ -1,6 +1,6 @@
+using System.ComponentModel;
 using MostaqlK.Features.Onboarding.ViewModels;
 using MostaqlK.UI.PlatformComponents;
-using System.ComponentModel;
 
 namespace MostaqlK.Features.Onboarding.Views;
 
@@ -47,7 +47,7 @@ public partial class OnboardingPage : ContentPage
         NextCheckIcon.AbortAnimation("ScaleToAsync");
         NextCheckIcon.AbortAnimation("RotateToAsync");
         NextCheckIcon.AbortAnimation("FadeToAsync");
-        
+
         var dots = new[] { StepDot0, StepDot1, StepDot2, StepDot3, StepDot4, StepDot5 };
         foreach (var dot in dots)
         {

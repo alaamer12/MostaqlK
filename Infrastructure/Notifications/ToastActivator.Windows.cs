@@ -146,7 +146,7 @@ public static class ToastActivator
     [ComImport, Guid("53E31837-6600-4A81-9395-75CFFE746F94"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     private interface INotificationActivationCallback
     {
-        void Activate(
+        public void Activate(
             [MarshalAs(UnmanagedType.LPWStr)] string appUserModelId,
             [MarshalAs(UnmanagedType.LPWStr)] string invokedArgs,
             [MarshalAs(UnmanagedType.LPArray)] NotificationUserInputData[] data,
@@ -178,8 +178,8 @@ public static class ToastActivator
     [ComImport, Guid("00000001-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     private interface IClassFactory
     {
-        [PreserveSig] int CreateInstance(IntPtr pUnkOuter, ref Guid riid, out IntPtr ppvObject);
-        [PreserveSig] int LockServer([MarshalAs(UnmanagedType.Bool)] bool fLock);
+        [PreserveSig] public int CreateInstance(IntPtr pUnkOuter, ref Guid riid, out IntPtr ppvObject);
+        [PreserveSig] public int LockServer([MarshalAs(UnmanagedType.Bool)] bool fLock);
     }
 
     private sealed class ClassFactory(Func<object> createInstance) : IClassFactory

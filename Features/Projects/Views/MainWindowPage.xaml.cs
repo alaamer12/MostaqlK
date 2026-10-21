@@ -13,7 +13,7 @@ public partial class MainWindowPage : ContentPage
     private readonly View? _activeLayout;
 
     public MainWindowPage(
-        ProjectFeedViewModel viewModel, 
+        ProjectFeedViewModel viewModel,
         NotificationCenterViewModel notificationCenterViewModel,
         Services.AppLifecycleService appLifecycleService)
     {

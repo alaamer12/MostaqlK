@@ -1,3 +1,4 @@
+using Microsoft.Maui;
 using Microsoft.Windows.AppNotifications;
 using Microsoft.Windows.AppNotifications.Builder;
 using MostaqlK.Core;
@@ -5,7 +6,6 @@ using MostaqlK.Core.Formatting;
 using MostaqlK.Core.Navigation;
 using MostaqlK.Models;
 using MostaqlK.Services.Diagnostics;
-using Microsoft.Maui;
 
 namespace MostaqlK.Infrastructure.Notifications;
 
@@ -23,7 +23,7 @@ public sealed class WinAppSdkVariation : IToastVariation
 
         // Unpackaged apps still need the AUMID and shortcut for identity.
         ToastAumidRegistrar.EnsureRegistered();
-        
+
         // Subscription MUST happen before Register() per documentation.
         AppNotificationManager.Default.NotificationInvoked += OnNotificationInvoked;
         AppNotificationManager.Default.Register();
@@ -114,8 +114,8 @@ public sealed class WinAppSdkVariation : IToastVariation
         var originalDescription = project.Description ?? string.Empty;
         var description = TextTruncator.Truncate(originalDescription, 200);
 
-        InteractionLogger.Mark("WinAppSdkVariation.BuildIndividualToast", "A", new 
-        { 
+        InteractionLogger.Mark("WinAppSdkVariation.BuildIndividualToast", "A", new
+        {
             TitleLength = project.Title?.Length ?? 0,
             DescriptionLength = originalDescription.Length,
             TruncatedLength = description.Length

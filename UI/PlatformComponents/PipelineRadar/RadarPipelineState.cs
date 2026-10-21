@@ -646,97 +646,97 @@ public sealed class RadarPipelineState
                 return true;
 
             case RadarTokenStage.EnteringQueue:
-            {
-                token.Progress = Math.Min(1, token.Progress + (dt / token.Duration));
-                var t = Ease(token.Ease, token.Progress);
-                token.Angle = LerpAngle(token.FromAngle, token.ToAngle, t);
-                token.Radius = Lerp(token.FromRadius, token.ToRadius, t);
-                token.Opacity = Math.Min(1, token.Progress * 2);
-                token.Scale = Lerp(0.7, 1.0, t);
-
-                if (token.Progress >= 1)
                 {
-                    token.Stage = RadarTokenStage.InQueue;
-                    if (token.QueueTargetOnArrival >= 0)
+                    token.Progress = Math.Min(1, token.Progress + (dt / token.Duration));
+                    var t = Ease(token.Ease, token.Progress);
+                    token.Angle = LerpAngle(token.FromAngle, token.ToAngle, t);
+                    token.Radius = Lerp(token.FromRadius, token.ToRadius, t);
+                    token.Opacity = Math.Min(1, token.Progress * 2);
+                    token.Scale = Lerp(0.7, 1.0, t);
+
+                    if (token.Progress >= 1)
                     {
-                        // This is why the number grew: the token landed in the backlog.
-                        QueueTarget = token.QueueTargetOnArrival;
-                        QueueCountTarget += 1;
-                        token.QueueTargetOnArrival = -1;
+                        token.Stage = RadarTokenStage.InQueue;
+                        if (token.QueueTargetOnArrival >= 0)
+                        {
+                            // This is why the number grew: the token landed in the backlog.
+                            QueueTarget = token.QueueTargetOnArrival;
+                            QueueCountTarget += 1;
+                            token.QueueTargetOnArrival = -1;
+                        }
                     }
-                }
 
-                return true;
-            }
-
-            case RadarTokenStage.InQueue:
-            {
-                var target = QueueSlotAngle(token.QueueSlot);
-                if (Math.Abs(DeltaAngle(token.Angle, target)) > 0.35)
-                {
-                    // Reordering: slide from the current position to the new slot, same object.
-                    token.Angle = ReducedMotion
-                        ? target
-                        : LerpAngle(token.Angle, target, Math.Min(1, dt / ReorderDuration * 2.2));
-                    token.Opacity = 1;
                     return true;
                 }
 
-                token.Opacity = 1;
-                token.Scale = token.IsHovered || token.IsSelected ? 1.25 : 1.0;
-                return false;
-            }
-
-            case RadarTokenStage.MovingToWorker:
-            {
-                token.Progress = Math.Min(1, token.Progress + (dt / token.Duration));
-                var t = Ease(token.Ease, token.Progress);
-                token.Angle = LerpAngle(token.FromAngle, token.ToAngle, t);
-                token.Radius = Lerp(token.FromRadius, token.ToRadius, t);
-                token.Opacity = 1;
-                token.Scale = Lerp(1.0, 1.15, t);
-
-                if (token.Progress >= 1)
+            case RadarTokenStage.InQueue:
                 {
-                    token.Stage = RadarTokenStage.AtWorker;
-                }
+                    var target = QueueSlotAngle(token.QueueSlot);
+                    if (Math.Abs(DeltaAngle(token.Angle, target)) > 0.35)
+                    {
+                        // Reordering: slide from the current position to the new slot, same object.
+                        token.Angle = ReducedMotion
+                            ? target
+                            : LerpAngle(token.Angle, target, Math.Min(1, dt / ReorderDuration * 2.2));
+                        token.Opacity = 1;
+                        return true;
+                    }
 
-                return true;
-            }
-
-            case RadarTokenStage.AtWorker:
-            {
-                if (ReducedMotion)
-                {
-                    token.Scale = 1.1;
+                    token.Opacity = 1;
+                    token.Scale = token.IsHovered || token.IsSelected ? 1.25 : 1.0;
                     return false;
                 }
 
-                // Stays associated with its worker; only a restrained breathing scale.
-                var worker = token.WorkerIndex >= 0 ? Workers[token.WorkerIndex] : null;
-                var phase = worker?.BreathPhase ?? AmbientPhase;
-                token.Scale = 1.1 + (0.08 * Math.Sin(phase * 2.4));
-                token.Opacity = 1;
-                return worker?.State == RadarWorkerState.Processing;
-            }
-
-            case RadarTokenStage.Exiting:
-            {
-                token.Progress = Math.Min(1, token.Progress + (dt / token.Duration));
-                var t = Ease(RadarEase.Out, token.Progress);
-                token.Radius = ReducedMotion ? token.FromRadius : Lerp(token.FromRadius, token.ToRadius, t);
-                token.Angle = LerpAngle(token.FromAngle, token.ToAngle, t);
-                token.Opacity = 1 - t;
-                token.Scale = ReducedMotion ? token.Scale : Lerp(1.1, 0.4, t);
-
-                if (token.Progress >= 1)
+            case RadarTokenStage.MovingToWorker:
                 {
-                    // Only now is the object released from the collection.
-                    token.Stage = RadarTokenStage.Done;
+                    token.Progress = Math.Min(1, token.Progress + (dt / token.Duration));
+                    var t = Ease(token.Ease, token.Progress);
+                    token.Angle = LerpAngle(token.FromAngle, token.ToAngle, t);
+                    token.Radius = Lerp(token.FromRadius, token.ToRadius, t);
+                    token.Opacity = 1;
+                    token.Scale = Lerp(1.0, 1.15, t);
+
+                    if (token.Progress >= 1)
+                    {
+                        token.Stage = RadarTokenStage.AtWorker;
+                    }
+
+                    return true;
                 }
 
-                return true;
-            }
+            case RadarTokenStage.AtWorker:
+                {
+                    if (ReducedMotion)
+                    {
+                        token.Scale = 1.1;
+                        return false;
+                    }
+
+                    // Stays associated with its worker; only a restrained breathing scale.
+                    var worker = token.WorkerIndex >= 0 ? Workers[token.WorkerIndex] : null;
+                    var phase = worker?.BreathPhase ?? AmbientPhase;
+                    token.Scale = 1.1 + (0.08 * Math.Sin(phase * 2.4));
+                    token.Opacity = 1;
+                    return worker?.State == RadarWorkerState.Processing;
+                }
+
+            case RadarTokenStage.Exiting:
+                {
+                    token.Progress = Math.Min(1, token.Progress + (dt / token.Duration));
+                    var t = Ease(RadarEase.Out, token.Progress);
+                    token.Radius = ReducedMotion ? token.FromRadius : Lerp(token.FromRadius, token.ToRadius, t);
+                    token.Angle = LerpAngle(token.FromAngle, token.ToAngle, t);
+                    token.Opacity = 1 - t;
+                    token.Scale = ReducedMotion ? token.Scale : Lerp(1.1, 0.4, t);
+
+                    if (token.Progress >= 1)
+                    {
+                        // Only now is the object released from the collection.
+                        token.Stage = RadarTokenStage.Done;
+                    }
+
+                    return true;
+                }
 
             default:
                 return false;

@@ -12,10 +12,10 @@ public interface IToastVariation
     /// <summary>
     /// Performs one-time registration or initialization for this variation.
     /// </summary>
-    void EnsureRegistered();
+    public void EnsureRegistered();
 
     /// <summary>
     /// Sends a toast notification for the specified batch of projects.
     /// </summary>
-    Task<Result<bool>> SendAsync(IReadOnlyList<ProjectSummary> projects);
+    public Task<Result<bool>> SendAsync(IReadOnlyList<ProjectSummary> projects);
 }

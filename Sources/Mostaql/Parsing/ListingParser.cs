@@ -115,7 +115,7 @@ public static class ListingParser
         string publishTimeText = string.Empty;
         string description = string.Empty;
 
-        var briefNode = row.SelectSingleNode(".//p[contains(@class, 'project__brief')]/a") 
+        var briefNode = row.SelectSingleNode(".//p[contains(@class, 'project__brief')]/a")
                          ?? row.SelectSingleNode(".//p[contains(@class, 'project__brief')]");
         if (briefNode is not null)
         {

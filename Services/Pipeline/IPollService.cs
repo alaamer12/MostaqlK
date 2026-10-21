@@ -9,37 +9,37 @@ namespace MostaqlK.Services.Pipeline;
 public interface IPollService
 {
     /// <summary>Starts the periodic polling loop on the configured interval.</summary>
-    Task<Result<bool>> StartAsync(CancellationToken cancellationToken = default);
+    public Task<Result<bool>> StartAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Stops the periodic polling loop.</summary>
-    Task StopAsync(CancellationToken cancellationToken = default);
+    public Task StopAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Runs a single poll cycle immediately, outside of the regular interval.</summary>
-    Task<Result<int>> PollOnceAsync(CancellationToken cancellationToken = default);
+    public Task<Result<int>> PollOnceAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Poll interval in seconds. Settable at runtime (see <c>SettingsViewModel</c>).
     /// </summary>
-    int PollIntervalSeconds { get; set; }
+    public int PollIntervalSeconds { get; set; }
 
     /// <summary>Current observable status, mirrored to the tray icon (see <c>TrayIconService</c>).</summary>
-    PollServiceStatus Status { get; }
+    public PollServiceStatus Status { get; }
 
     /// <summary>Raised whenever <see cref="Status"/> changes, so the tray icon can react live.</summary>
-    event Action<PollServiceStatus>? StatusChanged;
+    public event Action<PollServiceStatus>? StatusChanged;
 
     /// <summary>Whether the periodic loop is currently paused (manually, via the tray icon).</summary>
-    bool IsPaused { get; }
+    public bool IsPaused { get; }
 
     /// <summary>Toggles the paused flag (wired to the tray icon's "Pause / Resume" menu entry).</summary>
-    void SetPaused(bool paused);
+    public void SetPaused(bool paused);
 
     /// <summary>Forces an immediate poll cycle outside of the regular timer, without waiting for the next tick.</summary>
-    void RequestCheckNow();
+    public void RequestCheckNow();
 
     /// <summary>
     /// Optional query parameters (e.g. category=development&amp;sort=latest) appended to
     /// the polled source's listing URL. Settable at runtime; source-shaped, never interpreted here.
     /// </summary>
-    string QueryParams { get; set; }
+    public string QueryParams { get; set; }
 }
