@@ -15,6 +15,11 @@ if ($Fix) {
     dotnet format whitespace . --folder --verify-no-changes --exclude bin --exclude obj --exclude scratch --exclude tools --exclude MostaqlK.UITests --exclude _site --exclude api --exclude .repertoire
 }
 
+# C# style lint (dotnet format style, warn+ per .editorconfig).
+# NOTE: IDE0051/IDE0052 (remove unused) are pinned to `suggestion` in .editorconfig on
+# purpose — this project is loaded for one TFM at a time, so platform-exclusive partials'
+# members appear unused and mass-removal breaks other-platform builds.
+
 Write-Host "`n==> C# style lint (dotnet format style, warn+ per .editorconfig)"
 if ($Fix) {
     dotnet format style MostaqlK.csproj --severity warn

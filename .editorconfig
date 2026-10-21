@@ -54,8 +54,12 @@ dotnet_naming_style.async_suffix_style.required_suffix = Async
 dotnet_naming_style.async_suffix_style.capitalization = pascal_case
 
 # Obsoletions and unused code hygiene
-dotnet_diagnostic.IDE0051.severity = warning
-dotnet_diagnostic.IDE0052.severity = warning
+# IMPORTANT: IDE0051/IDE0052 stay at suggestion — `dotnet format style --severity warn`
+# auto-applies them, and in this MAUI single-project the project is loaded for only ONE
+# target framework, so members used exclusively by other platforms' partials (e.g.
+# PressableEffect.Windows.cs, SecretProtector.Android.cs) look "unused" and got deleted.
+dotnet_diagnostic.IDE0051.severity = suggestion
+dotnet_diagnostic.IDE0052.severity = suggestion
 
 # --- XML (csproj / props) ---
 [*.{csproj,props,targets}]
