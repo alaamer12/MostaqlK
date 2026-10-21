@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Maui.LifecycleEvents;
 using MostaqlK.Core.Platform;
+using MostaqlK.Core.Sources;
 using MostaqlK.Features.Notifications.ViewModels;
 using MostaqlK.Features.Onboarding.ViewModels;
 using MostaqlK.Features.Onboarding.Views;
@@ -18,6 +19,7 @@ using MostaqlK.Services.Onboarding;
 using MostaqlK.Services.Pipeline;
 using MostaqlK.Services.Pipeline.DiffEngine;
 using MostaqlK.Services.Pipeline.WorkerPool;
+using MostaqlK.Sources.Mostaql;
 using MostaqlK.UI.DesignSystem;
 using MostaqlK.UI.TrayIcon;
 #if WINDOWS
@@ -120,7 +122,12 @@ public static class MauiProgram
 			return http;
 		});
 		builder.Services.AddSingleton<SqliteConnectionFactory>();
-		builder.Services.AddSingleton<IProjectScraper, MostaqlScraper>();
+		// Source modules: each monitored website registers itself here. Adding a website
+		// to the app = one more AddXxxSource() line + one module folder; nothing above or
+		// below this block changes.
+		builder.Services.AddMostaqlSource();
+		builder.Services.AddSingleton<SourceRegistry>(sp =>
+			new SourceRegistry(sp.GetServices<ISourceDescriptor>()));
 		builder.Services.AddSingleton<IProjectRepository, ProjectRepository>();
 		builder.Services.AddSingleton<IOwnerRepository, OwnerRepository>();
 		builder.Services.AddSingleton<IAssetRepository, AssetRepository>();

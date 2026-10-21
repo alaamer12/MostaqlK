@@ -1,4 +1,4 @@
-namespace MostaqlK.Infrastructure.Http.Parsers;
+namespace MostaqlK.Sources.Mostaql.Parsing;
 
 /// <summary>
 /// Error factory for the <see cref="ParseException"/> raised by <see cref="ListingParser"/> and

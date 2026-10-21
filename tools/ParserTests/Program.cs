@@ -2,7 +2,7 @@ using System.Text;
 using HtmlAgilityPack;
 using MostaqlK.Core.Formatting;
 using MostaqlK.Infrastructure.Http;
-using MostaqlK.Infrastructure.Http.Parsers;
+using MostaqlK.Sources.Mostaql.Parsing;
 using MostaqlK.Models;
 
 namespace ParserTests;

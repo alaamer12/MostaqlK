@@ -39,7 +39,7 @@ public interface IPollService
 
     /// <summary>
     /// Optional query parameters (e.g. category=development&amp;sort=latest) appended to
-    /// the mostaql.com/projects URL. Settable at runtime.
+    /// the polled source's listing URL. Settable at runtime; source-shaped, never interpreted here.
     /// </summary>
     string QueryParams { get; set; }
 }

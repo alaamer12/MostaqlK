@@ -1,5 +1,5 @@
 using MostaqlK.Core;
-using MostaqlK.Infrastructure.Http;
+using MostaqlK.Core.Sources;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Services.Diagnostics;
 using MostaqlK.Services.Pipeline.DiffEngine;
@@ -9,7 +9,7 @@ namespace MostaqlK.Services.Pipeline;
 /// <inheritdoc cref="IPollService"/>
 public sealed class PollService : IPollService
 {
-    private readonly IProjectScraper _scraper;
+    private readonly ISourceDiscovery _discovery;
     private readonly MostaqlK.Core.Domain.BatchResult<long> _lastBatch = new();
     private readonly DiffEngine.DiffEngine _diffEngine;
     private readonly DiscoveryQueue _discoveryQueue;
@@ -40,12 +40,13 @@ public sealed class PollService : IPollService
 
     /// <summary>
     /// Optional query parameters (e.g. category=development&amp;sort=latest) appended to
-    /// the mostaql.com/projects URL. Settable at runtime.
+    /// the polled source's listing URL. Settable at runtime. The string is source-shaped —
+    /// this service never interprets it.
     /// </summary>
     public string QueryParams { get; set; } = string.Empty;
 
     public PollService(
-        IProjectScraper scraper,
+        ISourceDiscovery discovery,
         DiffEngine.DiffEngine diffEngine,
         DiscoveryQueue discoveryQueue,
         InFlightTracker inFlightTracker,
@@ -53,7 +54,7 @@ public sealed class PollService : IPollService
         GlobalAppStatusService globalStatus,
         TokenBucketRateLimiter rateLimiter)
     {
-        _scraper = scraper;
+        _discovery = discovery;
         _diffEngine = diffEngine;
         _discoveryQueue = discoveryQueue;
         _inFlightTracker = inFlightTracker;
@@ -159,7 +160,7 @@ public sealed class PollService : IPollService
             await _rateLimiter.WaitForTokenAsync(cancellationToken);
 
             _globalStatus.DiscoveryProgress = 0.3;
-            var listingResult = await _scraper.FetchListingAsync(QueryParams, cancellationToken);
+            var listingResult = await _discovery.DiscoverAsync(QueryParams, cancellationToken);
 
             // The temporary debug delay that used to sit here has been removed: it only ever
             // delayed the *listing* fetch, never the enrichment workers' detail fetches, which is

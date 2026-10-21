@@ -118,7 +118,7 @@ public sealed partial class ProjectCardViewModel : ObservableObject
 
     /// <summary>
     /// Real execution-duration ("مدة التنفيذ") persisted from the detail page's scraped
-    /// "duration" field via <see cref="MostaqlK.Infrastructure.Http.Parsers.DetailParser"/> and
+    /// "duration" field via <see cref="MostaqlK.Sources.Mostaql.Parsing.DetailParser"/> and
     /// stored in the projects table's <c>delivery_days</c> column. No value is fabricated: cards
     /// discovered but not yet enriched show the placeholder until enrichment fills it in.
     /// </summary>

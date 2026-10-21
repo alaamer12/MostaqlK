@@ -2,7 +2,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using HtmlAgilityPack;
 
-namespace MostaqlK.Infrastructure.Http.Parsers;
+namespace MostaqlK.Sources.Mostaql.Parsing;
 
 /// <summary>
 /// Resolution produced by <see cref="InferenceEngine.InferFields"/> for a single field key.

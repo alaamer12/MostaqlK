@@ -1,4 +1,4 @@
-namespace MostaqlK.Infrastructure.Http.Parsers;
+namespace MostaqlK.Sources.Mostaql.Parsing;
 
 /// <summary>
 /// Thrown internally by parsers when the Mostaql page structure does not match the

@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 using HtmlAgilityPack;
 using MostaqlK.Core.Utilities;
 
-namespace MostaqlK.Infrastructure.Http.Parsers;
+namespace MostaqlK.Sources.Mostaql.Parsing;
 
 /// <summary>
 /// A single candidate attachment link discovered on a project detail page, before it is

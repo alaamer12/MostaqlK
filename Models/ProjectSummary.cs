@@ -40,7 +40,7 @@ public sealed class ProjectSummary
 
     /// <summary>
     /// Timestamp at which this project's enrichment fully completed (set by
-    /// <see cref="MostaqlK.Infrastructure.Http.Parsers.DetailParser"/> the moment detail parsing
+    /// <see cref="MostaqlK.Sources.Mostaql.Parsing.DetailParser"/> the moment detail parsing
     /// succeeds). Null while the project is still pending/being enriched. This — not
     /// <see cref="DiscoveredAt"/> — is what the feed sorts by, so a project only jumps to the
     /// top of the list once its enrichment has genuinely finished.

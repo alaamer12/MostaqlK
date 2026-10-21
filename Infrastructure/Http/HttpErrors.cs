@@ -3,27 +3,28 @@ using MostaqlK.Core;
 namespace MostaqlK.Infrastructure.Http;
 
 /// <summary>
-/// Error factory for raw HTTP transport failures against the Mostaql website.
+/// Error factory for raw HTTP transport failures against a monitored website.
+/// The user-facing site name is a parameter — shared plumbing must not name a site.
 /// Codes use the "HTTP" domain (see <see cref="ErrorCodeRegistry"/>).
 /// </summary>
 public static class HttpErrors
 {
-    public static DomainError RequestFailed(string url, Exception cause) => new(
+    public static DomainError RequestFailed(string url, Exception cause, string siteName) => new(
         Code: "HTTP-001",
         InternalMessage: $"HTTP request to '{url}' failed: {cause.Message}",
-        ExternalMessage: "تعذر الاتصال بموقع مستقل.",
+        ExternalMessage: $"تعذر الاتصال بموقع {siteName}.",
         FixMessage: "تحقق من اتصال الإنترنت وحاول مرة أخرى.",
         Cause: cause);
 
-    public static DomainError UnexpectedStatusCode(string url, int statusCode) => new(
+    public static DomainError UnexpectedStatusCode(string url, int statusCode, string siteName) => new(
         Code: "HTTP-002",
         InternalMessage: $"Request to '{url}' returned unexpected status code {statusCode}.",
-        ExternalMessage: "استجابة غير متوقعة من موقع مستقل.");
+        ExternalMessage: $"استجابة غير متوقعة من موقع {siteName}.");
 
-    public static DomainError Timeout(string url, Exception cause) => new(
+    public static DomainError Timeout(string url, Exception cause, string siteName) => new(
         Code: "HTTP-003",
         InternalMessage: $"Request to '{url}' timed out: {cause.Message}",
-        ExternalMessage: "استغرق الاتصال بموقع مستقل وقتاً طويلاً.",
+        ExternalMessage: $"استغرق الاتصال بموقع {siteName} وقتاً طويلاً.",
         FixMessage: "تحقق من اتصال الإنترنت وحاول مرة أخرى.",
         Cause: cause);
 
@@ -32,15 +33,15 @@ public static class HttpErrors
         InternalMessage: $"Request to '{url}' returned 404 Not Found.",
         ExternalMessage: "المشروع غير موجود.");
 
-    public static DomainError Unexpected(string url, Exception cause) => new(
+    public static DomainError Unexpected(string url, Exception cause, string siteName) => new(
         Code: "HTTP-005",
         InternalMessage: $"Unexpected error requesting '{url}': {cause.Message}",
-        ExternalMessage: "حدث خطأ غير متوقع أثناء الاتصال بموقع مستقل.",
+        ExternalMessage: $"حدث خطأ غير متوقع أثناء الاتصال بموقع {siteName}.",
         Cause: cause);
 
-    public static DomainError ParseFailed(string url, Exception cause) => new(
+    public static DomainError ParseFailed(string url, Exception cause, string siteName) => new(
         Code: "HTTP-006",
         InternalMessage: $"Failed to parse response from '{url}': {cause.Message}",
-        ExternalMessage: "تعذر تحليل بيانات موقع مستقل.",
+        ExternalMessage: $"تعذر تحليل بيانات موقع {siteName}.",
         Cause: cause);
 }

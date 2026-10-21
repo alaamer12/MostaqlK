@@ -2,7 +2,7 @@ using HtmlAgilityPack;
 using MostaqlK.Core.Formatting;
 using MostaqlK.Models;
 
-namespace MostaqlK.Infrastructure.Http.Parsers;
+namespace MostaqlK.Sources.Mostaql.Parsing;
 
 /// <summary>
 /// Parses the Mostaql projects listing page HTML into a collection of <see cref="ProjectSummary"/>.
