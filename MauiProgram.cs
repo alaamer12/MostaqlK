@@ -145,7 +145,10 @@ public static class MauiProgram
         // and republished into this source's cookie jar so the fetcher/downloader can resolve real
         // attachment URLs.
         builder.Services.AddSingleton<ISecretRepository, SecretRepository>();
-        builder.Services.AddSingleton<CookieStore>();
+        // Per-source session stores (one CookieStore per descriptor), handed out by source so the
+        // Settings cookie card manages the ACTIVE source's session instead of a single startup-bound
+        // one. Mirrors ICookieJarProvider; each store installs into its own source's jar (contract §5/§10).
+        builder.Services.AddSingleton<ICookieStoreProvider, CookieStoreProvider>();
 
         // Pipeline services: one full engine per registered source, assembled by the factory
         // and grouped by the orchestrator. The per-source components (queue, tracker, limiter,
@@ -175,8 +178,7 @@ public static class MauiProgram
         builder.Services.AddSingleton(sp =>
             PlatformCapability<TrayIconService>.WindowsOnly(() =>
                 new TrayIconService(
-                    sp.GetRequiredService<IPollService>(),
-                    sp.GetRequiredService<DiscoveryQueue>(),
+                    sp.GetRequiredService<ActivePipeline>(),
                     sp.GetRequiredService<GlobalAppStatusService>()))!);
 
 #if WINDOWS
@@ -230,10 +232,11 @@ public static class MauiProgram
         // happen before the first window binds to the projection.
         _ = app.Services.GetRequiredService<SourcePipelineOrchestrator>();
 
-        // Resolve the cookie store immediately (it is what installs the decrypted header into this
-        // source's cookie jar) and load the stored session, so the first poll cycle is already
-        // authenticated rather than silently anonymous until the user happens to open Settings.
-        _ = app.Services.GetRequiredService<CookieStore>().InitializeAsync();
+        // Resolve the per-source cookie stores immediately (they are what install the decrypted
+        // header into each source's cookie jar) and load every stored session, so the first poll
+        // cycle of each pipeline is already authenticated rather than silently anonymous until the
+        // user happens to open Settings.
+        _ = app.Services.GetRequiredService<ICookieStoreProvider>().InitializeAllAsync();
 
 #if WINDOWS
 		setWindowsAppRef(app);

@@ -37,6 +37,12 @@ public static class NafezlyDetailParser
     private static readonly Regex DateSqueezeRegex = new(@"\s*-\s*", RegexOptions.Compiled);
     private static readonly Regex WorkspaceRegex = new(@"\s+", RegexOptions.Compiled);
 
+    private static Dictionary<string, (string, double, string?)>? _lastProvenanceRaw;
+
+    /// <summary>Per-field resolution tier from the last Parse call: field -&gt; (source, confidence, value). Audit/diagnostics only; never read by parse logic.</summary>
+    public static IReadOnlyDictionary<string, (string Source, double Confidence, string? Value)>? LastProvenance =>
+        _lastProvenanceRaw is null ? null : _lastProvenanceRaw.ToDictionary(kv => kv.Key, kv => (kv.Value.Item1, kv.Value.Item2, kv.Value.Item3));
+
     public static ProjectDetails Parse(long projectId, string html)
     {
         if (string.IsNullOrWhiteSpace(html))
@@ -56,6 +62,7 @@ public static class NafezlyDetailParser
             ? HtmlStructureEngine.ExtractMetaFields(metaCard, Profile, S)
             : new Dictionary<string, string>();
         var labelDriven = HtmlStructureEngine.LabelDrivenExtract(root, Profile.KnownLabels);
+        _lastProvenanceRaw = new Dictionary<string, (string, double, string?)>();
 
         Dictionary<string, FieldInferenceResult>? inferenceResults = null;
         var fields = new Dictionary<string, FieldResolution>();
@@ -93,6 +100,7 @@ public static class NafezlyDetailParser
                 confidence = infRes?.Confidence ?? 0.0;
                 source = value is not null ? "inference" : "none";
             }
+        _lastProvenanceRaw[field] = (source, confidence, value);
 
             if (inferenceResults is not null && sVal is not null)
             {

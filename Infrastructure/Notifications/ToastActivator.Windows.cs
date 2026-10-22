@@ -91,6 +91,30 @@ public static class ToastActivator
                     return;
                 }
 
+                // Decide the target route FIRST, before touching the window, so a malformed project
+                // toast can be ignored outright rather than restoring the window to a half-navigation.
+                //
+                // §6 (B5 hardening): a project-body click must resolve to ITS OWN source. The B-era
+                // senders always stamp a `sourceId` argument on individual toasts, so a project click
+                // whose sourceId is missing or unparsable is a stale/corrupt payload — falling back to
+                // the default source here would silently open a DIFFERENT source's project that happens
+                // to share the same site-local numeric id. Ignore the activation and log it instead of
+                // navigating. This tightens ONLY the toast-argument path: external pre-v3 deep links keep
+                // the documented route-level default (an absent sourceId still means the default source
+                // in AppRoutes.ProjectDetails and ProjectDetailsPage.OnAppearing — both left unchanged).
+                var target = AppRoutes.Projects;
+                if (args.TryGetValue(AppRoutes.ProjectIdQueryParam, out var projectIdStr) && long.TryParse(projectIdStr, out var projectId))
+                {
+                    if (!args.TryGetValue(AppRoutes.SourceIdQueryParam, out var sourceStr)
+                        || !MostaqlK.Core.Sources.SourceId.TryFrom(sourceStr, out var source))
+                    {
+                        InteractionLogger.Mark("ToastActivator.NavigateFromActivation", "Ignored-MissingSourceId", new { Arguments = invokedArgs, ProjectId = projectId });
+                        return;
+                    }
+
+                    target = AppRoutes.ProjectDetails(source, projectId);
+                }
+
                 var appLifecycleService = services.GetService<Services.AppLifecycleService>();
                 if (appLifecycleService is { IsInBackground: true })
                 {
@@ -98,18 +122,7 @@ public static class ToastActivator
                     trayService?.OnOpen();
                 }
 
-                if (args.TryGetValue(AppRoutes.ProjectIdQueryParam, out var projectIdStr) && long.TryParse(projectIdStr, out var projectId))
-                {
-                    args.TryGetValue(AppRoutes.SourceIdQueryParam, out var sourceStr);
-                    var source = MostaqlK.Core.Sources.SourceId.TryFrom(sourceStr, out var parsedSource)
-                        ? parsedSource
-                        : MostaqlK.Core.Sources.SourceId.Default;
-                    await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(source, projectId));
-                }
-                else
-                {
-                    await AppRoutes.NavigateAsync(AppRoutes.Projects);
-                }
+                await AppRoutes.NavigateAsync(target);
             }
             catch (Exception ex)
             {

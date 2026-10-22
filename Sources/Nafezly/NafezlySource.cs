@@ -28,10 +28,8 @@ public sealed class NafezlySource : ISourceDescriptor
 
     public string RailGlyph => "ن";
 
-    // Seeded to the LIGHT per-source brand set the capture manifest/README lock in for nafezly
-    // (brand #FFA200, AA-safe ink #9A6100 for ≤14px text, soft wash #FFF4DE, ink-on-brand #3a2a00).
-    // The record still carries only the light fields — the four dark counterparts arrive with the
-    // B1 hex sweep (backend-ui-contract §3), so this class does NOT extend BrandTokenSet now.
+    // Seeded to the locked nafezly pair-set (mockups README): light #FFA200/#9A6100/#FFF4DE/#3a2a00
+    // + links, and the four dark counterparts #FFB84D/#FFB84D/#24FFB84D/#2a1d00 (B1-core, contract §3).
     public BrandTokenSet Brands { get; } = new("#FFA200", "#9A6100", "#FFF4DE", "#3a2a00", "#9A6100", "#FFB84D", "#FFB84D", "#FFB84D", "#24FFB84D", "#2a1d00");
 
     // Cloudflare rate-limits a burst (> ~6 req/min from one client) with a 429/1015; 60s cadence

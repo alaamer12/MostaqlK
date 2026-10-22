@@ -44,10 +44,19 @@ public sealed class WinAppSdkVariation : IToastVariation
 
         if (args.Arguments.TryGetValue("projectId", out var projectIdStr) && long.TryParse(projectIdStr, out var projectId))
         {
-            args.Arguments.TryGetValue("sourceId", out var sourceStr);
-            var source = MostaqlK.Core.Sources.SourceId.TryFrom(sourceStr, out var parsedSource)
-                ? parsedSource
-                : MostaqlK.Core.Sources.SourceId.Default;
+            // §6 (B5 hardening): mirror ToastActivator — resolve the project's OWN source from the
+            // sourceId argument and IGNORE the click when it is missing/unparsable rather than
+            // silently defaulting (a cross-source numeric-id collision would open the wrong project).
+            // Validate before marshalling to the main thread so the window is never disturbed by a
+            // malformed payload. Route-level defaults for external deep links are intentionally
+            // unchanged (AppRoutes / ProjectDetailsPage).
+            if (!args.Arguments.TryGetValue("sourceId", out var sourceStr)
+                || !MostaqlK.Core.Sources.SourceId.TryFrom(sourceStr, out var source))
+            {
+                InteractionLogger.Mark("WinAppSdkVariation.OnNotificationInvoked", "Ignored-MissingSourceId", new { ProjectId = projectId });
+                return;
+            }
+
             MainThread.BeginInvokeOnMainThread(async () =>
             {
                 try
@@ -131,12 +140,12 @@ public sealed class WinAppSdkVariation : IToastVariation
             .AddText(description)
             .AddArgument("projectId", project.ProjectId.ToString());
 
-        // Only non-default sources add an argument, so mostaql toast payloads stay byte-identical
-        // to what older builds produced (a payload without sourceId resolves to the default source).
-        if (project.Source != MostaqlK.Core.Sources.SourceId.Default)
-        {
-            builder.AddArgument("sourceId", project.Source.Value);
-        }
+        // §6 (B5): every individual toast now carries its source id explicitly, including the default
+        // source. Toast activation resolves the project's OWN source from this argument and no longer
+        // falls back to the default, so a stale/garbled payload is ignored rather than mis-routed. Only
+        // the raw toast ARGUMENT gained its source; the navigated ROUTE is unchanged for mostaql (its
+        // AppRoutes.ProjectDetails still omits `&sourceId=`, see contract §6 first row).
+        builder.AddArgument("sourceId", project.Source.Value);
 
         if (!string.IsNullOrWhiteSpace(project.Url))
         {

@@ -50,7 +50,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly IEnrichmentService _enrichmentService;
     private readonly IProjectRepository _projectRepository;
     private readonly GlobalAppStatusService _globalStatus;
-    private readonly CookieStore _cookieStore;
+    private readonly ICookieStoreProvider _cookieStores;
     private readonly CloseBehaviorService _closeBehaviorService;
     private readonly IStartupService _startupService;
     private readonly ISettingsRepository _settings;
@@ -187,14 +187,14 @@ public sealed partial class SettingsViewModel : ObservableObject
         IEnrichmentService enrichmentService,
         IProjectRepository projectRepository,
         GlobalAppStatusService globalStatus,
-        CookieStore cookieStore,
+        ICookieStoreProvider cookieStoreProvider,
         CloseBehaviorService closeBehaviorService,
         IStartupService startupService,
         ISettingsRepository settings,
         SourceContributionRegistry contributions,
         IServiceProvider services)
     {
-        _cookieStore = cookieStore;
+        _cookieStores = cookieStoreProvider;
         _pollService = pollService;
         _rateLimiter = rateLimiter;
         _workerPool = workerPool;
@@ -226,6 +226,14 @@ public sealed partial class SettingsViewModel : ObservableObject
     // -----------------------------------------------------------------
     // Session cookie ("ملف الجلسة")
     // -----------------------------------------------------------------
+
+    /// <summary>
+    /// The session store for the LIVE active source (v3 morph). The cookie card's copy already
+    /// follows <see cref="_source"/>; the operations now do too, so switching the rail makes the
+    /// card manage the other source's session while each store stays bound to its own descriptor's
+    /// keys/jar (Mostaql keeps <c>cookie_mostaql</c> and its legacy migration untouched).
+    /// </summary>
+    private CookieStore ActiveCookieStore => _cookieStores.For(_source);
 
     /// <summary>True once a session cookie is stored, which switches the row to its "active" copy.</summary>
     [ObservableProperty]
@@ -271,13 +279,13 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <c>cookies.txt</c> next to the repo / an env var. A shipped build reads the cookie solely
     /// from the encrypted store, so this note must not appear there.
     /// </summary>
-    public bool ShowDevelopmentCookieNote => _cookieStore.DevelopmentFallbacksEnabled;
+    public bool ShowDevelopmentCookieNote => ActiveCookieStore.DevelopmentFallbacksEnabled;
 
     private void RefreshCookieStatus()
     {
-        HasSessionCookie = _cookieStore.HasCookie;
-        SessionCookieStatusText = _cookieStore.HasCookie
-            ? $"جلسة محفوظة ({_cookieStore.CookieCount} كوكيز) - آخر تحديث {_cookieStore.UpdatedAtUtc?.ToLocalTime():yyyy/MM/dd HH:mm}"
+        HasSessionCookie = ActiveCookieStore.HasCookie;
+        SessionCookieStatusText = ActiveCookieStore.HasCookie
+            ? $"جلسة محفوظة ({ActiveCookieStore.CookieCount} كوكيز) - آخر تحديث {ActiveCookieStore.UpdatedAtUtc?.ToLocalTime():yyyy/MM/dd HH:mm}"
             : "لا توجد جلسة محفوظة. بدون ملف الجلسة لن يتمكن التطبيق من تنزيل مرفقات المشاريع.";
     }
 
@@ -313,7 +321,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             // Parsing + DPAPI encryption + the SQLite write take a few hundred milliseconds; keep
             // the spinner on screen for at least that long so the state change reads as a
             // deliberate step rather than a flicker.
-            var save = _cookieStore.SaveFromFileContentAsync(content);
+            var save = ActiveCookieStore.SaveFromFileContentAsync(content);
             await Task.WhenAll(save, Task.Delay(SpinnerMinimumVisibleMilliseconds));
             var count = save.Result;
 
@@ -367,7 +375,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             }
         }
 
-        await _cookieStore.ClearAsync();
+        await ActiveCookieStore.ClearAsync();
         IsCookieSuccess = false;
         IsCookieError = false;
         CookieFeedbackText = string.Empty;
@@ -400,7 +408,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 content = $"{sessionName}={content}";
             }
 
-            var save = _cookieStore.SaveFromFileContentAsync(content);
+            var save = ActiveCookieStore.SaveFromFileContentAsync(content);
             await Task.WhenAll(save, Task.Delay(SpinnerMinimumVisibleMilliseconds));
             var count = save.Result;
 

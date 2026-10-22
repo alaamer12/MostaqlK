@@ -73,11 +73,12 @@ public sealed class WinRtVariation : IToastVariation
 
         var logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Images", "logo.png");
 
-        // Only non-default sources append a parameter, so mostaql launch strings stay byte-
-        // identical to older builds (an absent sourceId resolves to the default source).
-        var sourceParam = project.Source == MostaqlK.Core.Sources.SourceId.Default
-            ? string.Empty
-            : $"&amp;sourceId={Uri.EscapeDataString(project.Source.Value)}";
+        // §6 (B5): every individual toast now stamps its source id (including the default source) so
+        // activation resolves the project's OWN source and a stale/garbled payload is ignored rather
+        // than silently routed to the default source's same-numbered project. Only the raw launch
+        // ARGUMENT grows; AppRoutes still omits `&sourceId=` on the mostaql ROUTE, so deep-link/route
+        // behavior is unchanged.
+        var sourceParam = $"&amp;sourceId={Uri.EscapeDataString(project.Source.Value)}";
 
         var toastXmlString = $@"
 <toast lang='ar-SA' launch='projectId={project.ProjectId}{sourceParam}'>
