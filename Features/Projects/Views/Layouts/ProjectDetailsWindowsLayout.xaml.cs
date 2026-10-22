@@ -1,5 +1,6 @@
 using Microsoft.Maui.ApplicationModel.Communication;
 using MostaqlK.Core.Navigation;
+using MostaqlK.Core.Sources;
 using MostaqlK.Features.Projects.ViewModels;
 using MostaqlK.Services.Diagnostics;
 
@@ -85,6 +86,20 @@ public partial class ProjectDetailsWindowsLayout : ContentView
             await vm.MarkAsReadAsync();
         }
 
+        await AppRoutes.NavigateAsync(AppRoutes.Projects);
+    }
+
+    /// <summary>
+    /// A details page belongs to the project's own source. Swapping platforms from this page must
+    /// not leave the previous source's project on screen: the rail has already applied the global
+    /// projection (<c>SourceMorph.ApplyOptimistic</c>), so return to the feed, whose feed view-model
+    /// re-points through its <c>ActiveSource</c> subscription. The navigation waits for the 500 ms
+    /// source-morph reveal to land first — tearing this page down while its compositor reveal is
+    /// still in flight reproduced the native 0xC000027B fail-fast.
+    /// </summary>
+    private async void OnRailSourceChanged(object? sender, SourceId source)
+    {
+        await Task.Delay(650);
         await AppRoutes.NavigateAsync(AppRoutes.Projects);
     }
 }

@@ -759,7 +759,9 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
             }
         }
 
-        DecisionFacts = facts;
+        DecisionFacts = facts
+            .Select((fact, index) => fact with { Column = index })
+            .ToList();
         OnPropertyChanged(nameof(DecisionFacts));
         OnPropertyChanged(nameof(HasDecisionFacts));
     }

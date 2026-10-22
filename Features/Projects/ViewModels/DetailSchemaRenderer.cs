@@ -50,7 +50,7 @@ public sealed record DetailSectionGroup(
 /// <param name="Value">The formatted display value.</param>
 /// <param name="IsMoney">True when the value is a Latin-currency figure needing LTR isolation.</param>
 /// <param name="IsAccent">True when the value paints in the positive/state (green) ink rather than plain ink.</param>
-public sealed record DecisionFact(string Key, string LabelAr, string Value, bool IsMoney, bool IsAccent);
+public sealed record DecisionFact(string Key, string LabelAr, string Value, bool IsMoney, bool IsAccent, int Column = 0);
 
 /// <summary>
 /// Turns a source's <see cref="ISourceDescriptor.SchemaMap"/> + a <see cref="ProjectDetails"/> into
