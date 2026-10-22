@@ -63,11 +63,20 @@ See the `SourceMorphTransition` row in `UNITS.md` (Platform Components table). S
 card settle DEFERRED)."
 
 ## Gate results (exact)
-1. **Windows build** — full compile clean; via alternate output path to bypass a foreign exe lock:
+1. **Windows build** — my unit compiles clean: an early full-project compile to an alternate output
+   path (`BuildCheckMorph`, while the tree was otherwise green) reported
    `Build succeeded. 0 Warning(s) 0 Error(s)`. The only C# warning the default output produced is the
    PRE-EXISTING `WinAppSdkVariation.Windows.cs(80): warning CS8604` (not mine, another wave's file).
-   The shared `bin\...MostaqlK.exe` copy failed only with MSB3026/3027/3021 — locked by running
-   instances PID 18892/13180 (concurrent agents); retried 5+ times, not "fixed" (per instructions).
+   Two build-lock/concurrency notes, both external to my files:
+   - The shared `bin\...MostaqlK.exe` copy failed only with MSB3026/3027/3021 — locked by running
+     instances PID 18892/13180 (concurrent agents); retried 5+ times, not "fixed" (per instructions).
+   - A later re-build surfaced 6 CS errors ALL in
+     `UI/PlatformComponents/ContentSettle/ContentSettle.Windows.cs` (a concurrent card-settle wave
+     that dropped mid-session; e.g. `ItemsView.GetContainerFromIndex`, `Visual.Translation`,
+     2-arg `TryGetAnimationController`). **None are in my `SourceMorphTransition` files** — I did not
+     create, edit, or revert that file (it is another agent's WIP). My two files use the correct
+     projection (`TryGetAnimationController` returns the controller, 1 arg) and the codebase's
+     `Visual` is a compositor `Microsoft.UI.Composition.Visual`, and compile clean on their own.
 2. **ParserTests** — `TOTAL: 297 passed, 0 failed / All checks passed.`
    **DbMigrationTests** — `ALL DB MIGRATION CHECKS PASSED` (both source bands, re-run idempotency,
    composite identity all green; unaffected).

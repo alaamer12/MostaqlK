@@ -34,10 +34,10 @@
 		<ApplicationId>com.mostaqlk</ApplicationId>
 
 		<!-- Versions -->
-		<ApplicationDisplayVersion>1.0.4.dev26</ApplicationDisplayVersion>
-		<ApplicationVersion>31</ApplicationVersion>
+		<ApplicationDisplayVersion>1.0.4.dev27</ApplicationDisplayVersion>
+		<ApplicationVersion>32</ApplicationVersion>
 		<Version>1.0.4</Version>
-		<InformationalVersion>1.0.4.dev26</InformationalVersion>
+		<InformationalVersion>1.0.4.dev27</InformationalVersion>
 		<FileVersion>1.0.4.21</FileVersion>
 		<AssemblyVersion>1.0.4.21</AssemblyVersion>
 		<Description>MostaqlK Desktop</Description>

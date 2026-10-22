@@ -8,18 +8,28 @@ namespace MostaqlK.UI.PlatformComponents;
 /// runs that change as an atomic, instant mutation at the START of the effect, then plays a short
 /// transition around it. It never touches the pipeline and never becomes a second mutation path.
 /// <para>
-/// <b>Chosen mechanism (Windows): a compositor-driven opacity cross-dissolve.</b> The browser
-/// mockup reveals the NEW frame over a frozen OLD frame via the View Transitions API — a pair of
-/// pixel snapshots MAUI has no equivalent for, and a double-buffered old-layer would require the
-/// window-root host plumbing that lives in <c>App.xaml.cs</c> / <c>MainWindowPage</c> (owned by
-/// other waves). A per-frame managed radial clip is banned by
-/// <c>.repertoire/.steering/v3/animation-safety.md</c> (the long-idle background crash class). The
-/// sanctioned fallback that rule 3 names explicitly — an <em>opacity cross-fade of the existing
-/// single surface</em> — is what ships: one finite, abortable <see cref="Microsoft.UI.Composition"/>
-/// <c>Visual.Opacity</c> key-frame animation started on the render thread, so it adds ZERO
-/// per-frame managed transforms. The surface is dipped and returned around the instant swap, and
-/// the dip is kept well above transparent so the page's own opaque background never fully shows
-/// through (no blank/"breaking-glass" frame).
+/// <b>Chosen mechanism (Windows): a compositor-driven radial reveal over a snapshotted OLD
+/// frame.</b> The browser mockup reveals the NEW frame over a frozen OLD frame via the View
+/// Transitions API. The Windows partial reproduces exactly that pair with composition primitives:
+/// the current state is captured once with a WinUI <c>RenderTargetBitmap</c> and placed, through a
+/// runtime-resolved window-host overlay (no <c>MainWindowPage</c>/<c>App.xaml.cs</c> edits), as a
+/// non-hit-testable layer BEHIND the live content; the caller's mutation then lands instantly (the
+/// live surface is now the NEW state); the live visual is clipped by a
+/// <c>CompositionGeometricClip</c> whose <c>CompositionEllipseGeometry</c> <c>Radius</c> (a
+/// <c>Vector2</c> of semi-axes in WinUI 3) is grown
+/// from 2% to the farthest-corner distance by a render-thread key-frame animation started with
+/// <c>CompositionObject.StartAnimation("Radius", …)</c> (ease-in-out), while a compositor
+/// <c>ShapeVisual</c> orbit ring (3px brand stroke + 45%-alpha
+/// glow stroke, their sprite geometries' own <c>Radius</c> animations riding the same wavefront, opacity
+/// fading over the last 25%) rides above everything. Every animated property is a plain compositor
+/// d-property on a compositor object — zero per-frame managed transforms, so the
+/// <c>TransformReuseMapping</c> crash class (see <c>.repertoire/.steering/v3/animation-safety.md</c>)
+/// is not reproduced; and because the clipped surface's immediate neighbour underneath is a
+/// pixel-identical snapshot, no unclipped frame of the new state and no backdrop ("breaking glass")
+/// frame can ever show. If the snapshot or the host overlay is unavailable (capture failure, an
+/// unexpected window tree), the unit degrades to the animation-safety rule 3 cross-dissolve
+/// (finite compositor <c>Visual.Opacity</c> key-frame dip) rather than a raw clip that would
+/// flash the backdrop; and if even that is unavailable, to the instant swap.
 /// </para>
 /// <para>
 /// <b>Reduced motion / any other platform / unresolved handler ⇒ instant swap.</b>
@@ -33,10 +43,11 @@ namespace MostaqlK.UI.PlatformComponents;
 /// </para>
 /// <para>
 /// <b>Re-entrancy: fast-finish.</b> A new request while one is running immediately ends the
-/// in-flight dissolve (stop its compositor animation, restore opacity) and starts the new one, so
-/// rapid tile spam always lands the newest user intent and never leaves a half-dissolved surface.
-/// This is the chosen policy (vs. the mockup's plain <c>transitioning</c> ignore-guard) — documented
-/// per §4.2's "pick one and document."
+/// in-flight reveal (stop its compositor animations, remove the overlay layers, restore the
+/// unclipped visual, and land a not-yet-applied mutation synchronously) and starts the new one, so
+/// rapid tile spam always lands the newest user intent, never loses an intermediate one, and never
+/// leaves a leaked clip or overlay. This is the chosen policy (vs. the mockup's plain
+/// <c>transitioning</c> ignore-guard) — documented per §4.2's "pick one and document."
 /// </para>
 /// </summary>
 public static partial class SourceMorphTransition
@@ -47,9 +58,9 @@ public static partial class SourceMorphTransition
     /// <summary>Light/dark theme toggle duration (contract §4.3 + <c>projects.html</c> <c>toggleTheme(...,400)</c>).</summary>
     public const uint ThemeMorphDurationMs = 400;
 
-    // The cross-dissolve is in-flight on a platform that actually animates. Only ever true on
-    // Windows; every other target applies instantly and this stays false, so the re-entrancy
-    // fast-finish path is simply never taken there.
+    // A reveal (or its cross-dissolve degradation) is in-flight on a platform that actually
+    // animates. Only ever true on Windows; every other target applies instantly and this stays
+    // false, so the re-entrancy fast-finish path is simply never taken there.
     private static bool _running;
 
     /// <summary>
@@ -57,9 +68,10 @@ public static partial class SourceMorphTransition
     /// transition around it. Reduced motion / non-Windows / an unrealized handler ⇒ instant swap.
     /// </summary>
     /// <param name="origin">
-    /// The control the reveal grows from (the tapped tile or the theme button). Today it only anchors
-    /// the DEFERRED orbit-ring / radial-clip center; the shipped cross-dissolve is spatially uniform,
-    /// so it is accepted (and kept) rather than discarded to preserve the eventual §4.2 geometry.
+    /// The control the reveal grows from (the tapped tile or the theme button). Its center — read
+    /// from the LIVE platform visuals at invocation time, never a value baked at load — is the
+    /// radial clip's ellipse center and the orbit ring's center (contract §4.2 "from the clicked
+    /// tile's center point"). A null/unresolvable origin falls back to the target's own center.
     /// </param>
     /// <param name="targetRegion">
     /// The surface to animate. Pass <c>null</c> to morph the whole application — resolved to the
@@ -85,7 +97,7 @@ public static partial class SourceMorphTransition
             return;
         }
 
-        // Fast-finish any in-flight dissolve before starting the newest one (re-entrancy policy).
+        // Fast-finish any in-flight reveal before starting the newest one (re-entrancy policy).
         if (_running)
         {
             FastFinishCore();
@@ -115,9 +127,11 @@ public static partial class SourceMorphTransition
 
     /// <summary>
     /// Per-platform reveal seam (default no-op ⇒ instant everywhere except where a partial provides
-    /// an implementation). An implementation that successfully starts its render-thread transition
-    /// MUST run <paramref name="applyStateChange"/> synchronously itself and set <paramref name="handled"/>
-    /// true; leaving it false (or throwing) makes <see cref="Run"/> apply the change itself, exactly once.
+    /// an implementation). An implementation that successfully takes over the transition MUST run
+    /// <paramref name="applyStateChange"/> EXACTLY ONCE itself (the Windows partial does so at the
+    /// start of its reveal, synchronously or on its capture continuation — see the Windows file for
+    /// the guarantees) and set <paramref name="handled"/> true; leaving it false (or throwing before
+    /// taking ownership) makes <see cref="Run"/> apply the change itself, exactly once.
     /// </summary>
     static partial void PerformReveal(
         VisualElement? origin,
@@ -127,9 +141,10 @@ public static partial class SourceMorphTransition
         ref bool handled);
 
     /// <summary>
-    /// Immediately ends an in-flight dissolve started by <see cref="PerformReveal"/> (default no-op).
-    /// The state mutation already applied at the start of the reveal, so fast-finishing only restores
-    /// the visual to its static fully-opaque end state.
+    /// Immediately ends an in-flight reveal started by <see cref="PerformReveal"/> (default no-op):
+    /// stops its compositor animations, removes any overlay layers it inserted, restores the
+    /// unclipped fully-opaque surface, and — when the reveal had not yet applied its mutation —
+    /// applies it synchronously, so the superseded intent is never lost.
     /// </summary>
     static partial void FastFinishCore();
 
