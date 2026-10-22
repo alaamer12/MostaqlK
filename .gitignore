@@ -64,3 +64,4 @@ Desktop.ini
 # DocFX generated output
 _site/
 api/
+tools/StressTest/out/

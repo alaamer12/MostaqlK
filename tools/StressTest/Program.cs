@@ -2,7 +2,6 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using MostaqlK.Core;
 using MostaqlK.Core.Sources;
-using MostaqlK.Infrastructure.Http;
 using MostaqlK.Models;
 using MostaqlK.Sources.Nafezly;
 using MostaqlK.Sources.Nafezly.Parsing;
@@ -12,6 +11,7 @@ using MostaqlK.Sources.Nafezly.Parsing;
 //   live: paced fetch from the real site — MUST be run from a residential network
 //         (datacenter IPs get Cloudflare JS challenges; contract §11 precondition).
 
+var JsonOpts = new JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 var opts = ParseArgs(args);
 var repoRoot = FindRepoRoot();
 var fixturesDir = Path.Combine(repoRoot, "tools/ParserTests/Fixtures/nafezly");
@@ -145,12 +145,6 @@ foreach (var a in anomalies.Take(30)) Console.WriteLine("  ! " + a);
 Console.WriteLine($"output: {outDir}");
 return 0;
 
-static JsonSerializerOptions JsonOpts { get; } = new()
-{
-    WriteIndented = true,
-    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-};
-
 static string Trunc(string s) => s.Length <= 40 ? s : s[..40];
 
 static void ReportBlocked()
@@ -224,11 +218,11 @@ static Opts ParseArgs(string[] args)
 
 record Opts
 {
-    public string Mode { get; init; } = "fixtures";
-    public int Pages { get; init; }
-    public int Details { get; init; }
-    public int Pace { get; init; }
-    public int? Seed { get; init; }
-    public string? Out { get; init; }
-    public (int Min, int Max)? Random { get; init; }
+    public string Mode { get; set; } = "fixtures";
+    public int Pages { get; set; }
+    public int Details { get; set; }
+    public int Pace { get; set; }
+    public int? Seed { get; set; }
+    public string? Out { get; set; }
+    public (int Min, int Max)? Random { get; set; }
 }

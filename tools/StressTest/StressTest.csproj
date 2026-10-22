@@ -1,10 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Nafezly stress harness: parses every fixture (default, offline) or paced-live listing/detail
-       pages (owner-side, residential network — this codespace is Cloudflare-challenged, contract §11).
-       Usage: dotnet run --project tools/StressTest -- [--mode fixtures|live] [--pages 20]
-              [--random 0,100] [--seed 7] [--details 10] [--pace 8] [--out DIR]
-       Sources are linked (not referenced) exactly like tools/ParserTests: MAUI-free parser core. -->
-  <PropertyGroup>
+    <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -13,6 +8,8 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="HtmlAgilityPack" Version="1.11.65" />
+<Compile Include="../../Core/Domain/ItemFailure.cs" LinkBase="linked" />
+    <Compile Include="../../Core/ErrorOutcomeAttribute.cs" LinkBase="linked" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="../../Core/Formatting/ArabicNameFormatter.cs" LinkBase="linked" />
@@ -56,20 +53,14 @@
     <Compile Include="../../Core/Sources/SourceContributions.cs" LinkBase="linked" />
     <Compile Include="../../Core/Sources/ISourceSettingsSectionViewModel.cs" LinkBase="linked" />
     <Compile Include="../../Sources/Nafezly/Contributions/NafezlySettingsSectionContribution.cs" LinkBase="linked" />
-    <Compile Include="../../Infrastructure/Http/CookieParser.cs" LinkBase="linked" />
     <Compile Include="../../Models/ProjectDetails.cs" LinkBase="linked" />
     <Compile Include="../../Models/ProjectSummary.cs" LinkBase="linked" />
     <Compile Include="../../Models/Owner.cs" LinkBase="linked" />
     <Compile Include="../../Models/ProjectSkill.cs" LinkBase="linked" />
     <Compile Include="../../Models/Asset.cs" LinkBase="linked" />
     <Compile Include="../../Models/EnrichmentStatus.cs" LinkBase="linked" />
-    <Compile Include="../../Sources/Nafezly/NafezlyFetcher.cs" LinkBase="linked" />
-    <Compile Include="../../Infrastructure/Http/HttpErrors.cs" LinkBase="linked" />
-    <Compile Include="../../Infrastructure/Http/CookieJar.cs" LinkBase="linked" />
-    <Compile Include="../../Infrastructure/Http/CookieJarProvider.cs" LinkBase="linked" />
     <Compile Include="../../Core/Sources/SourceRegistry.cs" LinkBase="linked" />
-    <Compile Include="../../Core/Sources/SourceRegistryProvider.cs" LinkBase="linked" />
+    <Compile Include="../../Core/DomainError.cs" LinkBase="linked" />
     <Compile Include="../../Core/Result.cs" LinkBase="linked" />
-    <Compile Include="Program.cs" />
   </ItemGroup>
 </Project>
