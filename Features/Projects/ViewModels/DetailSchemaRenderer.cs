@@ -39,6 +39,20 @@ public sealed record DetailSectionGroup(
     IReadOnlyList<DetailMetaRow> Rows);
 
 /// <summary>
+/// One big-value/tiny-label mini of the details page DECISION STRIP (the "2-second go/no-go scan",
+/// backend-ui-contract §7 / multi-source-requirements §6). The strip is the fixed approved fact set —
+/// الميزانية · مدة التسليم · العروض المقدمة · الحالة · نُشر — rendered from the loaded project's own
+/// values; a fact is only emitted when its underlying value is present (absent ⇒ omitted, never a "—"
+/// placeholder), so each source naturally shows the subset it carries with no per-source branch.
+/// </summary>
+/// <param name="Key">Stable key identifying the fact (for the accent/money styling switch).</param>
+/// <param name="LabelAr">The approved tiny caption (mockup wording, e.g. "مدة التسليم").</param>
+/// <param name="Value">The formatted display value.</param>
+/// <param name="IsMoney">True when the value is a Latin-currency figure needing LTR isolation.</param>
+/// <param name="IsAccent">True when the value paints in the positive/state (green) ink rather than plain ink.</param>
+public sealed record DecisionFact(string Key, string LabelAr, string Value, bool IsMoney, bool IsAccent);
+
+/// <summary>
 /// Turns a source's <see cref="ISourceDescriptor.SchemaMap"/> + a <see cref="ProjectDetails"/> into
 /// the ordered, section-grouped meta rows the details page renders — the schema/capability-driven
 /// composition behind backend-ui-contract §1 (SchemaMap UI-read), §7 (executor block + money

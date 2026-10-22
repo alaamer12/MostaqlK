@@ -166,6 +166,15 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(ShowExecutorSection))]
     [NotifyPropertyChangedFor(nameof(ExecutorName))]
     [NotifyPropertyChangedFor(nameof(ShowRetryAffordance))]
+    [NotifyPropertyChangedFor(nameof(SourceNameAr))]
+    [NotifyPropertyChangedFor(nameof(ShowSourceChip))]
+    [NotifyPropertyChangedFor(nameof(DiscoveredAtText))]
+    [NotifyPropertyChangedFor(nameof(BudgetIsMoney))]
+    [NotifyPropertyChangedFor(nameof(OwnerInitials))]
+    [NotifyPropertyChangedFor(nameof(OwnerSubLine))]
+    [NotifyPropertyChangedFor(nameof(HasOwnerSub))]
+    [NotifyPropertyChangedFor(nameof(HasDescription))]
+    [NotifyPropertyChangedFor(nameof(ShowDescriptionToggle))]
     public partial ProjectDetails? Details { get; set; }
 
     [ObservableProperty]
@@ -176,6 +185,19 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
 
     [ObservableProperty]
     public partial string? ErrorMessage { get; set; }
+
+    /// <summary>
+    /// Whether the description paragraph is fully expanded (v3 mockup: clamped to a couple of lines
+    /// with a "عرض المزيد" toggle). Drives <see cref="DescriptionLineBreakMode"/>,
+    /// <see cref="DescriptionMaxLines"/>, <see cref="DescriptionToggleText"/> and the toggle's own
+    /// visibility via <see cref="ShowDescriptionToggle"/>.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DescriptionLineBreakMode))]
+    [NotifyPropertyChangedFor(nameof(DescriptionMaxLines))]
+    [NotifyPropertyChangedFor(nameof(DescriptionToggleText))]
+    [NotifyPropertyChangedFor(nameof(ShowDescriptionToggle))]
+    public partial bool IsDescriptionExpanded { get; set; }
 
     /// <summary>True once loading has finished with no error — drives the success-state ScrollView.</summary>
     public bool ShowDetails => !IsLoading && !HasError && Details is not null;
@@ -228,6 +250,125 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     public string OwnerCompletedProjectsText => Details?.Owner?.CompletedProjectsCount is int count ? count.ToString() : "0";
 
     // -----------------------------------------------------------------
+    // v3 details header / decision strip / owner card / description clamp
+    // (project-details.html visual truth; all data-driven, zero source-id branches)
+    // -----------------------------------------------------------------
+
+    /// <summary>The active source's Arabic display name, for the header caption chip (from the descriptor, never a literal).</summary>
+    public string SourceNameAr => SourceDescriptor?.DisplayNameAr ?? string.Empty;
+
+    /// <summary>Header source chip is shown only when the descriptor carries a display name.</summary>
+    public bool ShowSourceChip => !string.IsNullOrWhiteSpace(SourceNameAr);
+
+    /// <summary>Discovery timestamp rendered for the header "· اكتُشف {date}" caption. Empty ⇒ the caption is omitted.</summary>
+    public string DiscoveredAtText => Details is null
+        ? string.Empty
+        : Details.DiscoveredAt.ToString("yyyy/MM/dd HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// True when the loaded project's budget is a Latin-currency figure (nafezly "$") that the decision
+    /// strip must isolate in <c>FlowDirection=LeftToRight</c>; an Arabic currency stays in the RTL flow.
+    /// Pure function of descriptor data (reuses <see cref="DetailSchemaRenderer.MoneyNeedsLtr"/>).
+    /// </summary>
+    public bool BudgetIsMoney => Details is not null && DetailSchemaRenderer.MoneyNeedsLtr(SourceDescriptor?.CurrencySuffix);
+
+    /// <summary>
+    /// The DECISION STRIP facts (الميزانية · مدة التسليم · العروض المقدمة · الحالة · نُشر), in the fixed
+    /// approved order. Each entry is emitted ONLY when its underlying value is present, so a source that
+    /// does not carry one of the fields simply shows fewer facts — never a placeholder, never a branch.
+    /// </summary>
+    public IReadOnlyList<DecisionFact> DecisionFacts { get; private set; } = [];
+
+    /// <summary>Whether the decision strip has any fact to render (drives the strip + its divider visibility).</summary>
+    public bool HasDecisionFacts => DecisionFacts.Count > 0;
+
+    /// <summary>
+    /// The owner card's inline stat cells — the descriptor's <c>owner</c>-section rows minus the name and
+    /// registration-date fields (which the card renders as the identity line). Absent fields never appear,
+    /// so nafezly (name-only owner schema) renders an owner card with no stat cells.
+    /// </summary>
+    public IReadOnlyList<DetailMetaRow> OwnerStats { get; private set; } = [];
+
+    /// <summary>Whether the owner card has any inline stat cell to render.</summary>
+    public bool HasOwnerStats => OwnerStats.Count > 0;
+
+    /// <summary>Whether the owner card renders at all — true when the project carries any owner data.</summary>
+    public bool ShowOwnerCard =>
+        !string.IsNullOrWhiteSpace(Details?.Owner?.Name)
+        || !string.IsNullOrWhiteSpace(Details?.Owner?.RegisteredAt)
+        || OwnerStats.Count > 0;
+
+    /// <summary>First letters of the owner's name for the brand-avatar (two-word names give two letters).</summary>
+    public string OwnerInitials
+    {
+        get
+        {
+            var name = Details?.Owner?.Name;
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return string.Empty;
+            }
+
+            var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 2)
+            {
+                return $"{parts[0][0]}{parts[1][0]}";
+            }
+
+            return parts[0][0].ToString();
+        }
+    }
+
+    /// <summary>Owner sub-line (member-since, as scraped). No country field exists, so none is invented.</summary>
+    public string OwnerSubLine => Details?.Owner?.RegisteredAt ?? string.Empty;
+
+    /// <summary>Whether the owner sub-line has data to show.</summary>
+    public bool HasOwnerSub => !string.IsNullOrWhiteSpace(Details?.Owner?.RegisteredAt);
+
+    /// <summary>Whether the project carries any description text (drives the الوصف section).</summary>
+    public bool HasDescription => !string.IsNullOrWhiteSpace(Details?.Description);
+
+    /// <summary>Line-break mode for the description: truncated when clamped, wrapping when expanded.</summary>
+    public LineBreakMode DescriptionLineBreakMode => IsDescriptionExpanded ? LineBreakMode.WordWrap : LineBreakMode.TailTruncation;
+
+    /// <summary>Max rendered description lines: a short clamp when collapsed, unlimited (0) when expanded.</summary>
+    public int DescriptionMaxLines => IsDescriptionExpanded ? 0 : 2;
+
+    /// <summary>The toggle only appears when there is a description long enough that clamping actually hides text.</summary>
+    public bool ShowDescriptionToggle =>
+        HasDescription && (IsDescriptionExpanded || LooksLongEnoughToClamp(Details!.Description));
+
+    /// <summary>Toggle caption: "عرض المزيد" while clamped, "عرض أقل" while expanded.</summary>
+    public string DescriptionToggleText => IsDescriptionExpanded ? "عرض أقل" : "عرض المزيد";
+
+    /// <summary>
+    /// Heuristic for whether the description exceeds the collapsed 2-line budget on a desktop width.
+    /// Approximate by character run + explicit line breaks; a false positive only shows a harmless
+    /// "عرض المزيد" that reveals the same short text.
+    /// </summary>
+    private static bool LooksLongEnoughToClamp(string text) =>
+        text.Length > 220 || text.Split('\n').Count(l => l.Trim().Length > 0) >= 3;
+
+    [RelayCommand]
+    private void ToggleDescription() => IsDescriptionExpanded = !IsDescriptionExpanded;
+
+    /// <summary>
+    /// Footer "تحديد كمقروء والعودة": persists the read flag through the same repository path the
+    /// notification/feed read uses (<see cref="IProjectRepository.MarkAsReadAsync"/>). Navigation back to
+    /// the feed is done by the layout's click handler right after this completes.
+    /// </summary>
+    [RelayCommand]
+    public async Task MarkAsReadAsync()
+    {
+        if (Details is not { } details)
+        {
+            return;
+        }
+
+        await _projectRepository.MarkAsReadAsync(new SourceProjectId(details.Source, details.ProjectId));
+    }
+
+    // -----------------------------------------------------------------
     // Schema-driven / capability-gated composition (B4, contract §1/§7/§9)
     // -----------------------------------------------------------------
 
@@ -240,6 +381,19 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     /// Empty ⇒ no section is rendered (never an empty header).
     /// </summary>
     public IReadOnlyList<DetailSectionGroup> MetaSections { get; private set; } = [];
+
+    /// <summary>
+    /// The Windows details layout's generic schema block: every <see cref="MetaSections"/> group EXCEPT
+    /// <c>project</c> (rendered specially as the DECISION STRIP) and <c>owner</c> (rendered specially as
+    /// the owner CARD). In practice this is the nafezly-only <c>executor</c> group — kept fully
+    /// schema/capability-driven per backend-ui-contract §7 — plus any future generic section. Mobile keeps
+    /// rendering the full <see cref="MetaSections"/>; this filter is by section id (schema data), never a
+    /// source id.
+    /// </summary>
+    public IReadOnlyList<DetailSectionGroup> SchemaSections { get; private set; } = [];
+
+    /// <summary>Whether any generic schema section (nafezly's executor block, etc.) is present.</summary>
+    public bool HasSchemaSections => SchemaSections.Count > 0;
 
     /// <summary>
     /// Real UI read of <see cref="SourceCapabilities.HasExecutorInfo"/> (contract §1): the executor
@@ -363,6 +517,9 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
 
             // Schema-driven meta rows: read the descriptor's SchemaMap/Capabilities, never the source id.
             RebuildMetaSections();
+
+            // Fresh project ⇒ the description clamp starts collapsed (v3 details mockup: "عرض المزيد").
+            ResetDescriptionState();
         }
         finally
         {
@@ -385,6 +542,17 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
         if (descriptor is null || details is null)
         {
             MetaSections = [];
+            SchemaSections = [];
+            DecisionFacts = [];
+            OwnerStats = [];
+            OnPropertyChanged(nameof(MetaSections));
+            OnPropertyChanged(nameof(SchemaSections));
+            OnPropertyChanged(nameof(HasSchemaSections));
+            OnPropertyChanged(nameof(DecisionFacts));
+            OnPropertyChanged(nameof(HasDecisionFacts));
+            OnPropertyChanged(nameof(OwnerStats));
+            OnPropertyChanged(nameof(HasOwnerStats));
+            OnPropertyChanged(nameof(ShowOwnerCard));
             return;
         }
 
@@ -396,8 +564,73 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
                 g.OrderBy(r => r.Order).ToList()))
             .ToList();
 
+        // Windows renders the project + owner sections specially (decision strip / owner card);
+        // only the remaining generic groups (nafezly's executor block, any future section) go through
+        // the generic schema block. Filtered by section id — schema data, never a source id.
+        SchemaSections = MetaSections
+            .Where(g => g.Section is not ("project" or "owner"))
+            .ToList();
+
+        // The owner card's inline stat cells = the owner-section rows minus the identity fields.
+        OwnerStats = MetaSections
+            .FirstOrDefault(g => g.Section == "owner")
+            ?.Rows
+            .Where(r => r.Key is not ("owner_name" or "registration_date"))
+            .ToList() ?? [];
+
+        RebuildDecisionStrip();
+
         OnPropertyChanged(nameof(MetaSections));
+        OnPropertyChanged(nameof(SchemaSections));
+        OnPropertyChanged(nameof(HasSchemaSections));
+        OnPropertyChanged(nameof(OwnerStats));
+        OnPropertyChanged(nameof(HasOwnerStats));
+        OnPropertyChanged(nameof(ShowOwnerCard));
     }
+
+    /// <summary>
+    /// Builds the fixed approved DECISION STRIP fact set from the loaded project's own values, in the mockup's
+    /// order (الميزانية · مدة التسليم · العروض المقدمة · الحالة · نُشر). A fact is emitted only when its value
+    /// is present, so each source shows exactly the subset it carries with no per-source branch and no "—".
+    /// </summary>
+    private void RebuildDecisionStrip()
+    {
+        var facts = new List<DecisionFact>();
+        if (Details is { } d)
+        {
+            if (!string.IsNullOrWhiteSpace(d.Budget))
+            {
+                facts.Add(new DecisionFact("budget", "الميزانية", Budget, BudgetIsMoney, IsAccent: true));
+            }
+
+            if (d.DeliveryDays is not null)
+            {
+                facts.Add(new DecisionFact("duration", "مدة التسليم", Duration, IsMoney: false, IsAccent: false));
+            }
+
+            if (d.ProposalCount > 0)
+            {
+                facts.Add(new DecisionFact("proposals", "العروض المقدمة", d.ProposalCount.ToString(System.Globalization.CultureInfo.InvariantCulture), IsMoney: false, IsAccent: false));
+            }
+
+            if (!string.IsNullOrWhiteSpace(d.ProjectStatus))
+            {
+                facts.Add(new DecisionFact("status", "الحالة", d.ProjectStatus, IsMoney: false, IsAccent: true));
+            }
+
+            if (d.DiscoveredAt != default)
+            {
+                facts.Add(new DecisionFact("published", "نُشر", PublishTimeText, IsMoney: false, IsAccent: false));
+            }
+        }
+
+        DecisionFacts = facts;
+        OnPropertyChanged(nameof(DecisionFacts));
+        OnPropertyChanged(nameof(HasDecisionFacts));
+    }
+
+    /// <summary>Resets the transient UI state (description clamp) whenever a fresh project is loaded.</summary>
+    private void ResetDescriptionState() => IsDescriptionExpanded = false;
 
     public void SetError(string message)
     {
