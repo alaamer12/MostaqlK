@@ -45,10 +45,12 @@ public partial class AppSidebar : ContentView
 
     // Active row: `bg-blue-50 text-blue-600` / `dark:bg-blue-500/10 dark:text-blue-400`.
     // Inactive row: `text-slate-600` / `dark:text-slate-400`.
+    // The active-row INK is no longer a literal: it paints from the live brand palette (the locked
+    // link pair the rail historically used), so it re-tints with the active source. The row's wash
+    // backgrounds stay inline — legacy Tailwind blues, not members of the locked brand set, kept
+    // pixel-identical until the SourceRail (B2/B3) restyles them onto BrandSoft.
     private const string ActiveBackgroundLight = "#EFF6FF";
     private const string ActiveBackgroundDark = "#1A2A44";
-    private const string ActiveTextLight = "#2563EB";
-    private const string ActiveTextDark = "#60A5FA";
     private const string InactiveTextLight = "#475569";
     private const string InactiveTextDark = "#94A3B8";
 
@@ -85,6 +87,11 @@ public partial class AppSidebar : ContentView
             app.RequestedThemeChanged += OnRequestedThemeChanged;
         }
 
+        // The active-row ink reads the live brand palette, so a source morph must re-apply the
+        // row states too — same on-screen lifetime as the theme subscription above.
+        MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.PaletteChanged -= OnPaletteChanged;
+        MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.PaletteChanged += OnPaletteChanged;
+
         ApplyActiveState();
         SyncDarkModeToggleFromCurrentTheme();
     }
@@ -95,12 +102,19 @@ public partial class AppSidebar : ContentView
         {
             app.RequestedThemeChanged -= OnRequestedThemeChanged;
         }
+
+        MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.PaletteChanged -= OnPaletteChanged;
     }
 
     private void OnRequestedThemeChanged(object? sender, AppThemeChangedEventArgs e)
     {
         ApplyActiveState();
         SyncDarkModeToggleFromCurrentTheme();
+    }
+
+    private void OnPaletteChanged()
+    {
+        ApplyActiveState();
     }
 
     private void SyncDarkModeToggleFromCurrentTheme()
@@ -167,8 +181,12 @@ public partial class AppSidebar : ContentView
         row.BackgroundColor = isActive
             ? Color.FromArgb(isDark ? ActiveBackgroundDark : ActiveBackgroundLight)
             : Colors.Transparent;
+        // Active ink = the live brand's link pair (the rail's historical highlight blues, now
+        // provider-owned); inactive stays the neutral slate — state chrome, never brand-retinted.
         var textColor = isActive
-            ? Color.FromArgb(isDark ? ActiveTextDark : ActiveTextLight)
+            ? (isDark
+                ? MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.LinkDark
+                : MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.LinkLight)
             : Color.FromArgb(isDark ? InactiveTextDark : InactiveTextLight);
         icon.TextColor = textColor;
         label.TextColor = textColor;

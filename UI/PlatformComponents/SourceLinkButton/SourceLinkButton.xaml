@@ -14,14 +14,14 @@
             <components:AppIcon x:Name="LinkIcon"
                                 Icon="Link"
                                 FontSize="12"
-                                TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}"
+                                TextColor="{DynamicResource BrandLink}"
                                 VerticalOptions="Center" />
             <Label x:Name="LinkLabel"
                    Text="عرض في المصدر"
                    FontSize="12"
                    FontFamily="TajawalBold"
                    VerticalOptions="Center"
-                   TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" />
+                   TextColor="{DynamicResource BrandLink}" />
         </HorizontalStackLayout>
     </ds:PressableBorder>
 </ContentView>

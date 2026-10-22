@@ -329,10 +329,18 @@ public partial class PipelineRadar : ContentView
             app.RequestedThemeChanged -= OnRequestedThemeChanged;
             app.RequestedThemeChanged += OnRequestedThemeChanged;
         }
+
+        // A source morph retints the discovery ring (drawn from the live brand palette); an idle
+        // radar paints no frames, so it needs the invalidation nudge. Paired with the -= in Detach().
+        MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.PaletteChanged -= OnPaletteChanged;
+        MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.PaletteChanged += OnPaletteChanged;
+
         ApplyTheme();
 
         Wake();
     }
+
+    private void OnPaletteChanged() => RadarCanvas.Invalidate();
 
     private void Attach(GlobalAppStatusService? status)
     {
@@ -357,6 +365,8 @@ public partial class PipelineRadar : ContentView
         {
             app.RequestedThemeChanged -= OnRequestedThemeChanged;
         }
+
+        MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.PaletteChanged -= OnPaletteChanged;
 
         if (IPlatformApplication.Current?.Services.GetService<AppLifecycleService>() is { } lifecycle)
         {

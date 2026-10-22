@@ -96,6 +96,11 @@ public class NewRibbonBadge : Grid
             app.RequestedThemeChanged += OnRequestedThemeChanged;
         }
 
+        // The ribbon background is the live brand fill, so a source morph repaints it too —
+        // same on-screen lifetime as the theme subscription above.
+        BrandTokens.BrandPalette.PaletteChanged -= UpdateThemeColors;
+        BrandTokens.BrandPalette.PaletteChanged += UpdateThemeColors;
+
         UpdateThemeColors();
         RestartSweepIfNeeded();
     }
@@ -108,6 +113,8 @@ public class NewRibbonBadge : Grid
         {
             app.RequestedThemeChanged -= OnRequestedThemeChanged;
         }
+
+        BrandTokens.BrandPalette.PaletteChanged -= UpdateThemeColors;
     }
 
     private void OnRequestedThemeChanged(object? sender, AppThemeChangedEventArgs e) => UpdateThemeColors();
@@ -121,8 +128,8 @@ public class NewRibbonBadge : Grid
 
     private void UpdateThemeColors()
     {
-        var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
-        _background.Color = isDark ? Color.FromArgb("#5CA8DE") : Color.FromArgb("#2386C8");
+        // Brand fill for the active source + current theme (was the inline Mostaql light/dark pair).
+        _background.Color = BrandTokens.BrandPalette.Brand;
     }
 
     private async void RestartSweepIfNeeded()

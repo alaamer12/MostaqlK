@@ -78,7 +78,7 @@
             <Grid>
                 <Border x:Name="ProjectsButton" Style="{StaticResource SidebarNavRowStyle}">
                     <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
-                        <BoxView x:Name="ProjectsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
+                        <BoxView x:Name="ProjectsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="{DynamicResource BrandLink}" />
                         <components:AppIcon Grid.Column="1" x:Name="ProjectsIcon" Icon="ProjectsList" FontSize="16" WidthRequest="20" />
                         <Label Grid.Column="2" x:Name="ProjectsLabel" Text="المشاريع" FontSize="14" FontFamily="TajawalBold" VerticalOptions="Center" />
                     </Grid>
@@ -91,7 +91,7 @@
             <Grid>
                 <Border x:Name="AdvancedSearchButton" Style="{StaticResource SidebarNavRowStyle}">
                     <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
-                        <BoxView x:Name="AdvancedSearchActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
+                        <BoxView x:Name="AdvancedSearchActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="{DynamicResource BrandLink}" />
                         <components:AppIcon Grid.Column="1" x:Name="AdvancedSearchIcon" Icon="Search" FontSize="16" WidthRequest="20" />
                         <Label Grid.Column="2" x:Name="AdvancedSearchLabel" Text="البحث المتقدم" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
                     </Grid>
@@ -104,7 +104,7 @@
             <Grid>
                 <Border x:Name="SettingsButton" Style="{StaticResource SidebarNavRowStyle}">
                     <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
-                        <BoxView x:Name="SettingsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
+                        <BoxView x:Name="SettingsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="{DynamicResource BrandLink}" />
                         <components:AppIcon Grid.Column="1" x:Name="SettingsIcon" Icon="Gear" FontSize="16" WidthRequest="20" />
                         <Label Grid.Column="2" x:Name="SettingsLabel" Text="الإعدادات" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
                     </Grid>
@@ -117,7 +117,7 @@
             <Grid>
                 <Border x:Name="AboutButton" Style="{StaticResource SidebarNavRowStyle}">
                     <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
-                        <BoxView x:Name="AboutActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
+                        <BoxView x:Name="AboutActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="{DynamicResource BrandLink}" />
                         <components:AppIcon Grid.Column="1" x:Name="AboutIcon" Icon="Info" FontSize="16" WidthRequest="20" />
                         <Label Grid.Column="2" x:Name="AboutLabel" Text="حول التطبيق" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
                     </Grid>
@@ -145,7 +145,7 @@
                     <Label Text="{Binding StatValue, Source={x:Reference Root}}" FontSize="30" FontFamily="TajawalBold"
                            AutomationId="Sidebar_StatValueLabel"
                            HorizontalTextAlignment="Center"
-                           TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" />
+                           TextColor="{DynamicResource BrandLink}" />
                 </VerticalStackLayout>
             </Border>
             <Grid ColumnDefinitions="Auto,*,Auto" Padding="8,0">

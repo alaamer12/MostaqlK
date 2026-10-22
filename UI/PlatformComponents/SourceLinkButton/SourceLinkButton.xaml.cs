@@ -5,10 +5,12 @@ using MostaqlK.UI.DesignSystem.BrandTokens;
 namespace MostaqlK.UI.PlatformComponents;
 
 /// <summary>
-/// The neutral "open this project on its source site" chip (ex-MostaqlLinkButton). Label and
-/// link colors come from the active source: the descriptor supplies the display name, the
-/// brand-token provider supplies the palette (seeded to this chip's historical link blues, so
-/// nothing repaints today). Subscriptions follow the Loaded/Unloaded event-lifetime rule.
+/// The neutral "open this project on its source site" chip (ex-MostaqlLinkButton). The label resolves
+/// from the active source's descriptor (re-applied on <see cref="IBrandTokenProvider.TokensSwapped"/>,
+/// following the Loaded/Unloaded event-lifetime rule); the icon/label ink paints from the app-level
+/// <c>{DynamicResource BrandLink}</c> palette (<see cref="BrandPalette"/>), which
+/// re-resolves on both source swap and theme change — so this class no longer touches TextColor
+/// (a local set would have displaced the dynamic reference).
 /// </summary>
 public partial class SourceLinkButton : ContentView
 {
@@ -32,6 +34,7 @@ public partial class SourceLinkButton : ContentView
     }
 
     private IBrandTokenProvider? _tokens;
+    private SourceRegistry? _registry;
 
     public SourceLinkButton()
     {
@@ -43,15 +46,16 @@ public partial class SourceLinkButton : ContentView
     private void OnSourceLoaded(object? sender, EventArgs e)
     {
         var services = IPlatformApplication.Current?.Services;
-        var registry = services?.GetService<SourceRegistry>();
+        _registry = services?.GetService<SourceRegistry>();
         var provider = services?.GetService<IBrandTokenProvider>();
 
-        ApplyName(registry);
+        ApplyName(_registry);
         if (provider is not null && _tokens is null)
         {
             _tokens = provider;
+            // Ink itself now repaints through the DynamicResource palette; this subscription keeps
+            // the descriptor-driven LABEL in sync with the morphed identity.
             _tokens.TokensSwapped += OnTokensSwapped;
-            ApplyPalette(_tokens.Current);
         }
     }
 
@@ -64,7 +68,7 @@ public partial class SourceLinkButton : ContentView
         }
     }
 
-    private void OnTokensSwapped(BrandTokenSet set) => ApplyPalette(set);
+    private void OnTokensSwapped(BrandTokenSet set) => ApplyName(_registry);
 
     private void ApplyName(SourceRegistry? registry)
     {
@@ -84,17 +88,5 @@ public partial class SourceLinkButton : ContentView
         {
             LinkLabel.Text = $"عرض في {descriptor.DisplayNameAr}";
         }
-    }
-
-    private void ApplyPalette(BrandTokenSet set)
-    {
-        var hex = Application.Current?.PlatformAppTheme == AppTheme.Dark ? set.LinkDark : set.LinkLight;
-        if (!Color.TryParse(hex, out var color))
-        {
-            return;
-        }
-
-        LinkIcon.TextColor = color;
-        LinkLabel.TextColor = color;
     }
 }

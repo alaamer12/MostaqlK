@@ -12,7 +12,12 @@ namespace MostaqlK.UI.PlatformComponents;
 /// </summary>
 public static class AppIconGlyphExtensions
 {
-    private const string ActiveTextHex = "#2563EB"; // matches AppSidebar.ActiveText
+    // The nav icons' active state is keyed to the brand link ink. The pre-rasterized "_active"
+    // PNGs are baked in the historical Mostaql light-link blue and a raster cannot be re-tinted
+    // at runtime, so matching stays pinned to the current source's LIGHT link value: on the
+    // default source that is pixel-identical to the old literal, and any non-matching source
+    // simply keeps the base (gray) artwork until recolored assets ship (surfaced gap, B phases).
+    private static Color ActiveTextColor => MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.LinkLight;
 
     /// <summary>Owner "verified" badge green in projects.html (<c>text-green-500</c>).</summary>
     private const string VerifiedGreenHex = "#22C55E";
@@ -32,7 +37,7 @@ public static class AppIconGlyphExtensions
 
     /// <summary>
     /// Maps an icon to its base (inactive/default) image resource name, and — for the 5
-    /// sidebar nav icons that need an active-state color swap — an "_active" (<c>#2563EB</c>)
+    /// sidebar nav icons that need an active-state color swap — an "_active" (brand-link blue)
     /// blue variant baked as a separate pre-colored SVG (see <see cref="ToImageSource"/>).
     /// Icons with no dedicated SVG yet fall back to <see cref="AppIconGlyph.Info"/>'s image
     /// (documented gap: only the icons actually rendered by <c>AppSidebar</c> and the projects
@@ -120,7 +125,7 @@ public static class AppIconGlyphExtensions
     /// <summary>
     /// Resolves the actual rasterized icon image to load, swapping in the pre-baked "_active"
     /// blue variant when <paramref name="textColor"/> matches the app's active-nav-item color
-    /// (<c>#2563EB</c>), or one of the <see cref="ToColourVariant"/> colours; any other color
+    /// (the brand link ink), or one of the <see cref="ToColourVariant"/> colours; any other color
     /// (including the default inactive <c>#475569</c>, or no color at all) uses the
     /// base/inactive-colored PNG. <c>icon_moon</c> has no active variant (it's never shown in an
     /// active state), so it always uses its base file.
@@ -147,7 +152,7 @@ public static class AppIconGlyphExtensions
         var baseName = icon.ToImageBaseName();
         var isActive = Array.IndexOf(ActiveVariantIcons, baseName) >= 0
             && textColor is not null
-            && textColor.Equals(Color.FromArgb(ActiveTextHex));
+            && textColor.Equals(ActiveTextColor);
         var variant = isActive ? "_active" : (textColor is null ? null : ToColourVariant(baseName, textColor));
         var fileName = $"{baseName}{variant}.scale-200.png";
         var fullPath = Path.Combine(AppContext.BaseDirectory, fileName);

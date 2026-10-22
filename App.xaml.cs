@@ -68,6 +68,12 @@ public partial class App : Application
                 .SwapTo(activeSource);
         }
 
+        // B1b brand palette: seed the app-level DynamicResource keys (Brand/BrandInk/BrandSoft/
+        // OnBrand/BrandLink) from the provider projection of the theme + source restored just
+        // above, and keep them mutated in place on every later TokensSwapped / theme flip. This
+        // runs before any window exists, so pages never paint against an empty palette.
+        MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.Initialize(this, services);
+
 #if WINDOWS
 		// FIX ("not a single notification, ever since day one"): AUMID + Start Menu shortcut +
 		// AppNotificationManager COM registration used to happen lazily, only the first time a
