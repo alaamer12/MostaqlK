@@ -12,7 +12,7 @@ namespace MostaqlK.Infrastructure.Http;
 /// header must attach to the page fetch as well as the file fetch.
 /// </para>
 /// There is one instance per registered source (see <see cref="ICookieJarProvider"/>); the
-/// decrypted value itself lives in <see cref="CookieStore"/>, which installs it here via
+/// decrypted value itself lives in <see cref="Services.CookieStore"/>, which installs it here via
 /// <see cref="SecureProvider"/>.
 /// </summary>
 public interface ICookieJar

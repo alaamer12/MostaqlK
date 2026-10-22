@@ -1,5 +1,6 @@
 using HtmlAgilityPack;
 using MostaqlK.Core.Formatting;
+using MostaqlK.Core.Parsing;
 using MostaqlK.Models;
 
 namespace MostaqlK.Sources.Mostaql.Parsing;
@@ -9,40 +10,20 @@ namespace MostaqlK.Sources.Mostaql.Parsing;
 /// Mirrors pipeline.py's <c>parse_project()</c> combinator (see
 /// .repertoire/progress/python/parser/scratch/pipeline.py): per meta-row field, prefer the
 /// structural (class/id) value when it passes a sanity check, otherwise fall back to
-/// <see cref="InferenceEngine"/>, cross-validate whenever both are available, and enforce the
+/// <see cref="FieldInferenceEngine"/>, cross-validate whenever both are available, and enforce the
 /// nullable-by-design rules for the "completed only" fields. Title/skills/description/
 /// attachments stay structural-only, exactly as in pipeline.py.
+/// After the A1 generalization this file is only the ORDER OF OPERATIONS: every heuristic runs
+/// in <c>Core/Parsing</c>, every Mostaql fact (labels, statuses, markers, selectors) arrives as
+/// <see cref="MostaqlParseProfile"/>/<see cref="MostaqlSelectors"/> data.
 /// </summary>
 public static class DetailParser
 {
-    /// <summary>Arabic label -> inference.py field key. Mirrors pipeline.py's LABEL_TO_FIELD.</summary>
-    private static readonly Dictionary<string, string> LabelToField = new()
-    {
-        ["حالة المشروع"] = "project_status",
-        ["تاريخ النشر"] = "published_date",
-        ["الميزانية"] = "budget",
-        ["مدة التنفيذ"] = "duration",
-        ["تاريخ التسجيل"] = "registration_date",
-        ["معدل التوظيف"] = "hire_rate",
-        ["نسبة التوظيف"] = "hire_rate",
-        ["المشاريع المفتوحة"] = "open_projects_count",
-        ["مشاريع مفتوحة"] = "open_projects_count",
-        ["مشاريع قيد التنفيذ"] = "in_progress_count",
-        ["المشاريع قيد التنفيذ"] = "in_progress_count",
-        ["مشاريع منجزة"] = "completed_projects_count",
-        ["مشاريع مكتملة"] = "completed_projects_count",
-        ["المشاريع المكتملة"] = "completed_projects_count",
-        ["المشاريع المنجزة"] = "completed_projects_count",
-        ["التواصلات الجارية"] = "ongoing_conversations",
-        ["بدأ تنفيذه منذ"] = "started_since",
-        ["تاريخ الصفقة"] = "deal_date",
-        ["موعد التسليم"] = "delivery_date",
-        ["عدد العروض"] = "proposal_count",
-        ["عدد المقترحات"] = "proposal_count",
-    };
+    private static ParseProfile Profile => MostaqlParseProfile.Profile;
+    private static SelectorMap S => MostaqlSelectors.Selectors;
 
     private static readonly Dictionary<string, string> FieldToLabel =
-        LabelToField
+        Profile.LabelToField
             .GroupBy(kv => kv.Value)
             .ToDictionary(group => group.Key, group => group.First().Value);
 
@@ -52,20 +33,12 @@ public static class DetailParser
     // be inserted into FieldToLabel, otherwise a page using the other synonym gets wrongly
     // treated as "label absent".
     private static readonly Dictionary<string, string[]> FieldToLabels =
-        LabelToField
+        Profile.LabelToField
             .GroupBy(kv => kv.Value)
             .ToDictionary(group => group.Key, group => group.Select(kv => kv.Key).ToArray());
 
-    private static readonly HashSet<string> CompletedOnlyFields =
-        ["started_since", "deal_date", "delivery_date", "completed_projects_count"];
-    private const string CompletedStatusText = "مكتمل";
-
-    private static readonly HashSet<string> NumericFields =
-        ["hire_rate", "budget", "duration", "open_projects_count", "in_progress_count", "completed_projects_count", "ongoing_conversations", "proposal_count"];
-
     // Mirrors analyzer.NOT_CALCULATED_MARKERS / ARABIC_DIGIT_RE used by pipeline.py's
     // _is_placeholder/_sanity_ok.
-    private static readonly string[] NotCalculatedMarkers = ["لم يحسب بعد", "غير محدد", "N/A", "لا يوجد"];
     private static readonly System.Text.RegularExpressions.Regex ArabicDigitRegex =
         new("[٠١٢٣٤٥٦٧٨٩]", System.Text.RegularExpressions.RegexOptions.Compiled);
 
@@ -90,8 +63,8 @@ public static class DetailParser
         var skills = ExtractSkills(root);
 
         // ---- structural-first / inference-fallback combinator per label/field. ----
-        var structural = StructuralExtractor.ExtractMetaFields(root);
-        var labelDriven = StructuralExtractor.LabelDrivenExtract(root);
+        var structural = HtmlStructureEngine.ExtractMetaFields(root, Profile, S);
+        var labelDriven = HtmlStructureEngine.LabelDrivenExtract(root, Profile.KnownLabels);
 
         Dictionary<string, FieldInferenceResult>? inferenceResults = null; // computed lazily, once per page.
         var fields = new Dictionary<string, FieldResolution>();
@@ -104,7 +77,7 @@ public static class DetailParser
             string? sVal = null;
             foreach (var label in labels)
             {
-                var labelKey = StructuralExtractor.NormalizeLabel(label);
+                var labelKey = HtmlStructureEngine.NormalizeLabel(label);
                 if (structural.TryGetValue(labelKey, out var sv) || labelDriven.TryGetValue(labelKey, out sv))
                 {
                     sVal = sv;
@@ -126,7 +99,7 @@ public static class DetailParser
             }
             else
             {
-                inferenceResults ??= InferenceEngine.InferFields(root);
+                inferenceResults ??= FieldInferenceEngine.InferFields(root, Profile.FieldProfiles);
                 var infRes = inferenceResults.GetValueOrDefault(field);
                 value = infRes?.Value;
                 confidence = infRes?.Confidence ?? 0.0;
@@ -161,12 +134,12 @@ public static class DetailParser
         // an inference-sourced value has nothing genuine to latch onto - force null.
         // Compared through NormalizeLabel so an orthographic variant of the label on the page
         // (trailing colon, diacritics, alef/ya spelling) still counts as "the label is present".
-        var pageText = StructuralExtractor.NormalizeLabel(HtmlEntity.DeEntitize(root.InnerText));
-        foreach (var f in CompletedOnlyFields)
+        var pageText = HtmlStructureEngine.NormalizeLabel(HtmlEntity.DeEntitize(root.InnerText));
+        foreach (var f in Profile.CompletedOnlyFields)
         {
             if (fields.TryGetValue(f, out var res) && res.Source == "inference")
             {
-                var labels = FieldToLabels.GetValueOrDefault(f)?.Select(StructuralExtractor.NormalizeLabel).ToArray() ?? [];
+                var labels = FieldToLabels.GetValueOrDefault(f)?.Select(HtmlStructureEngine.NormalizeLabel).ToArray() ?? [];
                 if (labels.Length > 0 && !labels.Any(l => pageText.Contains(l, StringComparison.Ordinal)))
                 {
                     fields[f] = new FieldResolution(null, "none", 0.0);
@@ -184,13 +157,13 @@ public static class DetailParser
         // and only keeps a text-derived value when the real label genuinely is present on the
         // page and there are no bid rows to count (future-proofing against a layout that does
         // add an explicit counter).
-        var proposalLabels = FieldToLabels.GetValueOrDefault("proposal_count")?.Select(StructuralExtractor.NormalizeLabel).ToArray()
+        var proposalLabels = FieldToLabels.GetValueOrDefault("proposal_count")?.Select(HtmlStructureEngine.NormalizeLabel).ToArray()
             ?? [];
         var proposalLabelPresent = proposalLabels.Any(l => pageText.Contains(l, StringComparison.Ordinal));
         var bidCount = CountBidItems(root);
         if (bidCount > 0)
         {
-            fields["proposal_count"] = new FieldResolution($"{bidCount} عروض", "structural", 1.0);
+            fields["proposal_count"] = new FieldResolution($"{bidCount}{Profile.ProposalCountSuffix}", "structural", 1.0);
         }
         else if (!proposalLabelPresent)
         {
@@ -200,9 +173,9 @@ public static class DetailParser
         // (2) Regardless of (1), these fields are only meaningful when the project is
         // actually completed.
         var statusValue = fields.GetValueOrDefault("project_status")?.Value;
-        if (statusValue is null || !statusValue.Contains(CompletedStatusText, StringComparison.Ordinal))
+        if (statusValue is null || !statusValue.Contains(Profile.CompletedStatusText, StringComparison.Ordinal))
         {
-            foreach (var f in CompletedOnlyFields)
+            foreach (var f in Profile.CompletedOnlyFields)
             {
                 if (f != "completed_projects_count" && fields.TryGetValue(f, out var res))
                 {
@@ -224,7 +197,7 @@ public static class DetailParser
             OngoingCommunicationsCount = ParseLeadingInt(fields.GetValueOrDefault("ongoing_conversations")?.Value),
         };
 
-        var attachmentCandidates = StructuralExtractor.ExtractAttachments(root);
+        var attachmentCandidates = HtmlStructureEngine.ExtractAttachments(root, Profile, S);
         var attachments = attachmentCandidates.Select(a => new Asset
         {
             ProjectId = projectId,
@@ -287,7 +260,7 @@ public static class DetailParser
             return true;
         }
         var hasDigit = v.Any(char.IsDigit) || ArabicDigitRegex.IsMatch(v);
-        if (NumericFields.Contains(field))
+        if (Profile.NumericFields.Contains(field))
         {
             return hasDigit;
         }
@@ -297,16 +270,16 @@ public static class DetailParser
 
     /// <summary>Mirrors pipeline.py's _is_placeholder.</summary>
     private static bool IsPlaceholder(string? value) =>
-        value is not null && NotCalculatedMarkers.Any(value.Contains);
+        value is not null && Profile.NotCalculatedMarkers.Any(value.Contains);
 
     /// <summary>
     /// Counts the actual bid rows rendered under the "العروض المقدمة" (submitted proposals)
-    /// panel by counting elements carrying a <c>data-bid-item</c> attribute - each real bid row
-    /// on Mostaql's detail page carries a unique <c>data-bid-item="&lt;id&gt;"</c> attribute, so
-    /// this is a deterministic DOM fact rather than a text-pattern guess.
+    /// panel by counting elements carrying the bid-row attribute - each real bid row on the
+    /// detail page carries a unique <c>data-bid-item="&lt;id&gt;"</c> attribute, so this is a
+    /// deterministic DOM fact rather than a text-pattern guess.
     /// </summary>
     private static int CountBidItems(HtmlNode root) =>
-        root.SelectNodes("//*[@data-bid-item]")?.Count ?? 0;
+        root.SelectNodes($"//*[@{S.BidItemAttribute}]")?.Count ?? 0;
 
     /// <summary>Mirrors pipeline.py's _values_agree.</summary>
     private static bool ValuesAgree(string? a, string? b)
@@ -333,7 +306,7 @@ public static class DetailParser
         var h1 = root.SelectSingleNode("//h1");
         if (h1 is not null)
         {
-            var text = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(h1.InnerText));
+            var text = HtmlStructureEngine.Normalize(HtmlEntity.DeEntitize(h1.InnerText));
             if (text.Length > 0)
             {
                 var stripped = StripSiteSuffix(text);
@@ -343,7 +316,7 @@ public static class DetailParser
 
         // 2. OpenGraph: Usually contains the project title.
         var og = root.SelectSingleNode("//meta[@property='og:title' or @name='og:title']");
-        var ogTitle = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(og?.GetAttributeValue("content", string.Empty) ?? string.Empty));
+        var ogTitle = HtmlStructureEngine.Normalize(HtmlEntity.DeEntitize(og?.GetAttributeValue("content", string.Empty) ?? string.Empty));
         if (ogTitle.Length > 0)
         {
             var stripped = StripSiteSuffix(ogTitle);
@@ -353,29 +326,21 @@ public static class DetailParser
         // 3. Fallback: The <title> tag.
         var titleTag = root.SelectSingleNode("//title");
         var docTitle = titleTag is not null
-            ? StructuralExtractor.Normalize(HtmlEntity.DeEntitize(titleTag.InnerText))
+            ? HtmlStructureEngine.Normalize(HtmlEntity.DeEntitize(titleTag.InnerText))
             : string.Empty;
         return StripSiteSuffix(docTitle);
     }
 
-    private static readonly string[] SiteSuffixSeparators = [" - ", " | ", " – "];
-    private static readonly string[] SiteKeywords =
-    [
-        MostaqlSource.Instance.DisplayNameAr,
-        MostaqlSource.Instance.DisplayNameLatin,
-        "Mostaqlk", // the app's OWN display name also shows up in page titles — product identity, not a site fact
-    ];
-
     private static string StripSiteSuffix(string title)
     {
         // Remove common site name suffixes from the end
-        foreach (var sep in SiteSuffixSeparators)
+        foreach (var sep in Profile.TitleSuffixSeparators)
         {
             var idx = title.LastIndexOf(sep, StringComparison.Ordinal);
             if (idx > 0)
             {
                 var suffix = title[(idx + sep.Length)..];
-                if (SiteKeywords.Any(k => suffix.Contains(k, StringComparison.OrdinalIgnoreCase)))
+                if (Profile.TitleSiteKeywords.Any(k => suffix.Contains(k, StringComparison.OrdinalIgnoreCase)))
                 {
                     title = title[..idx].Trim();
                 }
@@ -383,7 +348,7 @@ public static class DetailParser
         }
 
         // Also handle cases where the keyword is just part of the string without a separator
-        foreach (var keyword in SiteKeywords)
+        foreach (var keyword in Profile.TitleSiteKeywords)
         {
             if (title.EndsWith(keyword, StringComparison.OrdinalIgnoreCase))
             {
@@ -402,15 +367,15 @@ public static class DetailParser
     /// </summary>
     private static string ExtractDescription(HtmlNode root)
     {
-        var detailsTab = root.SelectSingleNode("//*[@id='projectDetailsTab']");
+        var detailsTab = root.SelectSingleNode($"//*[@id='{S.DetailsTabId}']");
         HtmlNode? desc;
         if (detailsTab is not null)
         {
-            desc = SelectByClassContains(detailsTab, "div", "text-wrapper-div") ?? detailsTab;
+            desc = HtmlStructureEngine.SelectByClassContains(detailsTab, "div", S.DescriptionClassSubstring).FirstOrDefault() ?? detailsTab;
         }
         else
         {
-            desc = SelectByClassContains(root, "div", "text-wrapper-div");
+            desc = HtmlStructureEngine.SelectByClassContains(root, "div", S.DescriptionClassSubstring).FirstOrDefault();
         }
         // Uses NormalizeMultiline (not Normalize) so the description keeps its paragraph/line
         // structure - Normalize collapses ALL whitespace (including newlines) into a single
@@ -418,7 +383,7 @@ public static class DetailParser
         // ("المهام:\n\n...") into one run-on sentence.
         if (desc is not null)
         {
-            var text = StructuralExtractor.NormalizeMultiline(desc);
+            var text = HtmlStructureEngine.NormalizeMultiline(desc);
             if (text.Length > 0)
             {
                 return text;
@@ -429,12 +394,12 @@ public static class DetailParser
         // prototype had. If "text-wrapper-div" ever gets renamed, the description would
         // previously come back as an empty string with no error at all (a silent data loss).
         var og = root.SelectSingleNode("//meta[@property='og:description' or @name='description']");
-        var ogText = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(og?.GetAttributeValue("content", string.Empty) ?? string.Empty));
+        var ogText = HtmlStructureEngine.Normalize(HtmlEntity.DeEntitize(og?.GetAttributeValue("content", string.Empty) ?? string.Empty));
 
         var densest = FindDensestTextBlock(root);
         if (densest is not null)
         {
-            var text = StructuralExtractor.NormalizeMultiline(densest);
+            var text = HtmlStructureEngine.NormalizeMultiline(densest);
             // Only prefer the heuristic block over og:description when it is meaningfully
             // richer - og:description is usually a truncated teaser of the real brief.
             if (text.Length > ogText.Length)
@@ -465,7 +430,7 @@ public static class DetailParser
                 continue;
             }
 
-            var text = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(node.InnerText));
+            var text = HtmlStructureEngine.Normalize(HtmlEntity.DeEntitize(node.InnerText));
             if (text.Length > bestLength)
             {
                 best = node;
@@ -476,23 +441,17 @@ public static class DetailParser
         return best;
     }
 
-    private static HtmlNode? SelectByClassContains(HtmlNode root, string tag, string classSubstring) =>
-        (root.SelectNodes($".//{tag}") ?? Enumerable.Empty<HtmlNode>())
-            .FirstOrDefault(n => n.GetAttributeValue("class", string.Empty)
-                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                .Any(c => c.Contains(classSubstring, StringComparison.OrdinalIgnoreCase)));
-
     private static List<ProjectSkill> ExtractSkills(HtmlNode root)
     {
-        var skillsList = root.SelectSingleNode("//ul[contains(concat(' ', normalize-space(@class), ' '), ' skills ')]")
-                         ?? SelectByClassContains(root, "ul", "skills");
+        var skillsList = root.SelectSingleNode($"//ul[contains(concat(' ', normalize-space(@class), ' '), ' {S.SkillsListClassSubstring} ')]")
+                         ?? HtmlStructureEngine.SelectByClassContains(root, "ul", S.SkillsListClassSubstring).FirstOrDefault();
 
         var result = new List<ProjectSkill>();
         if (skillsList is not null)
         {
             foreach (var li in skillsList.SelectNodes("./li") ?? Enumerable.Empty<HtmlNode>())
             {
-                var name = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(li.InnerText));
+                var name = HtmlStructureEngine.Normalize(HtmlEntity.DeEntitize(li.InnerText));
                 if (string.IsNullOrEmpty(name))
                 {
                     continue;
@@ -525,7 +484,7 @@ public static class DetailParser
                 continue;
             }
 
-            var name = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(a.InnerText));
+            var name = HtmlStructureEngine.Normalize(HtmlEntity.DeEntitize(a.InnerText));
             if (name.Length == 0 || name.Length > 60 || !seen.Add(name))
             {
                 continue;
@@ -538,9 +497,7 @@ public static class DetailParser
     }
 
     private static bool LooksLikeSkillHref(string href) =>
-        href.Contains("/skills/", StringComparison.OrdinalIgnoreCase)
-        || href.Contains("skill=", StringComparison.OrdinalIgnoreCase)
-        || href.Contains("/tag/", StringComparison.OrdinalIgnoreCase);
+        S.SkillHrefSubstrings.Any(fragment => href.Contains(fragment, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Resolves the project owner's display name through a fallback chain. The prototype only
@@ -553,45 +510,45 @@ public static class DetailParser
     private static string? ExtractOwnerName(HtmlNode root, Dictionary<string, string> labelDriven)
     {
         // 1. Look specifically within the profile card/owner section
-        var ownerCard = StructuralExtractor.FindOwnerCard(root);
+        var ownerCard = HtmlStructureEngine.FindOwnerCard(root, S, Profile.OwnerLabel);
 
         if (ownerCard is not null)
         {
             // The name is typically in an h5 or h3 or inside a link.
-            var nameNode = ownerCard.SelectSingleNode(".//h5[contains(@class, 'name')]")
-                        ?? ownerCard.SelectSingleNode(".//h3[contains(@class, 'name')]")
-                        ?? ownerCard.SelectSingleNode(".//a[contains(@href, '/u/')]")
+            var nameNode = ownerCard.SelectSingleNode($".//h5[contains(@class, '{S.OwnerNameClassSubstring}')]")
+                        ?? ownerCard.SelectSingleNode($".//h3[contains(@class, '{S.OwnerNameClassSubstring}')]")
+                        ?? ownerCard.SelectSingleNode($".//a[contains(@href, '{S.ProfileUrlPathSegment}')]")
                         ?? ownerCard.SelectSingleNode(".//h5")
                         ?? ownerCard.SelectSingleNode(".//h3");
 
             if (nameNode is not null)
             {
-                var text = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(nameNode.InnerText));
+                var text = HtmlStructureEngine.Normalize(HtmlEntity.DeEntitize(nameNode.InnerText));
                 if (text.Length > 0) return text;
             }
         }
 
-        // 2. Fallback to the label-driven approach if identified as "صاحب المشروع"
-        var labelled = labelDriven.GetValueOrDefault(StructuralExtractor.NormalizeLabel("صاحب المشروع"));
+        // 2. Fallback to the label-driven approach if identified as the owner label
+        var labelled = labelDriven.GetValueOrDefault(HtmlStructureEngine.NormalizeLabel(Profile.OwnerLabel));
         if (!string.IsNullOrEmpty(labelled) && labelled.Length <= 80)
         {
             return labelled;
         }
 
         // 3. Last resort: find any link to a user profile within the details area and take its text
-        var detailsArea = root.SelectSingleNode("//*[@id='projectDetailsTab']")
-                       ?? root.SelectSingleNode("//div[contains(@class, 'project-details')]")
+        var detailsArea = root.SelectSingleNode($"//*[@id='{S.DetailsTabId}']")
+                       ?? root.SelectSingleNode($"//div[contains(@class, '{S.ProjectDetailsClassSubstring}')]")
                        ?? root.SelectSingleNode("//article");
 
-        var profileLink = ((detailsArea ?? root).SelectNodes(".//a[contains(@href, '/u/')]") ?? Enumerable.Empty<HtmlNode>())
+        var profileLink = ((detailsArea ?? root).SelectNodes($".//a[contains(@href, '{S.ProfileUrlPathSegment}')]") ?? Enumerable.Empty<HtmlNode>())
             .FirstOrDefault(a =>
             {
-                var text = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(a.InnerText));
+                var text = HtmlStructureEngine.Normalize(HtmlEntity.DeEntitize(a.InnerText));
                 return text.Length is > 0 and <= 60;
             });
 
         return profileLink is not null
-            ? StructuralExtractor.Normalize(HtmlEntity.DeEntitize(profileLink.InnerText))
+            ? HtmlStructureEngine.Normalize(HtmlEntity.DeEntitize(profileLink.InnerText))
             : null;
     }
 
@@ -601,10 +558,10 @@ public static class DetailParser
     /// </summary>
     private static string? ExtractOwnerProfileUrl(HtmlNode root)
     {
-        var ownerCard = StructuralExtractor.FindOwnerCard(root);
+        var ownerCard = HtmlStructureEngine.FindOwnerCard(root, S, Profile.OwnerLabel);
         if (ownerCard is not null)
         {
-            var profileLink = ownerCard.SelectSingleNode(".//a[contains(@href, '/u/')]");
+            var profileLink = ownerCard.SelectSingleNode($".//a[contains(@href, '{S.ProfileUrlPathSegment}')]");
             if (profileLink is not null)
             {
                 var url = profileLink.GetAttributeValue("href", string.Empty);
@@ -619,13 +576,13 @@ public static class DetailParser
             }
         }
 
-        // Fallback: search anywhere for /u/ links if owner card lookup failed, but scoped to details
-        var detailsArea = root.SelectSingleNode("//*[@id='projectDetailsTab']")
-                       ?? root.SelectSingleNode("//div[contains(@class, 'project-details')]")
+        // Fallback: search anywhere for profile links if owner card lookup failed, but scoped to details
+        var detailsArea = root.SelectSingleNode($"//*[@id='{S.DetailsTabId}']")
+                       ?? root.SelectSingleNode($"//div[contains(@class, '{S.ProjectDetailsClassSubstring}')]")
                        ?? root.SelectSingleNode("//article")
                        ?? root;
 
-        var anyProfileLink = detailsArea.SelectSingleNode(".//a[contains(@href, '/u/')]");
+        var anyProfileLink = detailsArea.SelectSingleNode($".//a[contains(@href, '{S.ProfileUrlPathSegment}')]");
         var fallbackUrl = anyProfileLink?.GetAttributeValue("href", string.Empty);
         if (!string.IsNullOrEmpty(fallbackUrl) && !fallbackUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
         {
@@ -641,28 +598,28 @@ public static class DetailParser
     /// </summary>
     private static long ExtractOwnerId(HtmlNode root)
     {
-        var ownerCard = StructuralExtractor.FindOwnerCard(root);
+        var ownerCard = HtmlStructureEngine.FindOwnerCard(root, S, Profile.OwnerLabel);
         string? username = null;
 
         if (ownerCard is not null)
         {
-            // Look for data-user-id or similar attributes
-            var idAttr = ownerCard.GetAttributeValue("data-user-id", string.Empty);
+            // Look for the numeric-id data attribute or similar
+            var idAttr = ownerCard.GetAttributeValue(S.OwnerUserIdAttribute, string.Empty);
             if (string.IsNullOrEmpty(idAttr))
             {
-                idAttr = ownerCard.SelectSingleNode(".//*[@data-user-id]")?.GetAttributeValue("data-user-id", string.Empty);
+                idAttr = ownerCard.SelectSingleNode($".//*[@{S.OwnerUserIdAttribute}]")?.GetAttributeValue(S.OwnerUserIdAttribute, string.Empty);
             }
 
             if (long.TryParse(idAttr, out var id)) return id;
 
             // Try to find it in links
-            var profileLink = ownerCard.SelectSingleNode(".//a[contains(@href, '/u/')]");
+            var profileLink = ownerCard.SelectSingleNode($".//a[contains(@href, '{S.ProfileUrlPathSegment}')]");
             var href = profileLink?.GetAttributeValue("href", string.Empty) ?? string.Empty;
             if (!string.IsNullOrEmpty(href))
             {
                 // Mostaql URLs are usually /u/username
                 var parts = href.Split('/', StringSplitOptions.RemoveEmptyEntries);
-                var uIdx = Array.IndexOf(parts, "u");
+                var uIdx = Array.IndexOf(parts, S.ProfileUrlSegmentToken);
                 if (uIdx >= 0 && uIdx + 1 < parts.Length)
                 {
                     username = parts[uIdx + 1];
@@ -673,17 +630,17 @@ public static class DetailParser
         if (username == null)
         {
             // Fallback: search within the project details area, NOT the whole root which includes header/nav
-            var detailsArea = root.SelectSingleNode("//*[@id='projectDetailsTab']")
-                           ?? root.SelectSingleNode("//div[contains(@class, 'project-details')]")
+            var detailsArea = root.SelectSingleNode($"//*[@id='{S.DetailsTabId}']")
+                           ?? root.SelectSingleNode($"//div[contains(@class, '{S.ProjectDetailsClassSubstring}')]")
                            ?? root.SelectSingleNode("//article")
                            ?? root;
 
-            var anyProfileLink = detailsArea.SelectSingleNode(".//a[contains(@href, '/u/')]");
+            var anyProfileLink = detailsArea.SelectSingleNode($".//a[contains(@href, '{S.ProfileUrlPathSegment}')]");
             var href = anyProfileLink?.GetAttributeValue("href", string.Empty) ?? string.Empty;
             if (!string.IsNullOrEmpty(href))
             {
                 var parts = href.Split('/', StringSplitOptions.RemoveEmptyEntries);
-                var uIdx = Array.IndexOf(parts, "u");
+                var uIdx = Array.IndexOf(parts, S.ProfileUrlSegmentToken);
                 if (uIdx >= 0 && uIdx + 1 < parts.Length)
                 {
                     username = parts[uIdx + 1];
@@ -704,13 +661,13 @@ public static class DetailParser
         }
 
         // Last resort: if we have a name, hash it
-        var nameNode = (StructuralExtractor.FindOwnerCard(root) ?? root).SelectSingleNode(".//h5[contains(@class, 'name')]")
-                    ?? (StructuralExtractor.FindOwnerCard(root) ?? root).SelectSingleNode(".//h3[contains(@class, 'name')]")
-                    ?? (StructuralExtractor.FindOwnerCard(root) ?? root).SelectSingleNode(".//a[contains(@href, '/u/')]")
-                    ?? (StructuralExtractor.FindOwnerCard(root) ?? root).SelectSingleNode(".//h5")
-                    ?? (StructuralExtractor.FindOwnerCard(root) ?? root).SelectSingleNode(".//h3");
+        var nameNode = (HtmlStructureEngine.FindOwnerCard(root, S, Profile.OwnerLabel) ?? root).SelectSingleNode($".//h5[contains(@class, '{S.OwnerNameClassSubstring}')]")
+                    ?? (HtmlStructureEngine.FindOwnerCard(root, S, Profile.OwnerLabel) ?? root).SelectSingleNode($".//h3[contains(@class, '{S.OwnerNameClassSubstring}')]")
+                    ?? (HtmlStructureEngine.FindOwnerCard(root, S, Profile.OwnerLabel) ?? root).SelectSingleNode($".//a[contains(@href, '{S.ProfileUrlPathSegment}')]")
+                    ?? (HtmlStructureEngine.FindOwnerCard(root, S, Profile.OwnerLabel) ?? root).SelectSingleNode(".//h5")
+                    ?? (HtmlStructureEngine.FindOwnerCard(root, S, Profile.OwnerLabel) ?? root).SelectSingleNode(".//h3");
 
-        var ownerName = nameNode != null ? StructuralExtractor.Normalize(HtmlEntity.DeEntitize(nameNode.InnerText)) : null;
+        var ownerName = nameNode != null ? HtmlStructureEngine.Normalize(HtmlEntity.DeEntitize(nameNode.InnerText)) : null;
         if (!string.IsNullOrEmpty(ownerName))
         {
             long hash = 0;
@@ -739,7 +696,7 @@ public static class DetailParser
             return null;
         }
 
-        var match = PercentNumberRegex.Match(StructuralExtractor.ToAsciiDigits(text));
+        var match = PercentNumberRegex.Match(HtmlStructureEngine.ToAsciiDigits(text));
         if (!match.Success)
         {
             return null;
@@ -763,7 +720,7 @@ public static class DetailParser
             return null;
         }
 
-        var ascii = StructuralExtractor.ToAsciiDigits(text);
+        var ascii = HtmlStructureEngine.ToAsciiDigits(text);
         var match = GroupedIntRegex.Match(ascii);
         if (!match.Success)
         {

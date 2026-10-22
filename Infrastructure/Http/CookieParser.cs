@@ -13,7 +13,7 @@ namespace MostaqlK.Infrastructure.Http;
 /// <list type="bullet">
 /// <item>Netscape/curl format (<c># Netscape HTTP Cookie File</c>, 7 tab-separated columns) - the
 /// output of "cookies.txt" browser extensions and <c>curl -c</c>. The first column is the cookie's
-/// domain; when a <paramref name="domain"/> filter is supplied these rows are matched against it
+/// domain; when a <c>domain</c> filter is supplied these rows are matched against it
 /// so one source's session can never be handed to another source's request.</item>
 /// <item>A plain <c>name=value</c> (optionally quoted) per line, or one long
 /// <c>a=1; b=2</c> header string - what you get by copying the Cookie header out of DevTools.

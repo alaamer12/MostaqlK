@@ -324,6 +324,11 @@ internal static class Program
         public string CurrencySuffix => "";
         public string? OwnerFallbackMeta => null;
         public SourceCapabilities Capabilities => new(true, true, false);
+        // A1 added Profile/Selectors/SchemaMap to ISourceDescriptor; the migration harness never
+        // parses or renders, so it answers with the shared empty data singletons.
+        public MostaqlK.Core.Parsing.ParseProfile Profile => MostaqlK.Core.Parsing.ParseProfile.Empty;
+        public MostaqlK.Core.Parsing.SelectorMap Selectors => MostaqlK.Core.Parsing.SelectorMap.Empty;
+        public IReadOnlyList<MostaqlK.Core.Sources.FieldSpec> SchemaMap => [];
         public string CookieSecretKey => "cookie_" + Id.Value;
         public string? SessionCookieName => null;
         public string LegacyCookieSecretKey => "cookie_legacy_" + Id.Value;

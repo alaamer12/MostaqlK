@@ -2,10 +2,10 @@ using System.Text;
 using System.Text.RegularExpressions;
 using HtmlAgilityPack;
 
-namespace MostaqlK.Sources.Mostaql.Parsing;
+namespace MostaqlK.Core.Parsing;
 
 /// <summary>
-/// Resolution produced by <see cref="InferenceEngine.InferFields"/> for a single field key.
+/// Resolution produced by <see cref="FieldInferenceEngine.InferFields"/> for a single field key.
 /// Mirrors the per-field dict returned by inference.py's <c>resolve_fields()</c> (a subset:
 /// value/confidence/strategy - runner-ups are not carried over since nothing downstream
 /// currently consumes them).
@@ -13,13 +13,17 @@ namespace MostaqlK.Sources.Mostaql.Parsing;
 public sealed record FieldInferenceResult(string? Value, double Confidence, string Strategy);
 
 /// <summary>
-/// Ports the context-aware, structure-independent scoring engine from the Python prototype
-/// <c>inference.py</c> to C#/HtmlAgilityPack. See
+/// The generic, context-aware, structure-independent scoring engine, ported from the Python
+/// prototype <c>inference.py</c> to C#/HtmlAgilityPack. See
 /// <c>.repertoire/progress/python/parser/scratch/inference.py</c> for the original - every
 /// method below is commented with the section/function it mirrors so fidelity can be
 /// spot-checked against it.
+/// The per-source field table (<see cref="FieldProfileTable"/>) is injected; the Arabic
+/// morphology and value-type vocabulary below is shared across Arabic-language sources and
+/// stays here, exposed so a source's profile data can build unit-hint lists from the exact
+/// same arrays the scoring uses.
 /// </summary>
-public static class InferenceEngine
+public static class FieldInferenceEngine
 {
     // -----------------------------------------------------------------
     // Tunable weights (hand-set, not learned) - mirrors inference.py's WEIGHTS dict exactly.
@@ -81,8 +85,12 @@ public static class InferenceEngine
     private static readonly Regex DiacriticsRegex = new(@"[\u064B-\u065F\u0670\u0640]", RegexOptions.Compiled);
     private static readonly char[] StemTrimChars = ['،', '.', ',', ':', '؛', ';', '(', ')', '[', ']', '{', '}', '»', '«', '"', '\''];
 
-    /// <summary>Mirrors stem(): strip diacritics/tatweel, punctuation, then affixes.</summary>
-    private static string Stem(string word)
+    /// <summary>
+    /// Mirrors stem(): strip diacritics/tatweel, punctuation, then affixes. Public so a
+    /// source's <see cref="FieldProfileTable"/> data can compute its core stems through the
+    /// exact same function the scorer uses.
+    /// </summary>
+    public static string Stem(string word)
     {
         var w = NormalizeWs(word);
         w = DiacriticsRegex.Replace(w, string.Empty);
@@ -97,15 +105,20 @@ public static class InferenceEngine
     private static readonly Regex RangeRe = new(@"\$?\s*([\d.]+)\s*-\s*\$?\s*([\d.]+)", RegexOptions.Compiled);
     private static readonly Regex FloatRe = new(@"\b\d+\.\d+\b", RegexOptions.Compiled);
     private static readonly Regex IntRe = new(@"(?<!\.)\b\d+\b(?!\.\d)", RegexOptions.Compiled);
-    private static readonly string[] CurrencySyms = ["$", "usd", "دولار", "ريال", "sar", "egp", "جنيه"];
+
+    /// <summary>Currency symbols the unit signal recognizes. Public for profile-data reuse.</summary>
+    public static readonly string[] CurrencySyms = ["$", "usd", "دولار", "ريال", "sar", "egp", "جنيه"];
     private static readonly string[] NotCalculatedMarkers = ["لم يحسب بعد", "غير محدد", "n/a", "لا يوجد"];
 
-    private static readonly string[] DurationUnits =
+    /// <summary>Duration units the unit signal recognizes. Public for profile-data reuse.</summary>
+    public static readonly string[] DurationUnits =
         ["يوم", "يوما", "أيام", "ايام", "ساعة", "ساعات", "أسبوع", "اسبوع", "أسابيع", "شهر", "أشهر"];
-    private static readonly string[] RelativeDateWords = ["منذ", "قبل", "خلال"];
+    /// <summary>Relative-date words. Public for profile-data reuse.</summary>
+    public static readonly string[] RelativeDateWords = ["منذ", "قبل", "خلال"];
     private static readonly Regex AbsoluteDateRe =
         new(@"\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b|\b\d{1,2}[-/]\d{1,2}[-/]\d{4}\b", RegexOptions.Compiled);
-    private static readonly string[] MonthNames =
+    /// <summary>Arabic month names. Public for profile-data reuse.</summary>
+    public static readonly string[] MonthNames =
         ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
 
     /// <summary>Translates Arabic-Indic digits to ASCII digits (mirrors str.translate(ARABIC_TO_ASCII)).</summary>
@@ -159,127 +172,6 @@ public static class InferenceEngine
         }
         return types;
     }
-
-    // -----------------------------------------------------------------
-    // Field profiles - mirrors inference.py's FIELD_PROFILES exactly (same field keys,
-    // same core_stems/expected_types/unit_hints/requires_unit per field).
-    // -----------------------------------------------------------------
-    private sealed class FieldProfile
-    {
-        public string[] CoreStems { get; init; } = [];
-        public HashSet<string> ExpectedTypes { get; init; } = [];
-        public HashSet<string> ExpectedTypesWeak { get; init; } = [];
-        public string[] UnitHints { get; init; } = [];
-        public bool RequiresUnit { get; init; }
-    }
-
-    private static readonly string[] StartedSinceUnitHints = RelativeDateWords.Concat(DurationUnits).ToArray();
-
-    private static readonly Dictionary<string, FieldProfile> FieldProfiles = new()
-    {
-        ["project_status"] = new FieldProfile
-        {
-            CoreStems = [Stem("حالة"), Stem("المشروع")],
-            ExpectedTypes = ["TEXT"],
-            UnitHints = [],
-            RequiresUnit = false,
-        },
-        ["published_date"] = new FieldProfile
-        {
-            CoreStems = [Stem("نشر"), Stem("تاريخ")],
-            ExpectedTypes = ["DATE"],
-            ExpectedTypesWeak = ["NUMBER"],
-            UnitHints = MonthNames,
-            RequiresUnit = false,
-        },
-        ["budget"] = new FieldProfile
-        {
-            CoreStems = [Stem("ميزانية"), Stem("تكلفة"), Stem("سعر")],
-            ExpectedTypes = ["NUMBER", "FLOAT", "RANGE", "PLACEHOLDER"],
-            UnitHints = CurrencySyms,
-            RequiresUnit = true,
-        },
-        ["duration"] = new FieldProfile
-        {
-            CoreStems = [Stem("مدة"), Stem("تنفيذ"), Stem("وقت"), Stem("لازم")],
-            ExpectedTypes = ["NUMBER", "FLOAT"],
-            UnitHints = DurationUnits,
-            RequiresUnit = true,
-        },
-        ["registration_date"] = new FieldProfile
-        {
-            CoreStems = [Stem("تسجيل"), Stem("تاريخ")],
-            ExpectedTypes = ["DATE"],
-            ExpectedTypesWeak = ["NUMBER"],
-            UnitHints = MonthNames,
-            RequiresUnit = false,
-        },
-        ["hire_rate"] = new FieldProfile
-        {
-            CoreStems = [Stem("معدل"), Stem("توظيف")],
-            ExpectedTypes = ["PERCENT", "NUMBER"],
-            UnitHints = ["%"],
-            RequiresUnit = true,
-        },
-        ["open_projects_count"] = new FieldProfile
-        {
-            CoreStems = [Stem("مشاريع"), Stem("مفتوحة")],
-            ExpectedTypes = ["NUMBER"],
-            UnitHints = [],
-            RequiresUnit = false,
-        },
-        ["in_progress_count"] = new FieldProfile
-        {
-            CoreStems = [Stem("مشاريع"), Stem("تنفيذ")],
-            ExpectedTypes = ["NUMBER"],
-            UnitHints = [],
-            RequiresUnit = false,
-        },
-        ["completed_projects_count"] = new FieldProfile
-        {
-            CoreStems = [Stem("مشاريع"), Stem("منجزة")],
-            ExpectedTypes = ["NUMBER"],
-            UnitHints = [],
-            RequiresUnit = false,
-        },
-        ["ongoing_conversations"] = new FieldProfile
-        {
-            CoreStems = [Stem("تواصلات"), Stem("جارية")],
-            ExpectedTypes = ["NUMBER"],
-            UnitHints = [],
-            RequiresUnit = false,
-        },
-        ["started_since"] = new FieldProfile
-        {
-            CoreStems = [Stem("بدأ"), Stem("تنفيذه"), Stem("منذ")],
-            ExpectedTypes = ["DATE", "NUMBER"],
-            UnitHints = StartedSinceUnitHints,
-            RequiresUnit = false,
-        },
-        ["deal_date"] = new FieldProfile
-        {
-            CoreStems = [Stem("تاريخ"), Stem("الصفقة")],
-            ExpectedTypes = ["DATE"],
-            ExpectedTypesWeak = ["NUMBER"],
-            UnitHints = MonthNames,
-            RequiresUnit = false,
-        },
-        ["delivery_date"] = new FieldProfile
-        {
-            CoreStems = [Stem("موعد"), Stem("التسليم")],
-            ExpectedTypes = ["DATE"],
-            ExpectedTypesWeak = ["NUMBER"],
-            UnitHints = MonthNames,
-            RequiresUnit = false,
-        },
-        ["proposal_count"] = new FieldProfile
-        {
-            CoreStems = [Stem("عدد"), Stem("المقترحات"), Stem("عروض"), Stem("مقترحات")],
-            ExpectedTypes = ["NUMBER"],
-            UnitHints = ["عرض", "عروض", "عرضان", "عرضين"],
-            RequiresUnit = false,
-        },
-    };
 
     // -----------------------------------------------------------------
     // Step 1: flatten the DOM into an ordered text-token stream - mirrors inference.py
@@ -513,7 +405,8 @@ public static class InferenceEngine
     }
 
     // -----------------------------------------------------------------
-    // Step 3+4: scoring - mirrors inference.py lines 389-508.
+    // Step 3+4: scoring - mirrors inference.py lines 389-508. The field profiles are
+    // injected data (was the engine's own static FIELD_PROFILES table).
     // -----------------------------------------------------------------
     private static Dictionary<string, int> PageWideStemCounts(List<Token> tokens)
     {
@@ -537,12 +430,12 @@ public static class InferenceEngine
     }
 
     /// <summary>Mirrors score_candidate: additive score for `candidate` against every field profile.</summary>
-    private static void ScoreCandidate(Candidate candidate, List<Token> tokens, Dictionary<string, int> stemCounts)
+    private static void ScoreCandidate(Candidate candidate, List<Token> tokens, Dictionary<string, int> stemCounts, FieldProfileTable table)
     {
         var nearby = LocalWindow(tokens, candidate.TokenIndex);
         var nearbyTextJoin = string.Join(" ", nearby.Select(t => t.Text)).ToLowerInvariant();
 
-        foreach (var (field, profile) in FieldProfiles)
+        foreach (var (field, profile) in table.Entries)
         {
             var score = 0.0;
 
@@ -605,8 +498,8 @@ public static class InferenceEngine
             // --- type compatibility signal ---
             // A decimal (FLOAT) candidate must never satisfy a field profile that only lists
             // whole-number NUMBER as expected: without this guard, unrelated decimal values
-            // (e.g. a "4.9" client rating, or a trailing-dot artifact like "2.") would earn the
-            // same type score as a genuine integer count and could outrank it by proximity alone.
+            // (e.g. a rating, or a trailing-dot artifact like "2.") would earn the same type
+            // score as a genuine integer count and could outrank it by proximity alone.
             var isFloatMismatch = candidate.Types.Contains("FLOAT") && !profile.ExpectedTypes.Contains("FLOAT");
             if (!isFloatMismatch && candidate.Types.Overlaps(profile.ExpectedTypes))
             {
@@ -655,11 +548,11 @@ public static class InferenceEngine
         return exps.ToDictionary(kv => kv.Key, kv => kv.Value / total);
     }
 
-    private static List<Candidate> ScoreAll(List<Candidate> candidates, List<Token> tokens, Dictionary<string, int> stemCounts)
+    private static List<Candidate> ScoreAll(List<Candidate> candidates, List<Token> tokens, Dictionary<string, int> stemCounts, FieldProfileTable table)
     {
         foreach (var c in candidates)
         {
-            ScoreCandidate(c, tokens, stemCounts);
+            ScoreCandidate(c, tokens, stemCounts, table);
         }
         ApplyPositionPrior(candidates);
         foreach (var c in candidates)
@@ -675,9 +568,9 @@ public static class InferenceEngine
     // -----------------------------------------------------------------
     // Step 5: resolve one winner per field - mirrors resolve_fields().
     // -----------------------------------------------------------------
-    private static Dictionary<string, FieldInferenceResult> ResolveFields(List<Candidate> candidates)
+    private static Dictionary<string, FieldInferenceResult> ResolveFields(List<Candidate> candidates, FieldProfileTable table)
     {
-        var perField = FieldProfiles.Keys.ToDictionary(f => f, _ => new List<(double Prob, Candidate Cand)>());
+        var perField = table.Entries.Select(e => e.Field).ToDictionary(f => f, _ => new List<(double Prob, Candidate Cand)>());
         foreach (var c in candidates)
         {
             foreach (var (field, prob) in c.Probabilities)
@@ -710,12 +603,12 @@ public static class InferenceEngine
     // -----------------------------------------------------------------
     // Public entry point - mirrors infer_fields().
     // -----------------------------------------------------------------
-    public static Dictionary<string, FieldInferenceResult> InferFields(HtmlNode root)
+    public static Dictionary<string, FieldInferenceResult> InferFields(HtmlNode root, FieldProfileTable table)
     {
         var tokens = Flatten(root);
         var stemCounts = PageWideStemCounts(tokens);
         var candidates = ExtractCandidates(tokens);
-        candidates = ScoreAll(candidates, tokens, stemCounts);
-        return ResolveFields(candidates);
+        candidates = ScoreAll(candidates, tokens, stemCounts, table);
+        return ResolveFields(candidates, table);
     }
 }

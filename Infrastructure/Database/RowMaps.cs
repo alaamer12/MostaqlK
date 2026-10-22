@@ -40,9 +40,13 @@ internal static class RowMaps
         DefaultTypeMap.MatchNamesWithUnderscores = true;
     }
 
+    // CA2255: deliberate — the flag must be set before ANY query in this assembly builds a
+    // cached row deserializer, which a lazy first-use hook could not guarantee.
+#pragma warning disable CA2255
     [ModuleInitializer]
     internal static void ConfigureDapper() =>
         RuntimeHelpers.RunClassConstructor(typeof(RowMaps).TypeHandle);
+#pragma warning restore CA2255
 
     /// <summary>(source_id, project_id) key pair - projects/backlog identity rows.</summary>
     internal sealed class ProjectKeyRow
@@ -152,12 +156,14 @@ internal static class RowMaps
     }
 
     /// <summary>
-    /// FTS5 rank-ordered projection used by <c>FtsQueryService.SearchAsync</c>. Deliberately
-    /// has no source_id column (see the mapper - it reproduces the raw-id/no-source shape).
+    /// FTS5 rank-ordered projection used by <c>FtsQueryService.SearchAsync</c>. Carries the
+    /// row's <c>source_id</c> so composite identity resolves like the other readers
+    /// (band-subtracted site id + Source), with the query itself scoped to one source.
     /// </summary>
     internal sealed class FtsProjectSummaryRow
     {
         public long project_id { get; set; }
+        public string source_id { get; set; } = string.Empty;
         public string title { get; set; } = string.Empty;
         public string url { get; set; } = string.Empty;
         public string? client_name { get; set; }
@@ -294,28 +300,32 @@ internal static class RowMaps
     };
 
     /// <summary>
-    /// Replicates <c>FtsQueryService</c>'s reader verbatim - including its historical shape
-    /// of storing the raw internal row id as <c>ProjectId</c> and never setting
-    /// <c>Source</c> (defaults to <see cref="SourceId.Default"/>). Preserved as-is; not a
-    /// place for this refactor to change observable behavior.
+    /// Same composite-identity mapping as <see cref="ToSummary"/> (band subtraction via the
+    /// registry, <c>Source</c> set) — the historical raw-internal-id/no-source shape was a
+    /// latent multi-source bug and is fixed (plan A4).
     /// </summary>
-    internal static ProjectSummary ToFtsSummary(this FtsProjectSummaryRow row) => new()
+    internal static ProjectSummary ToFtsSummary(this FtsProjectSummaryRow row, SourceRegistry registry)
     {
-        ProjectId = row.project_id,
-        Title = row.title,
-        Url = row.url,
-        ClientName = row.client_name ?? string.Empty,
-        PublishTimeNumber = row.publish_time_number ?? 0,
-        PublishTimeText = row.publish_time_text ?? string.Empty,
-        ProposalCount = row.proposal_count ?? 0,
-        ProposalCountText = row.proposal_count_text ?? string.Empty,
-        IsUnread = row.is_unread is not null && row.is_unread != 0,
-        EnrichmentStatus = Enum.Parse<EnrichmentStatus>(row.enrichment_status),
-        DiscoveredAt = DateTimeOffset.Parse(row.discovered_at),
-        Description = row.description ?? string.Empty,
-        Budget = row.budget,
-        DeliveryDays = row.delivery_days,
-        ProjectStatus = row.project_status,
-        SkillsText = row.skills_text ?? string.Empty,
-    };
+        var rowSource = SourceId.From(row.source_id);
+        return new ProjectSummary
+        {
+            ProjectId = registry.ToSiteProjectId(rowSource, row.project_id),
+            Source = rowSource,
+            Title = row.title,
+            Url = row.url,
+            ClientName = row.client_name ?? string.Empty,
+            PublishTimeNumber = row.publish_time_number ?? 0,
+            PublishTimeText = row.publish_time_text ?? string.Empty,
+            ProposalCount = row.proposal_count ?? 0,
+            ProposalCountText = row.proposal_count_text ?? string.Empty,
+            IsUnread = row.is_unread is not null && row.is_unread != 0,
+            EnrichmentStatus = Enum.Parse<EnrichmentStatus>(row.enrichment_status),
+            DiscoveredAt = DateTimeOffset.Parse(row.discovered_at),
+            Description = row.description ?? string.Empty,
+            Budget = row.budget,
+            DeliveryDays = row.delivery_days,
+            ProjectStatus = row.project_status,
+            SkillsText = row.skills_text ?? string.Empty,
+        };
+    }
 }

@@ -1,3 +1,4 @@
+using MostaqlK.Core.Parsing;
 using MostaqlK.Core.Sources;
 
 namespace MostaqlK.Sources.Mostaql;
@@ -41,6 +42,37 @@ public sealed class MostaqlSource : ISourceDescriptor
         HasExecutorInfo: false,
         HasSupervisedFlag: false,
         NeedsSessionForFullEnrichment: true);
+
+    // Analysis vocabulary and DOM selectors the shared Core/Parsing engines consume for this
+    // source (byte-copied from the pre-A1 parser constants; see the data files for provenance).
+    public ParseProfile Profile => MostaqlParseProfile.Profile;
+
+    public SelectorMap Selectors => MostaqlSelectors.Selectors;
+
+    /// <summary>
+    /// Seeds the CURRENT field order the desktop details/card UI assumes (title + description
+    /// first, then the "بطاقة المشروع" meta rows in panel order, skills, attachments, and the
+    /// owner card rows top-to-bottom). Schema-driven rendering consumes this in Phase B4;
+    /// nothing rewired yet, so behavior is unchanged.
+    /// </summary>
+    public IReadOnlyList<FieldSpec> SchemaMap { get; } =
+    [
+        new("title", "summary", 0),
+        new("description", "summary", 1),
+        new("project_status", "project", 2),
+        new("published_date", "project", 3),
+        new("budget", "project", 4),
+        new("duration", "project", 5),
+        new("proposal_count", "project", 6),
+        new("skills", "skills", 7),
+        new("attachments", "attachments", 8),
+        new("owner_name", "owner", 9),
+        new("registration_date", "owner", 10),
+        new("hire_rate", "owner", 11),
+        new("open_projects_count", "owner", 12),
+        new("in_progress_count", "owner", 13),
+        new("ongoing_conversations", "owner", 14),
+    ];
 
     public string CookieSecretKey => "cookie_mostaql";
 

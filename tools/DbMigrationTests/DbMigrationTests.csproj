@@ -30,6 +30,11 @@
 		<Compile Include="..\..\Core\Sources\SourceCapabilities.cs" Link="Core\Sources\SourceCapabilities.cs" />
 		<Compile Include="..\..\Core\Sources\BrandTokenSet.cs" Link="Core\Sources\BrandTokenSet.cs" />
 		<Compile Include="..\..\Core\Sources\ISourceDescriptor.cs" Link="Core\Sources\ISourceDescriptor.cs" />
+		<!-- ISourceDescriptor now exposes Profile/Selectors/SchemaMap (A1), so the shared data
+		     types it references are linked; the migration tests themselves are unchanged. -->
+		<Compile Include="..\..\Core\Sources\FieldSpec.cs" Link="Core\Sources\FieldSpec.cs" />
+		<Compile Include="..\..\Core\Parsing\ParseProfile.cs" Link="Core\Parsing\ParseProfile.cs" />
+		<Compile Include="..\..\Core\Parsing\SelectorMap.cs" Link="Core\Parsing\SelectorMap.cs" />
 		<Compile Include="..\..\Core\Sources\ISettingsRepository.cs" Link="Core\Sources\ISettingsRepository.cs" />
 		<Compile Include="..\..\Core\Sources\SourceRegistry.cs" Link="Core\Sources\SourceRegistry.cs" />
 		<Compile Include="..\..\Infrastructure\Database\SqliteConnectionFactory.cs" Link="Infrastructure\SqliteConnectionFactory.cs" />

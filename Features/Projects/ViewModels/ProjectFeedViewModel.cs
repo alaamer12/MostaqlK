@@ -217,7 +217,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         RefreshHeaderStatus();
         try
         {
-            var today = await _projectRepository.CountAddedTodayAsync(SourceId.Default);
+            var today = await _projectRepository.CountAddedTodayAsync(_source);
             if (requestToken != _loadRequestToken)
             {
                 // A newer LoadAsync call has already started (and will apply its own results
@@ -230,8 +230,8 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
             }
 
             var result = string.IsNullOrWhiteSpace(searchQueryAtRequestTime)
-                ? await _projectRepository.GetRecentAsync(SourceId.Default, RecentLimit)
-                : await _ftsQueryService.SearchAsync(searchQueryAtRequestTime.Trim());
+                ? await _projectRepository.GetRecentAsync(_source, RecentLimit)
+                : await _ftsQueryService.SearchAsync(_source, searchQueryAtRequestTime.Trim());
 
             if (requestToken != _loadRequestToken)
             {
@@ -298,7 +298,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
             {
                 // No filter active: status-bar totals count the whole store, not just the
                 // page of rows loaded above.
-                var tracked = await _projectRepository.CountTrackedAsync(SourceId.Default);
+                var tracked = await _projectRepository.CountTrackedAsync(_source);
                 if (requestToken != _loadRequestToken)
                 {
                     return;
@@ -405,7 +405,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         // would resurrect every row still marked unread there, making the badge jump back up as
         // soon as a single new project arrives (the bug: 4 unread -> mark all read -> 0 -> one
         // new project arrives -> 7, because the DB still had the original 4 as unread).
-        var result = await _projectRepository.MarkAllAsReadAsync(SourceId.Default);
+        var result = await _projectRepository.MarkAllAsReadAsync(_source);
         if (!result.IsOk)
         {
             InteractionLogger.Fault("ProjectFeedViewModel.MarkAllReadAsync", new InvalidOperationException(result.Error.InternalMessage));

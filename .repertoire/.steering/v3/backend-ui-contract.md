@@ -13,8 +13,8 @@
 | `SourceRegistry` | `All`, `Get`, `TryGet`, `Contains`, `ToInternalId/FromInternalId/ToSiteProjectId` (band math) | REAL |
 | `SourceRegistryProvider` | DI-lite accessor for VM/components: `Current`, `DescriptorFor(SourceId)` | REAL |
 | `ISourceDescriptor` members | `Id DisplayNameAr DisplayNameLatin Domain RailGlyph Brands DefaultPollIntervalSeconds DefaultRequestsPerMinute CurrencySuffix OwnerFallbackMeta Capabilities CookieSecretKey LegacyCookieSecretKey LegacyCookieEnvInlineVar LegacyCookieEnvFileVar SessionCookieName UserAgent AcceptHeader AcceptLanguageHeader SettingsContainerId InternalIdBand BuildListingUrl BuildProjectUrl BuildAbsoluteUrl IsSameSiteUrl` | REAL |
-| `ISourceDescriptor.SchemaMap` / `ParseProfile` | field presence + render order for schema-driven details; parse vocabulary data (§8.1) | **PLANNED (A1)** |
-| `SourceCapabilities` `HasExecutorInfo HasSupervisedFlag NeedsSessionForFullEnrichment` | must GATE UI sections (absent = section never rendered, never empty) | data REAL, UI-read **PLANNED (A1/B4)** |
+| `ISourceDescriptor.SchemaMap` / `ParseProfile` / `Selectors` | field presence + render order for schema-driven details; per-source parser vocabulary as pure data consumed by shared `Core/Parsing` engines (§8.1) | REAL (A1) |
+| `SourceCapabilities` `HasExecutorInfo HasSupervisedFlag NeedsSessionForFullEnrichment` | must GATE UI sections (absent = section never rendered, never empty) | data REAL, UI-read **PLANNED (B4)** — still unconsumed by backend; A1 found no behavior-identical backend read |
 
 ## 2. Pipeline & status — REAL (pre-phase)
 
@@ -32,7 +32,7 @@
 |---|---|---|
 | `BrandTokenSet` | `Brand BrandInk BrandSoft OnBrand LinkLight LinkDark` hex strings, per source descriptor `Brands` | REAL |
 | `IBrandTokenProvider` | `CurrentSource Current TokensSwapped SwapTo(source)` — single swap path; components subscribe on Loaded / release on Unloaded | REAL (consumers **B1/B2**) |
-| DynamicResource `Brand*` palette fed by provider | App-level dictionaries replacing inline hexes; grep gate bans new inline brand hexes | **PLANNED (B1)** |
+| DynamicResource `Brand*` palette fed by provider | App-level dictionaries replacing inline hexes; grep gate bans new inline brand hexes. **Locked design:** `BrandTokenSet` gains the four dark counterparts (`BrandDark BrandInkDark BrandSoftDark OnBrandDark`); `LinkLight/LinkDark` already exist; provider exposes theme selection (`CurrentFor(AppTheme)`), palette swap fires on `TokensSwapped` AND theme change. Verified dual sets to seed: mostaql light `#2386C8 #1A6DA6 #EFF6FB #ffffff` / dark `#5CA8DE #5CA8DE #245CA8DE(alpha .14→ARGB) #0b1c2a`; nafezly light `#FFA200 #9A6100 #FFF4DE #3a2a00` / dark `#FFB84D #FFB84D #24FFB84D(alpha .14) #2a1d00` (mockups README = source of truth; rgba→8-hex ARGB conversion at seed time). A3 does NOT extend the record — B1 does, atomically with the hex sweep. | **PLANNED (B1)** |
 | Nafezly palette | mockup orange set incl. AA-safe `BrandInk` for ≤14px text | **PLANNED (A3)** |
 
 ## 4. Settings & prefs — REAL
@@ -93,7 +93,7 @@
 
 ## 11. Storage guarantees — REAL
 
-user_version=3 schema (composite unique keys, band-0 identity for mostaql rows), Dapper DTO row maps (`RowMaps.cs`), backlog per-source filtering, store-and-forget unchanged. Nafezly-band coexistence tests **PLANNED (A3)**. Known gap: `FtsQueryService.SearchAsync` returns raw internal ids without `Source` — fix **PLANNED (A4)**; UI must not rely on FTS rows' identity until then.
+user_version=3 schema (composite unique keys, band-0 identity for mostaql rows), Dapper DTO row maps (`RowMaps.cs`), backlog per-source filtering, store-and-forget unchanged. Nafezly-band coexistence tests **PLANNED (A3)**. FTS: `FtsQueryService.SearchAsync(source, query)` is source-scoped and resolves composite identity like every other reader (A4 done) — UI may rely on FTS row identities.
 
 ---
 *Milestones flip rows: A1 (schema map, capabilities read), A2/A3 (nafezly vocabulary, palette, failure-retry, contributions), A4 (FTS row), B1 (palette, source persistence), B4/B5 (UI reads, notification tightening).*

@@ -1,3 +1,5 @@
+using MostaqlK.Core.Parsing;
+
 namespace MostaqlK.Core.Sources;
 
 /// <summary>
@@ -44,6 +46,23 @@ public interface ISourceDescriptor
 
     public SourceCapabilities Capabilities { get; }
 
+    /// <summary>
+    /// The source's parse-text vocabulary (labels, statuses, currency/proposal words, file
+    /// extensions, auth URL shapes, title suffixes) consumed by the shared
+    /// <c>Core/Parsing</c> engines. A source's analysis behavior is this data, never
+    /// engine-internal constants. (backend-ui-contract §1/§8.1)
+    /// </summary>
+    public ParseProfile Profile { get; }
+
+    /// <summary>The source's DOM selector vocabulary (class/id/attribute/path fragments) consumed by the shared parsers.</summary>
+    public SelectorMap Selectors { get; }
+
+    /// <summary>
+    /// Field presence and render order for schema-driven details/card UI: each source seeds
+    /// the CURRENT order its UI assumes; UI code consumes this instead of a fixed layout.
+    /// </summary>
+    public IReadOnlyList<FieldSpec> SchemaMap { get; }
+
     /// <summary>Key into <c>app_secrets</c> for this source's session cookie.</summary>
     public string CookieSecretKey { get; }
 
@@ -57,7 +76,7 @@ public interface ISourceDescriptor
 
     /// <summary>
     /// The pre-namespacing <c>app_secrets</c> key this source used before sessions became
-    /// per-source. <see cref="CookieStore"/> reads it when the new key is
+    /// per-source. <c>CookieStore</c> reads it when the new key is
     /// absent and rewrites the value under <see cref="CookieSecretKey"/>, so an existing user's
     /// uploaded session keeps working with no re-upload. It is only ever a migration input.
     /// </summary>

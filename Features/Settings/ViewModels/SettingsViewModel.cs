@@ -519,7 +519,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private async Task LoadProjectsAddedTodayAsync()
     {
-        var result = await _projectRepository.CountAddedTodayAsync(SourceId.Default);
+        var result = await _projectRepository.CountAddedTodayAsync(_source);
         if (!result.IsError)
         {
             _globalStatus.SetProjectsAddedToday(result.Value);

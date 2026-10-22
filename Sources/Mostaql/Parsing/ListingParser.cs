@@ -1,5 +1,7 @@
+using System.Text.RegularExpressions;
 using HtmlAgilityPack;
 using MostaqlK.Core.Formatting;
+using MostaqlK.Core.Parsing;
 using MostaqlK.Models;
 
 namespace MostaqlK.Sources.Mostaql.Parsing;
@@ -8,9 +10,15 @@ namespace MostaqlK.Sources.Mostaql.Parsing;
 /// Parses the Mostaql projects listing page HTML into a collection of <see cref="ProjectSummary"/>.
 /// Mirrors the "projects_list" branch of the Python prototype `analyzer.py`
 /// (see .repertoire/progress/python/parser/scratch/analyzer.py).
+/// After the A1 generalization this file is only the ORDER OF OPERATIONS: the generic text
+/// helpers live in <c>Core/Parsing</c> and every Mostaql row class / vocabulary word arrives as
+/// <see cref="MostaqlSelectors"/>/<see cref="MostaqlParseProfile"/> data.
 /// </summary>
 public static class ListingParser
 {
+    private static ParseProfile Profile => MostaqlParseProfile.Profile;
+    private static SelectorMap S => MostaqlSelectors.Selectors;
+
     public static IReadOnlyList<ProjectSummary> Parse(string html)
     {
         if (string.IsNullOrWhiteSpace(html))
@@ -22,7 +30,7 @@ public static class ListingParser
         doc.LoadHtml(html);
         var root = doc.DocumentNode;
 
-        var rows = root.SelectNodes("//tr[contains(concat(' ', normalize-space(@class), ' '), ' project-row ')]");
+        var rows = root.SelectNodes($"//tr[contains(concat(' ', normalize-space(@class), ' '), ' {S.ListingRowClass} ')]");
 
         var summaries = new List<ProjectSummary>();
 
@@ -40,7 +48,7 @@ public static class ListingParser
         else
         {
             // Fallback observed shape: div.project-item cards instead of table rows.
-            var items = root.SelectNodes("//div[contains(concat(' ', normalize-space(@class), ' '), ' project-item ')]");
+            var items = root.SelectNodes($"//div[contains(concat(' ', normalize-space(@class), ' '), ' {S.ListingItemClass} ')]");
             if (items is not null)
             {
                 foreach (var item in items)
@@ -61,10 +69,10 @@ public static class ListingParser
             // /project/{id} links. Keep discovery alive with the visible title; enrichment
             // obtains the full detail page later.
             var seenIds = new HashSet<long>();
-            foreach (var link in root.SelectNodes("//a[contains(@href, '/project/')]") ?? Enumerable.Empty<HtmlNode>())
+            foreach (var link in root.SelectNodes($"//a[contains(@href, '{S.ProjectHrefPathSegment}')]") ?? Enumerable.Empty<HtmlNode>())
             {
                 var id = ExtractProjectIdFromUrl(link.GetAttributeValue("href", string.Empty));
-                var title = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(link.InnerText));
+                var title = HtmlStructureEngine.Normalize(HtmlEntity.DeEntitize(link.InnerText));
                 if (id <= 0 || string.IsNullOrWhiteSpace(title) || !seenIds.Add(id))
                 {
                     continue;
@@ -98,7 +106,7 @@ public static class ListingParser
             return null;
         }
 
-        var title = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(titleLink.InnerText));
+        var title = HtmlStructureEngine.Normalize(HtmlEntity.DeEntitize(titleLink.InnerText));
         var url = titleLink.GetAttributeValue("href", string.Empty);
 
         // ASSUMPTION: no explicit data-project-id attribute has been observed in the sample
@@ -106,7 +114,7 @@ public static class ListingParser
         // URL (Mostaql project URLs end in "-<id>" or "/<id>"), falling back to 0 when absent.
         var projectId = ExtractProjectIdFromUrl(url);
 
-        var meta = row.SelectSingleNode(".//ul[contains(concat(' ', normalize-space(@class), ' '), ' project__meta ')]");
+        var meta = row.SelectSingleNode($".//ul[contains(concat(' ', normalize-space(@class), ' '), ' {S.ListingMetaClass} ')]");
 
         string clientName = string.Empty;
         int proposalCount = 0;
@@ -115,11 +123,11 @@ public static class ListingParser
         string publishTimeText = string.Empty;
         string description = string.Empty;
 
-        var briefNode = row.SelectSingleNode(".//p[contains(@class, 'project__brief')]/a")
-                         ?? row.SelectSingleNode(".//p[contains(@class, 'project__brief')]");
+        var briefNode = row.SelectSingleNode($".//p[contains(@class, '{S.ListingBriefClass}')]/a")
+                         ?? row.SelectSingleNode($".//p[contains(@class, '{S.ListingBriefClass}')]");
         if (briefNode is not null)
         {
-            description = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(briefNode.InnerText));
+            description = HtmlStructureEngine.Normalize(HtmlEntity.DeEntitize(briefNode.InnerText));
         }
 
         if (meta is not null)
@@ -132,15 +140,15 @@ public static class ListingParser
                 // We use heuristics to identify them since the order can vary.
                 foreach (var li in metaItems)
                 {
-                    var text = StructuralExtractor.Normalize(HtmlEntity.DeEntitize(li.InnerText));
+                    var text = HtmlStructureEngine.Normalize(HtmlEntity.DeEntitize(li.InnerText));
                     if (string.IsNullOrEmpty(text))
                     {
                         continue;
                     }
 
                     // Check for the proposal icon as a stronger signal than just text content.
-                    var hasProposalIcon = li.SelectSingleNode(".//span[contains(@class, 'hsoub-file-signature-icon')]") != null
-                                          || li.SelectSingleNode(".//i[contains(@class, 'fa-users')]") != null;
+                    var hasProposalIcon = li.SelectSingleNode($".//span[contains(@class, '{S.ProposalIconSpanClass}')]") != null
+                                          || li.SelectSingleNode($".//i[contains(@class, '{S.ProposalIconElementClass}')]") != null;
 
                     if (hasProposalIcon || LooksLikeProposalCount(text))
                     {
@@ -148,7 +156,7 @@ public static class ListingParser
                         proposalCount = num;
                         proposalCountText = origText;
                     }
-                    else if (text.Contains("منذ") || text.Contains("ساعة") || text.Contains("يوم") || text.Contains("لحظات"))
+                    else if (Profile.RelativeTimeWords.Any(word => text.Contains(word)))
                     {
                         publishTimeNumber = ArabicRelativeTime.ParseRelativeNumber(text);
                         publishTimeText = text;
@@ -177,10 +185,10 @@ public static class ListingParser
     }
 
     private static bool LooksLikeProposalCount(string text) =>
-        text.Contains("عرض") || text.Contains("عروض");
+        Profile.ProposalWords.Any(word => text.Contains(word));
 
-    private static readonly System.Text.RegularExpressions.Regex ProjectIdRegex =
-        new(@"/project/(\d+)", System.Text.RegularExpressions.RegexOptions.Compiled);
+    private static readonly Regex ProjectIdRegex =
+        new(MostaqlSelectors.Selectors.ProjectIdUrlPattern, RegexOptions.Compiled);
 
     /// <summary>
     /// Mostaql project URLs are "/project/{id}-{arabic-slug}". The id is therefore the FIRST
