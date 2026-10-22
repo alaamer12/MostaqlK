@@ -206,7 +206,7 @@ public sealed class SourceSwitchTiles : ContentView
         SemanticProperties.SetDescription(hit, $"تحويل التطبيق إلى {descriptor.DisplayNameAr}");
         // Mockup rail tooltip: name + domain ("مستقل — mostaql.com"), straight from the descriptor.
         ToolTipProperties.SetText(hit, $"{descriptor.DisplayNameAr} — {descriptor.Domain}");
-        hit.Clicked += (_, _) => SwitchTo(descriptor.Id);
+        hit.Clicked += (_, _) => SwitchTo(descriptor.Id, cell);
 
         // The cell is the tree root for both modes: the hit Button overlays the visuals, exactly
         // like every other rail row (plain Border + tap never surfaces an AutomationId to Windows
@@ -216,21 +216,31 @@ public sealed class SourceSwitchTiles : ContentView
         return new Tile(descriptor, cell, indicator, glyphSquare, glyphLabel, nameLabel);
     }
 
-    private void SwitchTo(SourceId source)
+    private void SwitchTo(SourceId source, VisualElement origin)
     {
         if (_provider is null || source == _provider.CurrentSource)
         {
             return;
         }
 
-        // Pure projection via the canonical triple (shared with toast activation, contract §6).
-        MostaqlK.Services.SourceMorph.Apply(_settings, _status, _provider, source);
+        // The single canonical mutation path, unchanged (contract §6): pure projection — the
+        // persisted active-source key, the status facade, the brand palette repaint — never the
+        // pipeline. It runs as ONE atomic instant change at the START of the presentation wrapper.
+        void ApplyState()
+        {
+            MostaqlK.Services.SourceMorph.Apply(_settings, _status, _provider, source);
 
-        // BrandPalette repaints on TokensSwapped; opacity/indicator re-apply also rides that event
-        // (subscribed below), but re-apply now so the rail is correct even before a repaint lands.
-        ApplyActiveStates();
+            // BrandPalette repaints on TokensSwapped; opacity/indicator re-apply also rides that event
+            // (subscribed below), but re-apply now so the rail is correct even before a repaint lands.
+            ApplyActiveStates();
 
-        SourceChanged?.Invoke(this, source);
+            SourceChanged?.Invoke(this, source);
+        }
+
+        // Presentation wrapper only (contract §4.2): reduced motion / non-Windows ⇒ an instant swap
+        // identical to calling ApplyState() directly. targetRegion=null morphs the whole app; the
+        // tapped tile (origin) anchors the eventual radial center.
+        SourceMorphTransition.Run(origin, targetRegion: null, ApplyState, SourceMorphTransition.SourceMorphDurationMs);
     }
 
     private void OnLoaded(object? sender, EventArgs e)

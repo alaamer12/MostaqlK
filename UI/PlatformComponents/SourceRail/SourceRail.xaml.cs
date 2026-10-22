@@ -369,21 +369,28 @@ public partial class SourceRail : ContentView
     {
         // Behavior-identical relocation of the AppSidebar dark-mode row: the same global (not
         // per-source) key SettingsViewModel writes, then the same UserAppTheme funnel every theme
-        // setter in the app — including BrandPalette's repaint — already rides.
+        // setter in the app — including BrandPalette's repaint — already rides. The change itself
+        // stays a single atomic mutation; SourceMorphTransition is a presentation wrapper around it
+        // (contract §4.2), instant under reduced motion / off Windows, so behavior never changes.
         using var _ = TraceScope.Begin("Sidebar_DarkModeToggle");
         try
         {
-            var isDark = Application.Current?.RequestedTheme != AppTheme.Dark;
-
-            if (IPlatformApplication.Current?.Services.GetService<ISettingsRepository>() is { } settingsRepository)
+            void ApplyTheme()
             {
-                settingsRepository.SetGlobal(SettingsKeys.IsDarkMode, isDark);
+                var isDark = Application.Current?.RequestedTheme != AppTheme.Dark;
+
+                if (IPlatformApplication.Current?.Services.GetService<ISettingsRepository>() is { } settingsRepository)
+                {
+                    settingsRepository.SetGlobal(SettingsKeys.IsDarkMode, isDark);
+                }
+
+                if (Application.Current is { } app)
+                {
+                    app.UserAppTheme = isDark ? AppTheme.Dark : AppTheme.Light;
+                }
             }
 
-            if (Application.Current is { } app)
-            {
-                app.UserAppTheme = isDark ? AppTheme.Dark : AppTheme.Light;
-            }
+            SourceMorphTransition.Run(ThemeHit, targetRegion: null, ApplyTheme, SourceMorphTransition.ThemeMorphDurationMs);
         }
         catch (Exception ex)
         {
