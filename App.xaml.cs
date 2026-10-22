@@ -31,6 +31,19 @@ public partial class App : Application
     {
         _services = services;
         InitializeComponent();
+
+        // v3 parity harness (tools/v3_parity.py): --skip-onboarding latches the completion
+        // preference before CreateWindow decides which window to open, and --parity-state
+        // pre-seeds the pipeline panel's persisted collapse state. Both are no-ops when absent.
+        var startupArgs = Environment.GetCommandLineArgs();
+        if (MostaqlK.Services.ParityLaunchFlags.HasSkipOnboarding(startupArgs))
+        {
+            Microsoft.Maui.Storage.Preferences.Set(
+                MostaqlK.Services.Onboarding.OnboardingStateService.CompletionPreferenceKey, true);
+        }
+
+        MostaqlK.Services.ParityLaunchFlags.ApplyPipelinePanelState(startupArgs);
+
         services.GetRequiredService<OnboardingStateService>().Completed += OnboardingCompleted;
         services.GetRequiredService<OnboardingStateService>().ApplySavedQuery();
 
@@ -59,9 +72,14 @@ public partial class App : Application
         UserAppTheme = StartupNavigation.ResolveTheme(Environment.GetCommandLineArgs(), storedIsDarkMode);
 
         // v3 morph persistence: restore the source the UI projects (absent ⇒ default source, so a
-        // first run of this version behaves exactly like every previous one).
+        // first run of this version behaves exactly like every previous one). A v3 parity launch
+        // can pin the identity for THIS run with an explicit `--source-id=` (the same argument the
+        // details route already uses); without the flag nothing changes.
         var storedActiveSource = settings.GetGlobal(MostaqlK.Core.Sources.SettingsKeys.ActiveSource, (string?)null);
-        if (MostaqlK.Core.Sources.SourceId.TryFrom(storedActiveSource, out var activeSource)
+        var explicitStartupSource = startupArgs
+            .FirstOrDefault(arg => arg.StartsWith("--source-id=", StringComparison.OrdinalIgnoreCase))?["--source-id=".Length..];
+        var requestedSource = !string.IsNullOrWhiteSpace(explicitStartupSource) ? explicitStartupSource : storedActiveSource;
+        if (MostaqlK.Core.Sources.SourceId.TryFrom(requestedSource, out var activeSource)
             && activeSource != MostaqlK.Core.Sources.SourceId.Default)
         {
             // Same order as the rail's SwitchTo: status facade first, then the brand palette.
@@ -247,7 +265,8 @@ public partial class App : Application
         var seeder = services.GetRequiredService<DesignDataSeeder>();
         if (requested.Value)
         {
-            seeder.SeedAsync().GetAwaiter().GetResult();
+            var mode = DesignDataSeeder.ParseSeedMode(args) ?? DesignDataSeeder.SeedMode.Mvp;
+            seeder.SeedAsync(mode).GetAwaiter().GetResult();
         }
         else
         {

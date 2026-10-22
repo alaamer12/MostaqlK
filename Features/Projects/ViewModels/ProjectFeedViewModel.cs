@@ -173,6 +173,13 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         _globalStatus = globalStatus;
         _settings = settings;
 
+        // The VM is constructed after App's startup restore (or a parity `--source-id` launch)
+        // has already re-pointed the projection, and events cannot reach a view-model that does
+        // not exist yet — so start on the CURRENTLY projected source instead of always mostaql
+        // (requirements §4.1: "every page opens in the remembered identity"). The existing
+        // PropertyChanged subscription below keeps it in sync for later morphs.
+        _source = globalStatus.ActiveSource;
+
         RefreshHeaderStatus();
 
         // Auto-refresh: a discovered project lands in `projects` immediately (see
