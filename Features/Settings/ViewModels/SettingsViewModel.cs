@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Storage;
+using MostaqlK.Core.Platform;
 using MostaqlK.Core.Sources;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Services;
@@ -18,7 +19,9 @@ namespace MostaqlK.Features.Settings.ViewModels;
 /// Values are persisted through <see cref="ISettingsRepository"/> (per-source for the pipeline
 /// knobs, global for dark mode/startup) and, on every valid change, pushed live into the running
 /// <see cref="IPollService"/>/<see cref="TokenBucketRateLimiter"/>/<see cref="NotificationGrouper"/>
-/// instances so changes apply without an app restart.
+/// instances so changes apply without an app restart. The persistence WRITE is deferred through
+/// <see cref="MostaqlK.Core.Platform.DeferredPreferences"/> (ordered last-wins queue): a keystroke
+/// never blocks on the settings-file round-trip; the flush lands on Save or app teardown.
 /// </summary>
 public sealed partial class SettingsViewModel : ObservableObject
 {
@@ -733,7 +736,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        _settings.Set(_source, SettingsKeys.PollIntervalSeconds, value);
+        DeferredPreferences.Set(_settings, _source, SettingsKeys.PollIntervalSeconds, value);
         ApplyPollSettings();
     }
 
@@ -749,7 +752,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        _settings.Set(_source, SettingsKeys.MaxRequestsPerMinute, value);
+        DeferredPreferences.Set(_settings, _source, SettingsKeys.MaxRequestsPerMinute, value);
         ApplyPollSettings();
     }
 
@@ -761,28 +764,28 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        _settings.Set(_source, SettingsKeys.MaxConcurrentDetailFetches, value);
+        DeferredPreferences.Set(_settings, _source, SettingsKeys.MaxConcurrentDetailFetches, value);
         ApplyWorkerSettings();
     }
 
     partial void OnQueryParamsChanged(string value)
     {
         if (_isLoading) return;
-        _settings.Set(_source, SettingsKeys.QueryParams, value ?? string.Empty);
+        DeferredPreferences.Set(_settings, _source, SettingsKeys.QueryParams, value ?? string.Empty);
         ApplyPollSettings();
     }
 
     partial void OnIncludeAssetsChanged(bool value)
     {
         if (_isLoading) return;
-        _settings.Set(_source, SettingsKeys.IncludeAssets, value);
+        DeferredPreferences.Set(_settings, _source, SettingsKeys.IncludeAssets, value);
         ApplyAssetSettings();
     }
 
     partial void OnNotificationGroupingEnabledChanged(bool value)
     {
         if (_isLoading) return;
-        _settings.Set(_source, SettingsKeys.NotificationGroupingEnabled, value);
+        DeferredPreferences.Set(_settings, _source, SettingsKeys.NotificationGroupingEnabled, value);
         ApplyGroupingSettings();
     }
 
@@ -793,7 +796,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        _settings.Set(_source, SettingsKeys.SafeRequests, value);
+        DeferredPreferences.Set(_settings, _source, SettingsKeys.SafeRequests, value);
         ApplyPollSettings();
     }
 
@@ -804,7 +807,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        _settings.SetGlobal(SettingsKeys.StartupEnabled, value);
+        DeferredPreferences.SetGlobal(_settings, SettingsKeys.StartupEnabled, value);
         _startupService.SetStartupEnabled(value);
     }
 
@@ -817,7 +820,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        _settings.Set(_source, SettingsKeys.GroupingMode, value.ToString());
+        DeferredPreferences.Set(_settings, _source, SettingsKeys.GroupingMode, value.ToString());
         ApplyGroupingSettings();
     }
 
@@ -837,7 +840,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
 
         ClearValidationError();
-        _settings.Set(_source, SettingsKeys.GroupingThreshold, value);
+        DeferredPreferences.Set(_settings, _source, SettingsKeys.GroupingThreshold, value);
         ApplyGroupingSettings();
     }
 
@@ -848,7 +851,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        _settings.SetGlobal(SettingsKeys.IsDarkMode, value);
+        DeferredPreferences.SetGlobal(_settings, SettingsKeys.IsDarkMode, value);
         ApplyTheme();
     }
 
@@ -861,7 +864,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         // Global (not per-source) like dark mode / startup — the same single mutation path. The
         // restore consumer lives outside this VM (parent-wired at startup); here we only persist.
-        _settings.SetGlobal(SettingsKeys.RememberLastSource, value);
+        DeferredPreferences.SetGlobal(_settings, SettingsKeys.RememberLastSource, value);
     }
 
     partial void OnSourceNotificationsEnabledChanged(bool value)
@@ -872,7 +875,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
 
         // Per-source, namespaced container — every other pipeline knob uses the same path.
-        _settings.Set(_source, SettingsKeys.EnableSourceNotifications, value);
+        DeferredPreferences.Set(_settings, _source, SettingsKeys.EnableSourceNotifications, value);
     }
 
     private void ApplyPollSettings()
@@ -961,9 +964,11 @@ public sealed partial class SettingsViewModel : ObservableObject
         using var _ = TraceScope.Begin("SaveCommand");
         try
         {
-            // Every field already persists+applies live on change (see the OnXChanged partials
-            // above), so Save is a convenience no-op that simply confirms nothing is pending.
-            return Task.CompletedTask;
+            // Every field already applies live on change and persists through the DEFERRED
+            // last-wins queue (v3 frame decoupling: keystroke-rate edits never block-write the
+            // settings store on the UI thread). Save = confirm nothing is pending: drain the
+            // queue so the click guarantees durability before any teardown.
+            return DeferredPreferences.FlushAsync();
         }
         catch (Exception ex)
         {

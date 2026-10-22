@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MostaqlK.Core.Formatting;
+using MostaqlK.Core.Platform;
 using MostaqlK.Core.Sources;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Infrastructure.Http;
@@ -141,6 +142,10 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     private readonly AssetDownloadService _assetDownloadService;
     private readonly GlobalAppStatusService _globalStatus;
     private readonly ActivePipeline _activePipeline;
+    private readonly SourceFeedStore _store;
+
+    /// <summary>The id of the last load request — the Broken state's retry re-issues exactly this.</summary>
+    private SourceProjectId _lastRequested;
 
     public ObservableCollection<ProjectSkill> Skills { get; } = [];
 
@@ -180,7 +185,21 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsLoading { get; set; }
 
+    /// <summary>
+    /// True while the page shows the Provisional shell built from the feed store's in-memory
+    /// summary (v3 plan Step 3: a cold details open paints an item shell the same frame, the
+    /// awaited <c>GetDetailsAsync</c> only refines it). Never a spinner gate: navigation has
+    /// already happened and this page's items always exist — shell → Confirmed, or → Broken with
+    /// the retry affordance, never a blocked/blank page.
+    /// </summary>
     [ObservableProperty]
+    public partial bool IsProvisional { get; set; }
+
+    /// <summary>Broken details state: load failed while navigation already completed — show honest error + retry, keep the UI interactive.</summary>
+    public bool IsBroken => HasError;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsBroken))]
     public partial bool HasError { get; set; }
 
     [ObservableProperty]
@@ -353,19 +372,32 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     private void ToggleDescription() => IsDescriptionExpanded = !IsDescriptionExpanded;
 
     /// <summary>
-    /// Footer "تحديد كمقروء والعودة": persists the read flag through the same repository path the
-    /// notification/feed read uses (<see cref="IProjectRepository.MarkAsReadAsync"/>). Navigation back to
-    /// the feed is done by the layout's click handler right after this completes.
+    /// Footer "تحديد كمقروء والعودة": the read flip is OPTIMISTIC — the store overlay marks the
+    /// feed row read now and the command returns immediately, so the back-navigation the layout
+    /// performs right after this call never waits on the DB. The repository write (the same path
+    /// the notification/feed read uses) is deferred through the last-wins queue; the store's read
+    /// overlay keeps the row unflagged until the DB truth lands.
     /// </summary>
     [RelayCommand]
-    public async Task MarkAsReadAsync()
+    public Task MarkAsReadAsync()
     {
         if (Details is not { } details)
         {
-            return;
+            return Task.CompletedTask;
         }
 
-        await _projectRepository.MarkAsReadAsync(new SourceProjectId(details.Source, details.ProjectId));
+        var identity = new SourceProjectId(details.Source, details.ProjectId);
+        _store.ApplyOptimisticRead(identity.Source, identity.ProjectId);
+        DeferredPreferences.Enqueue($"read:{identity.Source.Value}:{identity.ProjectId}", async () =>
+        {
+            var result = await _projectRepository.MarkAsReadAsync(identity);
+            if (!result.IsOk)
+            {
+                InteractionLogger.Fault("ProjectDetailsViewModel.MarkAsRead", new InvalidOperationException(result.Error.InternalMessage));
+            }
+        });
+
+        return Task.CompletedTask;
     }
 
     // -----------------------------------------------------------------
@@ -444,12 +476,14 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
         IProjectRepository projectRepository,
         AssetDownloadService assetDownloadService,
         GlobalAppStatusService globalStatus,
-        ActivePipeline activePipeline)
+        ActivePipeline activePipeline,
+        SourceFeedStore store)
     {
         _projectRepository = projectRepository;
         _assetDownloadService = assetDownloadService;
         _globalStatus = globalStatus;
         _activePipeline = activePipeline;
+        _store = store;
     }
 
     [RelayCommand]
@@ -478,17 +512,51 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Loads one project's details. Doctrine-compliant shape (v3 plan Step 3): the page item
+    /// EXISTS before any query — the shell is built synchronously from the feed store's in-memory
+    /// summary when that source's snapshot holds the row — then the (off-render-loop)
+    /// <c>GetDetailsAsync</c> refines it to Confirmed, or lands the Broken state with retry while
+    /// navigation is already done and the rest of the UI stays interactive.
+    /// </summary>
     [RelayCommand]
     public async Task LoadAsync(SourceProjectId projectId)
     {
-        IsLoading = true;
+        _lastRequested = projectId;
         HasError = false;
         ErrorMessage = null;
+
+        // Same-frame shell paint from memory (UI items always exist): if the feed store still
+        // holds this project's summary, shape the page shell from it NOW, not after the DB.
+        var shell = BuildShellFromStore(projectId);
+        if (shell is not null)
+        {
+            Details = shell;
+            IsProvisional = true;
+            IsLoading = false;
+            RebuildMetaSections();
+            OnPropertyChanged(nameof(ShowDetails));
+        }
+        else
+        {
+            IsProvisional = false;
+            IsLoading = true;
+        }
+
         try
         {
             var result = await _projectRepository.GetDetailsAsync(projectId);
+
+            // A newer navigation superseded this load (page reused): drop the stale batch — never
+            // paint project A's details under project B's request.
+            if (projectId != _lastRequested)
+            {
+                return;
+            }
+
             if (!result.IsOk)
             {
+                // Broken state WITH navigation already done — honest error + retry, not a spinner block.
                 HasError = true;
                 ErrorMessage = result.Error.ExternalMessage;
                 return;
@@ -502,6 +570,7 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
             }
 
             Details = result.Value;
+            IsProvisional = false;
 
             Skills.Clear();
             foreach (var skill in Details.Skills)
@@ -523,11 +592,55 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
         }
         finally
         {
-            IsLoading = false;
-            OnPropertyChanged(nameof(ShowDetails));
-            OnPropertyChanged(nameof(HasSkills));
-            OnPropertyChanged(nameof(HasAttachments));
+            if (projectId == _lastRequested)
+            {
+                IsLoading = false;
+                OnPropertyChanged(nameof(ShowDetails));
+                OnPropertyChanged(nameof(HasSkills));
+                OnPropertyChanged(nameof(HasAttachments));
+            }
         }
+    }
+
+    /// <summary>
+    /// The Broken details state's retry: re-issues the exact last load. The page never left the
+    /// navigated state, so retry only re-runs the refine — the shell (if present) keeps painting.
+    /// </summary>
+    [RelayCommand]
+    public Task RetryLoadAsync() => LoadAsync(_lastRequested);
+
+    /// <summary>
+    /// Builds the Provisional page shell from the feed store's memory (never a DB read): the
+    /// summary-backed facts the decision strip/header can show this frame. Null when the store has
+    /// no snapshot row for this id (true cold start) — the layout then shows its shimmer shell.
+    /// </summary>
+    private ProjectDetails? BuildShellFromStore(SourceProjectId projectId)
+    {
+        var item = _store.Peek(projectId.Source)?.Items
+            .FirstOrDefault(i => i.ProjectId == projectId.ProjectId && i.Summary is not null);
+        if (item?.Summary is not { } summary)
+        {
+            return null;
+        }
+
+        return new ProjectDetails
+        {
+            Source = summary.Source,
+            ProjectId = summary.ProjectId,
+            Title = summary.Title,
+            Url = summary.Url,
+            Description = summary.Description,
+            Budget = summary.Budget,
+            DeliveryDays = summary.DeliveryDays,
+            ProjectStatus = summary.ProjectStatus,
+            PublishTimeNumber = summary.PublishTimeNumber,
+            PublishTimeText = summary.PublishTimeText,
+            ProposalCount = summary.ProposalCount,
+            ProposalCountText = summary.ProposalCountText,
+            EnrichmentStatus = summary.EnrichmentStatus,
+            DiscoveredAt = summary.DiscoveredAt,
+            EnrichedAt = summary.EnrichedAt,
+        };
     }
 
     /// <summary>

@@ -1,5 +1,6 @@
 using System.Text;
 using HtmlAgilityPack;
+using MostaqlK.Core;
 using MostaqlK.Core.Formatting;
 using MostaqlK.Core.Sources;
 using MostaqlK.Infrastructure.Http;
@@ -94,6 +95,16 @@ public static class Program
         Run(nameof(TestB3NafezlyFacetVocabulary), TestB3NafezlyFacetVocabulary);
         Run(nameof(TestB3NafezlyQueryRoundTrip), TestB3NafezlyQueryRoundTrip);
         Run(nameof(TestB3MostaqlLegacyPassthrough), TestB3MostaqlLegacyPassthrough);
+
+        // v3 Step 1 — SourceFeedStore read model: burst coalescing, generation-checked drop,
+        // Provisional→Confirmed/Stale/Broken state machine, warm-peer prefetch supersession,
+        // optimistic-read overlay. Pure logic against a fake provider (DetailSchemaRenderer precedent).
+        Console.WriteLine("\n--- SourceFeedStore (v3 read model) ---\n");
+        Run(nameof(TestStoreCoalescingWindow), TestStoreCoalescingWindow);
+        Run(nameof(TestStoreGenerationCancelDrop), TestStoreGenerationCancelDrop);
+        Run(nameof(TestStoreRowStateMachine), TestStoreRowStateMachine);
+        Run(nameof(TestStoreWarmPeerPrefetch), TestStoreWarmPeerPrefetch);
+        Run(nameof(TestStoreOptimisticReadOverlay), TestStoreOptimisticReadOverlay);
 
         Console.WriteLine();
         Console.WriteLine(new string('=', 60));
@@ -1152,6 +1163,295 @@ public static class Program
         var parsed = mostaql.ParseFacetSelection(null);
         Check("mostaql parse of null is an empty selection that builds empty",
             parsed.Count == 0 && mostaql.BuildQueryFromFacets(parsed) == string.Empty);
+    }
+
+    // -----------------------------------------------------------------
+    // v3 Step 1 — SourceFeedStore read-model checks (headless, fake provider)
+    // -----------------------------------------------------------------
+
+    /// <summary>Deterministic fake behind <see cref="ISourceFeedDataProvider"/> with per-source lists, per-source gates (to stall a pass) and call counters.</summary>
+    private sealed class FakeFeedData : MostaqlK.Services.ISourceFeedDataProvider
+    {
+        private readonly Dictionary<MostaqlK.Core.Sources.SourceId, List<MostaqlK.Models.ProjectSummary>> _recent = [];
+        private readonly Dictionary<MostaqlK.Core.Sources.SourceId, TaskCompletionSource<bool>> _gates = [];
+        private readonly Dictionary<string, int> _calls = [];
+        private readonly HashSet<MostaqlK.Core.Sources.SourceId> _failing = [];
+
+        public void SetRecent(MostaqlK.Core.Sources.SourceId source, params MostaqlK.Models.ProjectSummary[] items) => _recent[source] = items.ToList();
+
+        public void Gate(MostaqlK.Core.Sources.SourceId source, TaskCompletionSource<bool> tcs) => _gates[source] = tcs;
+
+        public void ClearGate(MostaqlK.Core.Sources.SourceId source) => _gates.Remove(source);
+
+        public void Fail(MostaqlK.Core.Sources.SourceId source, bool value = true)
+        {
+            if (value)
+            {
+                _failing.Add(source);
+            }
+            else
+            {
+                _failing.Remove(source);
+            }
+        }
+
+        public int Calls(string bucket) => _calls.GetValueOrDefault(bucket);
+
+        public async Task<Result<IReadOnlyList<MostaqlK.Models.ProjectSummary>>> GetRecentAsync(
+            MostaqlK.Core.Sources.SourceId source, int limit, CancellationToken cancellationToken)
+        {
+            _calls["recent:" + source.Value] = Calls("recent:" + source.Value) + 1;
+            _calls["limit:recent:" + source.Value] = limit;
+            if (_gates.TryGetValue(source, out var gate))
+            {
+                await gate.Task.WaitAsync(cancellationToken);
+            }
+
+            if (_failing.Contains(source))
+            {
+                return Result<IReadOnlyList<MostaqlK.Models.ProjectSummary>>.Err(
+                    new DomainError("TEST_FAIL", "injected failure", "لم يجدّ الطلب التجريبي"));
+            }
+
+            return Result<IReadOnlyList<MostaqlK.Models.ProjectSummary>>.Ok(
+                (IReadOnlyList<MostaqlK.Models.ProjectSummary>)(_recent.TryGetValue(source, out var list) ? list : []));
+        }
+
+        public Task<Result<IReadOnlyList<MostaqlK.Models.ProjectSummary>>> SearchAsync(
+            MostaqlK.Core.Sources.SourceId source, string query, int limit, CancellationToken cancellationToken)
+        {
+            _calls["search:" + source.Value] = Calls("search:" + source.Value) + 1;
+            _calls["limit:search:" + source.Value] = limit;
+            return Task.FromResult(Result<IReadOnlyList<MostaqlK.Models.ProjectSummary>>.Ok(
+                (IReadOnlyList<MostaqlK.Models.ProjectSummary>)(_recent.TryGetValue(source, out var list) ? list : [])));
+        }
+
+        public Task<Result<(int Tracked, int Unread)>> CountTrackedAsync(
+            MostaqlK.Core.Sources.SourceId source, CancellationToken cancellationToken)
+        {
+            _calls["tracked:" + source.Value] = Calls("tracked:" + source.Value) + 1;
+            return Task.FromResult(Result<(int, int)>.Ok((7, 3)));
+        }
+
+        public Task<Result<int>> CountAddedTodayAsync(
+            MostaqlK.Core.Sources.SourceId source, CancellationToken cancellationToken)
+        {
+            _calls["today:" + source.Value] = Calls("today:" + source.Value) + 1;
+            return Task.FromResult(Result<int>.Ok(1));
+        }
+    }
+
+    private static MostaqlK.Models.ProjectSummary StoreSummary(MostaqlK.Core.Sources.SourceId source, long id, bool unread = true) =>
+        new() { Source = source, ProjectId = id, Title = $"store-{id}", IsUnread = unread };
+
+    private static void WaitUntilStore(Func<bool> condition, string because)
+    {
+        var deadline = Environment.TickCount64 + 5000;
+        while (!condition() && Environment.TickCount64 < deadline)
+        {
+            Thread.Sleep(10);
+        }
+
+        Check(because, condition());
+    }
+
+    /// <summary>Burst of refreshes over the coalescing window = ONE query pass; cold paint precedes it as a Provisional shell.</summary>
+    private static void TestStoreCoalescingWindow()
+    {
+        var nafezly = MostaqlK.Core.Sources.SourceId.From("nafezly");
+        var mostaql = MostaqlK.Core.Sources.SourceId.Default;
+        var fake = new FakeFeedData();
+        fake.SetRecent(mostaql, StoreSummary(mostaql, 10), StoreSummary(mostaql, 11));
+        fake.SetRecent(nafezly, StoreSummary(nafezly, 90));
+
+        var published = new System.Collections.Concurrent.ConcurrentQueue<MostaqlK.Services.FeedSnapshot>();
+        var store = new MostaqlK.Services.SourceFeedStore(fake, [mostaql, nafezly]);
+        store.SnapshotUpdated += published.Enqueue;
+
+        var t1 = store.RefreshAsync(mostaql);
+        var t2 = store.RefreshAsync(mostaql);
+        var t3 = store.RefreshAsync(mostaql);
+        Check("coalesced burst: all three callers share one batch task", ReferenceEquals(t1, t2) && ReferenceEquals(t2, t3));
+        t1.Wait(5000);
+
+        var batches = published.ToArray();
+        Check("coalescing window: 3 burst refreshes → exactly 1 recent query", fake.Calls("recent:mostaql") == 1, $"calls={fake.Calls("recent:mostaql")}");
+        Check("counts queried once per batch", fake.Calls("tracked:mostaql") == 1 && fake.Calls("today:mostaql") == 1);
+        Check("recent page carries the hard LIMIT (100)", fake.Calls("limit:recent:mostaql") == MostaqlK.Services.SourceFeedStore.RecentPageLimit);
+        Check("cold paint: first published batch is the Provisional shell (gen 0, Cold)",
+            batches.Length > 0 && batches[0].Generation == 0 && batches[0].IsProvisional
+            && batches[0].Freshness == MostaqlK.Services.SnapshotFreshness.Cold
+            && batches[0].Items.All(i => i.State == MostaqlK.Services.FeedRowState.Provisional)
+            && batches[0].Items.Count == MostaqlK.Services.SourceFeedStore.ProvisionalSkeletonRows,
+            $"batches={batches.Length}");
+        var latest = store.Peek(mostaql);
+        Check("refined batch: gen 1, all Confirmed, counts from the batch",
+            latest is { Generation: 1, Freshness: MostaqlK.Services.SnapshotFreshness.Fresh }
+            && latest.Items.Count == 2 && latest.Items.All(i => i.State == MostaqlK.Services.FeedRowState.Confirmed)
+            && latest.Counts.Tracked == 7 && latest.Counts.Unread == 3 && latest.Counts.Today == 1);
+        Check("Peek is a pure memory read: still 1 query after peeking", fake.Calls("recent:mostaql") == 1);
+
+        // Search path routes through the provider's bounded FTS seam, not the recent list.
+        var searchTask = store.RefreshAsync(mostaql, "css");
+        searchTask.Wait(5000);
+        Check("search refresh uses the bounded search seam with the hard LIMIT (50)",
+            fake.Calls("search:mostaql") == 1 && fake.Calls("limit:search:mostaql") == MostaqlK.Services.SourceFeedStore.SearchPageLimit
+            && store.Peek(mostaql)?.Query == "css");
+        Check("search page skips the whole-store counts", fake.Calls("tracked:mostaql") == 1);
+    }
+
+    /// <summary>A superseded pass is CANCELLED and its results are DROPPED — only the newest generation ever paints.</summary>
+    private static void TestStoreGenerationCancelDrop()
+    {
+        var mostaql = MostaqlK.Core.Sources.SourceId.Default;
+        var nafezly = MostaqlK.Core.Sources.SourceId.From("nafezly");
+        var fake = new FakeFeedData();
+        fake.SetRecent(mostaql, StoreSummary(mostaql, 10), StoreSummary(mostaql, 11));
+
+        var published = new System.Collections.Concurrent.ConcurrentQueue<MostaqlK.Services.FeedSnapshot>();
+        var store = new MostaqlK.Services.SourceFeedStore(fake, [mostaql, nafezly]);
+        store.SnapshotUpdated += published.Enqueue;
+
+        var slowGate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        fake.Gate(mostaql, slowGate);
+        _ = store.RefreshAsync(mostaql); // pass 1: stalls inside the (tail-latency) query
+        WaitUntilStore(() => fake.Calls("recent:mostaql") == 1, "pass 1 reached the query");
+
+        // The user pans on: a NEW intent supersedes pass 1 while its round-trip is still running.
+        fake.SetRecent(mostaql, StoreSummary(mostaql, 20));
+        fake.ClearGate(mostaql);
+        _ = store.RefreshAsync(mostaql);
+
+        slowGate.TrySetResult(true); // pass 1's query finally completes — late but must be dropped
+        WaitUntilStore(() => published.Any(p => p.Generation >= 2), "pass 2 applied");
+
+        Check("stale-generation pass never applied (no gen-1 confirmed batch published)",
+            !published.Any(p => p.Generation == 1 && p.Items.Any(i => i.ProjectId is 10 or 11)));
+        var latest = store.Peek(mostaql);
+        Check("newest generation wins: gen 2 with the post-supersession list",
+            latest is { Generation: 2 } && latest.Items.Count == 1 && latest.Items[0].ProjectId == 20);
+        Check("superseded pass cancelled: exactly 2 recent queries total", fake.Calls("recent:mostaql") == 2, $"calls={fake.Calls("recent:mostaql")}");
+    }
+
+    /// <summary>Provisional → Confirmed → (Stale dim) → Broken-with-retry → Confirmed again. Items always exist.</summary>
+    private static void TestStoreRowStateMachine()
+    {
+        var mostaql = MostaqlK.Core.Sources.SourceId.Default;
+        var nafezly = MostaqlK.Core.Sources.SourceId.From("nafezly");
+        var fake = new FakeFeedData();
+        fake.SetRecent(mostaql, StoreSummary(mostaql, 10));
+        fake.Fail(mostaql);
+
+        var published = new System.Collections.Concurrent.ConcurrentQueue<MostaqlK.Services.FeedSnapshot>();
+        var clock = new DateTimeOffset(2026, 10, 22, 12, 0, 0, TimeSpan.Zero);
+        var store = new MostaqlK.Services.SourceFeedStore(fake, [mostaql, nafezly], clock: () => clock);
+        store.SnapshotUpdated += published.Enqueue;
+
+        // Cold + failing: the shell exists first, then a Broken batch with honest copy — never blank.
+        _ = store.RefreshAsync(mostaql);
+
+        WaitUntilStore(() => published.Any(p => p.Generation >= 1 && p.Error is not null), "broken batch applied");
+        var broken = published.First(p => p.Generation >= 1 && p.Error is not null);
+        Check("failure → Broken placeholder (item exists with honest message + retry semantics)",
+            broken.Error is not null && broken.Items.Count == 1 && broken.Items[0].State == MostaqlK.Services.FeedRowState.Broken
+            && broken.Items[0].ErrorMessage == "لم يجدّ الطلب التجريبي");
+
+        // Recover: Broken → Confirmed.
+        fake.Fail(mostaql, false);
+        _ = store.RefreshAsync(mostaql);
+        WaitUntilStore(() => store.Peek(mostaql) is { Generation: >= 2 } gen2 && gen2.Items.All(i => i.State == MostaqlK.Services.FeedRowState.Confirmed), "recovered to Confirmed");
+        Check("recovered batch is Confirmed under a newer generation",
+            store.Peek(mostaql) is { Generation: >= 2 } g && g.Items.All(i => i.State == MostaqlK.Services.FeedRowState.Confirmed));
+
+        // Stale-while-revalidate: a refine in flight dims the confirmed rows BEFORE the new batch.
+        var dimGate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        fake.Gate(mostaql, dimGate);
+        _ = store.RefreshAsync(mostaql);
+        WaitUntilStore(() => published.Any(p => p.Generation == 2 && p.Freshness == MostaqlK.Services.SnapshotFreshness.Stale), "dim-to-stale published before refine");
+        var dimmed = published.First(p => p.Generation == 2 && p.Freshness == MostaqlK.Services.SnapshotFreshness.Stale);
+        Check("stale batch keeps every item (dimmed, awaiting refine), never removes one",
+            dimmed.Items.Count == 1 && dimmed.Items[0].State == MostaqlK.Services.FeedRowState.Stale && dimmed.Items[0].Summary is not null);
+        fake.ClearGate(mostaql);
+        dimGate.TrySetResult(true);
+        WaitUntilStore(() => store.Peek(mostaql) is { Generation: >= 3 }, "refine landed");
+
+        // Peek-time freshness: past the horizon the snapshot reads Stale without any query.
+        clock = clock.AddSeconds(120);
+        Check("Peek reclassifies an old snapshot as Stale (pure stamp arithmetic, no query)",
+            store.Peek(mostaql)?.Freshness == MostaqlK.Services.SnapshotFreshness.Stale);
+    }
+
+    /// <summary>After the active apply, the OTHER registered sources are prefetched at lowest priority; a user refresh supersedes the chain.</summary>
+    private static void TestStoreWarmPeerPrefetch()
+    {
+        var mostaql = MostaqlK.Core.Sources.SourceId.Default;
+        var nafezly = MostaqlK.Core.Sources.SourceId.From("nafezly");
+        var fake = new FakeFeedData();
+        fake.SetRecent(mostaql, StoreSummary(mostaql, 10));
+        fake.SetRecent(nafezly, StoreSummary(nafezly, 90));
+
+        var store = new MostaqlK.Services.SourceFeedStore(fake, [mostaql, nafezly]);
+
+        _ = store.RefreshAsync(mostaql);
+        WaitUntilStore(() => fake.Calls("recent:nafezly") >= 1, "warm peer prefetched after the active apply");
+        Check("prefetched peer is memory-hot: nafezly snapshot Confirmed",
+            store.Peek(nafezly) is { Generation: >= 1 } p && p.Items.All(i => i.State == MostaqlK.Services.FeedRowState.Confirmed));
+        Check("prefetch does not paint the ACTIVE source's list (no cross-source batch for mostaql beyond its own)",
+            fake.Calls("recent:mostaql") == 1);
+
+        // Peer TTL: a second active refresh right after must NOT re-query the hot peer.
+        var peerCallsBefore = fake.Calls("recent:nafezly");
+        _ = store.RefreshAsync(mostaql);
+        WaitUntilStore(() => fake.Calls("recent:mostaql") == 2, "second active refresh applied");
+        Check("hot peer skipped within its prefetch TTL", fake.Calls("recent:nafezly") == peerCallsBefore);
+
+        // Supersession: user morphs to nafezly WHILE its prefetch is stalled → the user intent wins.
+        var nafezly2 = MostaqlK.Core.Sources.SourceId.From("nafezly");
+        var fake2 = new FakeFeedData();
+        fake2.SetRecent(mostaql, StoreSummary(mostaql, 10));
+        fake2.SetRecent(nafezly2, StoreSummary(nafezly2, 90));
+        var store2 = new MostaqlK.Services.SourceFeedStore(fake2, [mostaql, nafezly2]);
+        var gate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        fake2.Gate(nafezly2, gate);
+        _ = store2.RefreshAsync(mostaql); // its apply kicks the nafezly prefetch → stalls on the gate
+        WaitUntilStore(() => fake2.Calls("recent:nafezly") == 1, "peer prefetch in flight (stalled)");
+
+        fake2.SetRecent(nafezly2, StoreSummary(nafezly2, 90), StoreSummary(nafezly2, 91));
+        fake2.ClearGate(nafezly2);
+        _ = store2.RefreshAsync(nafezly2); // user morph to the peer supersedes the stalled prefetch
+        gate.TrySetResult(true);
+        WaitUntilStore(() => store2.Peek(nafezly2) is { Generation: >= 2 }, "user refresh applied on the peer");
+        Check("superseded prefetch never paints: user-intent batch owns the final snapshot",
+            store2.Peek(nafezly2) is { Generation: >= 2 } u && u.Items.Count == 2 && u.Items.All(i => i.State == MostaqlK.Services.FeedRowState.Confirmed));
+    }
+
+    /// <summary>Card-tap optimistic flip: same-generation overlay, badge decrement, and no flicker back when a refine lands before the deferred DB write.</summary>
+    private static void TestStoreOptimisticReadOverlay()
+    {
+        var mostaql = MostaqlK.Core.Sources.SourceId.Default;
+        var nafezly = MostaqlK.Core.Sources.SourceId.From("nafezly");
+        var fake = new FakeFeedData();
+        fake.SetRecent(mostaql, StoreSummary(mostaql, 10), StoreSummary(mostaql, 11));
+
+        var store = new MostaqlK.Services.SourceFeedStore(fake, [mostaql, nafezly]);
+        _ = store.RefreshAsync(mostaql);
+        WaitUntilStore(() => store.Peek(mostaql) is { Generation: 1 }, "confirmed landed");
+
+        var genBefore = store.Peek(mostaql)!.Generation;
+        store.ApplyOptimisticRead(mostaql, 10);
+        var peeked = store.Peek(mostaql)!;
+        Check("optimistic flip: row exists as read in the very next snapshot",
+            peeked.Items.Any(i => i.ProjectId == 10 && !i.IsUnread) && !peeked.Items.Any(i => i.ProjectId == 10 && i.IsUnread));
+        Check("optimistic flip is an OVERLAY (same generation, no new batch)", peeked.Generation == genBefore);
+        Check("unread badge rides the overlay down immediately", peeked.Counts.Unread == 2);
+
+        // Refine lands while the deferred DB write has NOT yet flipped the row (DB still says unread):
+        // the overlay must keep it read — no flicker back to 1.
+        _ = store.RefreshAsync(mostaql);
+        WaitUntilStore(() => store.Peek(mostaql)!.Generation > genBefore, "refine applied");
+        var refined = store.Peek(mostaql)!;
+        Check("refine racing the deferred write keeps the optimistic read (no flicker)",
+            refined.Items.Any(i => i.ProjectId == 10 && !i.IsUnread) && refined.Counts.Unread >= 0);
     }
 
     // -----------------------------------------------------------------

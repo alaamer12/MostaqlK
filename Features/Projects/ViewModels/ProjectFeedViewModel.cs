@@ -4,9 +4,9 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using MostaqlK.Core;
 using MostaqlK.Core.Navigation;
+using MostaqlK.Core.Platform;
 using MostaqlK.Core.Sources;
 using MostaqlK.Infrastructure.Database;
-using MostaqlK.Infrastructure.Database.SearchIndex;
 using MostaqlK.Models;
 using MostaqlK.Services;
 using MostaqlK.Services.Diagnostics;
@@ -19,41 +19,50 @@ namespace MostaqlK.Features.Projects.ViewModels;
 /// <summary>
 /// View-model for the main project feed page (projects.html): holds the sidebar
 /// navigation state and the scrollable collection of <see cref="ProjectCardViewModel"/>.
-/// Drives all four feed states (loading/empty/error/success) and re-queries
-/// <see cref="FtsQueryService"/> (or falls back to the reverse-chronological recent list) as the
-/// debounced <see cref="SearchQuery"/> changes.
+/// <para>
+/// <b>v3 read-model renderer (frame decoupling, plan Step 1/3):</b> this type NEVER queries the
+/// database on the render path anymore. It paints <see cref="SourceFeedStore.Peek"/> (O(1) memory)
+/// and repaints exclusively from <see cref="SourceFeedStore.SnapshotUpdated"/> batches — the old
+/// <c>Projects.Clear()</c> + awaited DB round-trips + the fire-and-forget
+/// <c>GlobalAppStatusService.PropertyChanged → SwitchSourceAsync</c> double-trigger race are gone:
+/// source switches are synchronous memory paints, and every DB round runs inside the store's
+/// coalesced, generation-guarded background passes.
+/// </para>
+/// <para>
+/// Row lifecycle states (<see cref="FeedRowState"/>) ride the cards so a failure shows an honest
+/// broken placeholder with retry instead of a blank list or a frozen UI; the debounced
+/// <see cref="SearchQuery"/> re-enters the store (the FTS page is bounded there), never a direct
+/// <c>FtsQueryService</c> call.
+/// </para>
 /// </summary>
 public sealed partial class ProjectFeedViewModel : ObservableObject
 {
-    private const int RecentLimit = 100;
-
     private readonly IProjectRepository _projectRepository;
-    private readonly FtsQueryService _ftsQueryService;
+    private readonly SourceFeedStore _store;
     private readonly IPollService _pollService;
     private readonly TokenBucketRateLimiter _rateLimiter;
     private readonly GlobalAppStatusService _globalStatus;
     private readonly ISettingsRepository _settings;
     private SourceId _source = SourceId.Default;
 
-    // Guards against overlapping LoadAsync calls racing each other: if the search box's
-    // debounce fires more than once in quick succession (e.g. WinAppDriver/remote SendKeys
-    // delivering keystrokes slower than the 300ms debounce window, or a user typing right as a
-    // background RefreshAsync/PollService-triggered reload is still in flight), a slower/older
-    // query's DB round-trip could finish AFTER a newer one and overwrite the feed with stale
-    // (or empty, for a shorter/no-match prefix like "C"/"CS") results even though the visible
-    // search box already shows the final term "CSS". Each LoadAsync call is stamped with a
-    // monotonically increasing token; only the most recent call is allowed to apply its results.
-    private int _loadRequestToken;
+    // Generation-checked batch apply guard (renderer side of the store's contract): a snapshot
+    // older than what was already painted for this source is DROPPED, never applied.
+    private SourceId _lastAppliedSource = SourceId.Default;
+    private long _lastAppliedGeneration = -1;
 
-    // The feed used to only ever reload from OnAppearing or a manual refresh - nothing in the
-    // background pipeline (PollService/WorkerPool/EnrichmentWorker) ever told this view-model that
-    // new rows existed, so a page that had already appeared once never showed projects discovered
-    // or enriched afterwards, even though the database and the dashboard panel were both fully
-    // live. These three pipeline events are debounced into a single reload so a burst of
-    // discoveries doesn't hammer the database with one query per project.
-    private readonly MostaqlK.Core.Debouncer _autoReloadDebouncer = new(TimeSpan.FromMilliseconds(400));
+    // The settle mount plays ONCE per source switch: armed by SwitchSource, consumed by the first
+    // content-bearing batch applied (routine pipeline refine batches never re-trigger it).
+    private bool _settleOnNextBatch;
 
     public ObservableCollection<ProjectCardViewModel> Projects { get; } = [];
+
+    /// <summary>
+    /// Raised on the UI thread after a confirmed snapshot batch has been diff-applied to
+    /// <see cref="Projects"/>. The Windows layout hooks this as the <c>ContentSettle</c> trigger:
+    /// the mount pass re-times off the snapshot-applied paint-complete frame instead of off a
+    /// data await (v3 plan Step 4).
+    /// </summary>
+    public event EventHandler? BatchApplied;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsSearchActive))]
@@ -121,7 +130,6 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     /// <summary>The active source's stored raw query string, handed to the modal for prefill parsing.</summary>
     public string FilterStoredQuery => _settings.Get(_source, SettingsKeys.QueryParams, string.Empty);
 
-
     /// <summary>True once loading has finished with no error and at least one result — drives the success-state ScrollView.</summary>
     public bool ShowFeed => !IsLoading && !HasError && !IsEmpty;
 
@@ -160,14 +168,14 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
 
     public ProjectFeedViewModel(
         IProjectRepository projectRepository,
-        FtsQueryService ftsQueryService,
+        SourceFeedStore store,
         IPollService pollService,
         TokenBucketRateLimiter rateLimiter,
         GlobalAppStatusService globalStatus,
         ISettingsRepository settings)
     {
         _projectRepository = projectRepository;
-        _ftsQueryService = ftsQueryService;
+        _store = store;
         _pollService = pollService;
         _rateLimiter = rateLimiter;
         _globalStatus = globalStatus;
@@ -176,72 +184,335 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         // The VM is constructed after App's startup restore (or a parity `--source-id` launch)
         // has already re-pointed the projection, and events cannot reach a view-model that does
         // not exist yet — so start on the CURRENTLY projected source instead of always mostaql
-        // (requirements §4.1: "every page opens in the remembered identity"). The existing
-        // PropertyChanged subscription below keeps it in sync for later morphs.
+        // (requirements §4.1: "every page opens in the remembered identity").
         _source = globalStatus.ActiveSource;
 
         RefreshHeaderStatus();
 
-        // Auto-refresh: a discovered project lands in `projects` immediately (see
-        // ProjectRepository's INSERT OR IGNORE), and a completed worker rewrites it with the
-        // enriched details, so either event means GetRecentAsync's result set has actually
-        // changed. MainWindowPage is created once for the app's lifetime, so this subscription
-        // does not need to be torn down.
+        // THE single feed-batch trigger (v3 plan Step 1): the store raises one marshalled event
+        // per applied snapshot. The old design ALSO repainted from a fire-and-forget
+        // projection-changed handler and from a debouncer that directly called LoadAsync — two
+        // racing async chains over one list. Both are gone; pipeline events now only re-enqueue a
+        // store refresh (coalesced there), and repaints arrive solely through SnapshotUpdated.
+        _store.SnapshotUpdated += OnSnapshotUpdated;
+
+        // §6 morph-first re-point (toast activation / restored projection): kept — but as a
+        // SYNCHRONOUS idempotent call into SwitchSource, not the old async race path. The rail
+        // tile's own SourceChanged event and this listener converge on the same guard
+        // (`source == _source` returns instantly) and the store collapses the refresh burst.
+        _globalStatus.PropertyChanged += OnActiveSourceRepointed;
+
+        // Warm paint: seed the list from memory THIS frame when the store already holds a
+        // snapshot for the startup source (the first-ever cold open keeps the shimmer path).
+        if (_store.Peek(_source) is { } warm)
+        {
+            ApplySnapshot(warm);
+        }
+        else
+        {
+            IsLoading = true;
+            OnPropertyChanged(nameof(ShowFeed));
+            _ = _store.RefreshAsync(_source, EffectiveQuery);
+        }
+
+        // Auto-refresh: a discovered project lands in `projects` immediately and a completed
+        // worker rewrites it with enriched details, so either event means the recent page has
+        // changed. Bursts (a discovery storm, several workers finishing at once) are collapsed by
+        // the store's coalescing window into ONE bounded query pass + ONE batched apply — the
+        // view no longer owns a debouncer or touches the DB. MainWindowPage is created once for
+        // the app's lifetime, so these subscriptions do not need tearing down.
         _globalStatus.ProjectDiscovered += OnProjectDiscovered;
         _globalStatus.WorkerStateChanged += OnWorkerStateChanged;
         _globalStatus.ProjectRemovedFromQueue += OnProjectRemovedFromQueue;
-        _globalStatus.PropertyChanged += OnGlobalStatusPropertyChanged;
     }
 
-    /// <summary>
-    /// §6 morph-first: a switch initiated anywhere else (toast activation, restored startup
-    /// projection) re-points this list too — the blanket projection-changed event from
-    /// <see cref="GlobalAppStatusService.SetActiveProjection"/> is the signal.
-    /// </summary>
-    private void OnGlobalStatusPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-    {
-        var active = _globalStatus.ActiveSource;
-        if ((e.PropertyName is null or "" or nameof(GlobalAppStatusService.ActiveSource)) && active != _source)
-        {
-            _ = SwitchSourceAsync(active);
-        }
-    }
+    /// <summary>The source whose projects this feed currently lists.</summary>
+    public SourceId CurrentSourceId => _source;
 
-    private void OnProjectDiscovered(long projectId, string title) => ScheduleAutoReload();
+    // -----------------------------------------------------------------
+    // Store plumbing
+    // -----------------------------------------------------------------
 
-    private void OnProjectRemovedFromQueue(long projectId) => ScheduleAutoReload();
+    /// <summary>The store-scoped query for the current search state (null = the recent list).</summary>
+    private string? EffectiveQuery => string.IsNullOrWhiteSpace(SearchQuery) ? null : SearchQuery.Trim();
+
+    private void OnProjectDiscovered(long projectId, string title) => RequestStoreRefresh();
+
+    private void OnProjectRemovedFromQueue(long projectId) => RequestStoreRefresh();
 
     private void OnWorkerStateChanged(int workerIndex, WorkerState state)
     {
         if (state is WorkerState.Completed or WorkerState.Error)
         {
-            ScheduleAutoReload();
+            RequestStoreRefresh();
+        }
+    }
+
+    /// <summary>Fire-and-forget re-enqueue of the current source's refresh; the store coalesces bursts and runs the queries off the UI path.</summary>
+    private void RequestStoreRefresh() => _ = _store.RefreshAsync(_source, EffectiveQuery);
+
+    /// <summary>
+    /// Synchronous idempotent re-point kept ONLY as the morph-first safety net for switches that
+    /// do not raise the rail's <c>SourceChanged</c> (toast activation). The removed race path was
+    /// the fire-and-forget <c>async</c> variant of this handler — every property change of the
+    /// projection fired a second concurrent <c>SwitchSourceAsync</c> with its own
+    /// <c>Projects.Clear()</c> and DB chain. <see cref="SwitchSource"/> is sync + guarded, so the
+    /// double signal now collapses to one memory paint + one coalesced store refresh.
+    /// </summary>
+    private void OnActiveSourceRepointed(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        var active = _globalStatus.ActiveSource;
+        if ((e.PropertyName is null or "" or nameof(GlobalAppStatusService.ActiveSource)) && active != _source)
+        {
+            SwitchSource(active);
         }
     }
 
     /// <summary>
-    /// Debounces a burst of pipeline events (a discovery storm, several workers finishing near
-    /// simultaneously) into a single <see cref="LoadAsync"/>, dispatched on the UI thread since
-    /// these events are raised from background pipeline loops.
+    /// Re-points the feed at a freshly-active source (the shell's source-morph hook and the
+    /// projection listener share this). Synchronous by contract: paint the target's in-memory
+    /// snapshot THIS frame (or keep the shimmer overlay when memory is cold), then let the store
+    /// refine in the background. Never <c>Projects.Clear()</c> — the diff-apply swaps rows so the
+    /// list is never blank between sources. No pipeline work is started or stopped — both engines
+    /// already run unattended; this is pure projection (contract §2/§4.1).
     /// </summary>
-    private void ScheduleAutoReload()
+    public void SwitchSource(SourceId source)
     {
-        _autoReloadDebouncer.Schedule(async token =>
+        if (source == _source)
         {
-            if (token.IsCancellationRequested)
+            return;
+        }
+
+        _source = source;
+        SearchQuery = string.Empty;
+        _lastAppliedSource = source;
+        _lastAppliedGeneration = -1;
+        _settleOnNextBatch = true;
+        RefreshHeaderStatus();
+
+        if (_store.Peek(source) is { } warm)
+        {
+            ApplySnapshot(warm);
+        }
+        else
+        {
+            // Cold memory: the existing shimmer loading state covers the list (items-as-skeletons
+            // per doctrine) — rows from the previous source are NOT cleared first, the overlay +
+            // the imminent Provisional batch replace them.
+            IsLoading = true;
+            HasError = false;
+            ErrorMessage = null;
+            OnPropertyChanged(nameof(ShowFeed));
+        }
+
+        _ = _store.RefreshAsync(source, null);
+    }
+
+    /// <summary>Async alias kept for the existing shell call-site shape; the paint is synchronous now.</summary>
+    public Task SwitchSourceAsync(SourceId source)
+    {
+        SwitchSource(source);
+        return Task.CompletedTask;
+    }
+
+    // -----------------------------------------------------------------
+    // Snapshot application — the only feed mutation path
+    // -----------------------------------------------------------------
+
+    private void OnSnapshotUpdated(FeedSnapshot snapshot)
+    {
+        // Warm-peer prefetch batches for other sources must not paint the active list.
+        if (snapshot.Source != _source)
+        {
+            return;
+        }
+
+        ApplySnapshot(snapshot);
+    }
+
+    private void ApplySnapshot(FeedSnapshot snapshot)
+    {
+        // Generation-checked batch apply: a stale-generation result is DROPPED, never applied
+        // (renderer-side belt for the store's suspenders — the store also refuses to publish one).
+        if (snapshot.Source == _lastAppliedSource && snapshot.Generation < _lastAppliedGeneration)
+        {
+            return;
+        }
+
+        _lastAppliedSource = snapshot.Source;
+        _lastAppliedGeneration = snapshot.Generation;
+
+        var confirmed = snapshot.Items
+            .Where(static item => item.Summary is not null
+                && item.State is FeedRowState.Confirmed or FeedRowState.Stale)
+            .ToList();
+
+        if (snapshot.IsProvisional)
+        {
+            // Cold shell → keep the shimmer loading state (skeleton rows ARE the items; nothing
+            // is blocked on the query).
+            IsLoading = true;
+            HasError = false;
+            ErrorMessage = null;
+            IsEmpty = false;
+            OnPropertyChanged(nameof(ShowFeed));
+            return;
+        }
+
+        IsLoading = false;
+
+        if (snapshot.Error is not null)
+        {
+            if (confirmed.Count == 0)
             {
+                // Broken page state WITH everything already painted: the honest error card + the
+                // existing retry affordance (Projects_RetryButton → RefreshCommand → store
+                // re-enqueue). The list never silently disappears and never spun for it.
+                HasError = true;
+                ErrorMessage = snapshot.Error;
+                IsEmpty = false;
+                OnPropertyChanged(nameof(ShowFeed));
                 return;
             }
 
-            await MainThread.InvokeOnMainThreadAsync(LoadAsync);
-        });
+            // Prior rows still exist on screen (dimmed via the Stale batch the store published
+            // before the failing pass); the failure is logged, not user-blocking.
+            InteractionLogger.Fault("ProjectFeedViewModel.Snapshot", new InvalidOperationException(snapshot.Error));
+        }
+
+        HasError = false;
+        ErrorMessage = null;
+
+        // Diff-apply (reuse-by-id, then position) — the O(n) patch the feed already trusted, now
+        // driven purely from a memory batch instead of a just-awaited query.
+        var existingById = new Dictionary<long, ProjectCardViewModel>();
+        foreach (var card in Projects)
+        {
+            existingById.TryAdd(card.Project.ProjectId, card);
+        }
+
+        var newIds = confirmed
+            .Where(static item => item.ProjectId >= 0)
+            .Select(static item => item.ProjectId)
+            .ToHashSet();
+
+        for (int i = Projects.Count - 1; i >= 0; i--)
+        {
+            if (!newIds.Contains(Projects[i].Project.ProjectId))
+            {
+                Projects.RemoveAt(i);
+            }
+        }
+
+        for (int i = 0; i < confirmed.Count; i++)
+        {
+            var item = confirmed[i];
+            var summary = item.Summary!;
+            if (existingById.TryGetValue(summary.ProjectId, out var existing))
+            {
+                existing.UpdateFrom(item);
+                var currentIndex = Projects.IndexOf(existing);
+                if (currentIndex != i && currentIndex != -1)
+                {
+                    Projects.Move(currentIndex, i);
+                }
+                else if (currentIndex == -1)
+                {
+                    Projects.Insert(i, existing);
+                }
+            }
+            else
+            {
+                Projects.Insert(i, ProjectCardViewModel.ForFeedItem(item, card => _ = SelectProjectAsync(card)));
+            }
+        }
+
+        if (IsSearchActive)
+        {
+            // While a search filter is active, the footer reflects the filtered (visible) results
+            // rather than the whole store's totals.
+            TrackedCount = Projects.Count;
+            UnreadCount = Projects.Count(static p => p.IsUnread);
+        }
+        else
+        {
+            // No filter: totals come from the snapshot's counts — the store already queried the
+            // whole store on its own pass; the render path reads memory only.
+            TrackedCount = snapshot.Counts.Tracked;
+            UnreadCount = snapshot.Counts.Unread;
+        }
+
+        if (snapshot.Counts.Today >= 0)
+        {
+            _globalStatus.SetProjectsAddedToday(snapshot.Counts.Today);
+        }
+
+        IsEmpty = Projects.Count == 0;
+        OnPropertyChanged(nameof(ShowFeed));
+
+        // Settle hook (v3 plan Step 4): the mount pass re-times off the snapshot-applied
+        // paint-complete frame — armed once per source switch only, so routine pipeline refine
+        // batches never replay the animation (same trigger budget the old await-based path had).
+        if (_settleOnNextBatch)
+        {
+            _settleOnNextBatch = false;
+            BatchApplied?.Invoke(this, EventArgs.Empty);
+        }
     }
 
-    // The footer's "آخر فحص" line used to be built here, timed from the last moment this *view*
-    // reloaded from the database, which has nothing to do with when the pipeline
-    // last scanned. That is why it could read "منذ دقيقة" while the header advertised a 30-second
-    // poll interval. The wording now lives in the shared LastScanStatus unit and is driven by
-    // GlobalAppStatusService.LastScanCompletedAt, the timestamp PollService writes every cycle.
+    // -----------------------------------------------------------------
+    // Commands
+    // -----------------------------------------------------------------
+
+    [TraceInteraction("RefreshCommand")]
+    [MostaqlK.Core.ErrorOutcome(MostaqlK.Core.ErrorOutcome.Rethrown, Label = "RefreshCommand")]
+    [RelayCommand]
+    public async Task RefreshAsync()
+    {
+        using var _ = TraceScope.Begin("RefreshCommand");
+        try
+        {
+            // Ask the pipeline for a scan now (the footer's "آخر فحص" reflects real scans, so the
+            // button causes one rather than pretending), and re-enqueue the store refresh. The
+            // repaint arrives via SnapshotUpdated, not by awaiting the DB here.
+            _pollService.RequestCheckNow();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _.MarkFaulted(ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// The page's "load" entry (OnAppearing + LoadCommand): refresh-header reads, then re-enqueue
+    /// the store. Returns when the coalesced batch loop goes quiet — the list itself painted from
+    /// memory the same frame <see cref="SwitchSource"/> / the constructor ran.
+    /// </summary>
+    [RelayCommand]
+    public Task LoadAsync()
+    {
+        RefreshHeaderStatus();
+        return _store.RefreshAsync(_source, EffectiveQuery);
+    }
+
+    /// <summary>Invoked by <c>SearchInputField.DebouncedCommand</c> once the debounce window elapses.</summary>
+    [RelayCommand]
+    public Task SearchAsync(string? query)
+    {
+        SearchQuery = query ?? string.Empty;
+        // The search page is the store's bounded FTS pass (hard LIMIT now — the raw MATCH set was
+        // unbounded before this wave). No DB call from the renderer.
+        return _store.RefreshAsync(_source, EffectiveQuery);
+    }
+
+    [RelayCommand]
+    public Task ClearSearchAsync()
+    {
+        SearchQuery = string.Empty;
+        return _store.RefreshAsync(_source, null);
+    }
 
     public void RefreshHeaderStatus()
     {
@@ -259,10 +530,11 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
 
     /// <summary>
     /// Persists a FilterModal Apply through the SAME single mutation path SettingsViewModel uses
-    /// today (<c>OnQueryParamsChanged</c>: write the namespaced setting, then hand the string to the
+    /// (<c>OnQueryParamsChanged</c>: write the namespaced setting, then hand the string to the
     /// poll service) — the query itself is serialized module-side by the descriptor, and the next
     /// poll cycle consumes it exactly like a Settings edit (no pipeline start/stop, no immediate
-    /// scan, per the B3 conservative-default decision).
+    /// scan, per the B3 conservative-default decision). The preference WRITE is deferred
+    /// (last-wins queue): the apply click never waits on the settings-file round-trip.
     /// </summary>
     public void ApplyFilterSelection(IReadOnlyDictionary<string, IReadOnlyList<string>> selection)
     {
@@ -272,206 +544,12 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         }
 
         var built = descriptor.BuildQueryFromFacets(selection);
-        _settings.Set(_source, SettingsKeys.QueryParams, built);
-        // Property push goes to the LIVE projected pipeline, not the possibly startup-captured
-        // `_pollService` the Shell-cached VM holds (the gap surfaced in SwitchSourceAsync's
-        // remarks): transient resolution of ActivePipeline == what MauiProgram registers
-        // IPollService as, so this is the same mutation path, just re-pointed per call.
+        DeferredPreferences.Set(_settings, _source, SettingsKeys.QueryParams, built);
+        // Property push goes to the LIVE projected pipeline — transient resolution of
+        // ActivePipeline == what MauiProgram registers IPollService as, so this is the same
+        // mutation path, just re-pointed per call.
         (IPlatformApplication.Current?.Services?.GetService<ActivePipeline>()?.Poll ?? _pollService).QueryParams = built;
         RefreshHeaderStatus();
-    }
-
-    /// <summary>The source whose projects this feed currently lists.</summary>
-    public SourceId CurrentSourceId => _source;
-
-    /// <summary>
-    /// Re-points the feed at a freshly-active source (called by the shell when a source-morph tile
-    /// taps). Every repository/FTS call below is already source-scoped (composite identity), so the
-    /// re-point is: swap the scoping source, drop the stale rows, clear the active search term (a
-    /// mostaql query must never leak into the nafezly feed), and reload. No pipeline work is started
-    /// or stopped — both engines already run unattended; this is pure projection (contract §2/§4.1).
-    /// </summary>
-    /// <remarks>
-    /// Surfaced gap (not fixed here — parent/B-sibling owned): <c>_pollService</c>/<c>_rateLimiter</c>
-    /// are the container's singletons wired to the <b>default</b> pipeline
-    /// (<see cref="SourcePipelineOrchestrator.Active"/>), so the footer cadence fallback and the
-    /// poll-pause control still address mostaql's engine even when <c>_source</c> is nafezly. A
-    /// sibling surface <c>Services/Pipeline/ActivePipeline.cs</c> is being built to hand consumers the
-    /// currently-viewed pipeline's poll/limiter/queue through DI; closing this needs (a) that
-    /// <see cref="SourcePipelineOrchestrator"/>.<c>Active</c> to follow the projected source and
-    /// (b) the feed injected through <c>ActivePipeline</c> — both outside this task's write boundary
-    /// (pipeline internals / MauiProgram), so it is surfaced rather than hacked here (see report).
-    /// </remarks>
-    public async Task SwitchSourceAsync(SourceId source)
-    {
-        if (source == _source)
-        {
-            return;
-        }
-
-        _source = source;
-        SearchQuery = string.Empty;
-        Projects.Clear();
-        TrackedCount = 0;
-        UnreadCount = 0;
-        await LoadAsync();
-    }
-
-    [RelayCommand]
-    public async Task LoadAsync()
-    {
-        var requestToken = ++_loadRequestToken;
-        var searchQueryAtRequestTime = SearchQuery;
-
-        IsLoading = true;
-        HasError = false;
-        ErrorMessage = null;
-        RefreshHeaderStatus();
-        try
-        {
-            var today = await _projectRepository.CountAddedTodayAsync(_source);
-            if (requestToken != _loadRequestToken)
-            {
-                // A newer LoadAsync call has already started (and will apply its own results
-                // below) - abandon this stale one so it can never overwrite fresher data.
-                return;
-            }
-            if (today.IsOk)
-            {
-                _globalStatus.SetProjectsAddedToday(today.Value);
-            }
-
-            var result = string.IsNullOrWhiteSpace(searchQueryAtRequestTime)
-                ? await _projectRepository.GetRecentAsync(_source, RecentLimit)
-                : await _ftsQueryService.SearchAsync(_source, searchQueryAtRequestTime.Trim());
-
-            if (requestToken != _loadRequestToken)
-            {
-                // Superseded while awaiting the DB query - discard these results, whatever they
-                // are, rather than letting an older/slower query clobber a newer one's output.
-                return;
-            }
-
-            if (!result.IsOk)
-            {
-                HasError = true;
-                ErrorMessage = result.Error.ExternalMessage;
-                IsEmpty = false;
-                return;
-            }
-
-            var existingById = Projects.ToDictionary(p => p.Project.ProjectId);
-
-            // 1. Remove items no longer in the result set (or to be re-ordered)
-            var newIds = result.Value.Select(p => p.ProjectId).ToHashSet();
-            for (int i = Projects.Count - 1; i >= 0; i--)
-            {
-                if (!newIds.Contains(Projects[i].Project.ProjectId))
-                {
-                    Projects.RemoveAt(i);
-                }
-            }
-
-            // 2. Add or Move items to match the result set order
-            for (int i = 0; i < result.Value.Count; i++)
-            {
-                var project = result.Value[i];
-                if (existingById.TryGetValue(project.ProjectId, out var existing))
-                {
-                    // Update the data regardless of position
-                    existing.Project = project;
-
-                    var currentIndex = Projects.IndexOf(existing);
-                    if (currentIndex != i && currentIndex != -1)
-                    {
-                        Projects.Move(currentIndex, i);
-                    }
-                    else if (currentIndex == -1)
-                    {
-                        // Was removed in step 1 by mistake if it was somehow duplicate?
-                        // Or if it was missing from the HashSet check.
-                        Projects.Insert(i, existing);
-                    }
-                }
-                else
-                {
-                    Projects.Insert(i, new ProjectCardViewModel(project, card => _ = SelectProjectAsync(card)));
-                }
-            }
-
-            if (IsSearchActive)
-            {
-                // While a search filter is active, the footer should reflect the filtered
-                // (visible) results rather than the whole store's totals.
-                TrackedCount = Projects.Count;
-                UnreadCount = Projects.Count(p => p.IsUnread);
-            }
-            else
-            {
-                // No filter active: status-bar totals count the whole store, not just the
-                // page of rows loaded above.
-                var tracked = await _projectRepository.CountTrackedAsync(_source);
-                if (requestToken != _loadRequestToken)
-                {
-                    return;
-                }
-                if (tracked.IsOk)
-                {
-                    TrackedCount = tracked.Value.Tracked;
-                    UnreadCount = tracked.Value.Unread;
-                }
-                else
-                {
-                    TrackedCount = Projects.Count;
-                    UnreadCount = Projects.Count(p => p.IsUnread);
-                }
-            }
-
-            IsEmpty = Projects.Count == 0;
-        }
-        finally
-        {
-            if (requestToken == _loadRequestToken)
-            {
-                IsLoading = false;
-                OnPropertyChanged(nameof(ShowFeed));
-            }
-        }
-    }
-
-    [TraceInteraction("RefreshCommand")]
-    [MostaqlK.Core.ErrorOutcome(MostaqlK.Core.ErrorOutcome.Rethrown, Label = "RefreshCommand")]
-    [RelayCommand]
-    public async Task RefreshAsync()
-    {
-        using var _ = TraceScope.Begin("RefreshCommand");
-        try
-        {
-            // Reload what is already stored, and ask the pipeline for a scan now: the footer's
-            // "آخر فحص" reflects real scans, so the button has to cause one rather than pretend.
-            _pollService.RequestCheckNow();
-            await LoadAsync();
-        }
-        catch (Exception ex)
-        {
-            _.MarkFaulted(ex);
-            throw;
-        }
-    }
-
-    /// <summary>Invoked by <c>SearchInputField.DebouncedCommand</c> once the debounce window elapses.</summary>
-    [RelayCommand]
-    public async Task SearchAsync(string? query)
-    {
-        SearchQuery = query ?? string.Empty;
-        await LoadAsync();
-    }
-
-    [RelayCommand]
-    public async Task ClearSearchAsync()
-    {
-        SearchQuery = string.Empty;
-        await LoadAsync();
     }
 
     [TraceInteraction("TogglePolling")]
@@ -486,8 +564,9 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
             _pollService.SetPaused(nextPaused);
             IsPollingActive = !_pollService.IsPaused;
 
-            // Persist the state: "reserve the state it closed with"
-            _settings.SetGlobal(SettingsKeys.IsPollingActive, IsPollingActive);
+            // Persist the state ("reserve the state it closed with") — deferred through the
+            // last-wins queue so the toggle is a synchronous UI flip + a background write.
+            DeferredPreferences.SetGlobal(_settings, SettingsKeys.IsPollingActive, IsPollingActive);
 
             OnPropertyChanged(nameof(PollIntervalText));
             OnPropertyChanged(nameof(LiveStatusText));
@@ -503,25 +582,27 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public async Task MarkAllReadAsync()
+    public void MarkAllReadAsync()
     {
         foreach (var project in Projects)
         {
             project.MarkAsRead();
+            _store.ApplyOptimisticRead(project.Project.Source, project.Project.ProjectId);
         }
 
         UnreadCount = 0;
 
-        // Persist to the DB - without this, the next pipeline-triggered reload's
-        // CountTrackedAsync (which reads `SUM(is_unread)` straight from the `projects` table)
-        // would resurrect every row still marked unread there, making the badge jump back up as
-        // soon as a single new project arrives (the bug: 4 unread -> mark all read -> 0 -> one
-        // new project arrives -> 7, because the DB still had the original 4 as unread).
-        var result = await _projectRepository.MarkAllAsReadAsync(_source);
-        if (!result.IsOk)
+        // Deferred DB truth through the last-wins queue — without the eventual write the next
+        // refined CountTracked would resurrect every row still unread in the store (the historic
+        // "badge jumps back to 7" bug the comment in the old async version documented).
+        DeferredPreferences.Enqueue($"read:all:{_source.Value}", async () =>
         {
-            InteractionLogger.Fault("ProjectFeedViewModel.MarkAllReadAsync", new InvalidOperationException(result.Error.InternalMessage));
-        }
+            var result = await _projectRepository.MarkAllAsReadAsync(_source);
+            if (!result.IsOk)
+            {
+                InteractionLogger.Fault("ProjectFeedViewModel.MarkAllReadAsync", new InvalidOperationException(result.Error.InternalMessage));
+            }
+        });
     }
 
     [TraceInteraction("SelectCommand")]
@@ -537,16 +618,22 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
                 return;
             }
 
+            // Optimistic interaction (plan Step 3): the read flip is LOCAL first — the card and
+            // the store's next-snapshot overlay both go read now; the DB write is deferred behind
+            // the navigate below, so the tap-to-details latency never includes a store round-trip.
             card.MarkAsRead();
-            UnreadCount = Projects.Count(p => p.IsUnread);
+            UnreadCount = Projects.Count(static p => p.IsUnread);
+            _store.ApplyOptimisticRead(card.Project.Source, card.Project.ProjectId);
 
-            // Persist to the DB for the same reason as MarkAllReadAsync above - otherwise the
-            // next reload's DB-backed unread count would still count this row as unread.
-            var result = await _projectRepository.MarkAsReadAsync(new SourceProjectId(card.Project.Source, card.Project.ProjectId));
-            if (!result.IsOk)
+            var identity = new SourceProjectId(card.Project.Source, card.Project.ProjectId);
+            DeferredPreferences.Enqueue($"read:{identity.Source.Value}:{identity.ProjectId}", async () =>
             {
-                InteractionLogger.Fault("ProjectFeedViewModel.SelectProjectAsync", new InvalidOperationException(result.Error.InternalMessage));
-            }
+                var result = await _projectRepository.MarkAsReadAsync(identity);
+                if (!result.IsOk)
+                {
+                    InteractionLogger.Fault("ProjectFeedViewModel.SelectProjectAsync", new InvalidOperationException(result.Error.InternalMessage));
+                }
+            });
 
             await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(card.Project.Source, card.Project.ProjectId));
         }

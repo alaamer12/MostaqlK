@@ -11,6 +11,9 @@ public partial class MainWindowWindowsLayout : ContentView
 {
     private readonly NotificationCenterViewModel _notificationCenterViewModel;
 
+    /// <summary>The feed VM whose <c>BatchApplied</c> event currently drives this layout's settle.</summary>
+    private ProjectFeedViewModel? _settledFeed;
+
     public MainWindowWindowsLayout(NotificationCenterViewModel notificationCenterViewModel)
     {
         InitializeComponent();
@@ -106,28 +109,61 @@ public partial class MainWindowWindowsLayout : ContentView
         // Already on the projects feed — no-op for now.
     }
 
-    /// <summary>
-    /// The global morph projection (persist + status facade + brand swap) already ran inside the
-    /// rail; here the only host-specific work is re-pointing this page's feed at the freshly-active
-    /// source so the list shows that source's rows only, then landing the new rows with the mockup's
-    /// <c>card-settle</c> mount (transform-only, one-shot). The settle self-triggers today so the
-    /// mount polish works even before the radial-reveal wave invokes it post-reveal.
-    /// </summary>
-    private async void OnSourceChanged(object? sender, SourceId source)
+    private void OnSourceChanged(object? sender, SourceId source)
     {
+        TryHookSettle();
         if (BindingContext is ProjectFeedViewModel feed)
         {
-            await feed.SwitchSourceAsync(source);
-            NotifyFeedRepopulated();
+            // v3 frame decoupling (Step 4-settle): the re-point is a SYNCHRONOUS memory paint —
+            // SwitchSource never awaits the DB anymore, so the settle cannot hang off this call.
+            // It re-times off the store's snapshot-applied batches instead (BatchApplied below);
+            // the feed paints Peek(target) this frame and refines when the coalesced pass lands.
+            _ = feed.SwitchSourceAsync(source);
         }
     }
 
+    protected override void OnBindingContextChanged()
+    {
+        base.OnBindingContextChanged();
+        TryHookSettle();
+    }
+
+    /// <summary>
+    /// (Re)attaches the settle trigger to the current feed VM: <c>SourceFeedStore</c> batches are
+    /// the only thing that now starts a mount pass — the snapshot-applied paint-complete frame
+    /// replaces the old "after the switch await" trigger (v3 plan Step 4-settle).
+    /// </summary>
+    private void TryHookSettle()
+    {
+        var feed = BindingContext as ProjectFeedViewModel;
+        if (ReferenceEquals(feed, _settledFeed))
+        {
+            return;
+        }
+
+        if (_settledFeed is not null)
+        {
+            _settledFeed.BatchApplied -= OnFeedBatchApplied;
+        }
+
+        _settledFeed = feed;
+        if (feed is not null)
+        {
+            feed.BatchApplied += OnFeedBatchApplied;
+        }
+    }
+
+    private void OnFeedBatchApplied(object? sender, EventArgs e) => NotifyFeedRepopulated();
+
     /// <summary>
     /// Runs the one-shot <see cref="ContentSettle"/> mount pass over the feed's realized cards.
-    /// Deferred one dispatcher frame so the just-swapped <c>ItemsSource</c> has propagated to the
-    /// platform list before the compositor pass enumerates it. No-op (instant) under reduced motion
-    /// / tray-hidden / non-Windows; a new call fast-finishes any in-flight pass. Public so the page
-    /// (first open) and the morph presenter (post-reveal) can drive the same single entrypoint.
+    /// Deferred one dispatcher frame so the just-applied snapshot batch has completed its first
+    /// layout pass — this is now the <b>paint-complete frame</b> of a real batch (v3 plan Step 4:
+    /// the settle trigger moved off the data-await + forced <c>UpdateLayout</c>; the Windows
+    /// compositor pass itself realizes off <c>ListViewBase.ContainerContentChanging</c>). No-op
+    /// (instant) under reduced motion / tray-hidden / non-Windows; a new call fast-finishes any
+    /// in-flight pass. Public so the page (first open) and the morph presenter (post-reveal) can
+    /// drive the same single entrypoint.
     /// </summary>
     public void NotifyFeedRepopulated()
     {

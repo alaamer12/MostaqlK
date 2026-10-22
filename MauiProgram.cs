@@ -139,6 +139,52 @@ public static class MauiProgram
 		builder.Services.AddSingleton<INotificationSender, WindowsToastSender>();
 #endif
         builder.Services.AddSingleton<Infrastructure.Database.SearchIndex.FtsQueryService>();
+        // v3 frame-decoupled read model (plan Step 1): the ONLY thing the feed renders from. It
+        // runs the existing bounded repository queries off the click path, coalesces bursts, and
+        // pointer-swaps immutable per-source snapshots; SnapshotUpdated is marshalled to the UI
+        // dispatcher. Registration line only — the store itself lives in Services/SourceFeedStore.cs.
+        builder.Services.AddSingleton<SourceFeedStore>(sp => new SourceFeedStore(
+            new RepositorySourceFeedDataProvider(
+                sp.GetRequiredService<IProjectRepository>(),
+                (source, query, limit, ct) => sp.GetRequiredService<Infrastructure.Database.SearchIndex.FtsQueryService>()
+                    .SearchAsync(source, query, limit, ct)),
+            sp.GetRequiredService<SourceRegistry>().All.Select(descriptor => descriptor.Id).ToArray(),
+            marshal: static action =>
+            {
+                // Same teardown-guarded dispatcher pattern as GlobalAppStatusService: a post after
+                // the WinUI dispatcher is gone must fail soft, never fast-fail the process.
+                try
+                {
+                    var dispatcher = Application.Current?.Dispatcher;
+                    if (dispatcher is null)
+                    {
+                        action();
+                        return;
+                    }
+
+                    dispatcher.Dispatch(action);
+                }
+                catch (Exception ex)
+                {
+                    MostaqlK.Services.Diagnostics.InteractionLogger.Fault("SourceFeedStore.Marshal.DispatchFailed", ex);
+                }
+            },
+            faultSink: static (label, ex) =>
+            {
+                if (ex is not null)
+                {
+                    MostaqlK.Services.Diagnostics.InteractionLogger.Fault(label, ex);
+                }
+            }));
+        // Deferred preference/settings writes (plan Steps 2-3): report background write faults the
+        // same way; teardown flush is wired by the app host.
+        MostaqlK.Core.Platform.DeferredPreferences.FaultSink = static (label, ex) =>
+        {
+            if (ex is not null)
+            {
+                MostaqlK.Services.Diagnostics.InteractionLogger.Fault(label, ex);
+            }
+        };
         builder.Services.AddSingleton<AssetDownloadService>();
         builder.Services.AddSingleton<DesignDataSeeder>();
         // Session cookie uploaded from Settings, held encrypted in `app_secrets` (DPAPI/CurrentUser)

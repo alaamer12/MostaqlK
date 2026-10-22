@@ -23,13 +23,23 @@ public sealed class FtsQueryService
         _registry = registry;
     }
 
+    /// <summary>
+    /// Hard page bound for FTS results. The raw <c>MATCH</c> set was UNBOUNDED before the v3
+    /// read-model wave (the LIMIT audit, plan Step 1): a common word could pull every matching row
+    /// across the join. Rank order keeps the most relevant rows; the feed shows at most a page.
+    /// </summary>
+    public const int MaxSearchResults = 50;
+
     [ErrorOutcome(ErrorOutcome.Handled, Label = "Query failure surfaced as Result.Err")]
-    public async Task<Result<IReadOnlyList<ProjectSummary>>> SearchAsync(SourceId source, string query, CancellationToken cancellationToken = default)
+    public async Task<Result<IReadOnlyList<ProjectSummary>>> SearchAsync(SourceId source, string query, int limit = MaxSearchResults, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(query))
         {
             return Result<IReadOnlyList<ProjectSummary>>.Ok(new List<ProjectSummary>());
         }
+
+        // Clamp the caller's bound: the page limit is a hard contract, not a suggestion.
+        limit = Math.Clamp(limit, 1, MaxSearchResults);
 
         try
         {
@@ -52,12 +62,13 @@ public sealed class FtsQueryService
                 FROM projects_fts f
                 JOIN projects p ON p.project_id = f.project_id
                 WHERE f.projects_fts MATCH @query AND p.source_id = @source_id
-                ORDER BY rank;
+                ORDER BY rank
+                LIMIT @limit;
                 """;
 
             var results = new List<ProjectSummary>();
             var rows = await connection.QueryAsync<RowMaps.FtsProjectSummaryRow>(
-                new CommandDefinition(sql, new { query = enhancedQuery, source_id = source.Value }, cancellationToken: cancellationToken));
+                new CommandDefinition(sql, new { query = enhancedQuery, source_id = source.Value, limit }, cancellationToken: cancellationToken));
             foreach (var row in rows)
             {
                 results.Add(row.ToFtsSummary(_registry));

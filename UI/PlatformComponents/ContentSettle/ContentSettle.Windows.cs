@@ -1,5 +1,6 @@
 using System.Numerics;
 using Microsoft.UI.Composition;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
 using WinUIDependencyObject = Microsoft.UI.Xaml.DependencyObject;
 using WinUIElement = Microsoft.UI.Xaml.UIElement;
@@ -23,12 +24,16 @@ namespace MostaqlK.UI.PlatformComponents.ContentSettle;
 /// so there is no <c>DispatcherTimer</c> and no per-frame managed callback — the whole pass is a
 /// finite, abortable one-shot (guardrail rules 2+3).
 /// <para>
-/// Realized cards come from the feed's own WinUI <see cref="WinUIListViewBase"/>.<c>ContainerFromIndex</c>
-/// (MAUI's Windows <c>CollectionView</c> is hosted on the WinUI items infrastructure) after a forced
-/// <c>UpdateLayout</c>; virtualized (off-screen) slots simply return null and are skipped, so only the
-/// visible cards settle — matching "stagger only the first N visible items." Any failure (no handler,
-/// no items host, no realized container, a compositor exception) leaves the rows at rest: the
-/// decorative settle is skipped, the app is never taken down by it.
+/// <b>Realization (v3 plan Step 4 re-timing):</b> cards come from the feed's own WinUI
+/// <see cref="WinUIListViewBase"/> container enumeration WITHOUT the former forced
+/// <c>UpdateLayout()</c> — a synchronous full-layout pass on the settle frame was the last layout
+/// cost the morph story still paid. Containers that are already realized animate immediately;
+/// anything not realized yet is picked up by the item-realization affordance
+/// (<see cref="ListViewBase.ContainerContentChanging"/>) as the WinUI virtualizer lands it, plus
+/// one next-dispatcher-frame retry. No timers: the subscription is one pass, detached on
+/// completion, on the next settle (fast-finish), or when the host dies with the page. Any failure
+/// (no handler, no items host, a compositor exception) leaves the rows at rest: the decorative
+/// settle is skipped, the app is never taken down by it.
 /// </para>
 /// </summary>
 public static partial class ContentSettle
@@ -45,6 +50,15 @@ public static partial class ContentSettle
     // Every new pass calls AbortInFlightCore first, which stops + releases these and clears the list,
     // so at most SettleMaxItems compositor animations are ever live.
     private static readonly List<WinUIVisual> _runningVisuals = [];
+
+    // The in-flight pass waiting on container realization (v3 Step 4: realize-off-the-event, never
+    // a forced layout). One at a time — a new settle supersedes (and detaches) the previous.
+    private sealed record SettlePass(WinUIListViewBase Host, HashSet<object> Animated)
+    {
+        public int AnimatedCount;
+    }
+
+    private static SettlePass? _pendingPass;
 
     static partial void PerformSettle(CollectionView feed)
     {
@@ -65,18 +79,38 @@ public static partial class ContentSettle
 
         try
         {
-            // Force a layout so the first viewport's item containers are realized; without this a
-            // just-swapped ItemsSource can return null from ContainerFromIndex for every index.
-            host.UpdateLayout();
+            var pass = new SettlePass(host, []);
 
-            for (int i = 0; i < SettleMaxItems; i++)
+            // Enumerate CURRENTLY realized containers only (no forced layout — a just-swapped
+            // ItemsSource may realize next frame; the event below catches those).
+            TryAnimatePending(pass);
+
+            if (!IsPassSatisfied(pass))
             {
-                // ContainerFromIndex returns null for not-yet-realized (virtualized) slots — skipped,
-                // so only the visible cards animate.
-                if (host.ContainerFromIndex(i) is WinUIElement container)
+                _pendingPass = pass;
+                host.ContainerContentChanging += OnContainerContentChanging;
+
+                // One next-dispatcher-frame retry (single post, not a per-frame timer): covers the
+                // case where realization completed between the enumeration above and the subscription.
+                _ = feed.Dispatcher.Dispatch(() =>
                 {
-                    AnimateContainer(container, i);
-                }
+                    if (ReferenceEquals(_pendingPass, pass))
+                    {
+                        try
+                        {
+                            TryAnimatePending(pass);
+                        }
+                        catch (Exception)
+                        {
+                            DetachPass(pass);
+                        }
+
+                        if (IsPassSatisfied(pass))
+                        {
+                            DetachPass(pass);
+                        }
+                    }
+                });
             }
         }
         catch (Exception)
@@ -86,8 +120,92 @@ public static partial class ContentSettle
         }
     }
 
+    /// <summary>
+    /// WinUI item-realization callback: animates each newly realized container in the settle budget
+    /// as it lands. Detaches once the visible window has been covered (bounded work per pass).
+    /// </summary>
+    private static void OnContainerContentChanging(WinUIListViewBase sender, ContainerContentChangingEventArgs args)
+    {
+        var pass = _pendingPass;
+        if (pass is null || !ReferenceEquals(pass.Host, sender))
+        {
+            return; // not this unit's host (or the pass already finished)
+        }
+
+        try
+        {
+            if (args.ItemIndex >= 0
+                && args.ItemIndex < SettleMaxItems
+                && sender.ContainerFromIndex(args.ItemIndex) is WinUIElement container
+                && pass.Animated.Add(container))
+            {
+                AnimateContainer(container, args.ItemIndex);
+                pass.AnimatedCount++;
+            }
+        }
+        catch (Exception)
+        {
+            DetachPass(pass);
+            return;
+        }
+
+        if (IsPassSatisfied(pass))
+        {
+            DetachPass(pass);
+        }
+    }
+
+    /// <summary>Animates every not-yet-animated container currently realized within the settle budget.</summary>
+    private static void TryAnimatePending(SettlePass pass)
+    {
+        var host = pass.Host;
+        int total = Math.Min(host is Microsoft.UI.Xaml.Controls.ItemsControl ic ? ic.Items?.Count ?? 0 : 0, SettleMaxItems);
+        for (int i = 0; i < total; i++)
+        {
+            // ContainerFromIndex returns null for not-yet-realized (virtualized) slots — skipped and
+            // picked up later via ContainerContentChanging, so only visible cards ever animate.
+            if (host.ContainerFromIndex(i) is WinUIElement container && pass.Animated.Add(container))
+            {
+                AnimateContainer(container, i);
+                pass.AnimatedCount++;
+            }
+        }
+    }
+
+    /// <summary>True when every in-budget item that can be realized has been animated (nothing pending).</summary>
+    private static bool IsPassSatisfied(SettlePass pass)
+    {
+        int total = Math.Min(
+            pass.Host is Microsoft.UI.Xaml.Controls.ItemsControl ic ? ic.Items?.Count ?? 0 : 0,
+            SettleMaxItems);
+        return pass.AnimatedCount >= total;
+    }
+
+    private static void DetachPass(SettlePass pass)
+    {
+        try
+        {
+            pass.Host.ContainerContentChanging -= OnContainerContentChanging;
+        }
+        catch (Exception)
+        {
+            // best-effort: the host may already be torn down with the page.
+        }
+
+        if (ReferenceEquals(_pendingPass, pass))
+        {
+            _pendingPass = null;
+        }
+    }
+
     static partial void AbortInFlightCore()
     {
+        // A superseding pass also abandons any realization-waiting pass (its containers land at rest).
+        if (_pendingPass is { } pending)
+        {
+            DetachPass(pending);
+        }
+
         if (_runningVisuals.Count == 0)
         {
             return;

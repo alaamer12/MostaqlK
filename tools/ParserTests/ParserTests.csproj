@@ -79,6 +79,14 @@
 		<Compile Include="..\..\Core\Sources\ISourceSettingsSectionViewModel.cs" LinkBase="Core" />
 		<Compile Include="..\..\Sources\Nafezly\Contributions\NafezlySettingsSectionContribution.cs" LinkBase="Sources" />
 		<Compile Include="..\..\Infrastructure\Http\CookieParser.cs" LinkBase="Http" />
+		<!-- v3 Step 1 read model: SourceFeedStore is MAUI-free (its DB seam is the linkable
+		     IProjectRepository interface + delegates), so the pure coalescing / generation-cancel /
+		     state-machine / warm-peer-prefetch logic links and is verified headlessly, exactly like
+		     the DetailSchemaRenderer precedent. -->
+		<Compile Include="..\..\Core\Result.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\DomainError.cs" LinkBase="Core" />
+		<Compile Include="..\..\Infrastructure\Database\IProjectRepository.cs" LinkBase="Infrastructure" />
+		<Compile Include="..\..\Services\SourceFeedStore.cs" LinkBase="Services" />
 		<Compile Include="..\..\Models\ProjectDetails.cs" LinkBase="Models" />
 		<Compile Include="..\..\Models\ProjectSummary.cs" LinkBase="Models" />
 		<Compile Include="..\..\Models\Owner.cs" LinkBase="Models" />

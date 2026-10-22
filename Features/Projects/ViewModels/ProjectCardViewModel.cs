@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using MostaqlK.Core.Formatting;
 using MostaqlK.Core.Sources;
 using MostaqlK.Models;
+using MostaqlK.Services;
 using MostaqlK.UI.DesignSystem.Badges;
 using MostaqlK.UI.PlatformComponents;
 
@@ -56,6 +57,71 @@ public sealed partial class ProjectCardViewModel : ObservableObject
 
     /// <summary>Bound by <c>ProjectCard.xaml</c>'s source-link chip; opens the project's live listing on its own source site in the OS-default browser.</summary>
     public ICommand OpenOnSourceCommand { get; }
+
+    // -----------------------------------------------------------------
+    // v3 read-model row state (SourceFeedStore doctrine: the item ALWAYS exists — a row is never
+    // removed because its data failed; it changes state). The W3 feed wave binds the visual
+    // affordances (skeleton shimmer shape for Provisional, dim for Stale, broken placeholder +
+    // retry for Broken); the data surface lands here first so XAML never rewrites bindings twice.
+    // -----------------------------------------------------------------
+
+    /// <summary>The row's lifecycle state within the feed snapshot.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsProvisional))]
+    [NotifyPropertyChangedFor(nameof(IsStale))]
+    [NotifyPropertyChangedFor(nameof(IsBroken))]
+    public partial FeedRowState RowState { get; set; } = FeedRowState.Confirmed;
+
+    /// <summary>True while the row is a provisional skeleton/optimistic shell (no confirmed data yet).</summary>
+    public bool IsProvisional => RowState == FeedRowState.Provisional;
+
+    /// <summary>True while confirmed data is shown dimmed, awaiting refine (stale-while-revalidate).</summary>
+    public bool IsStale => RowState == FeedRowState.Stale;
+
+    /// <summary>True when the underlying query failed — render as an honest broken placeholder with retry.</summary>
+    public bool IsBroken => RowState == FeedRowState.Broken;
+
+    /// <summary>Honest failure copy of a <see cref="IsBroken"/> row (null otherwise).</summary>
+    public string? BrokenMessage { get; private set; }
+
+    /// <summary>Re-enqueues this source's feed refresh — the Broken row's retry affordance (owned by the W3 card template).</summary>
+    public ICommand RetryCommand { get; private set; } = new RelayCommand(static () => { });
+
+    /// <summary>Factory for a feed row built from a store <see cref="FeedItem"/> (confirmed or shell).</summary>
+    public static ProjectCardViewModel ForFeedItem(FeedItem item, Action<ProjectCardViewModel>? onSelected, Action? onRetry = null)
+    {
+        // Provisional/Broken shells still carry a summary object — the doctrine's "item always
+        // exists" means every card has real binding data; the shell's title is the honest copy.
+        var card = new ProjectCardViewModel(item.Summary ?? new ProjectSummary
+        {
+            Source = item.Source,
+            ProjectId = item.ProjectId,
+            Title = item.ErrorMessage ?? string.Empty,
+        }, onSelected)
+        {
+            RowState = item.State,
+            BrokenMessage = item.ErrorMessage,
+        };
+
+        if (onRetry is not null)
+        {
+            card.RetryCommand = new RelayCommand(onRetry);
+        }
+
+        return card;
+    }
+
+    /// <summary>Reconciles this reused card with a newer snapshot item of the same project (in-place, no view churn).</summary>
+    public void UpdateFrom(FeedItem item)
+    {
+        if (item.Summary is { } summary)
+        {
+            Project = summary;
+        }
+
+        RowState = item.State;
+        BrokenMessage = item.ErrorMessage;
+    }
 
     public ProjectCardViewModel(ProjectSummary project, Action<ProjectCardViewModel>? onSelected = null)
     {
