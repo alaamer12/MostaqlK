@@ -33,7 +33,7 @@
 | `BrandTokenSet` | `Brand BrandInk BrandSoft OnBrand LinkLight LinkDark` hex strings, per source descriptor `Brands` | REAL |
 | `IBrandTokenProvider` | `CurrentSource Current TokensSwapped SwapTo(source)` — single swap path; components subscribe on Loaded / release on Unloaded | REAL (consumers **B1/B2**) |
 | DynamicResource `Brand*` palette fed by provider | App-level dictionaries replacing inline hexes; grep gate bans new inline brand hexes. **Locked design:** `BrandTokenSet` gains the four dark counterparts (`BrandDark BrandInkDark BrandSoftDark OnBrandDark`); `LinkLight/LinkDark` already exist; provider exposes theme selection (`CurrentFor(AppTheme)`), palette swap fires on `TokensSwapped` AND theme change. Verified dual sets to seed: mostaql light `#2386C8 #1A6DA6 #EFF6FB #ffffff` / dark `#5CA8DE #5CA8DE #245CA8DE(alpha .14→ARGB) #0b1c2a`; nafezly light `#FFA200 #9A6100 #FFF4DE #3a2a00` / dark `#FFB84D #FFB84D #24FFB84D(alpha .14) #2a1d00` (mockups README = source of truth; rgba→8-hex ARGB conversion at seed time). A3 does NOT extend the record — B1 does, atomically with the hex sweep. | **PLANNED (B1)** |
-| Nafezly palette | mockup orange set incl. AA-safe `BrandInk` for ≤14px text | **PLANNED (A3)** |
+| Nafezly palette | mockup orange set incl. AA-safe `BrandInk` for ≤14px text | **REAL (A3 light seed)** — `NafezlySource.Brands` = light `#FFA200 #9A6100 #FFF4DE #3a2a00` + links `#9A6100/#FFB84D`; the four dark counterparts land with B1's record extension |
 
 ## 4. Settings & prefs — REAL
 
@@ -49,7 +49,7 @@
 |---|---|---|
 | `ICookieJar` + `ICookieJarProvider.For(source)` | per-source, Netscape domain-column filtered, env `MOSTAQLK_COOKIE_{SOURCE}` (+legacy aliases, DEBUG only), release = encrypted store only | REAL |
 | `CookieStore` | per-source secret key (`descriptor.CookieSecretKey`), seamless legacy-row rewrite, `HasCookie/CookieCount/UpdatedAtUtc/SaveFromFileContentAsync/ClearAsync/InitializeAsync` | REAL |
-| `IHttpClientPolicyFactory` | builds per-source `HttpClient`/request headers from descriptor UA/Accept/Accept-Language (bot-filter behavior) | REAL — verify per-source client isolation at **A3** |
+| `IHttpClientPolicyFactory` | builds per-source `HttpClient`/request headers from descriptor UA/Accept/Accept-Language (bot-filter behavior) | REAL — **A3 verified isolation**: `NafezlyFetcher` builds its OWN client from the nafezly descriptor via the factory (it does NOT reuse the shared `SourceId.Default` `HttpClient` singleton `MostaqlFetcher` injects), and takes only `ICookieJarProvider.For(nafezly)`; nafezly backoff on 429 honors `Retry-After`/exponential and surfaces 403 without retrying |
 | `AssetDownloadService` | `ResolveAsync(SourceId, Asset, ct)` — descriptor-driven auth sniff + copy | REAL |
 
 ## 6. Navigation & notifications — REAL (B5 tightens)
@@ -67,33 +67,35 @@
 | Budget | `BudgetFormatter.Format(raw, currencySuffix)` — suffix = `descriptor.CurrencySuffix` (mostaql `ر.س`, nafezly `$`) | REAL |
 | Nafezly budget direction | `$`-figures render inside `FlowDirection=LeftToRight` isolation (Arabic page, LTR money) | **PLANNED (B4)** |
 | Owner meta | `descriptor.OwnerFallbackMeta` while real per-source owner fields absent; executor block gated by `Capabilities.HasExecutorInfo` (nafezly-only) | data REAL, UI **PLANNED (B4)** |
-| State vocabulary | per-source ParseProfile supplies completed/in-progress strings; UI shows scraped text verbatim | **PLANNED (A1–A3)** |
+| State vocabulary | per-source ParseProfile supplies completed/in-progress strings; UI shows scraped text verbatim | **REAL (A1–A3)**: nafezly `NafezlyParseProfile`/`NafezlyStates` supply مفتوح/تحت التنفيذ/مكتمل (+ defensive مغلق); parsers emit the scraped text verbatim, state colour never retinted |
 
 ## 8. Filters / query-params vocabulary (decision 5)
 
 | Source | Shape | Status |
 |---|---|---|
 | mostaql | existing `QueryParams` suffix string (onboarding presets) — `BuildListingUrl` appends | REAL |
-| nafezly | facets: `specialize` ∈ {business, development, design, marketing, writing-translation, training, other}, `skills` (slugs), `pricing=min,max`, `page=N` — built INSIDE the nafezly module; UI FilterModal renders whatever vocabulary `ISourceDescriptor` exposes (typed facet model, not string concat in UI) | **PLANNED (A2/A3, UI B3)** |
+| nafezly | facets: `specialize` ∈ {business, development, design, marketing, writing-translation, training, other}, `skills` (slugs), `pricing=min,max`, `page=N` — built INSIDE the nafezly module; UI FilterModal renders whatever vocabulary `ISourceDescriptor` exposes (typed facet model, not string concat in UI) | **backend REAL (A3)**: `NafezlyQueryVocabulary` (7 typed facets + Arabic labels + BuildQuery order), `NafezlyStates`, and the parse vocabulary all live in `Sources/Nafezly`; shared UI still never names a facet — FilterModal rendering **PLANNED (B3)** |
 
 ## 9. Enrichment failure & retry (§8.3)
 
 | Shape | Status |
 |---|---|
-| `EnrichmentStatus` Pending/Enriched/… + summary-only rows persist; 403 leaves `Failed`-style state visible | REAL today — exact failed-state + retry affordance contract | **PLANNED (A3)** |
+| `EnrichmentStatus` Pending/Enriched/… + summary-only rows persist; 403 leaves `Failed`-style state visible | **REAL (A3 for nafezly)**: `NafezlyEnrichment` returns Ok-with-`EnrichmentStatus.Failed` for a reachable-but-gated page (title present, core card facts absent) so the summary is stored honestly and the worker removes it from the backlog — the in-memory queue is never poisoned; a hard 403/429-after-backoff is surfaced as an error (capped retry, already-stored summary row not clobbered). UI retry affordance **PLANNED (B4)** |
 
 ## 10. Independent per-source growth — contribution API (decision 6)
 
 | Surface | Shape | Status |
 |---|---|---|
 | `ISourcePageContribution` | `SourceId Source; route; Arabic title; rail glyph; optional badge` — rail shows them ONLY while the source is active; routes registered sourceId-scoped | **PLANNED (A3)** |
-| `ISourceSettingsSectionContribution` | `SourceId; section header; view-model factory` — Settings appends active source's sections after descriptor rows | **PLANNED (A3)** |
-| `SourceContributionRegistry` | mirrors `SourceRegistry`; built from `GetServices<>`; `For(SourceId)` | **PLANNED (A3)** |
+| `ISourceSettingsSectionContribution` | `SourceId; section header; view-model factory` — Settings appends active source's sections after descriptor rows | **REAL (A3)**: `NafezlySettingsSectionContribution` + `NafezlySettingsSectionViewModel` (enrichment-retry toggle + session-state read-out, module-local keys) registered by `NafezlyModule`; Settings rendering of contributed sections **PLANNED (B4)** |
+| `SourceContributionRegistry` | mirrors `SourceRegistry`; built from `GetServices<>`; `For(SourceId)` | **REAL (A3)**: registered in `MauiProgram` from `GetServices<ISourcePageContribution>()`/`GetServices<ISourceSettingsSectionContribution>()`; `SettingsSectionsFor(nafezly)` returns nafezly's one section, `…For(mostaql)` returns none — no source-id branch (ParserTests `TestNafezlyContributionRegistry`) |
 | Hard rule | shared UI NEVER branches `if (source == X)`; constants in `Core/Sources` defaults + each module's own files only (grep gate) | RULE |
 
 ## 11. Storage guarantees — REAL
 
-user_version=3 schema (composite unique keys, band-0 identity for mostaql rows), Dapper DTO row maps (`RowMaps.cs`), backlog per-source filtering, store-and-forget unchanged. Nafezly-band coexistence tests **PLANNED (A3)**. FTS: `FtsQueryService.SearchAsync(source, query)` is source-scoped and resolves composite identity like every other reader (A4 done) — UI may rely on FTS row identities.
+user_version=3 schema (composite unique keys, band-0 identity for mostaql rows), Dapper DTO row maps (`RowMaps.cs`), backlog per-source filtering, store-and-forget unchanged. Nafezly-band coexistence tests **REAL (A3)** — `DbMigrationTests.TestNafezlyBandCoexistence` drives the real `1_000_000_000_000` band (colliding site ids → distinct internal ids, projects/owners/backlog composite keys reject duplicates, `FromInternalId`/`ToInternalId`/`ToSiteProjectId` round-trip across both bands). FTS: `FtsQueryService.SearchAsync(source, query)` is source-scoped and resolves composite identity like every other reader (A4 done) — UI may rely on FTS row identities.
+
+> **Live-polling precondition (recorded A3 wave):** outbound IPs of this build environment now receive Cloudflare JS challenges (403 "Just a moment…") even with the exact headers that returned HTTP 200 during the A2 capture — a datacenter-IP escalation, not an app defect (all parsing truth stays fixture-verified). Before nafezly live polling ships enabled, ONE paced pass from the owner's residential network must confirm: listing discovery row counts, and that slug-less `BuildProjectUrl` (`/project/{id}`) resolves (redirect-vs-404 unverified here).
 
 ---
 *Milestones flip rows: A1 (schema map, capabilities read), A2/A3 (nafezly vocabulary, palette, failure-retry, contributions), A4 (FTS row), B1 (palette, source persistence), B4/B5 (UI reads, notification tightening).*

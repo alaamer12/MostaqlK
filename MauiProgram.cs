@@ -18,6 +18,7 @@ using MostaqlK.Services.Diagnostics;
 using MostaqlK.Services.Onboarding;
 using MostaqlK.Services.Pipeline;
 using MostaqlK.Sources.Mostaql;
+using MostaqlK.Sources.Nafezly;
 using MostaqlK.UI.DesignSystem;
 using MostaqlK.UI.TrayIcon;
 #if WINDOWS
@@ -113,8 +114,17 @@ public static class MauiProgram
         // to the app = one more AddXxxSource() line + one module folder; nothing above or
         // below this block changes.
         builder.Services.AddMostaqlSource();
+        builder.Services.AddNafezlySource();
         builder.Services.AddSingleton<SourceRegistry>(sp =>
             new SourceRegistry(sp.GetServices<ISourceDescriptor>()));
+        // Index of every per-source contribution (settings sections, pages) built from the DI
+        // collections, mirroring SourceRegistry. Adding a source's contribution is only a module-side
+        // registration — the shared UI asks the registry for the ACTIVE source's sections and never
+        // branches on a source id (contract §10 "growth without branches").
+        builder.Services.AddSingleton<SourceContributionRegistry>(sp =>
+            new SourceContributionRegistry(
+                sp.GetServices<ISourcePageContribution>(),
+                sp.GetServices<ISourceSettingsSectionContribution>()));
         // One isolated cookie jar + one namespaced settings store per registered source.
         builder.Services.AddSingleton<ICookieJarProvider, CookieJarProvider>();
         builder.Services.AddSingleton<ISettingsRepository, FilePreferencesSettingsRepository>();

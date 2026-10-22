@@ -1,8 +1,12 @@
 using System.Text;
 using HtmlAgilityPack;
 using MostaqlK.Core.Formatting;
+using MostaqlK.Core.Sources;
 using MostaqlK.Infrastructure.Http;
 using MostaqlK.Sources.Mostaql.Parsing;
+using MostaqlK.Sources.Nafezly;
+using MostaqlK.Sources.Nafezly.Parsing;
+using MostaqlK.Sources.Nafezly.Contributions;
 using MostaqlK.Models;
 
 namespace ParserTests;
@@ -64,6 +68,19 @@ public static class Program
         Run(nameof(TestProposalCountJsonRoundTrip), TestProposalCountJsonRoundTrip);
         Run(nameof(TestDegenerateInputs), TestDegenerateInputs);
         Run(nameof(TestCookieJarParsing), TestCookieJarParsing);
+
+        // Nafezly source module (A3) — offline fixture suite against the A2 capture-manifest truth,
+        // plus the descriptor/contribution seam checks. None touch the 135 Mostaql checks above.
+        Console.WriteLine("\n--- Nafezly (A3) ---\n");
+        Run(nameof(TestNafezlyDescriptorIdentity), TestNafezlyDescriptorIdentity);
+        Run(nameof(TestNafezlyListingPage1), TestNafezlyListingPage1);
+        Run(nameof(TestNafezlyListingFilteredAndPagination), TestNafezlyListingFilteredAndPagination);
+        Run(nameof(TestNafezlyDetailOpen56540), TestNafezlyDetailOpen56540);
+        Run(nameof(TestNafezlyDetailInProgress56515), TestNafezlyDetailInProgress56515);
+        Run(nameof(TestNafezlyDetailExtra56573), TestNafezlyDetailExtra56573);
+        Run(nameof(TestNafezlyNullableAbsentFields), TestNafezlyNullableAbsentFields);
+        Run(nameof(TestNafezlyDegenerateInputs), TestNafezlyDegenerateInputs);
+        Run(nameof(TestNafezlyContributionRegistry), TestNafezlyContributionRegistry);
 
         Console.WriteLine();
         Console.WriteLine(new string('=', 60));
@@ -426,6 +443,221 @@ public static class Program
         Check("empty input yields null rather than an empty header", CookieParser.ParseFile("   ") is null);
         Check("a file with only analytics yields null", CookieParser.ParseFile("_gid=x\n_ga=y") is null);
     }
+
+    // -----------------------------------------------------------------
+    // Nafezly (A3) — offline fixture suite
+    // -----------------------------------------------------------------
+
+    private static string LoadNafezlyFixture(string filename) =>
+        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "nafezly", filename));
+
+    private static bool ThrowsNafezly(Action action)
+    {
+        try
+        {
+            action();
+            return false;
+        }
+        catch (NafezlyParseException)
+        {
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>The A3 identity block asserted EXACTLY (brief's fixed inputs), straight off the descriptor.</summary>
+    private static void TestNafezlyDescriptorIdentity()
+    {
+        var d = NafezlySource.Instance;
+        Check("nafezly id", d.Id == SourceId.From("nafezly"), d.Id.ToString());
+        Check("DisplayNameAr تنفيذلي", d.DisplayNameAr == "نفذلي", d.DisplayNameAr);
+        Check("DisplayNameLatin Nafezly", d.DisplayNameLatin == "Nafezly", d.DisplayNameLatin);
+        Check("RailGlyph ن", d.RailGlyph == "ن", d.RailGlyph);
+        Check("Domain nafezly.com", d.Domain == "nafezly.com", d.Domain);
+        Check("currency suffix $", d.CurrencySuffix == "$", d.CurrencySuffix);
+        Check("cadence 60s", d.DefaultPollIntervalSeconds == 60, $"{d.DefaultPollIntervalSeconds}");
+        Check("rpm 8", d.DefaultRequestsPerMinute == 8, $"{d.DefaultRequestsPerMinute}");
+        Check("internal id band 1_000_000_000_000", d.InternalIdBand == 1_000_000_000_000, $"{d.InternalIdBand}");
+        Check("cookie key cookie_nafezly", d.CookieSecretKey == "cookie_nafezly", d.CookieSecretKey);
+        Check("legacy cookie key empty (no pre-namespacing history)", d.LegacyCookieSecretKey == string.Empty, d.LegacyCookieSecretKey);
+        Check("settings container nafezly", d.SettingsContainerId == "nafezly", d.SettingsContainerId);
+
+        Check("brand light #FFA200", d.Brands.Brand == "#FFA200", d.Brands.Brand);
+        Check("brand ink #9A6100", d.Brands.BrandInk == "#9A6100", d.Brands.BrandInk);
+        Check("brand soft #FFF4DE", d.Brands.BrandSoft == "#FFF4DE", d.Brands.BrandSoft);
+        Check("on-brand #3a2a00", d.Brands.OnBrand == "#3a2a00", d.Brands.OnBrand);
+        Check("link light #9A6100", d.Brands.LinkLight == "#9A6100", d.Brands.LinkLight);
+        Check("link dark #FFB84D", d.Brands.LinkDark == "#FFB84D", d.Brands.LinkDark);
+
+        Check("capabilities: executor yes", d.Capabilities.HasExecutorInfo, $"{d.Capabilities.HasExecutorInfo}");
+        Check("capabilities: supervised no (JS-only facet)", !d.Capabilities.HasSupervisedFlag, $"{d.Capabilities.HasSupervisedFlag}");
+        Check("capabilities: session not required", !d.Capabilities.NeedsSessionForFullEnrichment, $"{d.Capabilities.NeedsSessionForFullEnrichment}");
+
+        // BuildListingUrl appends the opaque settings query nafezly expects and defaults the path.
+        Check("listing url base", d.BuildListingUrl(null) == "https://nafezly.com/projects", d.BuildListingUrl(null));
+        Check("listing url appends opaque query", d.BuildListingUrl("specialize=design&page=2")
+              == "https://nafezly.com/projects?specialize=design&page=2", d.BuildListingUrl("specialize=design&page=2"));
+        Check("listing url normalizes leading ?", d.BuildListingUrl("?page=1") == "https://nafezly.com/projects?page=1", d.BuildListingUrl("?page=1"));
+        Check("project url", d.BuildProjectUrl(56540) == "https://nafezly.com/project/56540", d.BuildProjectUrl(56540));
+        Check("absolute url roots a path", d.BuildAbsoluteUrl("/x") == "https://nafezly.com/x", d.BuildAbsoluteUrl("/x"));
+        Check("same-site sniff", d.IsSameSiteUrl("https://nafezly.com/project/1-a") && !d.IsSameSiteUrl("https://mostaql.com/x"));
+
+        // The seven specialize facets (query vocabulary as module data).
+        Check("seven specialize facets", NafezlyQueryVocabulary.SpecializeFacets.Count == 7, $"{NafezlyQueryVocabulary.SpecializeFacets.Count}");
+        Check("development facet label", NafezlyQueryVocabulary.SpecializeFacets.Any(f => f.Slug == "development" && f.LabelAr == "برمجة، تطوير المواقع والتطبيقات"));
+
+        // The four defensive state strings (three observed + مغلق) are all mapped.
+        Check("state vocabulary has all four", NafezlyStates.All.Count == 4 &&
+              NafezlyStates.All.SequenceEqual(["مفتوح", "تحت التنفيذ", "مكتمل", "مغلق"]),
+              string.Join(",", NafezlyStates.All));
+    }
+
+    private static void TestNafezlyListingPage1()
+    {
+        var summaries = NafezlyListingParser.Parse(LoadNafezlyFixture("listing-page1.html"));
+
+        Check("20 nafezly rows parsed", summaries.Count == 20, $"{summaries.Count}");
+        var first = summaries[0];
+        Check("slug-id 56609", first.ProjectId == 56609, $"{first.ProjectId}");
+        Check("title present (truncated Arabic)", first.Title.Contains("مسوّق", StringComparison.Ordinal), first.Title);
+        Check("state text raw مفتوح", first.ProjectStatus == "مفتوح", first.ProjectStatus);
+        Check("budget text '10 - 25 $'", first.Budget == "10 - 25 $", first.Budget);
+        Check("proposals count 2", first.ProposalCount == 2, $"{first.ProposalCount}");
+        Check("proposals text preserved", first.ProposalCountText == "2 عروض", first.ProposalCountText);
+        Check("publish relative 'منذ ساعة' -> 1", first.PublishTimeNumber == 1, $"{first.PublishTimeNumber}");
+        // Listing intentionally leaves DeliveryDays null — the authoritative day count is the detail
+        // page's JSON-LD workHours (see NafezlyListingParser.ParseRow).
+        Check("listing duration not resolved into a day count (detail-owned)", first.DeliveryDays is null, $"{first.DeliveryDays}");
+        Check("url is absolute nafezly project", first.Url.StartsWith("https://nafezly.com/project/56609-", StringComparison.Ordinal), first.Url);
+
+        var ids = summaries.Select(s => s.ProjectId).ToList();
+        Check("all ids positive", ids.All(id => id > 0));
+        Check("ids distinct", ids.Distinct().Count() == ids.Count);
+        Check("newest-first ordering", ids.SequenceEqual(ids.OrderByDescending(x => x)), string.Join(",", ids));
+        Check("every row has a state + budget", summaries.All(s => !string.IsNullOrEmpty(s.ProjectStatus) && !string.IsNullOrEmpty(s.Budget)));
+    }
+
+    private static void TestNafezlyListingFilteredAndPagination()
+    {
+        var filtered = NafezlyListingParser.Parse(LoadNafezlyFixture("listing-filtered.html"));
+        Check("filtered page still 20 rows (identical grammar)", filtered.Count == 20, $"{filtered.Count}");
+        Check("filtered budgets shifted to the 100-250/250-500 ladder",
+            filtered.Any(s => s.Budget == "100 - 250 $" || s.Budget == "250 - 500 $"),
+            string.Join("|", filtered.Select(s => s.Budget).Distinct()));
+
+        var (prev1, next1) = NafezlyListingParser.ParsePagination(LoadNafezlyFixture("listing-page1.html"));
+        Check("page1 has no prev (disabled)", string.IsNullOrEmpty(prev1), prev1);
+        Check("page1 next -> page=2", next1 == "https://nafezly.com/projects?page=2", next1);
+
+        var (prev2, next2) = NafezlyListingParser.ParsePagination(LoadNafezlyFixture("listing-page2.html"));
+        Check("page2 prev -> page=1", prev2 == "https://nafezly.com/projects?page=1", prev2);
+        Check("page2 next -> page=3", next2 == "https://nafezly.com/projects?page=3", next2);
+    }
+
+    private static void TestNafezlyDetailOpen56540()
+    {
+        var d = NafezlyDetailParser.Parse(56540, LoadNafezlyFixture("detail-open.html"));
+        Check("title from JSON-LD contains Cisco Packet Tracer", d.Title.Contains("Cisco Packet Tracer", StringComparison.Ordinal), d.Title);
+        Check("state تحت التنفيذ (fixture name lies: it is in-progress)", d.ProjectStatus == "تحت التنفيذ", d.ProjectStatus);
+        Check("budget '10 - 25 $'", d.Budget == "10 - 25 $", d.Budget);
+        Check("proposals 72", d.ProposalCount == 72, $"{d.ProposalCount}");
+        Check("publish 'منذ 23 ساعة' -> 23", d.PublishTimeNumber == 23, $"{d.PublishTimeNumber}");
+        Check("duration 3 days (JSON-LD workHours)", d.DeliveryDays == 3, $"{d.DeliveryDays}");
+        Check("3 skills from JSON-LD CSV", d.Skills.Count == 3, string.Join("/", d.Skills.Select(s => s.Name)));
+        Check("skills include Cisco + Arabic labels",
+            d.Skills.Any(s => s.Name == "Cisco") && d.Skills.Any(s => s.Name == "إدارة الشبكات"),
+            string.Join("/", d.Skills.Select(s => s.Name)));
+        Check("owner Anas Osama (app-gate anchor text)", d.Owner.Name == "Anas Osama", d.Owner.Name);
+        Check("description keeps section structure", d.Description.Contains("المهام", StringComparison.Ordinal), Preview(d.Description));
+        Check("budget field provenance recorded", d.FieldProvenance.TryGetValue("budget", out var bProv) && bProv.Source is "structural" or "jsonld", d.FieldProvenance.GetValueOrDefault("budget")?.Source);
+        Check("duration field provenance recorded", d.FieldProvenance.ContainsKey("duration"), d.FieldProvenance.GetValueOrDefault("duration")?.Source);
+    }
+
+    private static void TestNafezlyDetailInProgress56515()
+    {
+        var d = NafezlyDetailParser.Parse(56515, LoadNafezlyFixture("detail-in-progress.html"));
+        Check("state مكتمل (fixture name lies: it is completed)", d.ProjectStatus == "مكتمل", d.ProjectStatus);
+        Check("proposals 43", d.ProposalCount == 43, $"{d.ProposalCount}");
+        Check("budget '10 - 25 $'", d.Budget == "10 - 25 $", d.Budget);
+        Check("publish 'منذ يوم' -> 1", d.PublishTimeNumber == 1, $"{d.PublishTimeNumber}");
+        Check("duration 1 day", d.DeliveryDays == 1, $"{d.DeliveryDays}");
+        Check("skills deduped (HTML/CSS repeated in CSV)", d.Skills.Count == d.Skills.Select(s => s.Name).Distinct().Count() && d.Skills.Count > 0,
+            string.Join("/", d.Skills.Select(s => s.Name)));
+        Check("owner دليل الخير", d.Owner.Name == "دليل الخير", d.Owner.Name);
+    }
+
+    private static void TestNafezlyDetailExtra56573()
+    {
+        var d = NafezlyDetailParser.Parse(56573, LoadNafezlyFixture("detail-extra.html"));
+        Check("state مفتوح", d.ProjectStatus == "مفتوح", d.ProjectStatus);
+        Check("budget '50 - 100 $'", d.Budget == "50 - 100 $", d.Budget);
+        Check("proposals 30", d.ProposalCount == 30, $"{d.ProposalCount}");
+        Check("duration 7 days", d.DeliveryDays == 7, $"{d.DeliveryDays}");
+        Check("Laravel/PHP skills present", d.Skills.Any(s => s.Name == "Laravel") && d.Skills.Any(s => s.Name == "PHP"),
+            string.Join("/", d.Skills.Select(s => s.Name)));
+        Check("owner Saudisader Sader", d.Owner.Name == "Saudisader Sader", d.Owner.Name);
+    }
+
+    /// <summary>Fields the anonymous HTML never shows stay null/empty — never guessed.</summary>
+    private static void TestNafezlyNullableAbsentFields()
+    {
+        var d = NafezlyDetailParser.Parse(56540, LoadNafezlyFixture("detail-open.html"));
+        Check("attachments absent-by-default (no public list)", d.Attachments.Count == 0, $"{d.Attachments.Count}");
+        Check("owner rating null (app-gated)", d.Owner.Rating is null, $"{d.Owner.Rating}");
+        Check("owner hiring rate null (absent on nafezly)", d.Owner.HiringRatePercent is null, $"{d.Owner.HiringRatePercent}");
+        Check("owner completed count null (absent)", d.Owner.CompletedProjectsCount is null, $"{d.Owner.CompletedProjectsCount}");
+        Check("owner profile url null (js app-gate, no real url)", d.Owner.ProfileUrl is null, d.Owner.ProfileUrl);
+        Check("owner avatar captured", d.Owner.AvatarUrl?.Contains("digitaloceanspaces.com") == true, d.Owner.AvatarUrl);
+        Check("enrichment status Enriched on a good page", d.EnrichmentStatus == EnrichmentStatus.Enriched, d.EnrichmentStatus.ToString());
+    }
+
+    private static void TestNafezlyDegenerateInputs()
+    {
+        Check("nafezly empty html throws", ThrowsNafezly(() => NafezlyDetailParser.Parse(1, string.Empty)));
+        Check("nafezly whitespace html throws", ThrowsNafezly(() => NafezlyDetailParser.Parse(1, "   ")));
+        Check("nafezly non-listing page throws", ThrowsNafezly(() => NafezlyListingParser.Parse("<html><body><p>لا مشاريع</p></body></html>")));
+        Check("nafezly listing empty html throws", ThrowsNafezly(() => NafezlyListingParser.Parse(string.Empty)));
+    }
+
+    /// <summary>
+    /// The contract §10 "growth without branches" proof: the registry, built from DI-style
+    /// collections, returns nafezly's contributed settings section for nafezly and NOTHING for
+    /// mostaql — no source-id if-branch anywhere. (DI wiring itself is the app build; this checks the
+    /// real contribution object the module registers.)
+    /// </summary>
+    private static void TestNafezlyContributionRegistry()
+    {
+        ISourceSettingsSectionContribution[] sections = [new NafezlySettingsSectionContribution()];
+        var registry = new SourceContributionRegistry([], sections);
+
+        var nafezlySections = registry.SettingsSectionsFor(SourceId.From("nafezly"));
+        var mostaqlSections = registry.SettingsSectionsFor(SourceId.Mostaql);
+
+        Check("registry returns nafezly's settings section", nafezlySections.Count == 1, $"{nafezlySections.Count}");
+        Check("registry returns nothing for mostaql", mostaqlSections.Count == 0, $"{mostaqlSections.Count}");
+        Check("nafezly section has no page contribution yet (B2)", registry.PagesFor(SourceId.From("nafezly")).Count == 0);
+
+        var contribution = nafezlySections[0];
+        Check("contribution source is nafezly", contribution.Source == SourceId.From("nafezly"), contribution.Source.ToString());
+        Check("contribution header Arabic", !string.IsNullOrEmpty(contribution.HeaderAr), contribution.HeaderAr);
+
+        var vm = contribution.CreateViewModel(new EmptyServiceProvider());
+        Check("view-model built without DI", vm is NafezlySettingsSectionViewModel, vm?.GetType().Name);
+        var nafezlyVm = (NafezlySettingsSectionViewModel)vm;
+        Check("view-model enrichment-retry defaults on", nafezlyVm.EnrichmentRetryEnabled);
+        Check("view-model reflects no-session capability", !nafezlyVm.RequiresSession, $"{nafezlyVm.RequiresSession}");
+    }
+
+    /// <summary>Minimal IServiceProvider so the contribution's CreateViewModel can be exercised offline.</summary>
+    private sealed class EmptyServiceProvider : IServiceProvider
+    {
+        public object? GetService(Type serviceType) => null;
+    }
+
+
 
     // -----------------------------------------------------------------
     // Live mode - parse a real URL end-to-end (opt-in, needs network)

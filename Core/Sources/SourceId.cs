@@ -34,7 +34,7 @@ public readonly record struct SourceId
         return true;
     }
 
-    /// <summary>The only source registered until the nafezly module lands.</summary>
+    /// <summary>The first registered source; also the identity legacy pre-source rows belong to.</summary>
     public static SourceId Mostaql { get; } = new("mostaql");
 
     /// <summary>

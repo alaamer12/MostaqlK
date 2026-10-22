@@ -38,6 +38,7 @@ internal static class Program
             TestIdempotentRerun(Path.Combine(dir, "upgrade.db"));
             TestFreshInstallLandsAtV2(Path.Combine(dir, "fresh.db"));
             TestCrossSourceCollision(Path.Combine(dir, "upgrade.db"));
+            TestNafezlyBandCoexistence(Path.Combine(dir, "coexist.db"));
         }
         finally
         {
@@ -214,6 +215,137 @@ internal static class Program
     }
 
     // ---------------------------------------------------------------- fixtures
+
+    /// <summary>
+    /// Nafezly-band coexistence (contract §11, A3): drives the REAL nafezly internal-id band
+    /// (1_000_000_000_000, <c>NafezlySource.InternalIdBand</c>) against a fresh production schema and
+    /// inserts a mostaql row and a nafezly row that share the SAME site id (101) through raw SQL that
+    /// mirrors the repository's columns. Asserts the composite identity guarantees each layer relies
+    /// on: disjoint internal ids, the per-source composite UNIQUE indexes on projects/owners, the
+    /// composite discovery_backlog key, and <see cref="SourceRegistry.FromInternalId"/> round-tripping
+    /// both sources back to their (source, site id) composite. Unlike <see cref="TestCrossSourceCollision"/>
+    /// (a toy 1_000_000 band on the migrated v1 db), this exercises the exact band nafezly ships with.
+    /// </summary>
+    private static void TestNafezlyBandCoexistence(string dbPath)
+    {
+        Console.WriteLine("== nafezly real-band coexistence ==");
+        File.Delete(dbPath);
+        const long nafezlyBand = 1_000_000_000_000;
+        const long sharedSiteId = 101;
+
+        var registry = new SourceRegistry([new StubDescriptor(SourceId.Mostaql, 0), new StubDescriptor(SourceId.From("nafezly"), nafezlyBand)]);
+        var mostaqlKey = new SourceProjectId(SourceId.Mostaql, sharedSiteId);
+        var nafezlyKey = new SourceProjectId(SourceId.From("nafezly"), sharedSiteId);
+        var mostaqlInternal = registry.ToInternalId(mostaqlKey);
+        var nafezlyInternal = registry.ToInternalId(nafezlyKey);
+
+        Check(mostaqlInternal == sharedSiteId, "mostaql band 0 keeps site id as internal id");
+        Check(nafezlyInternal == nafezlyBand + sharedSiteId, $"nafezly band maps site {sharedSiteId} to {nafezlyBand + sharedSiteId} (got {nafezlyInternal})");
+        Check(mostaqlInternal != nafezlyInternal, "identical site ids never share an internal id across sources");
+
+        var factory = new SqliteConnectionFactory(dbPath);
+        using var connection = factory.CreateConnection();
+
+        // Two projects, SAME site id 101, distinct source — inserted the way ProjectRepository would
+        // (source_id + site_project_id + internal project_id all present).
+        using (var insert = connection.CreateCommand())
+        {
+            insert.CommandText = """
+                INSERT INTO projects (project_id, source_id, site_project_id, title, url, discovered_at, enrichment_status)
+                VALUES
+                    (@mostaqlId, 'mostaql', @site, 'mostaql 101', 'https://mostaql.com/u/projects/101', '2026-10-21T10:00:00Z', 'Enriched'),
+                    (@nafezlyId, 'nafezly', @site, 'nafezly 101', 'https://nafezly.com/project/101', '2026-10-21T10:00:00Z', 'Enriched');
+                """;
+            insert.Parameters.AddWithValue("@mostaqlId", mostaqlInternal);
+            insert.Parameters.AddWithValue("@nafezlyId", nafezlyInternal);
+            insert.Parameters.AddWithValue("@site", sharedSiteId);
+            insert.ExecuteNonQuery();
+        }
+
+        Check(SingleScalar(connection, "SELECT COUNT(*) FROM projects WHERE site_project_id = 101;") == 2,
+            "composite (source_id, site_project_id) stores the same site id once per source");
+        Check(SingleScalar(connection, "SELECT COUNT(*) FROM projects WHERE source_id = 'nafezly' AND project_id = 1000000000101;") == 1,
+            "nafezly row keyed at the real-band internal id");
+
+        // A second (nafezly, 101) must be rejected by ux_projects_source_site — the pair, not the
+        // internal id, is the real identity.
+        var dupProjectSql = """
+            INSERT INTO projects (project_id, source_id, site_project_id, title, url, discovered_at, enrichment_status)
+            VALUES (987654321, 'nafezly', 101, 'dup', 'u', 'now', 'Pending');
+            """;
+        Check(InsertRejected(connection, dupProjectSql), "duplicate (nafezly, 101) rejected by ux_projects_source_site");
+
+        // Owners are keyed by a band-differentiated INTERNAL owner id (mostaql 900, nafezly band+900),
+        // so two sources' owners never collide on the owner_id PK; ux_owners_source_owner is the
+        // enforceable composite identity that also rejects a re-insert of the same (source, owner) pair.
+        using (var owners = connection.CreateCommand())
+        {
+            owners.CommandText = """
+                INSERT INTO owners (owner_id, source_id, name, last_seen_at)
+                VALUES (900, 'mostaql', 'م', '2026-10-21T10:00:00Z'), (@nafezlyOwnerId, 'nafezly', 'ن', '2026-10-21T10:00:00Z');
+                """;
+            owners.Parameters.AddWithValue("@nafezlyOwnerId", nafezlyBand + 900);
+            owners.ExecuteNonQuery();
+        }
+
+        Check(SingleScalar(connection, "SELECT COUNT(*) FROM owners;") == 2,
+            "band-differentiated owner ids coexist across sources");
+        var dupOwnerSql = """
+            INSERT INTO owners (owner_id, source_id, name, last_seen_at) VALUES (1000000000900, 'nafezly', 'dup', '2026-10-21T10:00:00Z');
+            """;
+        Check(InsertRejected(connection, dupOwnerSql), "re-insert of (nafezly, band owner id) rejected (owner_id PK + ux_owners_source_owner)");
+
+        // Discovery backlog is keyed (source_id, project_id) — internal ids differ, both survive; a
+        // re-enqueue of the same composite is rejected by the composite primary key.
+        using (var backlog = connection.CreateCommand())
+        {
+            backlog.CommandText = """
+                INSERT INTO discovery_backlog (source_id, project_id, retry_count)
+                VALUES ('mostaql', @mid, 0), ('nafezly', @nid, 0);
+                """;
+            backlog.Parameters.AddWithValue("@mid", mostaqlInternal);
+            backlog.Parameters.AddWithValue("@nid", nafezlyInternal);
+            backlog.ExecuteNonQuery();
+        }
+
+        Check(SingleScalar(connection, "SELECT COUNT(*) FROM discovery_backlog;") == 2, "backlog holds both sources' rows under its composite key");
+        var dupBacklogSql = """
+            INSERT INTO discovery_backlog (source_id, project_id) VALUES ('nafezly', 1000000000101);
+            """;
+        Check(InsertRejected(connection, dupBacklogSql), "re-enqueue of (nafezly, band-internal id) rejected by composite PK");
+
+        // FromInternalId round-trips every stored row back to its (source, site id) composite.
+        var roundTripped = new HashSet<SourceProjectId>();
+        using (var query = connection.CreateCommand())
+        {
+            query.CommandText = "SELECT source_id, project_id FROM projects;";
+            using var reader = query.ExecuteReader();
+            while (reader.Read())
+            {
+                roundTripped.Add(registry.FromInternalId(SourceId.From(reader.GetString(0)), reader.GetInt64(1)));
+            }
+        }
+
+        Check(roundTripped.Contains(mostaqlKey) && roundTripped.Contains(nafezlyKey),
+            "FromInternalId resolves both colliding site ids back to their distinct composites");
+    }
+
+    /// <summary>True when the statement throws a SqliteException (i.e. a constraint rejected it).</summary>
+    private static bool InsertRejected(SqliteConnection connection, string sql)
+    {
+        try
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.ExecuteNonQuery();
+            return false;
+        }
+        catch (SqliteException)
+        {
+            return true;
+        }
+    }
+
 
     /// <summary>The historical v1 bootstrap schema, byte-for-byte what shipped pre-refactor.</summary>
     private const string V1SchemaSql = """

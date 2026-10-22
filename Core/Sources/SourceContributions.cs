@@ -11,7 +11,7 @@ public interface ISourcePageContribution
 {
     public SourceId Source { get; }
 
-    /// <summary>Shell route the module registered (e.g. <c>"NafezlyInsightsPage"</c>), navigated via <see cref="MostaqlK.Core.Navigation.AppRoute"/>.</summary>
+    /// <summary>Shell route the module registered (e.g. <c>"SomeSourceInsightsPage"</c>), navigated via <see cref="MostaqlK.Core.Navigation.AppRoute"/>.</summary>
     public string Route { get; }
 
     /// <summary>Rail label in Arabic.</summary>
@@ -25,7 +25,7 @@ public interface ISourcePageContribution
 }
 
 /// <summary>
-/// A settings section contributed by one source only (e.g. nafezly's session-state /
+/// A settings section contributed by one source only (e.g. a module's session-state /
 /// enrichment-retry rows). The Settings page renders descriptor data rows first, then the
 /// active source's contributed sections — presence/absence is data, never an if-branch.
 /// The view-model is <c>object</c> so Core stays UI-free; the settings host presents it via
