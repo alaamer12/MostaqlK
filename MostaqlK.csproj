@@ -34,12 +34,12 @@
 		<ApplicationId>com.mostaqlk</ApplicationId>
 
 		<!-- Versions -->
-		<ApplicationDisplayVersion>1.0.4.dev10</ApplicationDisplayVersion>
-		<ApplicationVersion>15</ApplicationVersion>
+		<ApplicationDisplayVersion>1.0.4.dev11</ApplicationDisplayVersion>
+		<ApplicationVersion>16</ApplicationVersion>
 		<Version>1.0.4</Version>
-		<InformationalVersion>1.0.4.dev10</InformationalVersion>
-		<FileVersion>1.0.4.10</FileVersion>
-		<AssemblyVersion>1.0.4.10</AssemblyVersion>
+		<InformationalVersion>1.0.4.dev11</InformationalVersion>
+		<FileVersion>1.0.4.11</FileVersion>
+		<AssemblyVersion>1.0.4.11</AssemblyVersion>
 		<Description>MostaqlK Desktop</Description>
 		<Product>MostaqlK</Product>
 		<Company>MostaqlK</Company>
@@ -107,6 +107,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+		<PackageReference Include="Dapper" Version="2.1.89" />
 		<PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
 		<PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
 		<!-- Microsoft.Data.Sqlite 10.0.10 transitively pulls in SQLitePCLRaw.bundle_e_sqlite3 2.1.11,

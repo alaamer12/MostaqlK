@@ -1,3 +1,4 @@
+using Dapper;
 using Microsoft.Data.Sqlite;
 using MostaqlK.Core;
 using MostaqlK.Core.Sources;
@@ -280,14 +281,14 @@ public sealed class ProjectRepository : IProjectRepository
         try
         {
             using var connection = _connectionFactory.CreateConnection();
-            using var command = connection.CreateCommand();
-            command.CommandText = "SELECT source_id, project_id FROM projects;";
+            const string sql = "SELECT source_id, project_id FROM projects;";
 
             var ids = new HashSet<SourceProjectId>();
-            using var reader = await command.ExecuteReaderAsync(cancellationToken);
-            while (await reader.ReadAsync(cancellationToken))
+            var rows = await connection.QueryAsync<RowMaps.ProjectKeyRow>(
+                new CommandDefinition(sql, cancellationToken: cancellationToken));
+            foreach (var row in rows)
             {
-                ids.Add(KeyFromRow(reader.GetString(0), reader.GetInt64(1)));
+                ids.Add(KeyFromRow(row.source_id, row.project_id));
             }
 
             return Result<IReadOnlySet<SourceProjectId>>.Ok(ids);
@@ -304,14 +305,13 @@ public sealed class ProjectRepository : IProjectRepository
         try
         {
             using var connection = _connectionFactory.CreateConnection();
-            using var command = connection.CreateCommand();
-            command.CommandText = """
+            const string sql = """
                 SELECT p.project_id, p.source_id, p.title, p.url, p.client_name,
                        p.publish_time_number, p.publish_time_text,
                        p.proposal_count, p.proposal_count_text,
                        p.description, p.budget, p.delivery_days,
                        p.is_unread, p.enrichment_status, p.discovered_at, p.project_status,
-                       COALESCE((SELECT group_concat(name, ', ') FROM project_skills s WHERE s.project_id = p.project_id), ''),
+                       COALESCE((SELECT group_concat(name, ', ') FROM project_skills s WHERE s.project_id = p.project_id), '') AS skills_text,
                        p.enriched_at
                 FROM projects p
                 WHERE p.source_id = @source_id
@@ -325,14 +325,13 @@ public sealed class ProjectRepository : IProjectRepository
                 ORDER BY (p.enriched_at IS NULL) ASC, p.enriched_at DESC, p.discovered_at DESC
                 LIMIT @limit;
                 """;
-            command.Parameters.AddWithValue("@source_id", source.Value);
-            command.Parameters.AddWithValue("@limit", limit);
+            var rows = await connection.QueryAsync<RowMaps.ProjectSummaryRow>(
+                new CommandDefinition(sql, new { source_id = source.Value, limit }, cancellationToken: cancellationToken));
 
             var results = new List<ProjectSummary>();
-            using var reader = await command.ExecuteReaderAsync(cancellationToken);
-            while (await reader.ReadAsync(cancellationToken))
+            foreach (var row in rows)
             {
-                results.Add(ReadSummary(reader));
+                results.Add(row.ToSummary(_registry));
             }
 
             return Result<IReadOnlyList<ProjectSummary>>.Ok(results);
@@ -349,11 +348,10 @@ public sealed class ProjectRepository : IProjectRepository
         try
         {
             using var connection = _connectionFactory.CreateConnection();
-            using var command = connection.CreateCommand();
             // The details page is the only caller: it needs a row that actually has a description,
             // budget, skills and attachments, so enriched rows win over a newer-but-bare discovery,
             // and among those the most recently enriched one is shown.
-            command.CommandText = """
+            const string sql = """
                 SELECT source_id, project_id
                 FROM projects
                 WHERE source_id = @source_id
@@ -361,15 +359,14 @@ public sealed class ProjectRepository : IProjectRepository
                          COALESCE(enriched_at, discovered_at) DESC
                 LIMIT 1;
                 """;
-            command.Parameters.AddWithValue("@source_id", source.Value);
-
-            using var reader = await command.ExecuteReaderAsync(cancellationToken);
-            if (!await reader.ReadAsync(cancellationToken))
+            var row = await connection.QueryFirstOrDefaultAsync<RowMaps.ProjectKeyRow>(
+                new CommandDefinition(sql, new { source_id = source.Value }, cancellationToken: cancellationToken));
+            if (row is null)
             {
                 return Result<SourceProjectId?>.Ok(null);
             }
 
-            return Result<SourceProjectId?>.Ok(KeyFromRow(reader.GetString(0), reader.GetInt64(1)));
+            return Result<SourceProjectId?>.Ok(KeyFromRow(row.source_id, row.project_id));
         }
         catch (SqliteException ex)
         {
@@ -385,10 +382,7 @@ public sealed class ProjectRepository : IProjectRepository
             using var connection = _connectionFactory.CreateConnection();
             var internalId = InternalId(projectId);
 
-            ProjectDetails? details = null;
-            using (var command = connection.CreateCommand())
-            {
-                command.CommandText = """
+            const string detailsSql = """
                     SELECT p.project_id, p.source_id, p.title, p.url, p.description, p.budget, p.delivery_days,
                            p.enrichment_status, p.enriched_at, p.project_status,
                            p.publish_time_number, p.publish_time_text,
@@ -401,84 +395,38 @@ public sealed class ProjectRepository : IProjectRepository
                     LEFT JOIN owners o ON o.owner_id = p.owner_id
                     WHERE p.project_id = @project_id;
                     """;
-                command.Parameters.AddWithValue("@project_id", internalId);
-
-                using var reader = await command.ExecuteReaderAsync(cancellationToken);
-                if (await reader.ReadAsync(cancellationToken))
-                {
-                    var rowSource = SourceId.From(reader.GetString(1));
-                    details = new ProjectDetails
-                    {
-                        Source = rowSource,
-                        ProjectId = _registry.ToSiteProjectId(rowSource, reader.GetInt64(0)),
-                        Title = reader.GetString(2),
-                        Url = reader.GetString(3),
-                        Description = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
-                        Budget = reader.IsDBNull(5) ? null : reader.GetString(5),
-                        DeliveryDays = reader.IsDBNull(6) ? null : reader.GetInt32(6),
-                        EnrichmentStatus = Enum.Parse<EnrichmentStatus>(reader.GetString(7)),
-                        EnrichedAt = reader.IsDBNull(8) ? null : DateTimeOffset.Parse(reader.GetString(8)),
-                        ProjectStatus = reader.IsDBNull(9) ? null : reader.GetString(9),
-                        PublishTimeNumber = reader.IsDBNull(10) ? 0 : reader.GetInt32(10),
-                        PublishTimeText = reader.IsDBNull(11) ? string.Empty : reader.GetString(11),
-                        ProposalCount = reader.IsDBNull(12) ? 0 : reader.GetInt32(12),
-                        ProposalCountText = reader.IsDBNull(13) ? string.Empty : reader.GetString(13),
-                        DiscoveredAt = reader.IsDBNull(14) ? DateTimeOffset.UtcNow : DateTimeOffset.Parse(reader.GetString(14)),
-                        Owner = reader.IsDBNull(15)
-                            ? new Owner()
-                            : new Owner
-                            {
-                                Source = rowSource,
-                                OwnerId = _registry.ToSiteProjectId(rowSource, reader.GetInt64(15)),
-                                Name = reader.IsDBNull(16) ? string.Empty : reader.GetString(16),
-                                ProfileUrl = reader.IsDBNull(17) ? null : reader.GetString(17),
-                                AvatarUrl = reader.IsDBNull(18) ? null : reader.GetString(18),
-                                Rating = reader.IsDBNull(19) ? null : reader.GetDouble(19),
-                                CompletedProjectsCount = reader.IsDBNull(20) ? null : reader.GetInt32(20),
-                                HiringRatePercent = reader.IsDBNull(21) ? null : reader.GetDouble(21),
-                                RegisteredAt = reader.IsDBNull(22) ? null : reader.GetString(22),
-                                OpenProjectsCount = reader.IsDBNull(23) ? null : reader.GetInt32(23),
-                                InProgressProjectsCount = reader.IsDBNull(24) ? null : reader.GetInt32(24),
-                                OngoingCommunicationsCount = reader.IsDBNull(25) ? null : reader.GetInt32(25),
-                            },
-                    };
-                }
-            }
+            var detailsRow = await connection.QueryFirstOrDefaultAsync<RowMaps.ProjectDetailsRow>(
+                new CommandDefinition(detailsSql, new { project_id = internalId }, cancellationToken: cancellationToken));
+            ProjectDetails? details = detailsRow?.ToDetails(_registry);
 
             if (details is null)
             {
                 return Result<ProjectDetails?>.Ok(null);
             }
 
-            using (var skillsCommand = connection.CreateCommand())
+            var skillRows = await connection.QueryAsync<RowMaps.SkillRow>(
+                new CommandDefinition("SELECT name, url FROM project_skills WHERE project_id = @project_id;",
+                    new { project_id = internalId }, cancellationToken: cancellationToken));
+            foreach (var skillRow in skillRows)
             {
-                skillsCommand.CommandText = "SELECT name, url FROM project_skills WHERE project_id = @project_id;";
-                skillsCommand.Parameters.AddWithValue("@project_id", internalId);
-                using var reader = await skillsCommand.ExecuteReaderAsync(cancellationToken);
-                while (await reader.ReadAsync(cancellationToken))
+                details.Skills.Add(new ProjectSkill
                 {
-                    details.Skills.Add(new ProjectSkill
-                    {
-                        Name = reader.GetString(0),
-                        Url = reader.IsDBNull(1) ? null : reader.GetString(1),
-                    });
-                }
+                    Name = skillRow.name,
+                    Url = skillRow.url,
+                });
             }
 
-            using (var assetsCommand = connection.CreateCommand())
-            {
-                assetsCommand.CommandText = """
+            var assetRows = await connection.QueryAsync<RowMaps.AssetRow>(
+                new CommandDefinition("""
                     SELECT asset_id, project_id, file_name, url, raw_url, local_path, size_bytes,
                            extension, requires_auth, size_text
                     FROM assets
                     WHERE project_id = @project_id;
-                    """;
-                assetsCommand.Parameters.AddWithValue("@project_id", internalId);
-                using var reader = await assetsCommand.ExecuteReaderAsync(cancellationToken);
-                while (await reader.ReadAsync(cancellationToken))
-                {
-                    details.Attachments.Add(ReadAsset(reader));
-                }
+                    """,
+                    new { project_id = internalId }, cancellationToken: cancellationToken));
+            foreach (var assetRow in assetRows)
+            {
+                details.Attachments.Add(assetRow.ToAsset());
             }
 
             return Result<ProjectDetails?>.Ok(details);
@@ -495,11 +443,10 @@ public sealed class ProjectRepository : IProjectRepository
         try
         {
             using var connection = _connectionFactory.CreateConnection();
-            using var command = connection.CreateCommand();
-            command.CommandText = "SELECT COUNT(*) FROM projects WHERE source_id = @source_id AND date(discovered_at) = date('now');";
-            command.Parameters.AddWithValue("@source_id", source.Value);
+            const string sql = "SELECT COUNT(*) FROM projects WHERE source_id = @source_id AND date(discovered_at) = date('now');";
 
-            var result = await command.ExecuteScalarAsync(cancellationToken);
+            var result = await connection.ExecuteScalarAsync<object>(
+                new CommandDefinition(sql, new { source_id = source.Value }, cancellationToken: cancellationToken));
             var count = result is null || result is DBNull ? 0 : Convert.ToInt32(result);
             return Result<int>.Ok(count);
         }
@@ -554,14 +501,14 @@ public sealed class ProjectRepository : IProjectRepository
         try
         {
             using var connection = _connectionFactory.CreateConnection();
-            using var command = connection.CreateCommand();
-            command.CommandText = "SELECT source_id, project_id FROM discovery_backlog ORDER BY discovered_at ASC;";
+            const string sql = "SELECT source_id, project_id FROM discovery_backlog ORDER BY discovered_at ASC;";
 
             var ids = new List<SourceProjectId>();
-            using var reader = await command.ExecuteReaderAsync(cancellationToken);
-            while (await reader.ReadAsync(cancellationToken))
+            var rows = await connection.QueryAsync<RowMaps.ProjectKeyRow>(
+                new CommandDefinition(sql, cancellationToken: cancellationToken));
+            foreach (var row in rows)
             {
-                ids.Add(KeyFromRow(reader.GetString(0), reader.GetInt64(1)));
+                ids.Add(KeyFromRow(row.source_id, row.project_id));
             }
             return Result<IReadOnlyList<SourceProjectId>>.Ok(ids);
         }
@@ -596,17 +543,18 @@ public sealed class ProjectRepository : IProjectRepository
         try
         {
             using var connection = _connectionFactory.CreateConnection();
-            using var command = connection.CreateCommand();
-            command.CommandText = "SELECT COUNT(*), COALESCE(SUM(is_unread), 0) FROM projects WHERE source_id = @source_id;";
-            command.Parameters.AddWithValue("@source_id", source.Value);
+            // Aliases exist purely so Dapper can bind the two unnamed aggregates by name;
+            // the returned values/order are unchanged.
+            const string sql = "SELECT COUNT(*) AS tracked, COALESCE(SUM(is_unread), 0) AS unread FROM projects WHERE source_id = @source_id;";
 
-            using var reader = await command.ExecuteReaderAsync(cancellationToken);
-            if (!await reader.ReadAsync(cancellationToken))
+            var row = await connection.QueryFirstOrDefaultAsync<RowMaps.CountersRow>(
+                new CommandDefinition(sql, new { source_id = source.Value }, cancellationToken: cancellationToken));
+            if (row is null)
             {
                 return Result<(int, int)>.Ok((0, 0));
             }
 
-            return Result<(int, int)>.Ok((reader.GetInt32(0), reader.GetInt32(1)));
+            return Result<(int, int)>.Ok((row.tracked, row.unread));
         }
         catch (SqliteException ex)
         {
@@ -758,9 +706,7 @@ public sealed class ProjectRepository : IProjectRepository
             var results = new List<ProjectDetails>();
             var projectMap = new Dictionary<long, ProjectDetails>();
 
-            using (var command = connection.CreateCommand())
-            {
-                command.CommandText = """
+            const string detailsSql = """
                     SELECT p.project_id, p.source_id, p.title, p.url, p.description, p.budget, p.delivery_days,
                            p.enrichment_status, p.enriched_at, p.project_status,
                            p.publish_time_number, p.publish_time_text,
@@ -773,87 +719,46 @@ public sealed class ProjectRepository : IProjectRepository
                     LEFT JOIN owners o ON o.owner_id = p.owner_id;
                     """;
 
-                using var reader = await command.ExecuteReaderAsync(cancellationToken);
-                while (await reader.ReadAsync(cancellationToken))
-                {
-                    var rowSource = SourceId.From(reader.GetString(1));
-                    var details = new ProjectDetails
-                    {
-                        Source = rowSource,
-                        ProjectId = _registry.ToSiteProjectId(rowSource, reader.GetInt64(0)),
-                        Title = reader.GetString(2),
-                        Url = reader.GetString(3),
-                        Description = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
-                        Budget = reader.IsDBNull(5) ? null : reader.GetString(5),
-                        DeliveryDays = reader.IsDBNull(6) ? null : reader.GetInt32(6),
-                        EnrichmentStatus = Enum.Parse<EnrichmentStatus>(reader.GetString(7)),
-                        EnrichedAt = reader.IsDBNull(8) ? null : DateTimeOffset.Parse(reader.GetString(8)),
-                        ProjectStatus = reader.IsDBNull(9) ? null : reader.GetString(9),
-                        PublishTimeNumber = reader.IsDBNull(10) ? 0 : reader.GetInt32(10),
-                        PublishTimeText = reader.IsDBNull(11) ? string.Empty : reader.GetString(11),
-                        ProposalCount = reader.IsDBNull(12) ? 0 : reader.GetInt32(12),
-                        ProposalCountText = reader.IsDBNull(13) ? string.Empty : reader.GetString(13),
-                        DiscoveredAt = reader.IsDBNull(14) ? DateTimeOffset.UtcNow : DateTimeOffset.Parse(reader.GetString(14)),
-                        Owner = reader.IsDBNull(15)
-                            ? new Owner()
-                            : new Owner
-                            {
-                                Source = rowSource,
-                                OwnerId = _registry.ToSiteProjectId(rowSource, reader.GetInt64(15)),
-                                Name = reader.IsDBNull(16) ? string.Empty : reader.GetString(16),
-                                ProfileUrl = reader.IsDBNull(17) ? null : reader.GetString(17),
-                                AvatarUrl = reader.IsDBNull(18) ? null : reader.GetString(18),
-                                Rating = reader.IsDBNull(19) ? null : reader.GetDouble(19),
-                                CompletedProjectsCount = reader.IsDBNull(20) ? null : reader.GetInt32(20),
-                                HiringRatePercent = reader.IsDBNull(21) ? null : reader.GetDouble(21),
-                                RegisteredAt = reader.IsDBNull(22) ? null : reader.GetString(22),
-                                OpenProjectsCount = reader.IsDBNull(23) ? null : reader.GetInt32(23),
-                                InProgressProjectsCount = reader.IsDBNull(24) ? null : reader.GetInt32(24),
-                                OngoingCommunicationsCount = reader.IsDBNull(25) ? null : reader.GetInt32(25),
-                            },
-                    };
-                    results.Add(details);
-                    // Batch fetches below join on the internal row id, which is what child tables store.
-                    projectMap[reader.GetInt64(0)] = details;
-                }
+            var rows = await connection.QueryAsync<RowMaps.ProjectDetailsRow>(
+                new CommandDefinition(detailsSql, cancellationToken: cancellationToken));
+            foreach (var row in rows)
+            {
+                var details = row.ToDetails(_registry);
+                results.Add(details);
+                // Batch fetches below join on the internal row id, which is what child tables store.
+                projectMap[row.project_id] = details;
             }
 
             if (results.Count > 0)
             {
                 // Batch fetch skills and attachments in single queries to avoid N+1 queries
-                using (var skillsCommand = connection.CreateCommand())
+                var skillRows = await connection.QueryAsync<RowMaps.SkillRow>(
+                    new CommandDefinition("SELECT project_id, name, url FROM project_skills;",
+                        cancellationToken: cancellationToken));
+                foreach (var skillRow in skillRows)
                 {
-                    skillsCommand.CommandText = "SELECT project_id, name, url FROM project_skills;";
-                    using var reader = await skillsCommand.ExecuteReaderAsync(cancellationToken);
-                    while (await reader.ReadAsync(cancellationToken))
+                    if (projectMap.TryGetValue(skillRow.project_id, out var details))
                     {
-                        var projectId = reader.GetInt64(0);
-                        if (projectMap.TryGetValue(projectId, out var details))
+                        details.Skills.Add(new ProjectSkill
                         {
-                            details.Skills.Add(new ProjectSkill
-                            {
-                                Name = reader.GetString(1),
-                                Url = reader.IsDBNull(2) ? null : reader.GetString(2),
-                            });
-                        }
+                            Name = skillRow.name,
+                            Url = skillRow.url,
+                        });
                     }
                 }
 
-                using (var assetsCommand = connection.CreateCommand())
-                {
-                    assetsCommand.CommandText = """
+                var assetRows = await connection.QueryAsync<RowMaps.AssetRow>(
+                    new CommandDefinition("""
                         SELECT asset_id, project_id, file_name, url, raw_url, local_path, size_bytes,
                                extension, requires_auth, size_text
                         FROM assets;
-                        """;
-                    using var reader = await assetsCommand.ExecuteReaderAsync(cancellationToken);
-                    while (await reader.ReadAsync(cancellationToken))
+                        """, cancellationToken: cancellationToken));
+                foreach (var assetRow in assetRows)
+                {
+                    var asset = assetRow.ToAsset();
+                    if (projectMap.TryGetValue(asset.ProjectId, out var details))
                     {
-                        var asset = ReadAsset(reader);
-                        if (projectMap.TryGetValue(asset.ProjectId, out var details))
-                        {
-                            details.Attachments.Add(asset);
-                        }
+                        details.Attachments.Add(asset);
                     }
                 }
             }
@@ -866,45 +771,4 @@ public sealed class ProjectRepository : IProjectRepository
         }
     }
 
-    private ProjectSummary ReadSummary(SqliteDataReader reader)
-    {
-        var rowSource = SourceId.From(reader.GetString(1));
-        return new()
-        {
-            // Column 0 is the internal row id; the model carries the site-local id.
-            ProjectId = _registry.ToSiteProjectId(rowSource, reader.GetInt64(0)),
-            Source = rowSource,
-            Title = reader.GetString(2),
-            Url = reader.GetString(3),
-            ClientName = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
-            PublishTimeNumber = reader.IsDBNull(5) ? 0 : reader.GetInt32(5),
-            PublishTimeText = reader.IsDBNull(6) ? string.Empty : reader.GetString(6),
-            ProposalCount = reader.IsDBNull(7) ? 0 : reader.GetInt32(7),
-            ProposalCountText = reader.IsDBNull(8) ? string.Empty : reader.GetString(8),
-            Description = reader.IsDBNull(9) ? string.Empty : reader.GetString(9),
-            Budget = reader.IsDBNull(10) ? null : reader.GetString(10),
-            DeliveryDays = reader.IsDBNull(11) ? null : reader.GetInt32(11),
-            IsUnread = !reader.IsDBNull(12) && reader.GetInt64(12) != 0,
-            EnrichmentStatus = Enum.Parse<EnrichmentStatus>(reader.GetString(13)),
-            DiscoveredAt = DateTimeOffset.Parse(reader.GetString(14)),
-            ProjectStatus = reader.IsDBNull(15) ? null : reader.GetString(15),
-            SkillsText = reader.IsDBNull(16) ? string.Empty : reader.GetString(16),
-            EnrichedAt = reader.IsDBNull(17) ? null : DateTimeOffset.Parse(reader.GetString(17)),
-        };
-    }
-
-    private static Asset ReadAsset(SqliteDataReader reader) => new()
-    {
-        AssetId = reader.GetInt64(0),
-        // Internal row id of the owning project (child tables key on it).
-        ProjectId = reader.GetInt64(1),
-        FileName = reader.GetString(2),
-        Url = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
-        RawUrl = reader.IsDBNull(4) ? null : reader.GetString(4),
-        LocalPath = reader.IsDBNull(5) ? null : reader.GetString(5),
-        SizeBytes = reader.IsDBNull(6) ? null : reader.GetInt64(6),
-        Extension = reader.IsDBNull(7) ? null : reader.GetString(7),
-        RequiresAuth = !reader.IsDBNull(8) && reader.GetInt64(8) != 0,
-        SizeText = reader.IsDBNull(9) ? null : reader.GetString(9),
-    };
 }

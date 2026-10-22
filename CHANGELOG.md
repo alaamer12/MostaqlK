@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Composite `SourceProjectId` identity threaded through repositories, discovery queue, in-flight tracker, diff engine, workers, backlog, notifications, routes (`ProjectDetails?sourceId=&projectId=`, absent `sourceId` = default source so old deep links keep working), and toast activation arguments.
+- SQLite repositories now map rows through Dapper + explicit database-shape DTOs (`Infrastructure/Database/RowMaps.cs`) instead of hand-written ordinal reader loops; SQL statements, write paths, error shapes and mapping defaults are byte-preserved (verified against a read-only replay of the live database).
 - Shared code de-coupled from mostaql.com: error texts take the site name from the descriptor; link chip renamed `MostaqlLinkButton` → `SourceLinkButton` (descriptor-driven label + brand palette); toast button copy resolves the source display name; `BudgetFormatter` takes the source's currency suffix; card/details view-models build fallback URLs via `descriptor.BuildProjectUrl`; owner fallback meta comes from the descriptor; settings namespaced per source with legacy flat-key read-through (lazy migration, no data-loss step); per-source cookie store/jar with real Netscape domain-column filtering and seamless rewrite of the legacy secret row; `HttpClient` headers built from descriptor-supplied policy values; the site's session-cookie name is a descriptor fact (`SessionCookieName`).
 
 ## [1.0.4] - 2026-09-02

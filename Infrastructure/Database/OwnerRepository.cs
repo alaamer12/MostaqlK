@@ -1,3 +1,4 @@
+using Dapper;
 using Microsoft.Data.Sqlite;
 using MostaqlK.Core;
 using MostaqlK.Core.Sources;
@@ -77,39 +78,22 @@ public sealed class OwnerRepository : IOwnerRepository
         try
         {
             using var connection = _connectionFactory.CreateConnection();
-            using var command = connection.CreateCommand();
-            command.CommandText = """
+            const string sql = """
                 SELECT owner_id, source_id, name, profile_url, avatar_url, rating, completed_projects_count, hiring_rate_percent,
                        registered_at, open_projects_count, in_progress_projects_count, ongoing_communications_count
                 FROM owners
                 WHERE owner_id = @owner_id;
                 """;
-            command.Parameters.AddWithValue("@owner_id", _registry.ToInternalId(new SourceProjectId(source, ownerId)));
 
-            using var reader = await command.ExecuteReaderAsync(cancellationToken);
-            if (!await reader.ReadAsync(cancellationToken))
+            var row = await connection.QueryFirstOrDefaultAsync<RowMaps.OwnerRow>(
+                new CommandDefinition(sql, new { owner_id = _registry.ToInternalId(new SourceProjectId(source, ownerId)) },
+                    cancellationToken: cancellationToken));
+            if (row is null)
             {
                 return Result<Owner?>.Ok(null);
             }
 
-            var rowSource = SourceId.From(reader.GetString(1));
-            var owner = new Owner
-            {
-                Source = rowSource,
-                OwnerId = _registry.ToSiteProjectId(rowSource, reader.GetInt64(0)),
-                Name = reader.GetString(2),
-                ProfileUrl = reader.IsDBNull(3) ? null : reader.GetString(3),
-                AvatarUrl = reader.IsDBNull(4) ? null : reader.GetString(4),
-                Rating = reader.IsDBNull(5) ? null : reader.GetDouble(5),
-                CompletedProjectsCount = reader.IsDBNull(6) ? null : reader.GetInt32(6),
-                HiringRatePercent = reader.IsDBNull(7) ? null : reader.GetDouble(7),
-                RegisteredAt = reader.IsDBNull(8) ? null : reader.GetString(8),
-                OpenProjectsCount = reader.IsDBNull(9) ? null : reader.GetInt32(9),
-                InProgressProjectsCount = reader.IsDBNull(10) ? null : reader.GetInt32(10),
-                OngoingCommunicationsCount = reader.IsDBNull(11) ? null : reader.GetInt32(11),
-            };
-
-            return Result<Owner?>.Ok(owner);
+            return Result<Owner?>.Ok(row.ToOwner(_registry));
         }
         catch (SqliteException ex)
         {
@@ -144,33 +128,18 @@ public sealed class OwnerRepository : IOwnerRepository
         try
         {
             using var connection = _connectionFactory.CreateConnection();
-            using var command = connection.CreateCommand();
-            command.CommandText = """
+            const string sql = """
                 SELECT owner_id, source_id, name, profile_url, avatar_url, rating, completed_projects_count, hiring_rate_percent,
                        registered_at, open_projects_count, in_progress_projects_count, ongoing_communications_count
                 FROM owners;
                 """;
 
             var results = new List<Owner>();
-            using var reader = await command.ExecuteReaderAsync(cancellationToken);
-            while (await reader.ReadAsync(cancellationToken))
+            var rows = await connection.QueryAsync<RowMaps.OwnerRow>(
+                new CommandDefinition(sql, cancellationToken: cancellationToken));
+            foreach (var row in rows)
             {
-                var rowSource = SourceId.From(reader.GetString(1));
-                results.Add(new Owner
-                {
-                    Source = rowSource,
-                    OwnerId = _registry.ToSiteProjectId(rowSource, reader.GetInt64(0)),
-                    Name = reader.GetString(2),
-                    ProfileUrl = reader.IsDBNull(3) ? null : reader.GetString(3),
-                    AvatarUrl = reader.IsDBNull(4) ? null : reader.GetString(4),
-                    Rating = reader.IsDBNull(5) ? null : reader.GetDouble(5),
-                    CompletedProjectsCount = reader.IsDBNull(6) ? null : reader.GetInt32(6),
-                    HiringRatePercent = reader.IsDBNull(7) ? null : reader.GetDouble(7),
-                    RegisteredAt = reader.IsDBNull(8) ? null : reader.GetString(8),
-                    OpenProjectsCount = reader.IsDBNull(9) ? null : reader.GetInt32(9),
-                    InProgressProjectsCount = reader.IsDBNull(10) ? null : reader.GetInt32(10),
-                    OngoingCommunicationsCount = reader.IsDBNull(11) ? null : reader.GetInt32(11),
-                });
+                results.Add(row.ToOwner(_registry));
             }
 
             return Result<IReadOnlyList<Owner>>.Ok(results);

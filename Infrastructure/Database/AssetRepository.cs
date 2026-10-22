@@ -1,3 +1,4 @@
+using Dapper;
 using Microsoft.Data.Sqlite;
 using MostaqlK.Core;
 using MostaqlK.Models;
@@ -54,32 +55,19 @@ public sealed class AssetRepository : IAssetRepository
         try
         {
             using var connection = _connectionFactory.CreateConnection();
-            using var command = connection.CreateCommand();
-            command.CommandText = """
+            const string sql = """
                 SELECT asset_id, project_id, file_name, url, raw_url, local_path, size_bytes,
                        extension, requires_auth, size_text
                 FROM assets
                 WHERE project_id = @project_id;
                 """;
-            command.Parameters.AddWithValue("@project_id", projectId);
 
             var assets = new List<Asset>();
-            using var reader = await command.ExecuteReaderAsync(cancellationToken);
-            while (await reader.ReadAsync(cancellationToken))
+            var rows = await connection.QueryAsync<RowMaps.AssetRow>(
+                new CommandDefinition(sql, new { project_id = projectId }, cancellationToken: cancellationToken));
+            foreach (var row in rows)
             {
-                assets.Add(new Asset
-                {
-                    AssetId = reader.GetInt64(0),
-                    ProjectId = reader.GetInt64(1),
-                    FileName = reader.GetString(2),
-                    Url = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
-                    RawUrl = reader.IsDBNull(4) ? null : reader.GetString(4),
-                    LocalPath = reader.IsDBNull(5) ? null : reader.GetString(5),
-                    SizeBytes = reader.IsDBNull(6) ? null : reader.GetInt64(6),
-                    Extension = reader.IsDBNull(7) ? null : reader.GetString(7),
-                    RequiresAuth = !reader.IsDBNull(8) && reader.GetInt64(8) != 0,
-                    SizeText = reader.IsDBNull(9) ? null : reader.GetString(9),
-                });
+                assets.Add(row.ToAsset());
             }
 
             return Result<IReadOnlyList<Asset>>.Ok(assets);
