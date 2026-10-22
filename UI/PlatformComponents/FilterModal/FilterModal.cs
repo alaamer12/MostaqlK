@@ -54,6 +54,21 @@ public sealed class FilterModal : ContentView
     private readonly VerticalStackLayout _facetHost;
     private ISourceDescriptor? _descriptor;
 
+    // Persistent modal chrome built once in the constructor. These are the ONLY theme-frozen pieces
+    // (the facet tree is rebuilt on every Open, so it always reads the live theme). The neutral
+    // surface/line/ink values are resolved via Surface()/Line()/Ink() at CONSTRUCTION — which, for a
+    // modal instantiated during window inflation, can happen BEFORE the startup theme is applied,
+    // leaving a white card in dark mode. Re-applied on every Open and on a live theme flip (see
+    // ApplyTheme / OnThemeChanged).
+    private Border _card = null!;
+    private Label _titleLabel = null!;
+    private Label _noteLabel = null!;
+    private AppIcon _closeIcon = null!;
+    private Button _clearButton = null!;
+    private Button _cancelButton = null!;
+    private readonly List<BoxView> _dividers = [];
+
+
     // Parsed baseline of the stored query: every key the modal does not render passes back untouched.
     private IReadOnlyDictionary<string, IReadOnlyList<string>> _passthrough =
         new Dictionary<string, IReadOnlyList<string>>();
@@ -91,6 +106,7 @@ public sealed class FilterModal : ContentView
             VerticalOptions = LayoutOptions.Center,
             TextColor = Ink(1),
         };
+        _titleLabel = titleLabel;
         var titleRow = new HorizontalStackLayout { Spacing = 8, Children = { titleIcon, titleLabel } };
         var closeButton = BuildHeaderCloseButton();
         var header = new Grid { ColumnDefinitions = new ColumnDefinitionCollection { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) }, ColumnSpacing = 12 };
@@ -109,6 +125,7 @@ header.Children.Add(closeButton);
             FontSize = 11,
             TextColor = Ink(3),
         };
+        _noteLabel = note;
 
         var column = new VerticalStackLayout
         {
@@ -136,6 +153,7 @@ header.Children.Add(closeButton);
             FlowDirection = FlowDirection.RightToLeft,
             Content = column,
         };
+        _card = card;
 
         var backdrop = new BoxView { Color = ScrimColor };
         var backdropTap = new TapGestureRecognizer();
@@ -149,6 +167,59 @@ header.Children.Add(closeButton);
         Content = root;
         FlowDirection = FlowDirection.RightToLeft;
         IsVisible = false;
+
+        // Theme-change safety (the reported dark-mode white-surface bug): the chrome colours are
+        // frozen at construction; re-apply them whenever the app theme flips while the modal is in
+        // the tree. Subscribed on Loaded and released on Unloaded so no app-lifetime handler leaks
+        // (event-lifetime rule). Open() also re-applies, covering the construct-before-theme case.
+        Loaded += OnLoadedSubscribeTheme;
+        Unloaded += (_, _) =>
+        {
+            if (Application.Current is { } app)
+            {
+                app.RequestedThemeChanged -= OnThemeChanged;
+            }
+        };
+    }
+
+    private void OnLoadedSubscribeTheme(object? sender, EventArgs e)
+    {
+        if (Application.Current is { } app)
+        {
+            app.RequestedThemeChanged -= OnThemeChanged;
+            app.RequestedThemeChanged += OnThemeChanged;
+        }
+    }
+
+    private void OnThemeChanged(object? sender, AppThemeChangedEventArgs e) => ApplyTheme();
+
+    /// <summary>
+    /// Re-resolves every theme-frozen chrome piece (card surface + border, title/note/close ink,
+    /// section dividers, clear/cancel buttons) against the CURRENT theme. Called on construction,
+    /// on every <see cref="Open"/> and on a live <c>RequestedThemeChanged</c>, so the neutral scale
+    /// always matches the surface behind it — never a stale white card in dark mode.
+    /// </summary>
+    private void ApplyTheme()
+    {
+        if (_card is null)
+        {
+            return;
+        }
+
+        _card.BackgroundColor = Surface();
+        _card.Stroke = Line();
+        _titleLabel.TextColor = Ink(1);
+        _noteLabel.TextColor = Ink(3);
+        _closeIcon.TextColor = Ink(3);
+        _clearButton.TextColor = Ink(3);
+        _cancelButton.BorderColor = Line();
+        _cancelButton.BackgroundColor = Surface();
+        _cancelButton.TextColor = Ink(1);
+
+        foreach (var divider in _dividers)
+        {
+            divider.Color = Line();
+        }
     }
 
     /// <summary>
@@ -160,6 +231,7 @@ header.Children.Add(closeButton);
     {
         _descriptor = descriptor;
         _passthrough = descriptor.ParseFacetSelection(storedQueryParams);
+        ApplyTheme();
 
         _facetHost.Children.Clear();
         _collectors.Clear();
@@ -368,6 +440,7 @@ row.Children.Add(maxEntry.Box);
             HorizontalOptions = LayoutOptions.Center,
             VerticalOptions = LayoutOptions.Center,
         };
+        _closeIcon = icon;
 
         // Transparent Button overlay carries the hit target (the app's AutomationId convention).
         var hit = new Button
@@ -412,6 +485,7 @@ row.Children.Add(maxEntry.Box);
             TextColor = Ink(3),
         };
         clearButton.AutomationId = "FilterModal_ClearButton";
+        _clearButton = clearButton;
         clearButton.Clicked += (_, _) =>
         {
             // Clears only the facets THIS source exposes; keys the modal never renders (skills slugs,
@@ -437,6 +511,7 @@ row.Children.Add(maxEntry.Box);
             TextColor = Ink(1),
         };
         cancel.AutomationId = "FilterModal_CancelButton";
+        _cancelButton = cancel;
         cancel.Clicked += (_, _) => CloseRequested?.Invoke(this, EventArgs.Empty);
 
         var apply = new Button
@@ -480,9 +555,10 @@ footer.Children.Add(right);
     }
 
     /// <summary>A modal band (header/body/note/footer) with the mockup's padding and 1px --line dividers.</summary>
-    private static Border Section(View content, Thickness newThickness, bool topDivider = false, bool bottomDivider = false)
+    private Border Section(View content, Thickness newThickness, bool topDivider = false, bool bottomDivider = false)
     {
         var line = new BoxView { HeightRequest = 1, Color = Line() };
+        _dividers.Add(line);
 
         View inner = content;
         if (topDivider || bottomDivider)

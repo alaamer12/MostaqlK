@@ -146,7 +146,9 @@ Harness links added: `Core/Result.cs`, `Core/DomainError.cs`, `Infrastructure/Da
   `Microsoft.Maui.Controls.SizeChangedEventArgs`) — untouched per boundary; converged before final
   green build. My one real error (`args.Container` not on `ContainerContentChangingEventArgs`) was
   fixed via `sender.ContainerFromIndex(args.ItemIndex)`.
-- ParserTests: 333/333 green. DbMigrationTests: ALL PASSED.
+- ParserTests: 333/333 green (one interim run showed 5 timing flakes while the sibling's parallel
+  build saturated the machine — immediate re-run 333/0; checks are poll-with-5 s-timeout based).
+  DbMigrationTests: ALL PASSED.
 - Grep gates: no `DispatcherTimer`/per-frame timers added (the store's only `Task.Delay` is the
   per-batch 60 ms coalesce window, cancelled on supersession; `DeferredPreferences.FlushAsync`
   polls only on teardown/Save paths); no `#if` bodies outside the canonical pattern (all variance

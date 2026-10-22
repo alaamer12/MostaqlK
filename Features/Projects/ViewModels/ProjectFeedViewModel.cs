@@ -68,6 +68,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsSearchActive))]
     [NotifyPropertyChangedFor(nameof(EmptyStateTitle))]
     [NotifyPropertyChangedFor(nameof(EmptyStateSubtitle))]
+    [NotifyPropertyChangedFor(nameof(FooterTrackedText))]
     public partial string SearchQuery { get; set; } = string.Empty;
 
     [ObservableProperty]
@@ -88,6 +89,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TrackedCountText))]
+    [NotifyPropertyChangedFor(nameof(FooterTrackedText))]
     public partial int TrackedCount { get; set; }
 
     public GlobalAppStatusService GlobalStatus => _globalStatus;
@@ -98,6 +100,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(PollToggleLabel))]
     [NotifyPropertyChangedFor(nameof(PollToggleColor))]
     [NotifyPropertyChangedFor(nameof(PollToggleIcon))]
+    [NotifyPropertyChangedFor(nameof(PollPillLabel))]
     public partial bool IsPollingActive { get; set; } = true;
 
     [ObservableProperty]
@@ -148,6 +151,31 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         : DesignTokens.Colors.PollToggleInactive;
 
     public AppIconGlyph PollToggleIcon => IsPollingActive ? AppIconGlyph.Pause : AppIconGlyph.Play;
+
+    // -----------------------------------------------------------------
+    // W3 feed-visual display glue (additive; reads the active descriptor / existing props only —
+    // NEVER the database, never re-couples the store renderer to an await). The header caption,
+    // search placeholder, footer count line and poll-pill label are all descriptor-driven per-source
+    // figures that the requirements §4.1/§5 say must swap atomically on a source morph.
+    // -----------------------------------------------------------------
+
+    /// <summary>The active source's Arabic display name (مستقل / نفذلي), from the descriptor — never a literal.</summary>
+    public string ActiveSourceName => SourceRegistryProvider.DescriptorFor(_source)?.DisplayNameAr ?? string.Empty;
+
+    /// <summary>Search box placeholder naming the active source (mockup "بحث متقدم في مشاريع {source}…").</summary>
+    public string SearchPlaceholder => $"بحث متقدم في مشاريع {ActiveSourceName}…";
+
+    /// <summary>
+    /// Footer inline-start tracked count (mockup "98 مشروعًا من مستقل"). Kept separate from
+    /// <see cref="TrackedCountText"/> (the "…مشروع متتبَّع" variant older callers/tests use) so the
+    /// v3 footer can carry the mockup's "{n} مشروعًا من {source}" wording without touching that text.
+    /// </summary>
+    public string FooterTrackedText => IsSearchActive
+        ? $"{TrackedCount} نتيجة مطابقة"
+        : $"{TrackedCount} مشروعًا من {ActiveSourceName}";
+
+    /// <summary>Poll-pill caption (mockup footer "إيقاف الفحص" / "استئناف الفحص"), distinct from the compact <see cref="PollToggleLabel"/>.</summary>
+    public string PollPillLabel => IsPollingActive ? "إيقاف الفحص" : "استئناف الفحص";
 
     public string TrackedCountText => IsSearchActive
         ? $"{TrackedCount} نتيجة مطابقة"
@@ -526,6 +554,12 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         HasFilterFacets = SourceRegistryProvider.DescriptorFor(_source)?.FilterFacets.Count > 0;
         var storedQuery = FilterStoredQuery;
         ActiveQueryText = string.IsNullOrWhiteSpace(storedQuery) ? "كل المشاريع" : storedQuery;
+
+        // Per-source display figures (header caption / search placeholder / footer name) re-emit
+        // here so a morph swaps them atomically alongside the cadence + rate reads above.
+        OnPropertyChanged(nameof(ActiveSourceName));
+        OnPropertyChanged(nameof(SearchPlaceholder));
+        OnPropertyChanged(nameof(FooterTrackedText));
     }
 
     /// <summary>

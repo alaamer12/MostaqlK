@@ -38,16 +38,19 @@ public sealed partial class ProjectCardViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(ProposalCount))]
     [NotifyPropertyChangedFor(nameof(ProposalCountText))]
     [NotifyPropertyChangedFor(nameof(Budget))]
+    [NotifyPropertyChangedFor(nameof(BudgetIsForeignCurrency))]
     [NotifyPropertyChangedFor(nameof(Delivery))]
     [NotifyPropertyChangedFor(nameof(Execution))]
     [NotifyPropertyChangedFor(nameof(Skills))]
     [NotifyPropertyChangedFor(nameof(SkillsDisplay))]
     [NotifyPropertyChangedFor(nameof(SkillTags))]
     [NotifyPropertyChangedFor(nameof(SkillItems))]
+    [NotifyPropertyChangedFor(nameof(HasSkills))]
     [NotifyPropertyChangedFor(nameof(Description))]
     [NotifyPropertyChangedFor(nameof(EnrichmentBadgeText))]
     [NotifyPropertyChangedFor(nameof(EnrichmentBadgeBackground))]
     [NotifyPropertyChangedFor(nameof(EnrichmentBadgeForeground))]
+    [NotifyPropertyChangedFor(nameof(EnrichmentBadgeSoftBackground))]
     [NotifyPropertyChangedFor(nameof(EnrichmentBadgeIcon))]
     [NotifyPropertyChangedFor(nameof(IsEnriching))]
     public partial ProjectSummary Project { get; set; }
@@ -70,6 +73,7 @@ public sealed partial class ProjectCardViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsProvisional))]
     [NotifyPropertyChangedFor(nameof(IsStale))]
     [NotifyPropertyChangedFor(nameof(IsBroken))]
+    [NotifyPropertyChangedFor(nameof(ShowsNormalContent))]
     public partial FeedRowState RowState { get; set; } = FeedRowState.Confirmed;
 
     /// <summary>True while the row is a provisional skeleton/optimistic shell (no confirmed data yet).</summary>
@@ -80,6 +84,14 @@ public sealed partial class ProjectCardViewModel : ObservableObject
 
     /// <summary>True when the underlying query failed — render as an honest broken placeholder with retry.</summary>
     public bool IsBroken => RowState == FeedRowState.Broken;
+
+    /// <summary>
+    /// W3 continuous-row renderer gate: the full data band (title/badges/skills/facts) is shown only
+    /// for a Confirmed or Stale row. Provisional paints a skeleton and Broken paints a single-line
+    /// red-ghost row, so this collapses the normal content for both. Pure display glue over the
+    /// dev29 <see cref="FeedRowState"/> contract — no store/DB re-coupling.
+    /// </summary>
+    public bool ShowsNormalContent => !IsProvisional && !IsBroken;
 
     /// <summary>Honest failure copy of a <see cref="IsBroken"/> row (null otherwise).</summary>
     public string? BrokenMessage { get; private set; }
@@ -205,6 +217,13 @@ public sealed partial class ProjectCardViewModel : ObservableObject
     /// <summary>Budget in the mockup's presentation form (grouped amounts + the source's currency suffix), not the raw scraped string.</summary>
     public string Budget => BudgetFormatter.Format(Project.Budget, Descriptor?.CurrencySuffix ?? string.Empty);
 
+    /// <summary>
+    /// W3 LTR-isolation flag: only a foreign-currency ("$") budget run is directionally isolated to
+    /// left-to-right in the otherwise-RTL row (requirements §11.4 — "$" numbers render LTR; ر.س stays
+    /// RTL). Data-driven (presence of the symbol), never a source-id check.
+    /// </summary>
+    public bool BudgetIsForeignCurrency => Budget.Contains('$');
+
     public string Delivery => Project.DeliveryDays is int days ? ArabicRelativeTime.Days(days) : "—";
 
     /// <summary>
@@ -228,6 +247,9 @@ public sealed partial class ProjectCardViewModel : ObservableObject
     public IReadOnlyList<SkillTagItem> SkillItems =>
         SkillTags.Select(static t => new SkillTagItem(t)).ToArray();
 
+    /// <summary>True when the row carries at least one skill chip (band-3 presence-by-data gate).</summary>
+    public bool HasSkills => SkillTags.Count > 0;
+
     public string Description => Project.Description;
 
     public string EnrichmentBadgeText => EnrichmentBadgeStyle.GetText(Project.EnrichmentStatus);
@@ -235,6 +257,22 @@ public sealed partial class ProjectCardViewModel : ObservableObject
     public string EnrichmentBadgeBackground => EnrichmentBadgeStyle.GetBackgroundHex(Project.EnrichmentStatus);
 
     public string EnrichmentBadgeForeground => EnrichmentBadgeStyle.GetForegroundHex(Project.EnrichmentStatus);
+
+    /// <summary>
+    /// W3 continuous-row enrichment pill background: the badge's own STATE colour at ~12% alpha
+    /// (mockup <c>rgba(46,158,107,.1)</c> family), so the pill reads as a soft state tint over the
+    /// row surface in BOTH themes instead of the flat light-only fill the opaque hex produces on
+    /// dark. Derived purely from <see cref="EnrichmentBadgeForeground"/> — a display transform, no
+    /// new palette, state colours stay non-brand (requirements §D6).
+    /// </summary>
+    public string EnrichmentBadgeSoftBackground
+    {
+        get
+        {
+            var fg = EnrichmentBadgeForeground;
+            return fg.Length == 7 && fg[0] == '#' ? "#1F" + fg[1..] : fg;
+        }
+    }
 
     /// <summary>Leading icon inside the enrichment badge.</summary>
     public AppIconGlyph EnrichmentBadgeIcon => EnrichmentBadgeStyle.GetIcon(Project.EnrichmentStatus);

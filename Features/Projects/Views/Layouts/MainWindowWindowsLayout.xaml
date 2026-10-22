@@ -13,25 +13,35 @@
              x:Class="MostaqlK.Features.Projects.Views.Layouts.MainWindowWindowsLayout"
              x:DataType="vm:ProjectFeedViewModel"
              FlowDirection="RightToLeft"
-             BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
+             BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#0F172A}">
 
-    <!-- Layout mirrors the v3 mockup projects.html: icon rail + header controls + active-query +
-         dense feed + footer. -->
-    <!-- Colours follow the mockup's light/dark class pairs (bg-slate-100 dark:bg-slate-950 for the
-         page, bg-white dark:bg-slate-900 for panels, border-slate-200 dark:border-slate-800). -->
-    <!-- Columns (the page is RTL, so column 0 renders on the *right*): pipeline dashboard, drag
-         handle, project feed, nav rail. This reproduces the mockup's visual order — rail on the
-         physical LEFT (`.rail` in its `direction: ltr` wrapper), feed in the middle, panel on the
-         physical RIGHT ("pipeline panel (right) + splitter + feed column") — with the rail and the
-         panel on opposite edges exactly as before, only the sides mirrored when AppSidebar gave way
-         to the 64px SourceRail. The handle pans the panel/feed boundary within each side's minimum
-         width (see OnRootSizeChanged; the rail width comes from the shared RailWidths token). -->
+    <ContentView.Resources>
+        <ResourceDictionary>
+            <!-- Paused poll-pill state colours (a STATE colour, never brand). Setter.Value cannot
+                 take an AppThemeBinding in MAUI, so the paused variant uses fixed green tokens. -->
+            <Color x:Key="PausedGreen">#2E9E6B</Color>
+            <Color x:Key="PausedGreenSoft">#262E9E6B</Color>
+        </ResourceDictionary>
+    </ContentView.Resources>
+
+    <!-- v3 projects feed — restyled to projects.html (pixel truth). Structure mirrors the mockup's
+         main column: a full-width title header (centered title + cadence caption + top-right today
+         card), a content row (pipeline panel + splitter + feed column whose top holds the search +
+         الفلاتر row above the continuous rows), and a full-width footer (count cluster · active query
+         · last-scan + poll pill). -->
+    <!-- Columns stay RTL-ordered as before (column 0 renders on the *right*): pipeline dashboard, drag
+         handle, project feed, nav rail. The rail (col 3) and the header/footer span the panel+feed
+         columns (0..2) so the title band and footer stretch full width, exactly like the mockup.
+         Panel/feed/rail split is unchanged; the splitter pans the panel/feed boundary (OnRootSizeChanged
+         clamps it against the shared RailWidths token). -->
     <Grid x:Name="Root"
-          BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}"
+          BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#0F172A}"
           ColumnDefinitions="Auto,Auto,*,Auto"
+          RowDefinitions="Auto,*,Auto"
           SizeChanged="OnRootSizeChanged">
 
         <rail:SourceRail Grid.Column="3"
+                         Grid.RowSpan="3"
                          x:Name="Rail"
                          ActivePage="Projects"
                          UnreadCount="{Binding GlobalStatus.UnreadNotificationCount}"
@@ -43,241 +53,178 @@
                          SourceChanged="OnSourceChanged"
                          VerticalOptions="Fill" />
 
-        <Grid x:Name="FeedContent"
-              Grid.Column="2"
-              RowDefinitions="Auto,*,Auto"
-              Padding="24,24,24,0"
-              BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
+        <!-- ============ HEADER (full-width surface band, bottom hairline) ============ -->
+        <Grid Grid.Row="0"
+              Grid.Column="0"
+              Grid.ColumnSpan="3"
+              Padding="24,20,24,16"
+              RowDefinitions="Auto"
+              BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}">
 
-            <!-- Header controls + active query -->
-            <VerticalStackLayout Grid.Row="0" Spacing="16" Padding="0,0,0,8">
-
-                <Border StrokeThickness="1"
-                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}"
-                        BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}"
-                        Padding="16">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="12" />
-                    </Border.StrokeShape>
-                    <!-- Header card content: `flex items-center justify-between gap-4` (16px). -->
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
-                        <!-- The mockup's search input is a `bg-slate-50 border border-slate-200
-                             rounded-lg py-2.5` box with an absolutely-positioned magnifier at
-                             `left-4` and the text inset by `pl-10 pr-4` (40px / 16px). MAUI's
-                             Entry has no leading-icon slot or padding, so the box is composed
-                             here around the shared SearchInputField unit. The inner grid is
-                             forced LeftToRight because `left-4` is a physical edge, not a
-                             start-edge, and the page itself is RTL. -->
-                        <!-- Mockup search row: the search box stretches and the "الفلاتر" button
-                             docks at its left; the whole pair is squeezed by the pipeline panel.
-                             The button is presence-by-data (HasFilterFacets): a source without a
-                             typed facet vocabulary never shows a dialog with nothing to configure. -->
-                        <Grid Grid.Column="0" ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                        <Border Grid.Column="0"
-                                StrokeThickness="1"
-                                HeightRequest="40"
-                                VerticalOptions="Center"
-                                Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
-                                BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#1E293B}">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="8" />
-                            </Border.StrokeShape>
-                            <Grid ColumnDefinitions="Auto,*"
-                                  ColumnSpacing="8"
-                                  Padding="16,0"
-                                  FlowDirection="LeftToRight">
-                                <components:AppIcon Grid.Column="0"
-                                                    Icon="Search"
-                                                    FontSize="16"
-                                                    TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
-                                                    VerticalOptions="Center" />
-                                <components:SearchInputField Grid.Column="1"
-                                                              AutomationId="Projects_SearchInput"
-                                                              FlowDirection="RightToLeft"
-                                                              Text="{Binding SearchQuery}"
-                                                              Placeholder="بحث متقدم في المشاريع (العنوان، الوصف، المهارات، الميزانية...)"
-                                                              PlaceholderColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
-                                                              TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
-                                                              BackgroundColor="Transparent"
-                                                              FontSize="14"
-                                                              DebounceMilliseconds="300"
-                                                              DebouncedCommand="{Binding SearchCommand}"
-                                                              ClearCommand="{Binding ClearSearchCommand}"
-                                                              VerticalOptions="Center"
-                                                              FontFamily="Tajawal" />
-                            </Grid>
-                        </Border>
-
-                            <Border Grid.Column="1"
-                                    StrokeThickness="1"
-                                    HeightRequest="40"
-                                    AutomationId="Projects_FiltersButton"
-                                    SemanticProperties.Description="فلاتر البحث"
-                                    VerticalOptions="Center"
-                                    IsVisible="{Binding HasFilterFacets}"
-                                    Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
-                                    BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}"
-                                    Padding="14,0">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="8" />
-                                </Border.StrokeShape>
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Tapped="OnOpenFiltersTapped" />
-                                </Border.GestureRecognizers>
-                                <Border.Behaviors>
-                                    <design:PressableEffect ApplyHoverHighlight="True" />
-                                </Border.Behaviors>
-                                <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
-                                    <components:AppIcon Icon="Filter"
-                                                        FontSize="12"
-                                                        TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
-                                                        VerticalOptions="Center" />
-                                    <Label Text="الفلاتر"
-                                           FontSize="14"
-                                           FontFamily="TajawalBold"
-                                           TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
-                                           VerticalOptions="Center" />
-                                </HorizontalStackLayout>
-                            </Border>
-                        </Grid>
-
-                        <HorizontalStackLayout Grid.Column="1" Spacing="16" VerticalOptions="Center">
-                            <Label Text="{Binding PollIntervalText}"
-                                   FontSize="14"
-                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
-                                   VerticalOptions="Center"
-                                   FontFamily="Tajawal" />
-
-                            <HorizontalStackLayout Spacing="4" VerticalOptions="Center">
-                                <components:AppIcon Icon="Gauge" FontSize="11" TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}" VerticalOptions="Center" />
-                                <Label Text="{Binding RateLimitText}"
-                                       FontSize="14"
-                                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
-                                       VerticalOptions="Center"
-                                       FontFamily="Tajawal" />
-                            </HorizontalStackLayout>
-
-                            <Border StrokeThickness="0"
-                                    BackgroundColor="{AppThemeBinding Light=#ECFDF5, Dark=#112828}"
-                                    Padding="10,4"
-                                    VerticalOptions="Center">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="6" />
-                                </Border.StrokeShape>
-                                <HorizontalStackLayout Spacing="6">
-                                    <BoxView WidthRequest="8" HeightRequest="8" Color="{AppThemeBinding Light=#2E9E6B, Dark=#4FBF8C}" CornerRadius="4" VerticalOptions="Center" />
-                                    <Label Text="{Binding LiveStatusText}"
-                                           FontSize="14"
-                                           FontFamily="TajawalBold"
-                                           TextColor="{AppThemeBinding Light=#2E9E6B, Dark=#4FBF8C}"
-                                           VerticalOptions="Center" />
-                                </HorizontalStackLayout>
-                            </Border>
-
-                            <Border StrokeThickness="0"
-                                    AutomationId="Projects_TogglePollingButton"
-                                    SemanticProperties.Description="إيقاف/بدء الفحص"
-                                    BackgroundColor="{Binding PollToggleColor}"
-                                    Padding="12,6"
-                                    VerticalOptions="Center">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="6" />
-                                </Border.StrokeShape>
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding TogglePollingCommand}" />
-                                </Border.GestureRecognizers>
-                                <Border.Behaviors>
-                                    <design:PressableEffect ApplyHoverHighlight="True" />
-                                </Border.Behaviors>
-                                <!-- `flex items-center gap-1.5` with a leading `fa-solid fa-pause/fa-play`. -->
-                                <HorizontalStackLayout Spacing="6">
-                                    <components:AppIcon Icon="{Binding PollToggleIcon}"
-                                                        FontSize="12"
-                                                        TextColor="White"
-                                                        VerticalOptions="Center" />
-                                    <Label Text="{Binding PollToggleLabel}"
-                                           FontSize="14"
-                                           FontFamily="TajawalBold"
-                                           TextColor="White"
-                                           VerticalOptions="Center" />
-                                </HorizontalStackLayout>
-                            </Border>
-
-                            <Border StrokeThickness="0"
-                                    AutomationId="Projects_NotificationsButton"
-                                    SemanticProperties.Description="التنبيهات"
-                                    BackgroundColor="Transparent"
-                                    WidthRequest="32"
-                                    HeightRequest="32"
-                                    VerticalOptions="Center">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="8" />
-                                </Border.StrokeShape>
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Tapped="OnNotificationsButtonTapped" />
-                                </Border.GestureRecognizers>
-                                <Border.Behaviors>
-                                    <design:PressableEffect ApplyHoverHighlight="True" />
-                                </Border.Behaviors>
-                                <components:AppIcon Icon="Bell"
-                                                     FontSize="14"
-                                                     TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
-                                                     HorizontalOptions="Center"
-                                                     VerticalOptions="Center" />
-                            </Border>
-                        </HorizontalStackLayout>
-                    </Grid>
-                </Border>
-
-                <Border StrokeThickness="1"
-                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}"
-                        BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}"
-                        Padding="16,10">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="12" />
-                    </Border.StrokeShape>
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                        <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
-                            <components:AppIcon Icon="Filter" FontSize="11" TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}" VerticalOptions="Center" />
-                            <Label Text="الاستعلام النشط:"
-                                   FontSize="13"
-                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
-                                   VerticalOptions="Center"
-                                   FontFamily="Tajawal" />
-                            <Label Text="{Binding ActiveQueryText}"
-                                   FontSize="13"
-                                   FontFamily="TajawalBold"
-                                   TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
-                                   VerticalOptions="Center" />
-                        </HorizontalStackLayout>
-                        <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
-                            <components:AppIcon Icon="Edit" WidthRequest="14" HeightRequest="14" TextColor="{DynamicResource Brand}" VerticalOptions="Center" IsVisible="{Binding HasFilterFacets}" />
-                            <Label Text="تعديل"
-                                   IsVisible="{Binding HasFilterFacets}"
-                                   FontSize="13"
-                                   FontFamily="TajawalBold"
-                                   TextColor="{DynamicResource Brand}"
-                                   VerticalOptions="Center">
-                                <Label.GestureRecognizers>
-                                    <!-- Opens the same FilterModal as the header "الفلاتر" button.
-                                         (Previously fired SearchCommand with no parameter — a
-                                         silent reload, never the dialog the mockup's "تعديل" means.) -->
-                                    <TapGestureRecognizer Tapped="OnOpenFiltersTapped" />
-                                </Label.GestureRecognizers>
-                                <Label.Behaviors>
-                                    <design:PressableEffect ApplyHoverHighlight="True" />
-                                </Label.Behaviors>
-                            </Label>
-                        </HorizontalStackLayout>
-                    </Grid>
-                </Border>
+            <!-- Centered page title + cadence caption (the "يتم الفحص كل" string stays rendered here
+                 for the cross-page poll-interval consistency test). -->
+            <VerticalStackLayout Grid.Row="0" HorizontalOptions="Center" VerticalOptions="Center" Spacing="6">
+                <Label Text="المشاريع"
+                       FontSize="30"
+                       FontFamily="TajawalBold"
+                       HorizontalTextAlignment="Center"
+                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                <HorizontalStackLayout HorizontalOptions="Center" Spacing="6">
+                    <Label Text="{Binding PollIntervalText}"
+                           FontSize="12"
+                           FontFamily="Tajawal"
+                           VerticalOptions="Center"
+                           TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                    <Label Text="·"
+                           FontSize="12"
+                           VerticalOptions="Center"
+                           TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}" />
+                    <Label Text="{Binding RateLimitText}"
+                           FontSize="12"
+                           FontFamily="Tajawal"
+                           VerticalOptions="Center"
+                           TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                </HorizontalStackLayout>
             </VerticalStackLayout>
 
-            <Grid Grid.Row="1">
+            <!-- Today stat card — top-right (inline-start in RTL). Bordered soft box: label over a big
+                 number bound to the existing per-source ProjectsAddedToday read. -->
+            <Border Grid.Row="0"
+                    HorizontalOptions="Start"
+                    VerticalOptions="Start"
+                    StrokeThickness="1"
+                    Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
+                    BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#172032}"
+                    Padding="14,8">
+                <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
+                    <Label Text="أُضيفت اليوم"
+                           FontSize="11"
+                           FontFamily="TajawalBold"
+                           HorizontalTextAlignment="Center"
+                           TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                    <Label Text="{Binding GlobalStatus.ProjectsAddedTodayText}"
+                           AutomationId="Sidebar_StatValueLabel"
+                           FontSize="26"
+                           FontFamily="TajawalBold"
+                           HorizontalTextAlignment="Center"
+                           TextColor="{DynamicResource BrandInk}" />
+                </VerticalStackLayout>
+            </Border>
 
-                <VerticalStackLayout Spacing="12" IsVisible="{Binding IsLoading}">
-                    <design:ShimmerBox HeightRequest="160" />
-                    <design:ShimmerBox HeightRequest="160" />
+            <!-- Bottom hairline. -->
+            <BoxView Grid.Row="0"
+                     HeightRequest="1"
+                     VerticalOptions="End"
+                     Color="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" />
+        </Grid>
+
+        <!-- ============ PIPELINE PANEL (reused shipped unit, active-source scoped) ============ -->
+        <dashboard:PipelineDashboardPanel x:Name="PipelinePanel"
+                                          Grid.Row="1"
+                                          Grid.Column="0"
+                                          AutomationId="Pipeline_DashboardPanel"
+                                          VerticalOptions="Fill"
+                                          DiscoveryProgress="{Binding GlobalStatus.DiscoveryProgress}"
+                                          QueuePressure="{Binding GlobalStatus.QueuePressure}"
+                                          QueueCount="{Binding GlobalStatus.QueueCount}"
+                                          QueueCapacity="{Binding GlobalStatus.QueueCapacity}"
+                                          EnrichmentActivity="{Binding GlobalStatus.EnrichmentActivity}"
+                                          IsSnapshotActive="{Binding GlobalStatus.IsSnapshotActive}" />
+
+        <components:SplitterHandle x:Name="PanelSplitter"
+                                   Grid.Row="1"
+                                   Grid.Column="1"
+                                   AutomationId="Pipeline_ResizeHandle"
+                                   Minimum="260"
+                                   Maximum="560"
+                                   DragSign="1"
+                                   IsVisible="{Binding Source={x:Reference PipelinePanel}, Path=IsExpanded}"
+                                   Value="{Binding Source={x:Reference PipelinePanel}, Path=ExpandedWidth, Mode=TwoWay}"
+                                   DragCompleted="OnPanelSplitterDragCompleted" />
+
+        <!-- ============ FEED COLUMN (search row + continuous rows) ============ -->
+        <Grid Grid.Row="1"
+              Grid.Column="2"
+              RowDefinitions="Auto,*"
+              BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}">
+
+            <!-- Search row: full-width input (right) with the filters button docked at its left.
+                 Lives INSIDE the feed column so the pipeline panel squeezes it (they are relative). -->
+            <Grid Grid.Row="0"
+                  ColumnDefinitions="*,Auto"
+                  ColumnSpacing="12"
+                  Padding="24,16">
+                <Border Grid.Column="0"
+                        StrokeThickness="1"
+                        HeightRequest="40"
+                        VerticalOptions="Center"
+                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
+                        BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#172032}">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                    <Grid ColumnDefinitions="Auto,*"
+                          ColumnSpacing="8"
+                          Padding="16,0"
+                          FlowDirection="LeftToRight">
+                        <components:AppIcon Grid.Column="0"
+                                            Icon="Search"
+                                            FontSize="16"
+                                            TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
+                                            VerticalOptions="Center" />
+                        <components:SearchInputField Grid.Column="1"
+                                                     AutomationId="Projects_SearchInput"
+                                                     FlowDirection="RightToLeft"
+                                                     Text="{Binding SearchQuery}"
+                                                     Placeholder="{Binding SearchPlaceholder}"
+                                                     PlaceholderColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
+                                                     TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
+                                                     BackgroundColor="Transparent"
+                                                     FontSize="14"
+                                                     DebounceMilliseconds="300"
+                                                     DebouncedCommand="{Binding SearchCommand}"
+                                                     ClearCommand="{Binding ClearSearchCommand}"
+                                                     VerticalOptions="Center"
+                                                     FontFamily="Tajawal" />
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="1"
+                        StrokeThickness="1"
+                        HeightRequest="40"
+                        AutomationId="Projects_FiltersButton"
+                        SemanticProperties.Description="فلاتر البحث"
+                        VerticalOptions="Center"
+                        IsVisible="{Binding HasFilterFacets}"
+                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
+                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}"
+                        Padding="14,0">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnOpenFiltersTapped" />
+                    </Border.GestureRecognizers>
+                    <Border.Behaviors>
+                        <design:PressableEffect ApplyHoverHighlight="True" />
+                    </Border.Behaviors>
+                    <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                        <components:AppIcon Icon="Filter"
+                                            FontSize="12"
+                                            TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                            VerticalOptions="Center" />
+                        <Label Text="الفلاتر"
+                               FontSize="14"
+                               FontFamily="TajawalBold"
+                               TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
+                               VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                </Border>
+            </Grid>
+
+            <!-- Rows region: lifecycle + CollectionView (continuous, hairline-divided — see ProjectCard). -->
+            <Grid Grid.Row="1" Padding="0">
+
+                <VerticalStackLayout Spacing="12" Padding="24,0" IsVisible="{Binding IsLoading}">
+                    <design:ShimmerBox HeightRequest="150" />
+                    <design:ShimmerBox HeightRequest="150" />
                 </VerticalStackLayout>
 
                 <VerticalStackLayout IsVisible="{Binding HasError}" VerticalOptions="Center">
@@ -286,10 +233,10 @@
                 </VerticalStackLayout>
 
                 <design:LabelWithSubText IsVisible="{Binding IsEmpty}"
-                                          AutomationId="Projects_EmptyStateLabel"
-                                          VerticalOptions="Center"
-                                          Text="{Binding EmptyStateTitle}"
-                                          SubText="{Binding EmptyStateSubtitle}" />
+                                         AutomationId="Projects_EmptyStateLabel"
+                                         VerticalOptions="Center"
+                                         Text="{Binding EmptyStateTitle}"
+                                         SubText="{Binding EmptyStateSubtitle}" />
 
                 <CollectionView x:Name="ProjectsCollectionView"
                                 IsVisible="{Binding ShowFeed}"
@@ -301,101 +248,139 @@
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>
-
             </Grid>
-
-            <!-- Footer status bar -->
-            <Grid Grid.Row="2"
-                  ColumnDefinitions="*,Auto"
-                  Padding="0,12"
-                  BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
-                <BoxView HeightRequest="1"
-                         Color="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}"
-                         VerticalOptions="Start"
-                         Grid.ColumnSpan="2" />
-
-                <HorizontalStackLayout Spacing="10" VerticalOptions="Center" Margin="0,4,0,0">
-                    <Label Text="{Binding TrackedCountText}" AutomationId="Projects_TrackedCountLabel" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" VerticalOptions="Center" FontFamily="Tajawal" />
-                    <BoxView WidthRequest="4" HeightRequest="4" Color="{AppThemeBinding Light=#CBD5E1, Dark=#475569}" CornerRadius="2" VerticalOptions="Center" />
-                    <Label Text="{Binding UnreadCountText}" AutomationId="Projects_UnreadCountLabel" FontSize="11" FontFamily="TajawalBold" TextColor="{DynamicResource Brand}" VerticalOptions="Center" />
-                    <Label Text="تحديد الكل كمقروء"
-                           AutomationId="Projects_MarkAllReadLabel"
-                           FontSize="11"
-                           TextColor="{DynamicResource Brand}"
-                           VerticalOptions="Center"
-                           FontFamily="Tajawal">
-                        <Label.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding MarkAllReadCommand}" />
-                        </Label.GestureRecognizers>
-                        <Label.Behaviors>
-                            <design:PressableEffect ApplyHoverHighlight="True" />
-                        </Label.Behaviors>
-                    </Label>
-                </HorizontalStackLayout>
-
-                <HorizontalStackLayout Grid.Column="1" Spacing="16" VerticalOptions="Center" Margin="0,4,0,0">
-                    <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
-                        <!-- This line was hard-coded to "متصل" with a permanently green dot, so a
-                             pipeline whose every scan was being rejected still reported itself
-                             connected. It now follows the real scan outcome. -->
-                        <Label Text="{Binding GlobalStatus.ConnectionText}"
-                               AutomationId="Projects_ConnectionLabel"
-                               FontSize="11"
-                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
-                               VerticalOptions="Center"
-                               FontFamily="Tajawal" />
-                        <BoxView WidthRequest="8" HeightRequest="8" Color="#22C55E" CornerRadius="4" VerticalOptions="Center"
-                                 IsVisible="{Binding GlobalStatus.IsConnectionHealthy}" />
-                        <BoxView WidthRequest="8" HeightRequest="8" Color="#EF4444" CornerRadius="4" VerticalOptions="Center"
-                                 IsVisible="{Binding GlobalStatus.LastScanFailed}" />
-                    </HorizontalStackLayout>
-                    <!-- Same shared readout the pipeline dashboard's discovery card uses, reading
-                         the pipeline's own scan timestamp rather than the feed's last load - which
-                         is why the footer no longer drifts past the poll interval. -->
-                    <lastscan:LastScanStatus AutomationId="Projects_LastScanStatus"
-                                             LabelAutomationId="Projects_LastScanLabel"
-                                             RefreshAutomationId="Projects_RefreshLabel"
-                                             LastScanAt="{Binding GlobalStatus.LastScanCompletedAt}"
-                                             IsChecking="{Binding GlobalStatus.IsScanning}"
-                                             ShowRefresh="True"
-                                             RefreshCommand="{Binding RefreshCommand}"
-                                             FontSize="11"
-                                             TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
-                                             VerticalOptions="Center" />
-
-                    <!-- The 56px radar dial used to live here. It was unreadable at that size and
-                         faded out entirely once the pipeline settled, so it moved to the pipeline
-                         dashboard column (see PipelinePanel below). -->
-                </HorizontalStackLayout>
-            </Grid>
-
         </Grid>
 
-        <components:SplitterHandle x:Name="PanelSplitter"
-                                   Grid.Column="1"
-                                   AutomationId="Pipeline_ResizeHandle"
-                                   Minimum="260"
-                                   Maximum="560"
-                                   DragSign="1"
-                                   IsVisible="{Binding Source={x:Reference PipelinePanel}, Path=IsExpanded}"
-                                   Value="{Binding Source={x:Reference PipelinePanel}, Path=ExpandedWidth, Mode=TwoWay}"
-                                   DragCompleted="OnPanelSplitterDragCompleted" />
+        <!-- ============ FOOTER (full-width surface band, top hairline) ============ -->
+        <Grid Grid.Row="2"
+              Grid.Column="0"
+              Grid.ColumnSpan="3"
+              ColumnDefinitions="Auto,*,Auto"
+              ColumnSpacing="16"
+              Padding="24,12"
+              BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}">
+            <BoxView Grid.ColumnSpan="3"
+                     HeightRequest="1"
+                     VerticalOptions="Start"
+                     Color="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" />
 
-        <dashboard:PipelineDashboardPanel x:Name="PipelinePanel"
-                                          Grid.Column="0"
-                                          AutomationId="Pipeline_DashboardPanel"
-                                          VerticalOptions="Fill"
-                                          DiscoveryProgress="{Binding GlobalStatus.DiscoveryProgress}"
-                                          QueuePressure="{Binding GlobalStatus.QueuePressure}"
-                                          QueueCount="{Binding GlobalStatus.QueueCount}"
-                                          QueueCapacity="{Binding GlobalStatus.QueueCapacity}"
-                                          EnrichmentActivity="{Binding GlobalStatus.EnrichmentActivity}"
-                                          IsSnapshotActive="{Binding GlobalStatus.IsSnapshotActive}" />
+            <!-- inline-start cluster: tracked count · unread · تحديد الكل كمقروء -->
+            <HorizontalStackLayout Grid.Column="0" Spacing="10" VerticalOptions="Center" Margin="0,4,0,0">
+                <Label Text="{Binding FooterTrackedText}" AutomationId="Projects_TrackedCountLabel" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" VerticalOptions="Center" FontFamily="Tajawal" />
+                <BoxView WidthRequest="4" HeightRequest="4" Color="{AppThemeBinding Light=#CBD5E1, Dark=#475569}" CornerRadius="2" VerticalOptions="Center" />
+                <Label Text="{Binding UnreadCountText}" AutomationId="Projects_UnreadCountLabel" FontSize="11" FontFamily="TajawalBold" TextColor="{DynamicResource BrandInk}" VerticalOptions="Center" />
+                <Label Text="تحديد الكل كمقروء"
+                       AutomationId="Projects_MarkAllReadLabel"
+                       FontSize="11"
+                       TextColor="{DynamicResource BrandInk}"
+                       VerticalOptions="Center"
+                       FontFamily="Tajawal">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding MarkAllReadCommand}" />
+                    </Label.GestureRecognizers>
+                    <Label.Behaviors>
+                        <design:PressableEffect ApplyHoverHighlight="True" />
+                    </Label.Behaviors>
+                </Label>
+            </HorizontalStackLayout>
+
+            <!-- center: active query + تعديل (opens the same FilterModal as الفلاتر). -->
+            <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="Center" VerticalOptions="Center" Margin="0,4,0,0">
+                <components:AppIcon Icon="Filter" FontSize="10" TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}" VerticalOptions="Center" />
+                <Label Text="الاستعلام النشط:"
+                       FontSize="11"
+                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                       VerticalOptions="Center"
+                       FontFamily="Tajawal" />
+                <Label Text="{Binding ActiveQueryText}"
+                       FontSize="11"
+                       FontFamily="TajawalBold"
+                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
+                       VerticalOptions="Center" />
+                <Label Text="تعديل"
+                       IsVisible="{Binding HasFilterFacets}"
+                       FontSize="11"
+                       FontFamily="TajawalBold"
+                       TextColor="{DynamicResource BrandInk}"
+                       VerticalOptions="Center">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnOpenFiltersTapped" />
+                    </Label.GestureRecognizers>
+                    <Label.Behaviors>
+                        <design:PressableEffect ApplyHoverHighlight="True" />
+                    </Label.Behaviors>
+                </Label>
+            </HorizontalStackLayout>
+
+            <!-- inline-end: آخر فحص (LastScanStatus unit) + poll pill (pause/resume). -->
+            <HorizontalStackLayout Grid.Column="2" Spacing="12" VerticalOptions="Center" Margin="0,4,0,0">
+                <lastscan:LastScanStatus AutomationId="Projects_LastScanStatus"
+                                         LabelAutomationId="Projects_LastScanLabel"
+                                         RefreshAutomationId="Projects_RefreshLabel"
+                                         LastScanAt="{Binding GlobalStatus.LastScanCompletedAt}"
+                                         IsChecking="{Binding GlobalStatus.IsScanning}"
+                                         ShowRefresh="True"
+                                         RefreshCommand="{Binding RefreshCommand}"
+                                         FontSize="11"
+                                         TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                         VerticalOptions="Center" />
+
+                <!-- Poll pill: brand-outlined, BrandSoft fill, BrandInk text+glyph. Paused → accent-green
+                     outline variant (state colour, never brand). Wire the existing TogglePolling command. -->
+                <Border StrokeThickness="1"
+                        AutomationId="Projects_TogglePollingButton"
+                        SemanticProperties.Description="إيقاف/بدء الفحص"
+                        Stroke="{DynamicResource Brand}"
+                        BackgroundColor="{DynamicResource BrandSoft}"
+                        Padding="12,5"
+                        VerticalOptions="Center">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding TogglePollingCommand}" />
+                    </Border.GestureRecognizers>
+                    <Border.Behaviors>
+                        <design:PressableEffect ApplyHoverHighlight="True" />
+                    </Border.Behaviors>
+                    <Border.Triggers>
+                        <!-- Paused → accent-green outline variant (a STATE colour, never brand). Plain
+                             values here because MAUI Setter.Value does not accept AppThemeBinding; the
+                             translucent fill blends correctly over both surfaces. -->
+                        <DataTrigger TargetType="Border" Binding="{Binding IsPollingActive}" Value="False">
+                            <Setter Property="Stroke" Value="{StaticResource PausedGreen}" />
+                            <Setter Property="BackgroundColor" Value="{StaticResource PausedGreenSoft}" />
+                        </DataTrigger>
+                    </Border.Triggers>
+                    <HorizontalStackLayout Spacing="6">
+                        <components:AppIcon Icon="{Binding PollToggleIcon}"
+                                            FontSize="12"
+                                            TextColor="{DynamicResource BrandInk}"
+                                            VerticalOptions="Center">
+                            <components:AppIcon.Triggers>
+                                <DataTrigger TargetType="components:AppIcon" Binding="{Binding IsPollingActive}" Value="False">
+                                    <Setter Property="TextColor" Value="{StaticResource PausedGreen}" />
+                                </DataTrigger>
+                            </components:AppIcon.Triggers>
+                        </components:AppIcon>
+                        <Label Text="{Binding PollPillLabel}"
+                               FontSize="12"
+                               FontFamily="TajawalBold"
+                               VerticalOptions="Center"
+                               TextColor="{DynamicResource BrandInk}">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label" Binding="{Binding IsPollingActive}" Value="False">
+                                    <Setter Property="TextColor" Value="{StaticResource PausedGreen}" />
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
+                    </HorizontalStackLayout>
+                </Border>
+            </HorizontalStackLayout>
+        </Grid>
 
         <!-- Full-page transparent backdrop, shown together with the flyout so a click anywhere
-             outside of it (auto-dismiss, like any normal menu/popover) closes it too - before this
-             the only way out was re-clicking the bell/sidebar entry that opened it. -->
+             outside of it (auto-dismiss, like any normal menu/popover) closes it too. -->
         <BoxView x:Name="NotificationsBackdrop"
+                 Grid.RowSpan="3"
                  Grid.ColumnSpan="4"
                  Color="Transparent"
                  IsVisible="False"
@@ -407,6 +392,7 @@
 
         <notifViews:RecentNotificationsFlyout x:Name="NotificationsFlyout"
                                                AutomationId="Notifications_Flyout"
+                                               Grid.Row="1"
                                                Grid.Column="2"
                                                IsVisible="False"
                                                HorizontalOptions="End"
@@ -415,13 +401,12 @@
 
         <!-- B3 typed-facet FilterModal: a page-covering overlay (backdrop + centered card built into
              the unit, same host-managed visibility mechanic as the notifications flyout above).
-             Every control inside it is generated from the ACTIVE source's descriptor.FilterFacets —
-             this layout names no facet and no site. -->
+             Every control inside it is generated from the ACTIVE source's descriptor.FilterFacets. -->
         <filtermodal:FilterModal x:Name="FiltersModal"
+                                 Grid.RowSpan="3"
                                  Grid.ColumnSpan="4"
                                  AutomationId="Projects_FiltersModal"
                                  IsVisible="False" />
 
     </Grid>
-
 </ContentView>

@@ -63,13 +63,12 @@ public partial class MainWindowPage : ContentPage
 
         // v3 parity harness: --parity-state=filters-open forces the feed's one interactive
         // modal open at startup, through the SAME unit entry points the real الفلاتر button
-        // uses (FilterModal.Open + visibility). The tree walk keeps the shell/layout files
-        // harness-free; with no flag this method never runs and behavior is unchanged.
-        if (Services.ParityLaunchFlags.ParityState(Environment.GetCommandLineArgs())
-            == Services.ParityLaunchFlags.StateFiltersOpen)
-        {
-            OpenFilterModalForParity();
-        }
+        // uses (FilterModal.Open + visibility). IDEMPOTENT: every OTHER state — default /
+        // panel-collapsed / no flag — now EXPLICITLY closes the modal, so the harness's
+        // single-instance redirect (a running filters-open primary handed a default activation) can
+        // never leak the open dialog into a default capture. The tree walk keeps the shell/layout
+        // files harness-free; with no flag this method never runs and behavior is unchanged.
+        ApplyParityFiltersState();
 
         // Defer background pipeline startup until after UI has loaded and rendered
         if (Application.Current is App app)
@@ -81,6 +80,32 @@ public partial class MainWindowPage : ContentPage
             });
         }
     }
+
+    /// <summary>
+    /// Forces the filters modal into exactly the state the current launch requested — open ONLY for an
+    /// explicit <c>--parity-state=filters-open</c>, closed for every other value. Because the app
+    /// self-registers as a single instance, a fresh default launch and a redirected default activation
+    /// both re-enter here, so a dialog left open by an earlier filters-open activation is reset closed
+    /// rather than latching (the root cause of the "filters modal open in a default capture" leak).
+    /// </summary>
+    private void ApplyParityFiltersState()
+    {
+        var args = Environment.GetCommandLineArgs();
+        if (Services.ParityLaunchFlags.ShouldOpenFiltersModal(args))
+        {
+            OpenFilterModalForParity();
+            return;
+        }
+
+        // Any non-filters-open launch: guarantee the dialog is not presenting. Cheap no-op when the
+        // modal was never opened (a normal user launch); a real reset for a reused process.
+        if (_activeLayout is not null && FindFilterModal(_activeLayout) is { } modal && modal.IsVisible)
+        {
+            modal.IsVisible = false;
+            MostaqlK.Services.Diagnostics.InteractionLogger.Mark("MainWindowPage.ParityFiltersClosed", "A");
+        }
+    }
+
 
     private void OpenFilterModalForParity()
     {

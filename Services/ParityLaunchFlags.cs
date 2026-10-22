@@ -46,6 +46,17 @@ public static class ParityLaunchFlags
     }
 
     /// <summary>
+    /// The ONE launch state that is allowed to force the filters modal open: an explicit
+    /// <c>--parity-state=filters-open</c>. Every other value — including <c>default</c>,
+    /// <c>panel-collapsed</c>, and the harness's always-present single-instance argument — returns
+    /// <c>false</c>. This is the explicit allowlist that closes the state-leak: the modal-open path
+    /// must never key off "any non-null parity state" (a truthy check), only this exact value, so a
+    /// default launch can never present the dialog.
+    /// </summary>
+    public static bool ShouldOpenFiltersModal(string[] args) =>
+        string.Equals(ParityState(args), StateFiltersOpen, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Forces the projects-page ItC state at startup: <c>panel-collapsed</c> pre-writes the
     /// pipeline panel's persisted expanded preference (read when the panel is constructed);
     /// <c>default</c>/<c>filters-open</c> pre-write it as expanded so a previous parity launch's
