@@ -60,3 +60,8 @@ Desktop.ini
 *.swo
 *~
 .junie/mcp/mcp.json
+
+# DocFX generated output
+_site/
+api/
+tools/StressTest/out/

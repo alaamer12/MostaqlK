@@ -81,7 +81,7 @@
                                 <Label Text="{Binding Name}"
                                        FontSize="11"
                                        FontFamily="TajawalBold"
-                                       TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" />
+                                       TextColor="{DynamicResource BrandLink}" />
                             </Border>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
@@ -139,7 +139,7 @@
                      and pushes the unread marker to the far end via `justify-between` — not four equal
                      columns, which spread the labels ~200px apart from the mockup. Each label is
                      `mb-1` (4px) above its value. -->
-                <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*" ColumnSpacing="24">
+                <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" ColumnSpacing="24">
                     <VerticalStackLayout Grid.Column="0" Spacing="4">
                         <Label Text="تاريخ النشر" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
                         <Label Text="{Binding PublishTimeText}" FontSize="13" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
@@ -169,27 +169,36 @@
                         </HorizontalStackLayout>
                     </VerticalStackLayout>
 
-                    <HorizontalStackLayout Grid.Column="5"
+                    <!-- Project state — the nafezly card's "حالة المشروع" stat (label + scraped text
+                         verbatim, plain ink per the v3 mockup; the site's own state colors are its
+                         display, the app never retints chrome from them). Hidden entirely when the
+                         source's listing carries no state for the row — presence-by-data. -->
+                    <VerticalStackLayout Grid.Column="5" Spacing="4" IsVisible="{Binding HasStatusText}">
+                        <Label Text="حالة المشروع" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
+                        <Label Text="{Binding StatusText}" FontSize="13" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                    </VerticalStackLayout>
+
+                    <HorizontalStackLayout Grid.Column="6"
                                            Spacing="6"
                                            HorizontalOptions="End"
                                            VerticalOptions="End"
                                            IsVisible="{Binding IsUnread}">
                         <BoxView WidthRequest="8"
                                  HeightRequest="8"
-                                 Color="{AppThemeBinding Light=#2386C8, Dark=#5CA8DE}"
+                                 Color="{DynamicResource Brand}"
                                  CornerRadius="4"
                                  VerticalOptions="Center" />
-                        <Label Text="غير مقروء" FontSize="11" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#2386C8, Dark=#5CA8DE}" VerticalOptions="Center" />
+                        <Label Text="غير مقروء" FontSize="11" FontFamily="TajawalBold" TextColor="{DynamicResource Brand}" VerticalOptions="Center" />
                     </HorizontalStackLayout>
                 </Grid>
 
-                <!-- "عرض في مستقل" - opens the project's live listing on mostaql.com in the OS browser.
-                     Reusable MostaqlLinkButton (UI/PlatformComponents/MostaqlLinkButton) replaces the
+                <!-- The source-link chip - opens the project's live listing on its own site in the OS browser.
+                     Reusable SourceLinkButton (UI/PlatformComponents/SourceLinkButton) replaces the
                      previous inline PressableBorder implementation. -->
-                <components:MostaqlLinkButton
-                        Command="{Binding OpenOnMostaqlCommand}"
+                <components:SourceLinkButton
+                        Command="{Binding OpenOnSourceCommand}"
                         Margin="0,16,0,0"
-                        AutomationId="ProjectCard_OpenOnMostaqlButton" />
+                        AutomationId="ProjectCard_OpenOnSourceButton" />
 
             </VerticalStackLayout>
         </components:AppCard>

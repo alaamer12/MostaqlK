@@ -2,6 +2,7 @@ using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MostaqlK.Core.Formatting;
+using MostaqlK.Core.Sources;
 using MostaqlK.Models;
 using MostaqlK.UI.DesignSystem.Badges;
 using MostaqlK.UI.PlatformComponents;
@@ -31,6 +32,8 @@ public sealed partial class ProjectCardViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(ClientInitials))]
     [NotifyPropertyChangedFor(nameof(ClientMeta))]
     [NotifyPropertyChangedFor(nameof(PublishTimeText))]
+    [NotifyPropertyChangedFor(nameof(StatusText))]
+    [NotifyPropertyChangedFor(nameof(HasStatusText))]
     [NotifyPropertyChangedFor(nameof(ProposalCount))]
     [NotifyPropertyChangedFor(nameof(ProposalCountText))]
     [NotifyPropertyChangedFor(nameof(Budget))]
@@ -51,44 +54,47 @@ public sealed partial class ProjectCardViewModel : ObservableObject
     /// <summary>Bound by <c>ProjectCard.xaml</c>'s tap gesture; delegates back to the owning feed's select handler.</summary>
     public ICommand SelectCommand { get; }
 
-    /// <summary>Bound by <c>ProjectCard.xaml</c>'s "عرض في مستقل" button; opens the project's live listing on mostaql.com in the OS-default browser.</summary>
-    public ICommand OpenOnMostaqlCommand { get; }
+    /// <summary>Bound by <c>ProjectCard.xaml</c>'s source-link chip; opens the project's live listing on its own source site in the OS-default browser.</summary>
+    public ICommand OpenOnSourceCommand { get; }
 
     public ProjectCardViewModel(ProjectSummary project, Action<ProjectCardViewModel>? onSelected = null)
     {
         Project = project;
         _onSelected = onSelected;
         SelectCommand = new RelayCommand(() => _onSelected?.Invoke(this));
-        OpenOnMostaqlCommand = new AsyncRelayCommand(OpenOnMostaqlAsync);
+        OpenOnSourceCommand = new AsyncRelayCommand(OpenOnSourceAsync);
     }
 
     /// <summary>
-    /// Opens <see cref="MostaqlUrl"/> via <see cref="Launcher"/> - a fire-and-forget hand-off to the
+    /// Opens <see cref="SourceUrl"/> via <see cref="Launcher"/> - a fire-and-forget hand-off to the
     /// OS-default browser, same mechanism as the About page's "Mostaqlk" footer link
     /// (<c>AboutPage.xaml.cs</c>). Swallows failures (e.g. no default browser registered) instead of
     /// crashing the app, since this is a "nice to have" affordance, not a critical path.
     /// </summary>
-    private async Task OpenOnMostaqlAsync()
+    private async Task OpenOnSourceAsync()
     {
-        if (string.IsNullOrWhiteSpace(MostaqlUrl))
+        if (string.IsNullOrWhiteSpace(SourceUrl))
         {
             return;
         }
 
         try
         {
-            await Launcher.Default.OpenAsync(MostaqlUrl);
+            await Launcher.Default.OpenAsync(SourceUrl);
         }
         catch (Exception ex)
         {
-            MostaqlK.Services.Diagnostics.InteractionLogger.Fault("ProjectCardViewModel.OpenOnMostaqlAsync", ex);
+            MostaqlK.Services.Diagnostics.InteractionLogger.Fault("ProjectCardViewModel.OpenOnSourceAsync", ex);
         }
     }
 
-    /// <summary>Live listing URL for this project. Falls back to the canonical detail-page URL if the scraped <see cref="ProjectSummary.Url"/> is missing.</summary>
-    public string MostaqlUrl => string.IsNullOrWhiteSpace(Project.Url)
-        ? (Project.ProjectId > 0 ? $"https://mostaql.com/project/{Project.ProjectId}" : string.Empty)
+    /// <summary>Live listing URL for this project. Falls back to the source's canonical detail-page URL (built by the source's own descriptor) when the scraped <see cref="ProjectSummary.Url"/> is missing.</summary>
+    public string SourceUrl => string.IsNullOrWhiteSpace(Project.Url)
+        ? (Project.ProjectId > 0 ? Descriptor?.BuildProjectUrl(Project.ProjectId) ?? string.Empty : string.Empty)
         : Project.Url;
+
+    /// <summary>The project's source descriptor, resolved from the app container (null only in design-time hosts).</summary>
+    private ISourceDescriptor? Descriptor => SourceRegistryProvider.DescriptorFor(Project.Source);
 
     public bool IsUnread => Project.IsUnread;
 
@@ -98,27 +104,46 @@ public sealed partial class ProjectCardViewModel : ObservableObject
 
     public string ClientInitials => ArabicNameFormatter.GetInitials(ClientName);
 
-    /// <summary>Secondary client line under the name. Summary feed has no country/member-since fields, so keep a compact placeholder that still fills the mockup rhythm.</summary>
-    public string ClientMeta => "السعودية  •  عضو منذ 2021";
+    /// <summary>
+    /// Secondary client line under the name. Summary feed has no country/member-since fields,
+    /// so this shows the source's fallback owner meta (a fixture until real per-source owner
+    /// fields arrive in v3); "—" when no descriptor is resolvable.
+    /// </summary>
+    public string ClientMeta => Descriptor?.OwnerFallbackMeta ?? "—";
 
     /// <summary>
-    /// Relative post time shown at the end of the client row ("منذ 3 دقائق" in projects.html),
-    /// computed dynamically from the absolute <c>discovered_at</c> timestamp.
+    /// Relative post time shown on the card (projects.html "منذ 3 دقائق"). The SITE's own scraped
+    /// relative text wins when present (nafezly rows are old projects re-discovered today —
+    /// "منذ ساعة" from the listing, not "منذ دقيقة" since our poll saw them); the dynamic recompute
+    /// from <c>discovered_at</c> is the documented fallback for rows without scraped text
+    /// (mostaql discovery rows / design-seeded cards).
     /// </summary>
-    public string PublishTimeText => ArabicRelativeTime.Since(Project.DiscoveredAt);
+    public string PublishTimeText => string.IsNullOrWhiteSpace(Project.PublishTimeText)
+        ? ArabicRelativeTime.Since(Project.DiscoveredAt)
+        : Project.PublishTimeText.Trim();
+
+    /// <summary>
+    /// Scraped project-state text shown VERBATIM (contract §7: "UI shows scraped text verbatim";
+    /// nafezly مفتوح/تحت التنفيذ/مكتمل from the listing meta row). Presence-by-data: sources/rows
+    /// whose listing carries no state render no status block at all — never a placeholder, never a
+    /// source-id check.
+    /// </summary>
+    public string? StatusText => string.IsNullOrWhiteSpace(Project.ProjectStatus) ? null : Project.ProjectStatus.Trim();
+
+    public bool HasStatusText => StatusText is not null;
 
     public int ProposalCount => Project.ProposalCount;
 
     public string ProposalCountText => ArabicProposalParser.Format(Project.ProposalCount);
 
-    /// <summary>Budget in the mockup's presentation form ("2,500 - 5,500 ر.س"), not the raw scraped string.</summary>
-    public string Budget => BudgetFormatter.Format(Project.Budget);
+    /// <summary>Budget in the mockup's presentation form (grouped amounts + the source's currency suffix), not the raw scraped string.</summary>
+    public string Budget => BudgetFormatter.Format(Project.Budget, Descriptor?.CurrencySuffix ?? string.Empty);
 
     public string Delivery => Project.DeliveryDays is int days ? ArabicRelativeTime.Days(days) : "—";
 
     /// <summary>
     /// Real execution-duration ("مدة التنفيذ") persisted from the detail page's scraped
-    /// "duration" field via <see cref="MostaqlK.Infrastructure.Http.Parsers.DetailParser"/> and
+    /// "duration" field via <see cref="MostaqlK.Sources.Mostaql.Parsing.DetailParser"/> and
     /// stored in the projects table's <c>delivery_days</c> column. No value is fabricated: cards
     /// discovered but not yet enriched show the placeholder until enrichment fills it in.
     /// </summary>

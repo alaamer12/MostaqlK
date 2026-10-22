@@ -425,7 +425,10 @@ public partial class PipelineDashboardPanel : ContentView
     {
         var scanning = Radar.IsScanning;
         DiscoveryDot.Color = scanning
-            ? (IsDark ? Color.FromArgb("#5CA8DE") : Color.FromArgb("#1D6FA5"))
+            // Discovery is brand identity: dark reads the live palette's dark brand (the locked
+            // dark-blue accent); the legacy deeper light hue #1D6FA5 predates the locked set and stays
+            // inline to keep light-theme pixels identical (B1b report, surfaced for a design pass).
+            ? (IsDark ? MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.AccentDark : Color.FromArgb("#1D6FA5"))
             : IdleDotColor;
 
         Assign(DiscoveryStatusLabel, scanning ? "الحالة: جارٍ الفحص" : "الحالة: خامل");

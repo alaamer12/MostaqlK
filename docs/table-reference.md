@@ -32,7 +32,7 @@ Tracks which migration scripts have been applied to this installation. `Database
 
 ### Functional Dependencies
 
-```
+```text
 version → description
 version → applied_at
 ```
@@ -98,7 +98,7 @@ Persists application configuration as key-value pairs. Survives app restarts. Se
 
 ### Functional Dependencies
 
-```
+```text
 key → value
 key → updated_at
 ```
@@ -176,7 +176,7 @@ Normalizes the project category field out of the `projects` table. Without this 
 
 ### Functional Dependencies
 
-```
+```text
 category_id → name
 name        → category_id   (because name is UNIQUE)
 ```
@@ -237,7 +237,7 @@ Normalizes skill names into a lookup table. Without this, `project_skills` would
 
 ### Functional Dependencies
 
-```
+```text
 skill_id → name
 name     → skill_id   (UNIQUE constraint)
 ```
@@ -306,7 +306,7 @@ Project publisher/client profiles, deduplicated. The same client posts multiple 
 
 ### Functional Dependencies
 
-```
+```text
 owner_id → display_name
 owner_id → title
 owner_id → country
@@ -398,7 +398,7 @@ An audit log of every execution of the listing poll loop. Each time the orchestr
 
 ### Functional Dependencies
 
-```
+```text
 poll_run_id → started_at
 poll_run_id → completed_at
 poll_run_id → status
@@ -494,7 +494,7 @@ This is the table with the most strict insertion policy: **`INSERT OR IGNORE` on
 
 ### Functional Dependencies
 
-```
+```text
 project_id → owner_id
 project_id → category_id
 project_id → poll_run_id
@@ -639,7 +639,7 @@ Enrichment data fetched from the **detail page** (Tier 2 scrape). A strict 1:1 e
 
 ### Functional Dependencies
 
-```
+```text
 project_id → description
 project_id → budget_min
 project_id → budget_max
@@ -725,7 +725,7 @@ Many-to-many join table between `projects` and `skills`. A project may require m
 
 The only functional dependency is the trivial one: the full composite key determines itself.
 
-```
+```text
 {project_id, skill_id} → {} (no non-key attributes)
 ```
 
@@ -789,7 +789,7 @@ Project attachments and images, populated only when `settings.include_assets = '
 
 ### Functional Dependencies
 
-```
+```text
 asset_id   → project_id
 asset_id   → source_url
 asset_id   → local_path
@@ -870,7 +870,7 @@ Persistent log of every toast notification fired by the app. Serves the tray "re
 
 ### Functional Dependencies
 
-```
+```text
 notification_id → project_id
 notification_id → type
 notification_id → title

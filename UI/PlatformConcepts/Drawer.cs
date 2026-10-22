@@ -38,7 +38,7 @@ public static class Drawer
     {
         var grid = new Grid();
         grid.Children.Add(mainContent);
-        
+
         drawerContent.IsVisible = isOpen;
         drawerContent.HorizontalOptions = LayoutOptions.End;
         grid.Children.Add(drawerContent);

@@ -93,7 +93,7 @@
                     <Border Style="{StaticResource DashCardStyle}">
                         <VerticalStackLayout Spacing="6">
                             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-                                <BoxView x:Name="DiscoveryDot" Grid.Column="0" WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#5CA8DE" VerticalOptions="Center" />
+                                <BoxView x:Name="DiscoveryDot" Grid.Column="0" WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="{DynamicResource Brand}" VerticalOptions="Center" />
                                 <Label Grid.Column="1" Text="الاستكشاف" Style="{StaticResource DashSectionLabelStyle}" VerticalOptions="Center" />
                             </Grid>
                             <Label x:Name="DiscoveryStatusLabel" Style="{StaticResource DashValueLabelStyle}" />
@@ -219,7 +219,7 @@
                                    AutomationId="Pipeline_DetailTitleLabel"
                                    FontSize="12"
                                    FontFamily="TajawalBold"
-                                   TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" />
+                                   TextColor="{DynamicResource BrandLink}" />
                             <Label x:Name="DetailLine1" Style="{StaticResource DashValueLabelStyle}" />
                             <Label x:Name="DetailLine2" Style="{StaticResource DashValueLabelStyle}" />
                             <Label x:Name="DetailLine3" Style="{StaticResource DashValueLabelStyle}" />

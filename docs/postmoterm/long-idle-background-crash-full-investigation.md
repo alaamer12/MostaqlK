@@ -16,7 +16,7 @@
 
 ---
 
-### 1. The symptom, as reported
+## 1. The symptom, as reported
 
 The user reported: open the app, close it (which only hides it to the system tray — the
 app keeps running in the background), and after ~3 hours the **tray icon disappears**,
@@ -55,7 +55,7 @@ justification for adding a heartbeat later.
 The Windows **Application** event log (`Get-WinEvent`, `LogName='Application'`, from 12:00)
 gave the first hard crash signature:
 
-```
+```text
 Faulting application name: MostaqlK.exe, version: 1.0.4.0, time stamp: 0x6a3ed1eb
 Faulting module name: Microsoft.UI.Xaml.dll, version: 3.1.7.0, time stamp: 0x810b4cf6
 Exception code: 0xc000027b
@@ -69,6 +69,7 @@ Two WER `Id 1001` APPCRASH records accompanied it, carrying the exception code
 `8000000e` (**`E_ILLEGAL_METHOD_CALL`**) in the P7 field, at **13:49:35–13:49:41**.
 
 > Immediate reading of the signatures:
+>
 > - **`0xC000027B`** is `STATUS_STOWED_EXCEPTION` — a native *fail‑fast*. WinUI packages
 >   one or more "stowed" exceptions and calls `RoFailFastWithErrorContext`, which rips the
 >   process down. **No managed handler** — not `Application.UnhandledException`, not
@@ -109,13 +110,13 @@ There was no WinDbg/cdb on the machine, so the dump had to be cracked open anoth
 
 `dotnet-dump` was installed to a temp tool path and run against the dump:
 
-```
+```text
 dotnet-dump analyze MostaqlK.exe.7056.dmp -c 'threads' -c 'clrthreads' -c 'exit'
 ```
 
 It listed all 26 threads but then:
 
-```
+```text
 The current thread is unmanaged
 Failed to request ThreadStore
 ```
@@ -167,7 +168,7 @@ thread was **`0x38fc`**, exception code `EXCEPTION_UNKNOWN 3221226107` (= `0xC00
 faulting address `Microsoft.UI.Xaml.dll+0x39cde5`. The heuristic stack scan showed the
 classic fail‑fast sandwich:
 
-```
+```text
 Microsoft.UI.Xaml.dll+0x39cde5   (fault)
 combase.dll+0x1fc70a
 Microsoft.UI.Xaml.dll+0xb23688
@@ -225,7 +226,7 @@ most of the "did it wrong, then right" happened:
 
 With symbols, the faulting thread **`0x38fc`** resolved to this (top = fault):
 
-```
+```text
 KERNELBASE.dll!RaiseFailFastException+0x152
 combase.dll!RoFailFastWithErrorContextInternal2+0x43a
 Microsoft.UI.Xaml.dll!FailFastWithStowedExceptions+0x59
@@ -259,7 +260,7 @@ transforms.
 **Second dump cross‑check (`MostaqlK.exe.8028.dmp`, 10‑14).** Running `syms.py` against the
 older dump showed the *same family* of failure, but even more specific:
 
-```
+```text
 Microsoft.UI.Xaml.dll!DirectUI::UIAffinityReleaseQueue::DoCleanup+0x190
 ...
 Microsoft.UI.Xaml.dll!ctl::ComObject<DirectUI::RotateTransform>::`scalar deleting destructor'
@@ -541,7 +542,7 @@ future death is always on disk.
 **New / changed source (commit `6ba1ebdad41b6406fdf71b3dd3dc59360950e44c`):**
 
 | File | Role |
-|------|------|
+| ------ | ------ |
 | `Platforms/Windows/TransformReuseMapping.cs` | Root‑cause fix: reuse one transform per element |
 | `Platforms/Windows/AppWatchdog.cs` | Out‑of‑process supervisor / relaunch |
 | `Core/Diagnostics/WatchdogPolicy.cs` | Pure, testable watchdog decision rules |

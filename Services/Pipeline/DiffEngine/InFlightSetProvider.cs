@@ -1,7 +1,9 @@
+using MostaqlK.Core.Sources;
+
 namespace MostaqlK.Services.Pipeline.DiffEngine;
 
 /// <summary>
-/// Known-state provider backed by <see cref="InFlightTracker"/> — covers project IDs
+/// Known-state provider backed by <see cref="InFlightTracker"/> — covers projects
 /// that have already been enqueued/are being enriched but not yet committed to SQLite.
 /// </summary>
 public sealed class InFlightSetProvider : IKnownStateProvider
@@ -13,9 +15,9 @@ public sealed class InFlightSetProvider : IKnownStateProvider
         _inFlightTracker = inFlightTracker;
     }
 
-    public Task<IReadOnlySet<long>> GetKnownProjectIdsAsync(CancellationToken cancellationToken = default)
+    public Task<IReadOnlySet<SourceProjectId>> GetKnownProjectIdsAsync(CancellationToken cancellationToken = default)
     {
-        IReadOnlySet<long> snapshot = _inFlightTracker.Snapshot().ToHashSet();
+        IReadOnlySet<SourceProjectId> snapshot = _inFlightTracker.Snapshot().ToHashSet();
         return Task.FromResult(snapshot);
     }
 }

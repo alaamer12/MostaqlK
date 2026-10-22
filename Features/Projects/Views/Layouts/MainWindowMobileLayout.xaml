@@ -173,13 +173,13 @@
                 <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
                     <Label Text="{Binding TrackedCountText}" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" VerticalOptions="Center" FontFamily="Tajawal" />
                     <Label Text="•" FontSize="11" TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}" VerticalOptions="Center" />
-                    <Label Text="{Binding UnreadCountText}" FontSize="11" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#2386C8, Dark=#5CA8DE}" VerticalOptions="Center" />
+                    <Label Text="{Binding UnreadCountText}" FontSize="11" FontFamily="TajawalBold" TextColor="{DynamicResource Brand}" VerticalOptions="Center" />
                 </HorizontalStackLayout>
 
                 <Label Grid.Column="1"
                        Text="تحديد الكل كمقروء"
                        FontSize="11"
-                       TextColor="{AppThemeBinding Light=#2386C8, Dark=#5CA8DE}"
+                       TextColor="{DynamicResource Brand}"
                        VerticalOptions="Center"
                        FontFamily="Tajawal">
                     <Label.GestureRecognizers>

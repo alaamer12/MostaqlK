@@ -1,3 +1,5 @@
+using MostaqlK.Core.Sources;
+
 namespace MostaqlK.Models;
 
 /// <summary>
@@ -6,6 +8,10 @@ namespace MostaqlK.Models;
 /// </summary>
 public sealed class ProjectSummary
 {
+    /// <summary>Which monitored site this project came from.</summary>
+    public SourceId Source { get; set; } = SourceId.Default;
+
+    /// <summary>The site-local numeric id (what the site's own URLs carry), unique only within <see cref="Source"/>.</summary>
     public long ProjectId { get; set; }
 
     public string Title { get; set; } = string.Empty;
@@ -40,7 +46,7 @@ public sealed class ProjectSummary
 
     /// <summary>
     /// Timestamp at which this project's enrichment fully completed (set by
-    /// <see cref="MostaqlK.Infrastructure.Http.Parsers.DetailParser"/> the moment detail parsing
+    /// <see cref="MostaqlK.Sources.Mostaql.Parsing.DetailParser"/> the moment detail parsing
     /// succeeds). Null while the project is still pending/being enriched. This — not
     /// <see cref="DiscoveredAt"/> — is what the feed sorts by, so a project only jumps to the
     /// top of the list once its enrichment has genuinely finished.

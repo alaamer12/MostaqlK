@@ -1,11 +1,12 @@
 using MostaqlK.Core;
+using MostaqlK.Core.Sources;
 using MostaqlK.Models;
 
 namespace MostaqlK.Services.Pipeline.DiffEngine;
 
 /// <summary>
 /// Compares a freshly polled listing page against known committed and in-flight state
-/// to determine which project IDs are genuinely new and should be enqueued for enrichment.
+/// to determine which projects are genuinely new and should be enqueued for enrichment.
 /// </summary>
 public sealed class DiffEngine
 {
@@ -22,8 +23,8 @@ public sealed class DiffEngine
     [ErrorOutcome(ErrorOutcome.Handled, Label = "Provider failure wrapped as Result<DiffResult>.Err via DiffErrors.KnownStateUnavailable")]
     public async Task<Result<DiffResult>> DiffAsync(IReadOnlyList<ProjectSummary> polledProjects, CancellationToken cancellationToken = default)
     {
-        IReadOnlySet<long> committedIds;
-        IReadOnlySet<long> inFlightIds;
+        IReadOnlySet<SourceProjectId> committedIds;
+        IReadOnlySet<SourceProjectId> inFlightIds;
 
         try
         {
@@ -42,13 +43,14 @@ public sealed class DiffEngine
         var result = new DiffResult();
         foreach (var project in polledProjects)
         {
-            if (committedIds.Contains(project.ProjectId) || inFlightIds.Contains(project.ProjectId))
+            var key = new SourceProjectId(project.Source, project.ProjectId);
+            if (committedIds.Contains(key) || inFlightIds.Contains(key))
             {
-                result.AlreadyKnownProjectIds.Add(project.ProjectId);
+                result.AlreadyKnownProjectIds.Add(key);
             }
             else
             {
-                result.NewProjectIds.Add(project.ProjectId);
+                result.NewProjectIds.Add(key);
             }
         }
 

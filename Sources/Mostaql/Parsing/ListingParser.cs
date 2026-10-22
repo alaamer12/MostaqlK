@@ -1,0 +1,217 @@
+using System.Text.RegularExpressions;
+using HtmlAgilityPack;
+using MostaqlK.Core.Formatting;
+using MostaqlK.Core.Parsing;
+using MostaqlK.Models;
+
+namespace MostaqlK.Sources.Mostaql.Parsing;
+
+/// <summary>
+/// Parses the Mostaql projects listing page HTML into a collection of <see cref="ProjectSummary"/>.
+/// Mirrors the "projects_list" branch of the Python prototype `analyzer.py`
+/// (see .repertoire/progress/python/parser/scratch/analyzer.py).
+/// After the A1 generalization this file is only the ORDER OF OPERATIONS: the generic text
+/// helpers live in <c>Core/Parsing</c> and every Mostaql row class / vocabulary word arrives as
+/// <see cref="MostaqlSelectors"/>/<see cref="MostaqlParseProfile"/> data.
+/// </summary>
+public static class ListingParser
+{
+    private static ParseProfile Profile => MostaqlParseProfile.Profile;
+    private static SelectorMap S => MostaqlSelectors.Selectors;
+
+    public static IReadOnlyList<ProjectSummary> Parse(string html)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+        {
+            throw ParseErrors.EmptyHtml(nameof(ListingParser));
+        }
+
+        var doc = new HtmlDocument();
+        doc.LoadHtml(html);
+        var root = doc.DocumentNode;
+
+        var rows = root.SelectNodes($"//tr[contains(concat(' ', normalize-space(@class), ' '), ' {S.ListingRowClass} ')]");
+
+        var summaries = new List<ProjectSummary>();
+
+        if (rows is not null && rows.Count > 0)
+        {
+            foreach (var row in rows)
+            {
+                var summary = ParseRow(row);
+                if (summary is not null)
+                {
+                    summaries.Add(summary);
+                }
+            }
+        }
+        else
+        {
+            // Fallback observed shape: div.project-item cards instead of table rows.
+            var items = root.SelectNodes($"//div[contains(concat(' ', normalize-space(@class), ' '), ' {S.ListingItemClass} ')]");
+            if (items is not null)
+            {
+                foreach (var item in items)
+                {
+                    var summary = ParseRow(item);
+                    if (summary is not null)
+                    {
+                        summaries.Add(summary);
+                    }
+                }
+            }
+
+        }
+
+        if (summaries.Count == 0)
+        {
+            // A redesign may remove both row/card class names while retaining canonical
+            // /project/{id} links. Keep discovery alive with the visible title; enrichment
+            // obtains the full detail page later.
+            var seenIds = new HashSet<long>();
+            foreach (var link in root.SelectNodes($"//a[contains(@href, '{S.ProjectHrefPathSegment}')]") ?? Enumerable.Empty<HtmlNode>())
+            {
+                var id = ExtractProjectIdFromUrl(link.GetAttributeValue("href", string.Empty));
+                var title = HtmlStructureEngine.Normalize(HtmlEntity.DeEntitize(link.InnerText));
+                if (id <= 0 || string.IsNullOrWhiteSpace(title) || !seenIds.Add(id))
+                {
+                    continue;
+                }
+
+                summaries.Add(new ProjectSummary
+                {
+                    ProjectId = id,
+                    Title = title,
+                    Url = link.GetAttributeValue("href", string.Empty),
+                    DiscoveredAt = DateTimeOffset.UtcNow,
+                });
+            }
+        }
+
+        if (summaries.Count == 0)
+        {
+            // Neither shape found at all - likely not a listing page / structure changed drastically.
+            throw ParseErrors.NoProjectRows();
+        }
+
+        return summaries;
+    }
+
+    private static ProjectSummary? ParseRow(HtmlNode row)
+    {
+        // Title link is realistically an <h2><a>...</a></h2> per analyzer.py's sample_list_title.
+        var titleLink = row.SelectSingleNode(".//h2/a") ?? row.SelectSingleNode(".//a");
+        if (titleLink is null)
+        {
+            return null;
+        }
+
+        var title = HtmlStructureEngine.Normalize(HtmlEntity.DeEntitize(titleLink.InnerText));
+        var url = titleLink.GetAttributeValue("href", string.Empty);
+
+        // ASSUMPTION: no explicit data-project-id attribute has been observed in the sample
+        // pages, so the numeric project id is parsed from the trailing digits of the project
+        // URL (Mostaql project URLs end in "-<id>" or "/<id>"), falling back to 0 when absent.
+        var projectId = ExtractProjectIdFromUrl(url);
+
+        var meta = row.SelectSingleNode($".//ul[contains(concat(' ', normalize-space(@class), ' '), ' {S.ListingMetaClass} ')]");
+
+        string clientName = string.Empty;
+        int proposalCount = 0;
+        string proposalCountText = string.Empty;
+        int publishTimeNumber = 0;
+        string publishTimeText = string.Empty;
+        string description = string.Empty;
+
+        var briefNode = row.SelectSingleNode($".//p[contains(@class, '{S.ListingBriefClass}')]/a")
+                         ?? row.SelectSingleNode($".//p[contains(@class, '{S.ListingBriefClass}')]");
+        if (briefNode is not null)
+        {
+            description = HtmlStructureEngine.Normalize(HtmlEntity.DeEntitize(briefNode.InnerText));
+        }
+
+        if (meta is not null)
+        {
+            var metaItems = meta.SelectNodes("./li");
+            if (metaItems is not null)
+            {
+                // ASSUMPTION: metaItems commonly appear in the order [client name, posted
+                // relative time, proposal count] as separate <li> entries. 
+                // We use heuristics to identify them since the order can vary.
+                foreach (var li in metaItems)
+                {
+                    var text = HtmlStructureEngine.Normalize(HtmlEntity.DeEntitize(li.InnerText));
+                    if (string.IsNullOrEmpty(text))
+                    {
+                        continue;
+                    }
+
+                    // Check for the proposal icon as a stronger signal than just text content.
+                    var hasProposalIcon = li.SelectSingleNode($".//span[contains(@class, '{S.ProposalIconSpanClass}')]") != null
+                                          || li.SelectSingleNode($".//i[contains(@class, '{S.ProposalIconElementClass}')]") != null;
+
+                    if (hasProposalIcon || LooksLikeProposalCount(text))
+                    {
+                        var (num, origText) = ArabicProposalParser.Parse(text);
+                        proposalCount = num;
+                        proposalCountText = origText;
+                    }
+                    else if (Profile.RelativeTimeWords.Any(word => text.Contains(word)))
+                    {
+                        publishTimeNumber = ArabicRelativeTime.ParseRelativeNumber(text);
+                        publishTimeText = text;
+                    }
+                    else if (string.IsNullOrEmpty(clientName))
+                    {
+                        clientName = text;
+                    }
+                }
+            }
+        }
+
+        return new ProjectSummary
+        {
+            ProjectId = projectId,
+            Title = title,
+            Url = url,
+            ClientName = clientName,
+            PublishTimeNumber = publishTimeNumber,
+            PublishTimeText = publishTimeText,
+            ProposalCount = proposalCount,
+            ProposalCountText = proposalCountText,
+            Description = description,
+            DiscoveredAt = DateTimeOffset.UtcNow,
+        };
+    }
+
+    private static bool LooksLikeProposalCount(string text) =>
+        Profile.ProposalWords.Any(word => text.Contains(word));
+
+    private static readonly Regex ProjectIdRegex =
+        new(MostaqlSelectors.Selectors.ProjectIdUrlPattern, RegexOptions.Compiled);
+
+    /// <summary>
+    /// Mostaql project URLs are "/project/{id}-{arabic-slug}". The id is therefore the FIRST
+    /// numeric segment after "/project/", not the last numeric run in the URL - a slug that
+    /// happens to contain a number ("...-canva-2024", "...-logo-3d") used to hijack the id and
+    /// silently key the whole record to the wrong project. Falls back to the first standalone
+    /// numeric segment when the "/project/" prefix is absent (e.g. a relative/redesigned URL).
+    /// </summary>
+    private static long ExtractProjectIdFromUrl(string url)
+    {
+        if (string.IsNullOrEmpty(url))
+        {
+            return 0;
+        }
+
+        var match = ProjectIdRegex.Match(url);
+        if (match.Success && long.TryParse(match.Groups[1].Value, out var matchedId))
+        {
+            return matchedId;
+        }
+
+        var trimmed = url.TrimEnd('/');
+        var firstSegment = trimmed.Split('/', '-').FirstOrDefault(s => s.Length > 0 && s.All(char.IsDigit));
+        return firstSegment is not null && long.TryParse(firstSegment, out var id) ? id : 0;
+    }
+}

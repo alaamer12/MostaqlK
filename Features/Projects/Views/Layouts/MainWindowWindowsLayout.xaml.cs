@@ -1,5 +1,7 @@
 using MostaqlK.Core.Navigation;
+using MostaqlK.Core.Sources;
 using MostaqlK.Features.Notifications.ViewModels;
+using MostaqlK.Features.Projects.ViewModels;
 
 namespace MostaqlK.Features.Projects.Views.Layouts;
 
@@ -13,6 +15,37 @@ public partial class MainWindowWindowsLayout : ContentView
         _notificationCenterViewModel = notificationCenterViewModel;
         NotificationsFlyout.BindingContext = _notificationCenterViewModel;
         NotificationsFlyout.CloseRequested += OnNotificationsFlyoutCloseRequested;
+
+        // B3 FilterModal: the unit renders + collects; persistence goes through the feed
+        // view-model's single settings-mutation path (mirrors Settings.OnQueryParamsChanged).
+        FiltersModal.ApplyRequested += OnFiltersApplyRequested;
+        FiltersModal.CloseRequested += (_, _) => FiltersModal.IsVisible = false;
+    }
+
+    /// <summary>Opens the typed-facet dialog, pre-filled through the active descriptor's own parser.</summary>
+    private void OnOpenFiltersTapped(object? sender, TappedEventArgs e)
+    {
+        if (BindingContext is not ProjectFeedViewModel feed
+            || feed.FilterDescriptor is not { } descriptor
+            || descriptor.FilterFacets.Count == 0)
+        {
+            // Presence-by-data: no vocabulary → no dialog (the affordance is hidden too, this is
+            // the belt-and-braces guard for a morph racing the tap).
+            return;
+        }
+
+        FiltersModal.Open(descriptor, feed.FilterStoredQuery);
+        FiltersModal.IsVisible = true;
+    }
+
+    private void OnFiltersApplyRequested(object? sender, IReadOnlyDictionary<string, IReadOnlyList<string>> selection)
+    {
+        if (BindingContext is ProjectFeedViewModel feed)
+        {
+            feed.ApplyFilterSelection(selection);
+        }
+
+        FiltersModal.IsVisible = false;
     }
 
     /// <summary>Shows the recent-notifications flyout overlay, used both by the sidebar entry and the tray icon's "Recent notifications" menu action.</summary>
@@ -62,6 +95,19 @@ public partial class MainWindowWindowsLayout : ContentView
     private void OnProjectsNavClicked(object? sender, EventArgs e)
     {
         // Already on the projects feed — no-op for now.
+    }
+
+    /// <summary>
+    /// The global morph projection (persist + status facade + brand swap) already ran inside the
+    /// rail; here the only host-specific work is re-pointing this page's feed at the freshly-active
+    /// source so the list shows that source's rows only.
+    /// </summary>
+    private async void OnSourceChanged(object? sender, SourceId source)
+    {
+        if (BindingContext is ProjectFeedViewModel feed)
+        {
+            await feed.SwitchSourceAsync(source);
+        }
     }
 
     private async void OnAdvancedSearchNavClicked(object? sender, EventArgs e)

@@ -1,4 +1,5 @@
 using Microsoft.Maui.Controls;
+using MostaqlK.Core.Sources;
 
 namespace MostaqlK.Core.Navigation;
 
@@ -37,6 +38,7 @@ public static class AppRoutes
 
     // Query Parameter Keys
     public const string ProjectIdQueryParam = "projectId";
+    public const string SourceIdQueryParam = "sourceId";
 
     // Typed Absolute Routes (Top-level Shell destinations)
     public static readonly AppRoute MainWindow = new("//" + MainWindowPageName);
@@ -46,8 +48,15 @@ public static class AppRoutes
     public static readonly AppRoute Main = new("//" + MainPageName);
 
     // Parameterized Route Builders
-    public static AppRoute ProjectDetails(long projectId) =>
-        new($"{ProjectDetailsPageName}?{ProjectIdQueryParam}={projectId}");
+    /// <summary>
+    /// Details route for one source's project. The site's numeric id is only unique per source,
+    /// so the composite is always carried; <c>sourceId</c> is omitted for the default source so
+    /// deep links produced by older builds keep resolving.
+    /// </summary>
+    public static AppRoute ProjectDetails(SourceId source, long projectId) =>
+        source == SourceId.Default
+            ? new($"{ProjectDetailsPageName}?{ProjectIdQueryParam}={projectId}")
+            : new($"{ProjectDetailsPageName}?{SourceIdQueryParam}={Uri.EscapeDataString(source.Value)}&{ProjectIdQueryParam}={projectId}");
 
     public static AppRoute ProjectDetails(string? projectId = null) =>
         string.IsNullOrWhiteSpace(projectId)

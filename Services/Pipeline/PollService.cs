@@ -1,5 +1,5 @@
 using MostaqlK.Core;
-using MostaqlK.Infrastructure.Http;
+using MostaqlK.Core.Sources;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Services.Diagnostics;
 using MostaqlK.Services.Pipeline.DiffEngine;
@@ -9,13 +9,13 @@ namespace MostaqlK.Services.Pipeline;
 /// <inheritdoc cref="IPollService"/>
 public sealed class PollService : IPollService
 {
-    private readonly IProjectScraper _scraper;
+    private readonly ISourceDiscovery _discovery;
     private readonly MostaqlK.Core.Domain.BatchResult<long> _lastBatch = new();
     private readonly DiffEngine.DiffEngine _diffEngine;
     private readonly DiscoveryQueue _discoveryQueue;
     private readonly InFlightTracker _inFlightTracker;
     private readonly IProjectRepository _projectRepository;
-    private readonly GlobalAppStatusService _globalStatus;
+    private readonly SourcePipelineStatus _status;
     private readonly TokenBucketRateLimiter _rateLimiter;
     private CancellationTokenSource? _loopCts;
     private Task? _loopTask;
@@ -40,25 +40,26 @@ public sealed class PollService : IPollService
 
     /// <summary>
     /// Optional query parameters (e.g. category=development&amp;sort=latest) appended to
-    /// the mostaql.com/projects URL. Settable at runtime.
+    /// the polled source's listing URL. Settable at runtime. The string is source-shaped —
+    /// this service never interprets it.
     /// </summary>
     public string QueryParams { get; set; } = string.Empty;
 
     public PollService(
-        IProjectScraper scraper,
+        ISourceDiscovery discovery,
         DiffEngine.DiffEngine diffEngine,
         DiscoveryQueue discoveryQueue,
         InFlightTracker inFlightTracker,
         IProjectRepository projectRepository,
-        GlobalAppStatusService globalStatus,
+        SourcePipelineStatus status,
         TokenBucketRateLimiter rateLimiter)
     {
-        _scraper = scraper;
+        _discovery = discovery;
         _diffEngine = diffEngine;
         _discoveryQueue = discoveryQueue;
         _inFlightTracker = inFlightTracker;
         _projectRepository = projectRepository;
-        _globalStatus = globalStatus;
+        _status = status;
         _rateLimiter = rateLimiter;
     }
 
@@ -151,15 +152,15 @@ public sealed class PollService : IPollService
         {
             SetStatus(PollServiceStatus.Polling);
             // Radar discovery tier: the scanning segment runs for as long as this flag is set.
-            _globalStatus.IsScanning = true;
-            _globalStatus.LastScanAttemptedAt = DateTimeOffset.UtcNow;
-            _globalStatus.ScanAttemptCount++;
-            _globalStatus.ScanIntervalSeconds = PollIntervalSeconds;
-            _globalStatus.DiscoveryProgress = 0.1; // Start pulse
+            _status.IsScanning = true;
+            _status.LastScanAttemptedAt = DateTimeOffset.UtcNow;
+            _status.ScanAttemptCount++;
+            _status.ScanIntervalSeconds = PollIntervalSeconds;
+            _status.DiscoveryProgress = 0.1; // Start pulse
             await _rateLimiter.WaitForTokenAsync(cancellationToken);
 
-            _globalStatus.DiscoveryProgress = 0.3;
-            var listingResult = await _scraper.FetchListingAsync(QueryParams, cancellationToken);
+            _status.DiscoveryProgress = 0.3;
+            var listingResult = await _discovery.DiscoverAsync(QueryParams, cancellationToken);
 
             // The temporary debug delay that used to sit here has been removed: it only ever
             // delayed the *listing* fetch, never the enrichment workers' detail fetches, which is
@@ -168,30 +169,30 @@ public sealed class PollService : IPollService
             // place every outbound request passes through.
             if (listingResult.IsError)
             {
-                _globalStatus.DiscoveryProgress = 0;
-                _globalStatus.IsScanning = false;
+                _status.DiscoveryProgress = 0;
+                _status.IsScanning = false;
                 Fail(listingResult.Error, "PollService.FetchListing");
                 return Result<int>.Err(listingResult.Error);
             }
 
-            _globalStatus.DiscoveryProgress = 0.6;
-            _globalStatus.IsSnapshotActive = true; // Trigger Radar Sweep
+            _status.DiscoveryProgress = 0.6;
+            _status.IsSnapshotActive = true; // Trigger Radar Sweep
             var diffResult = await _diffEngine.DiffAsync(listingResult.Value, cancellationToken);
-            _globalStatus.IsSnapshotActive = false;
+            _status.IsSnapshotActive = false;
 
             if (diffResult.IsError)
             {
-                _globalStatus.DiscoveryProgress = 0;
-                _globalStatus.IsScanning = false;
+                _status.DiscoveryProgress = 0;
+                _status.IsScanning = false;
                 Fail(diffResult.Error, "PollService.Diff");
                 return Result<int>.Err(diffResult.Error);
             }
 
-            _globalStatus.DiscoveryProgress = 0.9;
-            
+            _status.DiscoveryProgress = 0.9;
+
             var summariesById = listingResult.Value
                 .Where(summary => summary.ProjectId > 0)
-                .GroupBy(summary => summary.ProjectId)
+                .GroupBy(summary => new SourceProjectId(summary.Source, summary.ProjectId))
                 .ToDictionary(group => group.Key, group => group.First());
 
             var enqueued = 0;
@@ -218,33 +219,33 @@ public sealed class PollService : IPollService
 
                 await _discoveryQueue.EnqueueAsync(projectId, cancellationToken);
                 // Radar: detection pulse -> token -> queue slot; the ring grows on arrival.
-                _globalStatus.NotifyProjectDiscovered(
+                _status.NotifyProjectDiscovered(
                     projectId,
                     summary.Title ?? string.Empty);
-                _globalStatus.UpdateQueueCount(_discoveryQueue.Count);
+                _status.UpdateQueueCount(_discoveryQueue.Count);
                 enqueued++;
             }
 
             SetStatus(enqueued > 0 ? PollServiceStatus.BacklogDraining : PollServiceStatus.Idle);
-            _globalStatus.DiscoveryProgress = 1.0;
+            _status.DiscoveryProgress = 1.0;
             // "Saw 41 projects, 0 of them new" is a completely different story from "the request
             // failed", and the UI could not tell them apart before.
-            _globalStatus.NotifyScanSucceeded(summariesById.Count, enqueued);
+            _status.NotifyScanSucceeded(summariesById.Count, enqueued);
             _ = Task.Delay(1000).ContinueWith(_ =>
             {
-                _globalStatus.DiscoveryProgress = 0;
-                _globalStatus.IsScanning = false;
+                _status.DiscoveryProgress = 0;
+                _status.IsScanning = false;
             });
             return Result<int>.Ok(enqueued);
         }
         catch (OperationCanceledException)
         {
-            _globalStatus.IsScanning = false;
+            _status.IsScanning = false;
             throw;
         }
         catch (Exception ex)
         {
-            _globalStatus.IsScanning = false;
+            _status.IsScanning = false;
             SetStatus(PollServiceStatus.Error);
             var error = PollErrors.ListingFetchFailed(ex);
             Fail(error, "PollService.Unexpected");
@@ -256,8 +257,8 @@ public sealed class PollService : IPollService
     private void Fail(DomainError error, string checkpoint)
     {
         SetStatus(PollServiceStatus.Error);
-        InteractionLogger.Failure(checkpoint, error, new { PollIntervalSeconds, _globalStatus.ScanAttemptCount });
-        _globalStatus.NotifyScanFailed(error);
+        InteractionLogger.Failure(checkpoint, error, new { PollIntervalSeconds, _status.ScanAttemptCount });
+        _status.NotifyScanFailed(error);
     }
 
     /// <summary>

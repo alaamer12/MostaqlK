@@ -1,0 +1,9 @@
+{
+  "url": "https://nafezly.com/projects?specialize=business,development,design,marketing,writing-translation,training,other&page=1&skills=photoshop,illustrator&pricing=100,10000",
+  "url_effective": "https://nafezly.com/projects?specialize=business,development,design,marketing,writing-translation,training,other&page=1&skills=photoshop,illustrator&pricing=100,10000",
+  "method": "curl HTTPS GET, browser UA + Accept/Accept-Language, --compressed, forced UTF-8 decoding",
+  "captured_utc": "2026-10-22T01:50:00+00:00",
+  "http_status": 200,
+  "byte_size": 324684,
+  "sha256": "23fce6ba265d59692fdd7e69bd7351509f11d7f226dd26b7b5e7ce0a3c51b664"
+}

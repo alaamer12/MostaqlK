@@ -28,6 +28,14 @@ public sealed partial class NotificationCenterViewModel : ObservableObject, IDis
         _notificationDispatcher = notificationDispatcher;
         _globalStatus = globalStatus;
         _notificationDispatcher.HistoryChanged += OnHistoryChanged;
+        _globalStatus.PropertyChanged += (_, e) =>
+        {
+            // The flyout is live UI: re-scope rows when the morph changes the projected source.
+            if (e.PropertyName is null or nameof(GlobalAppStatusService.ActiveSource))
+            {
+                MainThread.BeginInvokeOnMainThread(RefreshFromHistory);
+            }
+        };
         RefreshFromHistory();
     }
 
@@ -45,10 +53,17 @@ public sealed partial class NotificationCenterViewModel : ObservableObject, IDis
 
     private void RefreshFromHistory()
     {
+        // v3 §6: the inbox is scoped to the ACTIVE source (the same live projection the rail
+        // morph drives) — a mostaql inbox never mixes in nafezly discoveries. History itself
+        // keeps every source's rows, so switching back shows them again untouched.
+        var active = _globalStatus.ActiveSource;
         RecentNotifications.Clear();
         foreach (var project in _notificationDispatcher.RecentHistory)
         {
-            RecentNotifications.Add(new NotificationItemViewModel(project));
+            if (project.Source == active)
+            {
+                RecentNotifications.Add(new NotificationItemViewModel(project));
+            }
         }
     }
 
@@ -79,6 +94,6 @@ public sealed partial class NotificationCenterViewModel : ObservableObject, IDis
             return;
         }
 
-        await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(item.ProjectId));
+        await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(item.Source, item.ProjectId));
     }
 }

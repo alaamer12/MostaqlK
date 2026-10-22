@@ -25,6 +25,8 @@ public sealed partial class NotificationItemViewModel : ObservableObject
 
     public long ProjectId => Project.ProjectId;
 
+    public MostaqlK.Core.Sources.SourceId Source => Project.Source;
+
     public string Title => Project.Title;
 
     public bool IsUnread => Project.IsUnread;

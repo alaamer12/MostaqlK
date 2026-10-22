@@ -10,7 +10,7 @@
         <!-- Top App Bar with back button -->
         <Grid Grid.Row="0" Padding="16,12" ColumnDefinitions="Auto,*,Auto" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
             <ds:PressableButton Grid.Column="0" Text="← رجوع" AutomationId="About_Mobile_BackButton" Clicked="OnBackClicked"
-                                BackgroundColor="Transparent" TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" Padding="0"
+                                BackgroundColor="Transparent" TextColor="{DynamicResource BrandLink}" Padding="0"
                                 FontFamily="TajawalBold" FontSize="14" />
             <Label Grid.Column="1" Text="حول التطبيق" FontSize="18" FontFamily="TajawalBold"
                    TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" HorizontalOptions="Center" VerticalOptions="Center" />

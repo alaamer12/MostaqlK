@@ -19,10 +19,10 @@ public static class ActionMenu
     /// Displays an action selection menu for the current platform.
     /// </summary>
     public static async Task<string?> ShowAsync(
-        Page page, 
-        string title, 
-        string cancel, 
-        string? destruction, 
+        Page page,
+        string title,
+        string cancel,
+        string? destruction,
         params string[] buttons)
     {
         return await page.DisplayActionSheetAsync(title, cancel, destruction, buttons);

@@ -4,7 +4,7 @@ using MostaqlK.Services.Diagnostics;
 namespace MostaqlK.Infrastructure.Notifications;
 
 /// <summary>
-/// Shared "open URL in default browser" helper used by both toast variations' "عرض على مستقل"
+/// Shared "open URL in default browser" helper used by both toast variations' source-link button
 /// button handlers (<c>ToastActivator</c> for <c>WinRtVariation</c>,
 /// <c>WinAppSdkVariation.OnNotificationInvoked</c> for the modern SDK path).
 /// <para>

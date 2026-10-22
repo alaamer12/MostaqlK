@@ -1,62 +1,81 @@
+using System.IO;
+using System.Linq;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Maui.ApplicationModel;
+using MostaqlK.Features.Onboarding.Views;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Services;
-using MostaqlK.Services.Pipeline;
-using MostaqlK.Services.Pipeline.WorkerPool;
 using MostaqlK.Services.Onboarding;
-using MostaqlK.Features.Onboarding.Views;
-using System.Linq;
-using System.IO;
-using Microsoft.Maui.ApplicationModel;
+using MostaqlK.Services.Pipeline;
 
 namespace MostaqlK;
 
 public partial class App : Application
 {
-	// Window-chrome sizing constants (WinUI caption height/frame inset) used to live here as
-	// Windows-only literals - moved to Platforms/Windows/AppWindowMetrics.cs since Android/iOS
-	// windows are always fullscreen and have no equivalent concept (see
-	// cross-platform-ui-conventions.md, Mechanism 1). CreateWindow/CreateMainWindow below add
-	// AppWindowMetrics.ChromeHeight only under #if WINDOWS.
+    // Window-chrome sizing constants (WinUI caption height/frame inset) used to live here as
+    // Windows-only literals - moved to Platforms/Windows/AppWindowMetrics.cs since Android/iOS
+    // windows are always fullscreen and have no equivalent concept (see
+    // cross-platform-ui-conventions.md, Mechanism 1). CreateWindow/CreateMainWindow below add
+    // AppWindowMetrics.ChromeHeight only under #if WINDOWS.
 
-	public static bool IsSilentStart { get; set; }
+    public static bool IsSilentStart { get; set; }
 
-	private readonly CancellationTokenSource _pipelineCts = new();
-	private readonly IServiceProvider _services;
-	private readonly bool _explicitlySeededThisLaunch;
-	private int _pipelineStartedFlag;
-	private Window? _onboardingWindow;
-	private bool _mainWindowOpened;
+    private readonly CancellationTokenSource _pipelineCts = new();
+    private readonly IServiceProvider _services;
+    private readonly bool _explicitlySeededThisLaunch;
+    private int _pipelineStartedFlag;
+    private Window? _onboardingWindow;
+    private bool _mainWindowOpened;
 
-	public App(IServiceProvider services)
-	{
-		_services = services;
-		InitializeComponent();
-		services.GetRequiredService<OnboardingStateService>().Completed += OnboardingCompleted;
-		services.GetRequiredService<OnboardingStateService>().ApplySavedQuery();
+    public App(IServiceProvider services)
+    {
+        _services = services;
+        InitializeComponent();
+        services.GetRequiredService<OnboardingStateService>().Completed += OnboardingCompleted;
+        services.GetRequiredService<OnboardingStateService>().ApplySavedQuery();
 
-		// Windows-specific style overrides (BasedOn AppButtonBase, etc.) are merged only on the
-		// Windows target framework, per Mechanism 1 in cross-platform-ui-conventions.md. Built in
-		// code (not via a dynamically-loaded XAML file) because `ResourceDictionary.Source` runtime
-		// resolution is not supported under this project's SourceGen XAML inflator and was causing
-		// an unhandled native crash on startup before any window could appear.
+        // Windows-specific style overrides (BasedOn AppButtonBase, etc.) are merged only on the
+        // Windows target framework, per Mechanism 1 in cross-platform-ui-conventions.md. Built in
+        // code (not via a dynamically-loaded XAML file) because `ResourceDictionary.Source` runtime
+        // resolution is not supported under this project's SourceGen XAML inflator and was causing
+        // an unhandled native crash on startup before any window could appear.
 #if WINDOWS
 		MostaqlK.Platforms.Windows.AppWindowMetrics.ApplyButtonStyleOverrides(Resources);
 #endif
 
-		// TODO(RTL): the Arabic-first FlowDirection switch (dir="rtl" in the mockups) hooks in here,
-		// e.g. `MainPage.FlowDirection = FlowDirection.RightToLeft;` once the window/root view exists.
+        // TODO(RTL): the Arabic-first FlowDirection switch (dir="rtl" in the mockups) hooks in here,
+        // e.g. `MainPage.FlowDirection = FlowDirection.RightToLeft;` once the window/root view exists.
 
-		// Apply the persisted dark-mode preference eagerly at startup. SettingsViewModel is
-		// registered Transient and only constructed when the Settings page is opened, so without
-		// this, UserAppTheme stays Unspecified and the app follows the OS theme.
-		// A `--theme=light|dark` startup argument overrides the stored preference so each page can be
-		// captured deterministically in both themes during design-parity verification.
-		// If no preference has been explicitly set, it defaults to matching system (AppTheme.Unspecified).
-		bool? storedIsDarkMode = Microsoft.Maui.Storage.Preferences.ContainsKey("settings_is_dark_mode")
-			? Microsoft.Maui.Storage.Preferences.Get("settings_is_dark_mode", false)
-			: null;
-		UserAppTheme = StartupNavigation.ResolveTheme(Environment.GetCommandLineArgs(), storedIsDarkMode);
+        // Apply the persisted dark-mode preference eagerly at startup. SettingsViewModel is
+        // registered Transient and only constructed when the Settings page is opened, so without
+        // this, UserAppTheme stays Unspecified and the app follows the OS theme.
+        // A `--theme=light|dark` startup argument overrides the stored preference so each page can be
+        // captured deterministically in both themes during design-parity verification.
+        // If no preference has been explicitly set, it defaults to matching system (AppTheme.Unspecified).
+        var settings = services.GetRequiredService<MostaqlK.Core.Sources.ISettingsRepository>();
+        bool? storedIsDarkMode = settings.ContainsGlobal(MostaqlK.Core.Sources.SettingsKeys.IsDarkMode)
+            ? settings.GetGlobal(MostaqlK.Core.Sources.SettingsKeys.IsDarkMode, false)
+            : null;
+        UserAppTheme = StartupNavigation.ResolveTheme(Environment.GetCommandLineArgs(), storedIsDarkMode);
+
+        // v3 morph persistence: restore the source the UI projects (absent ⇒ default source, so a
+        // first run of this version behaves exactly like every previous one).
+        var storedActiveSource = settings.GetGlobal(MostaqlK.Core.Sources.SettingsKeys.ActiveSource, (string?)null);
+        if (MostaqlK.Core.Sources.SourceId.TryFrom(storedActiveSource, out var activeSource)
+            && activeSource != MostaqlK.Core.Sources.SourceId.Default)
+        {
+            // Same order as the rail's SwitchTo: status facade first, then the brand palette.
+            services.GetRequiredService<MostaqlK.Services.GlobalAppStatusService>()
+                .SetActiveProjection(activeSource);
+            services.GetRequiredService<MostaqlK.UI.DesignSystem.BrandTokens.IBrandTokenProvider>()
+                .SwapTo(activeSource);
+        }
+
+        // B1b brand palette: seed the app-level DynamicResource keys (Brand/BrandInk/BrandSoft/
+        // OnBrand/BrandLink) from the provider projection of the theme + source restored just
+        // above, and keep them mutated in place on every later TokensSwapped / theme flip. This
+        // runs before any window exists, so pages never paint against an empty palette.
+        MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.Initialize(this, services);
 
 #if WINDOWS
 		// FIX ("not a single notification, ever since day one"): AUMID + Start Menu shortcut +
@@ -70,124 +89,94 @@ public partial class App : Application
 		MostaqlK.Infrastructure.Notifications.WindowsToastSender.EnsureRegisteredEagerly();
 #endif
 
-		// `--seed-design-data` replaces the local store with the dataset the MVP mockups are drawn
-		// against and latches `design_parity_mode` on; `--seed-design-data=off` clears the latch and
-		// restores live polling. Seeding is awaited inline (a couple of local SQLite writes) so the
-		// feed's first `LoadAsync` cannot observe a half-seeded store.
-		var designDataMode = ApplyDesignDataArgument(services, Environment.GetCommandLineArgs());
+        // `--seed-design-data` replaces the local store with the dataset the MVP mockups are drawn
+        // against and latches `design_parity_mode` on; `--seed-design-data=off` clears the latch and
+        // restores live polling. Seeding is awaited inline (a couple of local SQLite writes) so the
+        // feed's first `LoadAsync` cannot observe a half-seeded store.
+        var designDataMode = ApplyDesignDataArgument(services, Environment.GetCommandLineArgs());
 
-		// FIX (design_parity_mode persistence trap): the pipeline must NEVER be permanently
-		// disabled just because a *previous* launch happened to pass --seed-design-data. Only the
-		// CURRENT launch's explicit request (this run's argv) is allowed to keep the pipeline
-		// offline; a stale persisted preference from a prior run is informational only (surfaced to
-		// the UI/log) and must not silently strand the shipped app on frozen seed data forever.
-		_explicitlySeededThisLaunch = DesignDataSeeder.ParseArguments(Environment.GetCommandLineArgs()) == true;
+        // FIX (design_parity_mode persistence trap): the pipeline must NEVER be permanently
+        // disabled just because a *previous* launch happened to pass --seed-design-data. Only the
+        // CURRENT launch's explicit request (this run's argv) is allowed to keep the pipeline
+        // offline; a stale persisted preference from a prior run is informational only (surfaced to
+        // the UI/log) and must not silently strand the shipped app on frozen seed data forever.
+        _explicitlySeededThisLaunch = DesignDataSeeder.ParseArguments(Environment.GetCommandLineArgs()) == true;
 
-		MostaqlK.Services.Diagnostics.InteractionLogger.Mark(
-			"App.Startup.DesignParityMode",
-			_explicitlySeededThisLaunch ? "A" : "B",
-			new { designDataMode, _explicitlySeededThisLaunch });
+        MostaqlK.Services.Diagnostics.InteractionLogger.Mark(
+            "App.Startup.DesignParityMode",
+            _explicitlySeededThisLaunch ? "A" : "B",
+            new { designDataMode, _explicitlySeededThisLaunch });
 
-		// DEFERRED STARTUP PIPELINE:
-		// Background polling and enrichment loops are no longer triggered immediately in the
-		// App constructor during window creation and XAML inflation. Starting immediate HTTP
-		// scraping and worker threads concurrently with WinUI window layout can saturate the
-		// thread pool and cause noticeable splash screen hanging.
-		// Instead, pipeline start is deferred until MainWindowPage.OnAppearing finishes its initial
-		// render (or onboarding completes), with a fail-safe background timer fallback.
-		var onboardingStateService = services.GetRequiredService<OnboardingStateService>();
-		onboardingStateService.Completed += (_, _) =>
-		{
-			_ = Task.Run(async () =>
-			{
-				await Task.Delay(300);
-				EnsurePipelineStarted();
-			});
-		};
+        // DEFERRED STARTUP PIPELINE:
+        // Background polling and enrichment loops are no longer triggered immediately in the
+        // App constructor during window creation and XAML inflation. Starting immediate HTTP
+        // scraping and worker threads concurrently with WinUI window layout can saturate the
+        // thread pool and cause noticeable splash screen hanging.
+        // Instead, pipeline start is deferred until MainWindowPage.OnAppearing finishes its initial
+        // render (or onboarding completes), with a fail-safe background timer fallback.
+        var onboardingStateService = services.GetRequiredService<OnboardingStateService>();
+        onboardingStateService.Completed += (_, _) =>
+        {
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(300);
+                EnsurePipelineStarted();
+            });
+        };
 
-		// Fail-safe fallback: ensure pipeline eventually starts after 4 seconds even if
-		// window OnAppearing was not invoked (e.g. headless/test execution mode).
-		_ = Task.Run(async () =>
-		{
-			await Task.Delay(4000);
-			EnsurePipelineStarted();
-		});
+        // Fail-safe fallback: ensure pipeline eventually starts after 4 seconds even if
+        // window OnAppearing was not invoked (e.g. headless/test execution mode).
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(4000);
+            EnsurePipelineStarted();
+        });
 
-		HandleDebugJsonArgument(services, Environment.GetCommandLineArgs());
-	}
+        HandleDebugJsonArgument(services, Environment.GetCommandLineArgs());
+    }
 
-	/// <summary>
-	/// Thread-safe, idempotent entry point to kick off background pipeline processing.
-	/// Can be called as soon as the main window has loaded its initial view.
-	/// </summary>
-	public void EnsurePipelineStarted()
-	{
-		if (Interlocked.Exchange(ref _pipelineStartedFlag, 1) == 1)
-		{
-			return;
-		}
+    /// <summary>
+    /// Thread-safe, idempotent entry point to kick off background pipeline processing.
+    /// Can be called as soon as the main window has loaded its initial view.
+    /// </summary>
+    public void EnsurePipelineStarted()
+    {
+        if (Interlocked.Exchange(ref _pipelineStartedFlag, 1) == 1)
+        {
+            return;
+        }
 
-		var onboardingStateService = _services.GetRequiredService<OnboardingStateService>();
-		if (!onboardingStateService.IsCompleted)
-		{
-			// Reset flag so it will start when onboarding completes
-			Interlocked.Exchange(ref _pipelineStartedFlag, 0);
-			return;
-		}
+        var onboardingStateService = _services.GetRequiredService<OnboardingStateService>();
+        if (!onboardingStateService.IsCompleted)
+        {
+            // Reset flag so it will start when onboarding completes
+            Interlocked.Exchange(ref _pipelineStartedFlag, 0);
+            return;
+        }
 
-		StartPipeline(_services, _explicitlySeededThisLaunch);
-	}
+        StartPipeline(_services, _explicitlySeededThisLaunch);
+    }
 
-	/// <summary>
-	/// Starts the Poll Service + Worker Pool background loops. Only THIS launch's explicit
-	/// --seed-design-data argument keeps the pipeline offline — a persisted preference from a
-	/// previous run can no longer do so (see fix note above `explicitlySeededThisLaunch`).
-	///
-	/// FIX (whole-window freeze while a fresh database was being filled): this used to be called
-	/// directly from the constructor, which runs on the UI thread and carries WinUI's
-	/// SynchronizationContext. Calling StartAsync directly meant every `await` inside
-	/// `PollService.RunLoopAsync` and inside each `EnrichmentWorker.RunAsync` resumed *on the UI
-	/// thread* - so the ~165 KB listing parse, every detail-page parse and every SQLite write for
-	/// the whole backlog executed on the dispatcher and the window stopped responding until the
-	/// queue drained. `Task.Run` starts both loops on the thread pool with no captured context;
-	/// UI-bound state still reaches the UI safely because `GlobalAppStatusService` marshals its own
-	/// PropertyChanged.
-	/// </summary>
-	private void StartPipeline(IServiceProvider services, bool explicitlySeededThisLaunch)
-	{
-		if (!explicitlySeededThisLaunch)
-		{
-			var pollService = services.GetRequiredService<IPollService>();
-			var workerPool = services.GetRequiredService<WorkerPool>();
-
-			// The poll interval is persisted but was only ever read by the Transient
-			// SettingsViewModel, so an untouched app ignored the user's saved value entirely.
-			pollService.PollIntervalSeconds = Math.Clamp(
-				Microsoft.Maui.Storage.Preferences.Get("settings_poll_interval_seconds", pollService.PollIntervalSeconds),
-				10,
-				3600);
-
-			// Persist the Start/Pause state: the app now "reserves the state it closed with".
-			// Defaults to false (paused) on the very first run to satisfy the "first run not activated" requirement.
-			var isPollingActive = Microsoft.Maui.Storage.Preferences.Get("settings_is_polling_active", false);
-			pollService.SetPaused(!isPollingActive);
-
-			// If debug-via-json is requested, force-enable polling to ensure we have data to export.
-			if (Environment.GetCommandLineArgs().Contains("--debug-via-json"))
-			{
-				pollService.SetPaused(false);
-			}
-
-			var pipelineToken = _pipelineCts.Token;
-			_ = Task.Run(() => pollService.StartAsync(pipelineToken), pipelineToken);
-			_ = Task.Run(() => workerPool.StartAsync(pipelineToken), pipelineToken);
-			MostaqlK.Services.Diagnostics.InteractionLogger.Mark("App.Startup.PipelineStarted", "A");
-		}
-		else
-		{
-			MostaqlK.Services.Diagnostics.InteractionLogger.Mark("App.Startup.PipelineSkipped", "B");
-		}
-	}
+    /// <summary>
+    /// Starts every source pipeline's Poll Service + Worker Pool background loops. Only THIS
+    /// launch's explicit --seed-design-data argument keeps the pipeline offline — a persisted
+    /// preference from a previous run can no longer do so (see fix note above
+    /// <c>explicitlySeededThisLaunch</c>). The persisted interval/pause state and the thread-pool
+    /// start-up rule (the whole-window-freeze FIX) now live in
+    /// <c>SourcePipelineOrchestrator.StartAll</c>.
+    /// </summary>
+    private void StartPipeline(IServiceProvider services, bool explicitlySeededThisLaunch)
+    {
+        if (!explicitlySeededThisLaunch)
+        {
+            services.GetRequiredService<SourcePipelineOrchestrator>().StartAll(_pipelineCts.Token);
+            MostaqlK.Services.Diagnostics.InteractionLogger.Mark("App.Startup.PipelineStarted", "A");
+        }
+        else
+        {
+            MostaqlK.Services.Diagnostics.InteractionLogger.Mark("App.Startup.PipelineSkipped", "B");
+        }
+    }
 
     private void HandleDebugJsonArgument(IServiceProvider services, string[] args)
     {
@@ -235,147 +224,147 @@ public partial class App : Application
 			});
 		});
 #endif
-	}
+    }
 
-	/// <summary>
-	/// Handles the <c>--seed-design-data[=off]</c> startup argument and returns whether the app is
-	/// currently running against seeded design-parity data (this launch's request if provided,
-	/// otherwise the persisted preference — for display/logging purposes only; see the
-	/// <c>explicitlySeededThisLaunch</c> check in the constructor for the actual pipeline gate).
-	/// <c>--seed-design-data=off</c> now also purges any leftover seed-shaped rows through
-	/// <see cref="DesignDataSeeder.PurgeSeededRowsAsync"/>, so turning the flag off on a store that
-	/// was previously mixed with seed data actually leaves it clean instead of merely flipping the
-	/// preference back off.
-	/// </summary>
-	private static bool ApplyDesignDataArgument(IServiceProvider services, string[] args)
-	{
-		var requested = DesignDataSeeder.ParseArguments(args);
-		if (requested is null)
-		{
-			return Microsoft.Maui.Storage.Preferences.Get(DesignDataSeeder.PreferenceKey, false);
-		}
+    /// <summary>
+    /// Handles the <c>--seed-design-data[=off]</c> startup argument and returns whether the app is
+    /// currently running against seeded design-parity data (this launch's request if provided,
+    /// otherwise the persisted preference — for display/logging purposes only; see the
+    /// <c>explicitlySeededThisLaunch</c> check in the constructor for the actual pipeline gate).
+    /// <c>--seed-design-data=off</c> now also purges any leftover seed-shaped rows through
+    /// <see cref="DesignDataSeeder.PurgeSeededRowsAsync"/>, so turning the flag off on a store that
+    /// was previously mixed with seed data actually leaves it clean instead of merely flipping the
+    /// preference back off.
+    /// </summary>
+    private static bool ApplyDesignDataArgument(IServiceProvider services, string[] args)
+    {
+        var requested = DesignDataSeeder.ParseArguments(args);
+        if (requested is null)
+        {
+            return Microsoft.Maui.Storage.Preferences.Get(DesignDataSeeder.PreferenceKey, false);
+        }
 
-		var seeder = services.GetRequiredService<DesignDataSeeder>();
-		if (requested.Value)
-		{
-			seeder.SeedAsync().GetAwaiter().GetResult();
-		}
-		else
-		{
-			var purgeResult = seeder.PurgeSeededRowsAsync().GetAwaiter().GetResult();
-			MostaqlK.Services.Diagnostics.InteractionLogger.Mark(
-				"App.Startup.DesignDataPurge",
-				purgeResult.IsOk ? "A" : "B",
-				purgeResult.IsOk ? new { purgedProjectRows = purgeResult.Value } : null);
-		}
+        var seeder = services.GetRequiredService<DesignDataSeeder>();
+        if (requested.Value)
+        {
+            seeder.SeedAsync().GetAwaiter().GetResult();
+        }
+        else
+        {
+            var purgeResult = seeder.PurgeSeededRowsAsync().GetAwaiter().GetResult();
+            MostaqlK.Services.Diagnostics.InteractionLogger.Mark(
+                "App.Startup.DesignDataPurge",
+                purgeResult.IsOk ? "A" : "B",
+                purgeResult.IsOk ? new { purgedProjectRows = purgeResult.Value } : null);
+        }
 
-		Microsoft.Maui.Storage.Preferences.Set(DesignDataSeeder.PreferenceKey, requested.Value);
-		return requested.Value;
-	}
+        Microsoft.Maui.Storage.Preferences.Set(DesignDataSeeder.PreferenceKey, requested.Value);
+        return requested.Value;
+    }
 
-	/// <summary>
-	/// Stops the pipeline's background loops (Poll Service + Worker Pool) as soon as the window
-	/// starts closing. Called from <see cref="MauiProgram"/>'s <c>OnClosed</c> lifecycle event.
-	/// FIX (graceful shutdown, exit code -1073741189 / 0xC000027B on the X button): without this,
-	/// those loops kept running on the thread pool after the native window/dispatcher was torn
-	/// down, and their next attempt to marshal a property change onto the (now gone) UI dispatcher
-	/// could fast-fail the whole process instead of exiting cleanly.
-	/// </summary>
-	internal void RequestPipelineShutdown()
-	{
-		if (!_pipelineCts.IsCancellationRequested)
-		{
-			MostaqlK.Services.Diagnostics.InteractionLogger.Mark("App.Shutdown.PipelineCancelled", "A");
-			_pipelineCts.Cancel();
-		}
-	}
+    /// <summary>
+    /// Stops the pipeline's background loops (Poll Service + Worker Pool) as soon as the window
+    /// starts closing. Called from <see cref="MauiProgram"/>'s <c>OnClosed</c> lifecycle event.
+    /// FIX (graceful shutdown, exit code -1073741189 / 0xC000027B on the X button): without this,
+    /// those loops kept running on the thread pool after the native window/dispatcher was torn
+    /// down, and their next attempt to marshal a property change onto the (now gone) UI dispatcher
+    /// could fast-fail the whole process instead of exiting cleanly.
+    /// </summary>
+    internal void RequestPipelineShutdown()
+    {
+        if (!_pipelineCts.IsCancellationRequested)
+        {
+            MostaqlK.Services.Diagnostics.InteractionLogger.Mark("App.Shutdown.PipelineCancelled", "A");
+            _pipelineCts.Cancel();
+        }
+    }
 
-	protected override Window CreateWindow(IActivationState? activationState)
-	{
-		var onboarding = _services.GetRequiredService<OnboardingStateService>();
-		if (!onboarding.IsCompleted)
-		{
-			_onboardingWindow = new Window(_services.GetRequiredService<OnboardingPage>());
-			var display = DeviceDisplay.MainDisplayInfo;
-			var workWidth = display.Width / display.Density;
-			var workHeight = display.Height / display.Density;
-			var scale = Math.Clamp(Math.Min((workWidth - 48) / 920d, (workHeight - 96) / 720d), 0.65d, 1.25d);
-			var onboardingWidth = Math.Round(920 * scale);
-			var onboardingHeight = Math.Round(720 * scale);
+    protected override Window CreateWindow(IActivationState? activationState)
+    {
+        var onboarding = _services.GetRequiredService<OnboardingStateService>();
+        if (!onboarding.IsCompleted)
+        {
+            _onboardingWindow = new Window(_services.GetRequiredService<OnboardingPage>());
+            var display = DeviceDisplay.MainDisplayInfo;
+            var workWidth = display.Width / display.Density;
+            var workHeight = display.Height / display.Density;
+            var scale = Math.Clamp(Math.Min((workWidth - 48) / 920d, (workHeight - 96) / 720d), 0.65d, 1.25d);
+            var onboardingWidth = Math.Round(920 * scale);
+            var onboardingHeight = Math.Round(720 * scale);
 #if WINDOWS
 			onboardingHeight += MostaqlK.Platforms.Windows.AppWindowMetrics.ChromeHeight;
 #endif
-			_onboardingWindow.Width = onboardingWidth;
-			_onboardingWindow.Height = onboardingHeight;
-			_onboardingWindow.X = Math.Max(0, (workWidth - onboardingWidth) / 2);
-			_onboardingWindow.Y = Math.Max(0, (workHeight - onboardingHeight) / 2);
-			return _onboardingWindow;
-		}
+            _onboardingWindow.Width = onboardingWidth;
+            _onboardingWindow.Height = onboardingHeight;
+            _onboardingWindow.X = Math.Max(0, (workWidth - onboardingWidth) / 2);
+            _onboardingWindow.Y = Math.Max(0, (workHeight - onboardingHeight) / 2);
+            return _onboardingWindow;
+        }
 
-		return CreateMainWindow();
-	}
+        return CreateMainWindow();
+    }
 
-	private Window CreateMainWindow()
-	{
-		var window = new Window(new AppShell(StartupNavigation.FromArguments(Environment.GetCommandLineArgs())));
+    private Window CreateMainWindow()
+    {
+        var window = new Window(new AppShell(StartupNavigation.FromArguments(Environment.GetCommandLineArgs())));
 
-		// The mockups are authored against a fixed 1280x800 desktop viewport, so the window opens
-		// sized so its *client* area is exactly that: `Window.Height` on Windows covers the whole
-		// frame, so the 32px caption band is added on top. This keeps design-parity captures
-		// deterministic instead of depending on whatever size the OS last remembered.
-		var mainWidth = 1280;
-		double mainHeight = 800;
+        // The mockups are authored against a fixed 1280x800 desktop viewport, so the window opens
+        // sized so its *client* area is exactly that: `Window.Height` on Windows covers the whole
+        // frame, so the 32px caption band is added on top. This keeps design-parity captures
+        // deterministic instead of depending on whatever size the OS last remembered.
+        var mainWidth = 1280;
+        double mainHeight = 800;
 #if WINDOWS
 		mainHeight += MostaqlK.Platforms.Windows.AppWindowMetrics.ChromeHeight;
 #endif
-		window.Width = mainWidth;
-		window.Height = mainHeight;
+        window.Width = mainWidth;
+        window.Height = mainHeight;
 
-		var display = DeviceDisplay.MainDisplayInfo;
-		var workWidth = display.Width / display.Density;
-		var workHeight = display.Height / display.Density;
-		window.X = Math.Max(0, (workWidth - mainWidth) / 2);
-		window.Y = Math.Max(0, (workHeight - mainHeight) / 2);
+        var display = DeviceDisplay.MainDisplayInfo;
+        var workWidth = display.Width / display.Density;
+        var workHeight = display.Height / display.Density;
+        window.X = Math.Max(0, (workWidth - mainWidth) / 2);
+        window.Y = Math.Max(0, (workHeight - mainHeight) / 2);
 
-		return window;
-	}
+        return window;
+    }
 
-	internal bool IsOnboardingWindowPending => _onboardingWindow is not null && !_mainWindowOpened;
+    internal bool IsOnboardingWindowPending => _onboardingWindow is not null && !_mainWindowOpened;
 
-	private void OnboardingCompleted(object? sender, EventArgs e)
-	{
-		if (_mainWindowOpened)
-		{
-			return;
-		}
+    private void OnboardingCompleted(object? sender, EventArgs e)
+    {
+        if (_mainWindowOpened)
+        {
+            return;
+        }
 
-		_mainWindowOpened = true;
-		MainThread.BeginInvokeOnMainThread(() =>
-		{
-			// FIX (WinUI window swap crash 0xc000027b): instead of closing the onboarding window
-			// and opening a new one (which triggers process shutdown in MAUI WinUI), we
-			// REUSE the existing window and swap its root content.
-			if (_onboardingWindow is { } window)
-			{
-				var shell = new AppShell(StartupNavigation.FromArguments(Environment.GetCommandLineArgs()));
-				
-				// Pre-size the window to the main shell's expected dimensions before swapping content
-				var mainWidth = 1280;
-				double swapHeight = 800;
+        _mainWindowOpened = true;
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            // FIX (WinUI window swap crash 0xc000027b): instead of closing the onboarding window
+            // and opening a new one (which triggers process shutdown in MAUI WinUI), we
+            // REUSE the existing window and swap its root content.
+            if (_onboardingWindow is { } window)
+            {
+                var shell = new AppShell(StartupNavigation.FromArguments(Environment.GetCommandLineArgs()));
+
+                // Pre-size the window to the main shell's expected dimensions before swapping content
+                var mainWidth = 1280;
+                double swapHeight = 800;
 #if WINDOWS
 				swapHeight += MostaqlK.Platforms.Windows.AppWindowMetrics.ChromeHeight;
 #endif
-				window.Width = mainWidth;
-				window.Height = swapHeight;
+                window.Width = mainWidth;
+                window.Height = swapHeight;
 
-				var display = DeviceDisplay.MainDisplayInfo;
-				var workWidth = display.Width / display.Density;
-				var workHeight = display.Height / display.Density;
-				window.X = Math.Max(0, (workWidth - mainWidth) / 2);
-				window.Y = Math.Max(0, (workHeight - swapHeight) / 2);
+                var display = DeviceDisplay.MainDisplayInfo;
+                var workWidth = display.Width / display.Density;
+                var workHeight = display.Height / display.Density;
+                window.X = Math.Max(0, (workWidth - mainWidth) / 2);
+                window.Y = Math.Max(0, (workHeight - swapHeight) / 2);
 
-				// Swap the content
-				window.Page = shell;
+                // Swap the content
+                window.Page = shell;
 
 #if WINDOWS
 				if (window.Handler?.PlatformView is Microsoft.UI.Xaml.Window winUiWindow)
@@ -383,13 +372,13 @@ public partial class App : Application
 					MostaqlK.Platforms.Windows.PlatformServiceRegistration.CenterOnScreen(winUiWindow);
 				}
 #endif
-			}
-			else
-			{
-				// Fallback if window was somehow not tracked
-				var mainWindow = CreateMainWindow();
-				OpenWindow(mainWindow);
-			}
-		});
-	}
+            }
+            else
+            {
+                // Fallback if window was somehow not tracked
+                var mainWindow = CreateMainWindow();
+                OpenWindow(mainWindow);
+            }
+        });
+    }
 }

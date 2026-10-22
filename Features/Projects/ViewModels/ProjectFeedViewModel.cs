@@ -1,9 +1,10 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Maui.Storage;
+using Microsoft.Extensions.DependencyInjection;
 using MostaqlK.Core;
 using MostaqlK.Core.Navigation;
+using MostaqlK.Core.Sources;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Infrastructure.Database.SearchIndex;
 using MostaqlK.Models;
@@ -25,14 +26,14 @@ namespace MostaqlK.Features.Projects.ViewModels;
 public sealed partial class ProjectFeedViewModel : ObservableObject
 {
     private const int RecentLimit = 100;
-    private const string KeyPollIntervalSeconds = "settings_poll_interval_seconds";
-    private const string KeyMaxRequestsPerMinute = "settings_max_requests_per_minute";
 
     private readonly IProjectRepository _projectRepository;
     private readonly FtsQueryService _ftsQueryService;
     private readonly IPollService _pollService;
     private readonly TokenBucketRateLimiter _rateLimiter;
     private readonly GlobalAppStatusService _globalStatus;
+    private readonly ISettingsRepository _settings;
+    private SourceId _source = SourceId.Default;
 
     // Guards against overlapping LoadAsync calls racing each other: if the search box's
     // debounce fires more than once in quick succession (e.g. WinAppDriver/remote SendKeys
@@ -98,6 +99,28 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(RateLimitText))]
     public partial int RequestsPerMinute { get; set; } = 12;
 
+    /// <summary>
+    /// True when the ACTIVE source's descriptor exposes typed filter facets (B3) — the FilterModal
+    /// affordances are present-by-data and hide for a source with an empty vocabulary (mostaql's
+    /// preset-suffix flow keeps its Settings-only behavior; contract §8/§10 — never a source-id check).
+    /// </summary>
+    [ObservableProperty]
+    public partial bool HasFilterFacets { get; set; }
+
+    /// <summary>
+    /// The active-query line's value (projects.html footer "الاستعلام النشط"): the source's stored
+    /// <c>QueryParams</c> verbatim, or the "all projects" copy when nothing is set. The string is
+    /// whatever the module's builder wrote — the UI reads it, never parses or concatenates it.
+    /// </summary>
+    [ObservableProperty]
+    public partial string ActiveQueryText { get; set; } = "كل المشاريع";
+
+    /// <summary>The active source's descriptor as the FilterModal's vocabulary/parser seam (null only in design-time hosts).</summary>
+    public ISourceDescriptor? FilterDescriptor => SourceRegistryProvider.DescriptorFor(_source);
+
+    /// <summary>The active source's stored raw query string, handed to the modal for prefill parsing.</summary>
+    public string FilterStoredQuery => _settings.Get(_source, SettingsKeys.QueryParams, string.Empty);
+
 
     /// <summary>True once loading has finished with no error and at least one result — drives the success-state ScrollView.</summary>
     public bool ShowFeed => !IsLoading && !HasError && !IsEmpty;
@@ -140,13 +163,15 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         FtsQueryService ftsQueryService,
         IPollService pollService,
         TokenBucketRateLimiter rateLimiter,
-        GlobalAppStatusService globalStatus)
+        GlobalAppStatusService globalStatus,
+        ISettingsRepository settings)
     {
         _projectRepository = projectRepository;
         _ftsQueryService = ftsQueryService;
         _pollService = pollService;
         _rateLimiter = rateLimiter;
         _globalStatus = globalStatus;
+        _settings = settings;
 
         RefreshHeaderStatus();
 
@@ -158,6 +183,21 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         _globalStatus.ProjectDiscovered += OnProjectDiscovered;
         _globalStatus.WorkerStateChanged += OnWorkerStateChanged;
         _globalStatus.ProjectRemovedFromQueue += OnProjectRemovedFromQueue;
+        _globalStatus.PropertyChanged += OnGlobalStatusPropertyChanged;
+    }
+
+    /// <summary>
+    /// §6 morph-first: a switch initiated anywhere else (toast activation, restored startup
+    /// projection) re-points this list too — the blanket projection-changed event from
+    /// <see cref="GlobalAppStatusService.SetActiveProjection"/> is the signal.
+    /// </summary>
+    private void OnGlobalStatusPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        var active = _globalStatus.ActiveSource;
+        if ((e.PropertyName is null or "" or nameof(GlobalAppStatusService.ActiveSource)) && active != _source)
+        {
+            _ = SwitchSourceAsync(active);
+        }
     }
 
     private void OnProjectDiscovered(long projectId, string title) => ScheduleAutoReload();
@@ -198,9 +238,76 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
 
     public void RefreshHeaderStatus()
     {
-        PollIntervalSeconds = Preferences.Get(KeyPollIntervalSeconds, _pollService.PollIntervalSeconds);
-        RequestsPerMinute = Preferences.Get(KeyMaxRequestsPerMinute, Math.Max(1, _rateLimiter.Capacity));
+        PollIntervalSeconds = _settings.Get(_source, SettingsKeys.PollIntervalSeconds, _pollService.PollIntervalSeconds);
+        RequestsPerMinute = _settings.Get(_source, SettingsKeys.MaxRequestsPerMinute, Math.Max(1, _rateLimiter.Capacity));
         IsPollingActive = !_pollService.IsPaused;
+
+        // The filter vocabulary is descriptor data of the CURRENT source: re-read it on every
+        // header refresh (load + source morph) so the modal affordance and the active-query line
+        // always describe the source whose feed is on screen.
+        HasFilterFacets = SourceRegistryProvider.DescriptorFor(_source)?.FilterFacets.Count > 0;
+        var storedQuery = FilterStoredQuery;
+        ActiveQueryText = string.IsNullOrWhiteSpace(storedQuery) ? "كل المشاريع" : storedQuery;
+    }
+
+    /// <summary>
+    /// Persists a FilterModal Apply through the SAME single mutation path SettingsViewModel uses
+    /// today (<c>OnQueryParamsChanged</c>: write the namespaced setting, then hand the string to the
+    /// poll service) — the query itself is serialized module-side by the descriptor, and the next
+    /// poll cycle consumes it exactly like a Settings edit (no pipeline start/stop, no immediate
+    /// scan, per the B3 conservative-default decision).
+    /// </summary>
+    public void ApplyFilterSelection(IReadOnlyDictionary<string, IReadOnlyList<string>> selection)
+    {
+        if (SourceRegistryProvider.DescriptorFor(_source) is not { } descriptor)
+        {
+            return;
+        }
+
+        var built = descriptor.BuildQueryFromFacets(selection);
+        _settings.Set(_source, SettingsKeys.QueryParams, built);
+        // Property push goes to the LIVE projected pipeline, not the possibly startup-captured
+        // `_pollService` the Shell-cached VM holds (the gap surfaced in SwitchSourceAsync's
+        // remarks): transient resolution of ActivePipeline == what MauiProgram registers
+        // IPollService as, so this is the same mutation path, just re-pointed per call.
+        (IPlatformApplication.Current?.Services?.GetService<ActivePipeline>()?.Poll ?? _pollService).QueryParams = built;
+        RefreshHeaderStatus();
+    }
+
+    /// <summary>The source whose projects this feed currently lists.</summary>
+    public SourceId CurrentSourceId => _source;
+
+    /// <summary>
+    /// Re-points the feed at a freshly-active source (called by the shell when a source-morph tile
+    /// taps). Every repository/FTS call below is already source-scoped (composite identity), so the
+    /// re-point is: swap the scoping source, drop the stale rows, clear the active search term (a
+    /// mostaql query must never leak into the nafezly feed), and reload. No pipeline work is started
+    /// or stopped — both engines already run unattended; this is pure projection (contract §2/§4.1).
+    /// </summary>
+    /// <remarks>
+    /// Surfaced gap (not fixed here — parent/B-sibling owned): <c>_pollService</c>/<c>_rateLimiter</c>
+    /// are the container's singletons wired to the <b>default</b> pipeline
+    /// (<see cref="SourcePipelineOrchestrator.Active"/>), so the footer cadence fallback and the
+    /// poll-pause control still address mostaql's engine even when <c>_source</c> is nafezly. A
+    /// sibling surface <c>Services/Pipeline/ActivePipeline.cs</c> is being built to hand consumers the
+    /// currently-viewed pipeline's poll/limiter/queue through DI; closing this needs (a) that
+    /// <see cref="SourcePipelineOrchestrator"/>.<c>Active</c> to follow the projected source and
+    /// (b) the feed injected through <c>ActivePipeline</c> — both outside this task's write boundary
+    /// (pipeline internals / MauiProgram), so it is surfaced rather than hacked here (see report).
+    /// </remarks>
+    public async Task SwitchSourceAsync(SourceId source)
+    {
+        if (source == _source)
+        {
+            return;
+        }
+
+        _source = source;
+        SearchQuery = string.Empty;
+        Projects.Clear();
+        TrackedCount = 0;
+        UnreadCount = 0;
+        await LoadAsync();
     }
 
     [RelayCommand]
@@ -215,7 +322,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         RefreshHeaderStatus();
         try
         {
-            var today = await _projectRepository.CountAddedTodayAsync();
+            var today = await _projectRepository.CountAddedTodayAsync(_source);
             if (requestToken != _loadRequestToken)
             {
                 // A newer LoadAsync call has already started (and will apply its own results
@@ -228,8 +335,8 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
             }
 
             var result = string.IsNullOrWhiteSpace(searchQueryAtRequestTime)
-                ? await _projectRepository.GetRecentAsync(RecentLimit)
-                : await _ftsQueryService.SearchAsync(searchQueryAtRequestTime.Trim());
+                ? await _projectRepository.GetRecentAsync(_source, RecentLimit)
+                : await _ftsQueryService.SearchAsync(_source, searchQueryAtRequestTime.Trim());
 
             if (requestToken != _loadRequestToken)
             {
@@ -247,7 +354,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
             }
 
             var existingById = Projects.ToDictionary(p => p.Project.ProjectId);
-            
+
             // 1. Remove items no longer in the result set (or to be re-ordered)
             var newIds = result.Value.Select(p => p.ProjectId).ToHashSet();
             for (int i = Projects.Count - 1; i >= 0; i--)
@@ -296,7 +403,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
             {
                 // No filter active: status-bar totals count the whole store, not just the
                 // page of rows loaded above.
-                var tracked = await _projectRepository.CountTrackedAsync();
+                var tracked = await _projectRepository.CountTrackedAsync(_source);
                 if (requestToken != _loadRequestToken)
                 {
                     return;
@@ -371,10 +478,10 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
             var nextPaused = IsPollingActive;
             _pollService.SetPaused(nextPaused);
             IsPollingActive = !_pollService.IsPaused;
-            
+
             // Persist the state: "reserve the state it closed with"
-            Preferences.Set("settings_is_polling_active", IsPollingActive);
-            
+            _settings.SetGlobal(SettingsKeys.IsPollingActive, IsPollingActive);
+
             OnPropertyChanged(nameof(PollIntervalText));
             OnPropertyChanged(nameof(LiveStatusText));
             OnPropertyChanged(nameof(PollToggleLabel));
@@ -403,7 +510,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         // would resurrect every row still marked unread there, making the badge jump back up as
         // soon as a single new project arrives (the bug: 4 unread -> mark all read -> 0 -> one
         // new project arrives -> 7, because the DB still had the original 4 as unread).
-        var result = await _projectRepository.MarkAllAsReadAsync();
+        var result = await _projectRepository.MarkAllAsReadAsync(_source);
         if (!result.IsOk)
         {
             InteractionLogger.Fault("ProjectFeedViewModel.MarkAllReadAsync", new InvalidOperationException(result.Error.InternalMessage));
@@ -428,13 +535,13 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
 
             // Persist to the DB for the same reason as MarkAllReadAsync above - otherwise the
             // next reload's DB-backed unread count would still count this row as unread.
-            var result = await _projectRepository.MarkAsReadAsync(card.Project.ProjectId);
+            var result = await _projectRepository.MarkAsReadAsync(new SourceProjectId(card.Project.Source, card.Project.ProjectId));
             if (!result.IsOk)
             {
                 InteractionLogger.Fault("ProjectFeedViewModel.SelectProjectAsync", new InvalidOperationException(result.Error.InternalMessage));
             }
 
-            await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(card.Project.ProjectId));
+            await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(card.Project.Source, card.Project.ProjectId));
         }
         catch (Exception ex)
         {

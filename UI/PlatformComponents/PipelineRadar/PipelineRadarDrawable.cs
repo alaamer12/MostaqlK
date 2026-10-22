@@ -13,7 +13,10 @@ public sealed class PipelineRadarDrawable : IDrawable
     // Two palettes, because one is never legible on both surfaces: the dark-theme hues are the
     // light, luminous ones that read on #0F172A, while light theme needs the darker, saturated
     // variants of the same tokens to survive on a white panel.
-    private static readonly Color DiscoveryDark = Color.FromArgb("#5CA8DE");
+    // The DISCOVERY ring is brand identity, not pipeline state: it reads the live brand palette's
+    // dark counterpart so a source morph re-tints it. Its legacy light counterpart (#1D6FA5,
+    // a deeper hand-picked hue that predates the locked brand set) stays inline below — converging
+    // it onto the light brand value would change how the resting-state ring reads today.
     private static readonly Color QueueDark = Color.FromArgb("#F59E0B");
     private static readonly Color WorkerDark = Color.FromArgb("#22C55E");
     private static readonly Color CompletedDark = Color.FromArgb("#38BDF8");
@@ -53,7 +56,9 @@ public sealed class PipelineRadarDrawable : IDrawable
     /// </summary>
     public bool IsDarkTheme { get; set; } = true;
 
-    private Color DiscoveryColor => IsDarkTheme ? DiscoveryDark : DiscoveryLight;
+    private Color DiscoveryColor => IsDarkTheme
+        ? MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.AccentDark
+        : DiscoveryLight;
 
     private Color QueueColor => IsDarkTheme ? QueueDark : QueueLight;
 

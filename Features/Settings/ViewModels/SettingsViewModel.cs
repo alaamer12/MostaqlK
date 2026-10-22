@@ -1,37 +1,36 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Maui.ApplicationModel;
+using Microsoft.Maui.Storage;
+using MostaqlK.Core.Sources;
 using MostaqlK.Infrastructure.Database;
-using MostaqlK.Infrastructure.Http;
 using MostaqlK.Services;
 using MostaqlK.Services.Diagnostics;
 using MostaqlK.Services.Pipeline;
 using MostaqlK.Services.Pipeline.WorkerPool;
 using MostaqlK.UI.DesignSystem;
-using Microsoft.Maui.Storage;
-using Microsoft.Maui.ApplicationModel;
 
 namespace MostaqlK.Features.Settings.ViewModels;
 
 /// <summary>
 /// View-model for the settings panel (settings.html): poll interval/rate, notification
 /// grouping mode/threshold, dark mode, and the "مشاريع مضافة اليوم" stat card.
-/// Values are persisted via <see cref="Preferences"/> and, on every valid change, pushed
-/// live into the running <see cref="IPollService"/>/<see cref="TokenBucketRateLimiter"/>/
-/// <see cref="NotificationGrouper"/> instances so changes apply without an app restart.
+/// Values are persisted through <see cref="ISettingsRepository"/> (per-source for the pipeline
+/// knobs, global for dark mode/startup) and, on every valid change, pushed live into the running
+/// <see cref="IPollService"/>/<see cref="TokenBucketRateLimiter"/>/<see cref="NotificationGrouper"/>
+/// instances so changes apply without an app restart.
 /// </summary>
 public sealed partial class SettingsViewModel : ObservableObject
 {
-    private const string KeyPollIntervalSeconds = "settings_poll_interval_seconds";
-    private const string KeyMaxRequestsPerMinute = "settings_max_requests_per_minute";
-    private const string KeyMaxConcurrentDetailFetches = "settings_max_concurrent_detail_fetches";
-    private const string KeyQueryParams = "settings_query_params";
-    private const string KeyIncludeAssets = "settings_include_assets";
-    private const string KeyNotificationGroupingEnabled = "settings_notification_grouping_enabled";
-    private const string KeyGroupingMode = "settings_grouping_mode";
-    private const string KeyGroupingThreshold = "settings_grouping_threshold";
-    private const string KeyIsDarkMode = "settings_is_dark_mode";
-    private const string KeySafeRequests = "settings_safe_requests";
-    private const string KeyStartupEnabled = "settings_startup_enabled";
+    // The per-source values are stored in this source's namespaced settings container, read back
+    // through the repository's legacy flat-key fallback (see ISettingsRepository). Dark mode,
+    // startup, and polling-active stay deliberately global (app behavior, not per-source).
+    /// <summary>
+    /// The source whose namespaced preferences this transient VM edits — the live ACTIVE source
+    /// (v3 morph), not a startup snapshot: the page is reconstructed per opening, so it always
+    /// edits what the rail currently projects (contract §4).
+    /// </summary>
+    private SourceId _source => _globalStatus?.ActiveSource ?? SourceId.Default;
 
     // configuration-reference.md: `poll_interval_seconds` default 30, `max_requests_per_minute`
     // default 2. This screen used to advertise a 60s default while PollService itself defaulted to
@@ -51,9 +50,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly IEnrichmentService _enrichmentService;
     private readonly IProjectRepository _projectRepository;
     private readonly GlobalAppStatusService _globalStatus;
-    private readonly CookieStore _cookieStore;
+    private readonly ICookieStoreProvider _cookieStores;
     private readonly CloseBehaviorService _closeBehaviorService;
     private readonly IStartupService _startupService;
+    private readonly ISettingsRepository _settings;
+    private readonly SourceContributionRegistry _contributions;
+    private readonly IServiceProvider _services;
     private bool _isLoading;
 
     [ObservableProperty]
@@ -87,7 +89,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// tokens, refills at <c>rpm / 60</c> per second and spaces consecutive requests by one second.
     /// When off, the limiter allows the same <see cref="RequestsPerMinute"/> burst but refills
     /// <see cref="TokenBucketRateLimiter.FastModeRefillMultiplier"/> times faster with no spacing,
-    /// which drains a large backlog much faster but sends far more traffic to mostaql.com in a
+    /// which drains a large backlog much faster but sends far more traffic to the monitored site in a
     /// short window.
     /// </summary>
     [ObservableProperty]
@@ -99,6 +101,41 @@ public sealed partial class SettingsViewModel : ObservableObject
         ? $"مُفعّل: يتم توزيع الطلبات على مدار الدقيقة بحد {RequestsPerMinute} طلب/دقيقة مع فاصل ثانية واحدة بين كل طلبين، وهو السلوك الموصى به لتجنّب الحجب من الموقع."
         : $"مُعطّل: يُسمح بإرسال حتى {RequestsPerMinute} طلبات دفعة واحدة ثم تعبئتها من جديد بمعدل أسرع ({TokenBucketRateLimiter.FastModeRefillMultiplier:0}×)، فتُعالج القائمة أسرع بكثير لكن مع خطر أعلى للحجب.";
 
+    /// <summary>Helper copy under the query-params input; the source name comes from its descriptor.</summary>
+    public string QueryParamsHelperText =>
+        $"معاملات URL إضافية تُمرَّر لصفحة المشاريع في {SourceName} (مثل: category=software-dev)";
+
+    /// <summary>Session-cookie section header; Arabic + Latin source names both come from the descriptor.</summary>
+    public string CookieSectionTitle =>
+        $"كوكي جلسة {SourceName} ({SourceNameLatin} Session Cookie)";
+
+    /// <summary>
+    /// Cosmetic sentence-case of the descriptor's session cookie name for placeholder copy
+    /// (the storage/parsing fact stays the exact lowercase value).
+    /// </summary>
+    private string SessionCookieNameDisplay
+    {
+        get
+        {
+            var name = MostaqlK.Core.Sources.SourceRegistryProvider.DescriptorFor(_source)?.SessionCookieName;
+            if (string.IsNullOrEmpty(name))
+            {
+                return "Cookie";
+            }
+
+            return char.ToUpperInvariant(name[0]) + name[1..];
+        }
+    }
+
+    /// <summary>Input hint naming just the session cookie key ("Mostaql_session...").</summary>
+    public string SessionKeyPlaceholder => $"{SessionCookieNameDisplay}...";
+
+    /// <summary>Full paste instruction for the cookie field.</summary>
+    public string CookiePastePlaceholder => $"الصق قيمة {SessionCookieNameDisplay} هنا...";
+
+    private string SourceName => MostaqlK.Core.Sources.SourceRegistryProvider.DescriptorFor(_source)?.DisplayNameAr ?? "المصدر";
+    private string SourceNameLatin => MostaqlK.Core.Sources.SourceRegistryProvider.DescriptorFor(_source)?.DisplayNameLatin ?? SourceName;
+
     [ObservableProperty]
     public partial NotificationGroupingMode GroupingMode { get; set; }
 
@@ -109,6 +146,28 @@ public sealed partial class SettingsViewModel : ObservableObject
     public partial bool IsDarkMode { get; set; }
 
     public GlobalAppStatusService GlobalStatus => _globalStatus;
+
+    /// <summary>
+    /// Sections the ACTIVE source's module contributes beyond the shared descriptor rows (contract
+    /// §4/§10). Built from <see cref="SourceContributionRegistry.SettingsSectionsFor"/> — never an
+    /// <c>if (source == X)</c>. A source with no contribution (mostaql today) yields an empty list, so
+    /// <see cref="HasContributedSections"/> is false and the host renders nothing for it (absent =
+    /// never rendered, not empty). Each entry is the module's own bindable view-model.
+    /// </summary>
+    public IReadOnlyList<ISourceSettingsSectionViewModel> ContributedSections { get; private set; } = [];
+
+    /// <summary>Drives the host's section-group visibility.</summary>
+    public bool HasContributedSections => ContributedSections.Count > 0;
+
+    private void LoadContributedSections()
+    {
+        ContributedSections = _contributions.SettingsSectionsFor(_source)
+            .Select(contribution => contribution.CreateViewModel(_services))
+            .OfType<ISourceSettingsSectionViewModel>()
+            .ToList();
+        OnPropertyChanged(nameof(ContributedSections));
+        OnPropertyChanged(nameof(HasContributedSections));
+    }
 
     /// <summary>
     /// Validation feedback surfaced to the UI (reusing <c>LabelWithSubText</c>'s
@@ -128,11 +187,14 @@ public sealed partial class SettingsViewModel : ObservableObject
         IEnrichmentService enrichmentService,
         IProjectRepository projectRepository,
         GlobalAppStatusService globalStatus,
-        CookieStore cookieStore,
+        ICookieStoreProvider cookieStoreProvider,
         CloseBehaviorService closeBehaviorService,
-        IStartupService startupService)
+        IStartupService startupService,
+        ISettingsRepository settings,
+        SourceContributionRegistry contributions,
+        IServiceProvider services)
     {
-        _cookieStore = cookieStore;
+        _cookieStores = cookieStoreProvider;
         _pollService = pollService;
         _rateLimiter = rateLimiter;
         _workerPool = workerPool;
@@ -142,8 +204,12 @@ public sealed partial class SettingsViewModel : ObservableObject
         _globalStatus = globalStatus;
         _closeBehaviorService = closeBehaviorService;
         _startupService = startupService;
+        _settings = settings;
+        _contributions = contributions;
+        _services = services;
 
         LoadFromPreferences();
+        LoadContributedSections();
         RefreshCookieStatus();
 
         // Guarded the same way LoadFromPreferences guards its own initial reads: setting
@@ -160,6 +226,14 @@ public sealed partial class SettingsViewModel : ObservableObject
     // -----------------------------------------------------------------
     // Session cookie ("ملف الجلسة")
     // -----------------------------------------------------------------
+
+    /// <summary>
+    /// The session store for the LIVE active source (v3 morph). The cookie card's copy already
+    /// follows <see cref="_source"/>; the operations now do too, so switching the rail makes the
+    /// card manage the other source's session while each store stays bound to its own descriptor's
+    /// keys/jar (Mostaql keeps <c>cookie_mostaql</c> and its legacy migration untouched).
+    /// </summary>
+    private CookieStore ActiveCookieStore => _cookieStores.For(_source);
 
     /// <summary>True once a session cookie is stored, which switches the row to its "active" copy.</summary>
     [ObservableProperty]
@@ -201,17 +275,17 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnIsCookieBusyChanged(bool value) => OnPropertyChanged(nameof(IsCookieIdle));
 
     /// <summary>
-    /// Only true in development builds, where <see cref="CookieJar"/> still accepts a plaintext
+    /// Only true in development builds, where this source's cookie jar still accepts a plaintext
     /// <c>cookies.txt</c> next to the repo / an env var. A shipped build reads the cookie solely
     /// from the encrypted store, so this note must not appear there.
     /// </summary>
-    public bool ShowDevelopmentCookieNote => CookieJar.DevelopmentFallbacksEnabled;
+    public bool ShowDevelopmentCookieNote => ActiveCookieStore.DevelopmentFallbacksEnabled;
 
     private void RefreshCookieStatus()
     {
-        HasSessionCookie = _cookieStore.HasCookie;
-        SessionCookieStatusText = _cookieStore.HasCookie
-            ? $"جلسة محفوظة ({_cookieStore.CookieCount} كوكيز) - آخر تحديث {_cookieStore.UpdatedAtUtc?.ToLocalTime():yyyy/MM/dd HH:mm}"
+        HasSessionCookie = ActiveCookieStore.HasCookie;
+        SessionCookieStatusText = ActiveCookieStore.HasCookie
+            ? $"جلسة محفوظة ({ActiveCookieStore.CookieCount} كوكيز) - آخر تحديث {ActiveCookieStore.UpdatedAtUtc?.ToLocalTime():yyyy/MM/dd HH:mm}"
             : "لا توجد جلسة محفوظة. بدون ملف الجلسة لن يتمكن التطبيق من تنزيل مرفقات المشاريع.";
     }
 
@@ -247,7 +321,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             // Parsing + DPAPI encryption + the SQLite write take a few hundred milliseconds; keep
             // the spinner on screen for at least that long so the state change reads as a
             // deliberate step rather than a flicker.
-            var save = _cookieStore.SaveFromFileContentAsync(content);
+            var save = ActiveCookieStore.SaveFromFileContentAsync(content);
             await Task.WhenAll(save, Task.Delay(SpinnerMinimumVisibleMilliseconds));
             var count = save.Result;
 
@@ -301,7 +375,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             }
         }
 
-        await _cookieStore.ClearAsync();
+        await ActiveCookieStore.ClearAsync();
         IsCookieSuccess = false;
         IsCookieError = false;
         CookieFeedbackText = string.Empty;
@@ -326,13 +400,15 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             IsCookieBusy = true;
             var content = SessionCookieInput.Trim();
-            // If just a raw value or header was entered, format appropriately for saving
-            if (!content.Contains("mostaql_session") && !content.Contains("Cookie:"))
+            // If just a raw value or header was entered, format appropriately for saving — the
+            // session cookie NAME is the source's own fact, taken from its descriptor.
+            var sessionName = MostaqlK.Core.Sources.SourceRegistryProvider.DescriptorFor(_source)?.SessionCookieName;
+            if (sessionName is not null && !content.Contains(sessionName) && !content.Contains("Cookie:"))
             {
-                content = $"mostaql_session={content}";
+                content = $"{sessionName}={content}";
             }
 
-            var save = _cookieStore.SaveFromFileContentAsync(content);
+            var save = ActiveCookieStore.SaveFromFileContentAsync(content);
             await Task.WhenAll(save, Task.Delay(SpinnerMinimumVisibleMilliseconds));
             var count = save.Result;
 
@@ -446,15 +522,15 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         _isLoading = true;
 
-        PollIntervalSeconds = Preferences.Get(KeyPollIntervalSeconds, DefaultPollIntervalSeconds);
-        RequestsPerMinute = Preferences.Get(KeyMaxRequestsPerMinute, DefaultMaxRequestsPerMinute);
-        MaxConcurrentDetailFetches = Preferences.Get(KeyMaxConcurrentDetailFetches, 2);
-        QueryParams = Preferences.Get(KeyQueryParams, string.Empty);
-        IncludeAssets = Preferences.Get(KeyIncludeAssets, false);
-        NotificationGroupingEnabled = Preferences.Get(KeyNotificationGroupingEnabled, false);
-        SafeRequests = Preferences.Get(KeySafeRequests, true);
-        StartupEnabled = Preferences.Get(KeyStartupEnabled, false);
-        GroupingThreshold = Preferences.Get(KeyGroupingThreshold, 5);
+        PollIntervalSeconds = _settings.Get(_source, SettingsKeys.PollIntervalSeconds, DefaultPollIntervalSeconds);
+        RequestsPerMinute = _settings.Get(_source, SettingsKeys.MaxRequestsPerMinute, DefaultMaxRequestsPerMinute);
+        MaxConcurrentDetailFetches = _settings.Get(_source, SettingsKeys.MaxConcurrentDetailFetches, 2);
+        QueryParams = _settings.Get(_source, SettingsKeys.QueryParams, string.Empty);
+        IncludeAssets = _settings.Get(_source, SettingsKeys.IncludeAssets, false);
+        NotificationGroupingEnabled = _settings.Get(_source, SettingsKeys.NotificationGroupingEnabled, false);
+        SafeRequests = _settings.Get(_source, SettingsKeys.SafeRequests, true);
+        StartupEnabled = _settings.GetGlobal(SettingsKeys.StartupEnabled, false);
+        GroupingThreshold = _settings.Get(_source, SettingsKeys.GroupingThreshold, 5);
         // Seed from the theme the app already resolved at startup (App.xaml.cs, which honours a
         // `--theme=light|dark` argument over the stored preference) and only fall back to the
         // preference / effective theme when no explicit theme was applied. Reading the preference unconditionally
@@ -463,12 +539,12 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             AppTheme.Dark => true,
             AppTheme.Light => false,
-            _ => Preferences.ContainsKey(KeyIsDarkMode)
-                ? Preferences.Get(KeyIsDarkMode, false)
+            _ => _settings.ContainsGlobal(SettingsKeys.IsDarkMode)
+                ? _settings.GetGlobal(SettingsKeys.IsDarkMode, false)
                 : Application.Current?.RequestedTheme == AppTheme.Dark,
         };
 
-        var storedMode = Preferences.Get(KeyGroupingMode, nameof(NotificationGroupingMode.EndOfMinute));
+        var storedMode = _settings.Get(_source, SettingsKeys.GroupingMode, nameof(NotificationGroupingMode.EndOfMinute));
         GroupingMode = Enum.TryParse<NotificationGroupingMode>(storedMode, out var parsedMode)
             ? parsedMode
             : NotificationGroupingMode.EndOfMinute;
@@ -485,7 +561,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private async Task LoadProjectsAddedTodayAsync()
     {
-        var result = await _projectRepository.CountAddedTodayAsync();
+        var result = await _projectRepository.CountAddedTodayAsync(_source);
         if (!result.IsError)
         {
             _globalStatus.SetProjectsAddedToday(result.Value);
@@ -508,7 +584,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        Preferences.Set(KeyPollIntervalSeconds, value);
+        _settings.Set(_source, SettingsKeys.PollIntervalSeconds, value);
         ApplyPollSettings();
     }
 
@@ -524,7 +600,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        Preferences.Set(KeyMaxRequestsPerMinute, value);
+        _settings.Set(_source, SettingsKeys.MaxRequestsPerMinute, value);
         ApplyPollSettings();
     }
 
@@ -536,28 +612,28 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        Preferences.Set(KeyMaxConcurrentDetailFetches, value);
+        _settings.Set(_source, SettingsKeys.MaxConcurrentDetailFetches, value);
         ApplyWorkerSettings();
     }
 
     partial void OnQueryParamsChanged(string value)
     {
         if (_isLoading) return;
-        Preferences.Set(KeyQueryParams, value ?? string.Empty);
+        _settings.Set(_source, SettingsKeys.QueryParams, value ?? string.Empty);
         ApplyPollSettings();
     }
 
     partial void OnIncludeAssetsChanged(bool value)
     {
         if (_isLoading) return;
-        Preferences.Set(KeyIncludeAssets, value);
+        _settings.Set(_source, SettingsKeys.IncludeAssets, value);
         ApplyAssetSettings();
     }
 
     partial void OnNotificationGroupingEnabledChanged(bool value)
     {
         if (_isLoading) return;
-        Preferences.Set(KeyNotificationGroupingEnabled, value);
+        _settings.Set(_source, SettingsKeys.NotificationGroupingEnabled, value);
         ApplyGroupingSettings();
     }
 
@@ -568,7 +644,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        Preferences.Set(KeySafeRequests, value);
+        _settings.Set(_source, SettingsKeys.SafeRequests, value);
         ApplyPollSettings();
     }
 
@@ -579,7 +655,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        Preferences.Set(KeyStartupEnabled, value);
+        _settings.SetGlobal(SettingsKeys.StartupEnabled, value);
         _startupService.SetStartupEnabled(value);
     }
 
@@ -590,7 +666,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        Preferences.Set(KeyGroupingMode, value.ToString());
+        _settings.Set(_source, SettingsKeys.GroupingMode, value.ToString());
         ApplyGroupingSettings();
     }
 
@@ -610,7 +686,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
 
         ClearValidationError();
-        Preferences.Set(KeyGroupingThreshold, value);
+        _settings.Set(_source, SettingsKeys.GroupingThreshold, value);
         ApplyGroupingSettings();
     }
 
@@ -621,7 +697,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        Preferences.Set(KeyIsDarkMode, value);
+        _settings.SetGlobal(SettingsKeys.IsDarkMode, value);
         ApplyTheme();
     }
 

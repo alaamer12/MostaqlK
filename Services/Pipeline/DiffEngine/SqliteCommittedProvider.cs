@@ -1,3 +1,4 @@
+using MostaqlK.Core.Sources;
 using MostaqlK.Infrastructure.Database;
 
 namespace MostaqlK.Services.Pipeline.DiffEngine;
@@ -15,7 +16,7 @@ public sealed class SqliteCommittedProvider : IKnownStateProvider
         _projectRepository = projectRepository;
     }
 
-    public async Task<IReadOnlySet<long>> GetKnownProjectIdsAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlySet<SourceProjectId>> GetKnownProjectIdsAsync(CancellationToken cancellationToken = default)
     {
         var result = await _projectRepository.GetAllKnownProjectIdsAsync(cancellationToken);
         if (result.IsError)

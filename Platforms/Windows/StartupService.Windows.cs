@@ -1,6 +1,6 @@
+using System.Diagnostics;
 using Microsoft.Win32;
 using MostaqlK.Services;
-using System.Diagnostics;
 
 namespace MostaqlK.Platforms.Windows;
 

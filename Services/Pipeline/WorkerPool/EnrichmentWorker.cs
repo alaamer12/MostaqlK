@@ -1,5 +1,6 @@
 using MostaqlK.Core;
 using MostaqlK.Core.Formatting;
+using MostaqlK.Core.Sources;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Models;
 using MostaqlK.Services;
@@ -29,7 +30,7 @@ public sealed class EnrichmentWorker
     private readonly InFlightTracker _inFlightTracker;
     private readonly IProjectRepository _projectRepository;
     private readonly IOwnerRepository _ownerRepository;
-    private readonly GlobalAppStatusService _globalStatus;
+    private readonly SourcePipelineStatus _status;
     private readonly INotificationDispatcher _notificationDispatcher;
 
     public EnrichmentWorker(
@@ -39,7 +40,7 @@ public sealed class EnrichmentWorker
         InFlightTracker inFlightTracker,
         IProjectRepository projectRepository,
         IOwnerRepository ownerRepository,
-        GlobalAppStatusService globalStatus,
+        SourcePipelineStatus status,
         INotificationDispatcher notificationDispatcher)
     {
         _workerId = workerId;
@@ -48,7 +49,7 @@ public sealed class EnrichmentWorker
         _inFlightTracker = inFlightTracker;
         _projectRepository = projectRepository;
         _ownerRepository = ownerRepository;
-        _globalStatus = globalStatus;
+        _status = status;
         _notificationDispatcher = notificationDispatcher;
     }
 
@@ -62,13 +63,13 @@ public sealed class EnrichmentWorker
                 {
                     // Radar: the queued project token travels to this worker's segment, then the
                     // segment activates - the user can see *which* worker picked the project up.
-                    _globalStatus.NotifyProjectAssignedToWorker(_workerId, projectId);
-                    _globalStatus.UpdateWorkerState(_workerId, WorkerState.Processing);
-                    _globalStatus.UpdateQueueCount(_discoveryQueue.Count);
+                    _status.NotifyProjectAssignedToWorker(_workerId, projectId);
+                    _status.UpdateWorkerState(_workerId, WorkerState.Processing);
+                    _status.UpdateQueueCount(_discoveryQueue.Count);
                     await ProcessAsync(projectId, cancellationToken);
                     // Success: remove from persistent backlog.
                     await _projectRepository.RemoveFromBacklogAsync(projectId, cancellationToken);
-                    _globalStatus.UpdateWorkerState(_workerId, WorkerState.Completed);
+                    _status.UpdateWorkerState(_workerId, WorkerState.Completed);
                 }
                 catch (OperationCanceledException)
                 {
@@ -78,7 +79,7 @@ public sealed class EnrichmentWorker
                 catch (Exception ex)
                 {
                     // A single project's failure must not cost the app a worker.
-                    _globalStatus.UpdateWorkerState(_workerId, WorkerState.Error);
+                    _status.UpdateWorkerState(_workerId, WorkerState.Error);
                     InteractionLogger.Failure(
                         "EnrichmentWorker.Unexpected",
                         EnrichErrors.Unexpected(projectId, ex),
@@ -92,12 +93,12 @@ public sealed class EnrichmentWorker
                     {
                         try
                         {
-                            _globalStatus.UpdateWorkerState(_workerId, WorkerState.Idle);
+                            _status.UpdateWorkerState(_workerId, WorkerState.Idle);
                         }
                         catch { }
                     }, TaskScheduler.Default);
 
-                    _globalStatus.UpdateQueueCount(_discoveryQueue.Count);
+                    _status.UpdateQueueCount(_discoveryQueue.Count);
                     // Hard rule per In-Flight Tracker spec: always released, success or failure,
                     // so no ID can get stuck permanently in-flight.
                     _inFlightTracker.MarkComplete(projectId);
@@ -114,8 +115,8 @@ public sealed class EnrichmentWorker
         }
     }
 
-    [ErrorOutcome(ErrorOutcome.Ignored, Label = "Expected NotImplementedException integration gaps (Step 4/5 not yet landed) tolerated silently")]
-    private async Task ProcessAsync(long projectId, CancellationToken cancellationToken)
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Per-project persist/notify failures routed to CrashReporter so the worker loop survives")]
+    private async Task ProcessAsync(SourceProjectId projectId, CancellationToken cancellationToken)
     {
         DomainError? lastError = null;
         ProjectDetails? details = null;
@@ -156,7 +157,7 @@ public sealed class EnrichmentWorker
                     "EnrichmentWorker.MaxAttemptsExhausted",
                     exhausted,
                     new { WorkerId = _workerId, ProjectId = projectId });
-                _globalStatus.UpdateWorkerState(_workerId, WorkerState.Error);
+                _status.UpdateWorkerState(_workerId, WorkerState.Error);
             }
 
             return;
@@ -165,7 +166,7 @@ public sealed class EnrichmentWorker
         // The detail page is the authoritative title, and for a project rehydrated from the
         // persisted backlog it is the *first* title this process ever sees - so the worker card
         // stops showing `#id` as soon as enrichment succeeds.
-        _globalStatus.UpdateWorkerProjectTitle(_workerId, projectId, details.Title);
+        _status.UpdateWorkerProjectTitle(_workerId, projectId, details.Title);
 
         try
         {
@@ -184,12 +185,6 @@ public sealed class EnrichmentWorker
                 InteractionLogger.Mark("EnrichmentWorker.UpsertSuccess", "D", new { projectId });
             }
         }
-        catch (NotImplementedException)
-        {
-            // Expected integration gap: Step 4 (ProjectRepository/DB schema) is not
-            // implemented yet. Tolerated here so the pipeline can be exercised end-to-end
-            // ahead of that step landing.
-        }
         catch (Exception ex)
         {
             CrashReporter.Report("EnrichmentWorker.UpsertException", ex, new { projectId });
@@ -201,10 +196,6 @@ public sealed class EnrichmentWorker
                 new List<Models.ProjectSummary> { ToSummary(details) },
                 cancellationToken);
         }
-        catch (NotImplementedException)
-        {
-            // Expected integration gap: Step 5 (NotificationDispatcher) is not implemented yet.
-        }
         catch (Exception ex)
         {
             CrashReporter.Report("EnrichmentWorker.NotificationException", ex, new { projectId });
@@ -215,6 +206,7 @@ public sealed class EnrichmentWorker
     {
         return new()
         {
+            Source = details.Source,
             ProjectId = details.ProjectId,
             Title = details.Title,
             Url = details.Url,

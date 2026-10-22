@@ -3,8 +3,10 @@ using Microsoft.Maui.Graphics;
 namespace MostaqlK.UI.DesignSystem;
 
 /// <summary>
-/// Central source of truth for brand colors, spacing, and corner-radius tokens used across the
-/// MostaqlK design system. Values are derived from the MVP mockups
+/// Central source of truth for spacing and corner-radius tokens used across the MostaqlK design
+/// system, plus the brand accent colors — which since B1b are LIVE reads through
+/// <see cref="BrandTokens.BrandPalette"/> (the active source's brand pair) rather than literals.
+/// The remaining palette values are derived from the MVP mockups
 /// (.repertoire/design/mvp/*.html) and mirror the resources declared in
 /// Resources/Styles/Colors.xaml. Keep the two in sync when either changes.
 /// </summary>
@@ -13,9 +15,12 @@ public static class DesignTokens
     /// <summary>Brand and semantic colors (light/dark pairs).</summary>
     public static class Colors
     {
-        // Mostaql blue accent.
-        public static readonly Color AccentPrimary = Color.FromArgb("#2386C8");
-        public static readonly Color AccentPrimaryDark = Color.FromArgb("#5CA8DE");
+        // Brand accent, now the live per-source palette (UI/DesignSystem/BrandTokens/BrandPalette):
+        // AccentPrimary carries the active source's LIGHT brand, AccentPrimaryDark its DARK brand —
+        // same theme-pair semantics as the historical Mostaql-blue literals, seeded value-identical.
+        // XAML that needs the ACTIVE-theme brand paints from the `{DynamicResource Brand}` key instead.
+        public static Color AccentPrimary => BrandTokens.BrandPalette.AccentLight;
+        public static Color AccentPrimaryDark => BrandTokens.BrandPalette.AccentDark;
 
         // Positive/success accent.
         public static readonly Color AccentPositive = Color.FromArgb("#2E9E6B");

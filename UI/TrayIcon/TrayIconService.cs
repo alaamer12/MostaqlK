@@ -1,6 +1,7 @@
 using MostaqlK.Core.Navigation;
 using MostaqlK.Features.Projects.Views;
 using MostaqlK.Features.Settings.Views;
+using MostaqlK.Services;
 using MostaqlK.Services.Pipeline;
 
 namespace MostaqlK.UI.TrayIcon;
@@ -33,16 +34,22 @@ public enum TrayIconState
 public sealed record TrayMenuItem(string Label, Action Command);
 
 /// <summary>
-/// Windows system-tray icon: current state (mirrored live from <see cref="IPollService"/> +
-/// <see cref="DiscoveryQueue"/>) and right-click menu, wired to real commands. The native
-/// icon hosting itself (Shell_NotifyIcon) lives under <c>Platforms/Windows/TrayIconNativeHost.cs</c>
-/// (kept there since it's Windows-only interop); this class owns the state/business logic that
-/// is genuinely platform-neutral.
+/// Windows system-tray icon: current state (mirrored live from the <b>active</b> pipeline's poll
+/// status + discovery queue, resolved per use through <see cref="ActivePipeline"/>) and right-click
+/// menu, wired to real commands. The native icon hosting itself (Shell_NotifyIcon) lives under
+/// <c>Platforms/Windows/TrayIconNativeHost.cs</c> (kept there since it's Windows-only interop); this
+/// class owns the state/business logic that is genuinely platform-neutral.
 /// </summary>
 public class TrayIconService
 {
-    private readonly IPollService _pollService;
-    private readonly DiscoveryQueue _discoveryQueue;
+    // The tray is a long-lived singleton host, so it must NOT capture one source's poll service /
+    // discovery queue at construction the way a transient view-model may. It injects ActivePipeline
+    // and reads .Poll / .Queue on every command and status read, so pause/resume/check-now and the
+    // backlog signal always act on the CURRENTLY ACTIVE source after a rail morph
+    // (backend-ui-contract §2/§3).
+    private readonly ActivePipeline _pipeline;
+    private readonly GlobalAppStatusService? _globalStatus;
+    private readonly List<SourcePipelineStatus> _hookedStatuses = [];
 
     /// <summary>Current icon state, updated by the Poll Service / Worker Pool.</summary>
     public TrayIconState State { get; private set; } = TrayIconState.Idle;
@@ -63,10 +70,10 @@ public class TrayIconService
     /// </summary>
     public List<TrayMenuItem> MenuItems { get; } = new();
 
-    public TrayIconService(IPollService pollService, DiscoveryQueue discoveryQueue)
+    public TrayIconService(ActivePipeline pipeline, GlobalAppStatusService? globalStatus = null)
     {
-        _pollService = pollService;
-        _discoveryQueue = discoveryQueue;
+        _pipeline = pipeline;
+        _globalStatus = globalStatus;
 
         MenuItems.Add(new TrayMenuItem("Open", OnOpen));
         MenuItems.Add(new TrayMenuItem("Pause / Resume", OnPauseResume));
@@ -75,7 +82,63 @@ public class TrayIconService
         MenuItems.Add(new TrayMenuItem("Settings", OnSettings));
         MenuItems.Add(new TrayMenuItem("Quit", OnQuit));
 
-        _pollService.StatusChanged += OnPollServiceStatusChanged;
+        // Subscribe to the poll service of the source that is active at construction (the default
+        // source at startup — identical to the historical single-source tray). Live cross-source
+        // state is still tracked below via GlobalAppStatusService.All, so a later morph keeps the
+        // icon correct; the menu commands and status reads resolve .Poll/.Queue through ActivePipeline
+        // so they act on the ACTIVE source regardless.
+        _pipeline.Poll.StatusChanged += OnPollServiceStatusChanged;
+
+        if (_globalStatus is not null)
+        {
+            // Cross-source aggregation: every source's pipeline telemetry is watched, so one
+            // source failing or scanning shows in the tray no matter which one the UI projects.
+            // With a single registered source this mirrors the historical Active-only behavior.
+            foreach (var status in _globalStatus.All)
+            {
+                status.PropertyChanged += OnAnyPipelineStatusChanged;
+                _hookedStatuses.Add(status);
+            }
+        }
+    }
+
+    private void OnAnyPipelineStatusChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is null
+            or nameof(SourcePipelineStatus.IsScanning)
+            or nameof(SourcePipelineStatus.LastScanFailed)
+            or nameof(SourcePipelineStatus.QueueCount))
+        {
+            RecomputeAggregatedState();
+        }
+    }
+
+    private void RecomputeAggregatedState()
+    {
+        if (_globalStatus is null || _hookedStatuses.Count == 0)
+        {
+            return;
+        }
+
+        var state = TrayIconState.Idle;
+        if (_hookedStatuses.Any(s => s.LastScanFailed))
+        {
+            state = TrayIconState.Error;
+        }
+        else if (_hookedStatuses.Any(s => s.IsScanning))
+        {
+            state = TrayIconState.Polling;
+        }
+        else if (_hookedStatuses.Any(s => s.QueueCount > 0))
+        {
+            state = TrayIconState.BacklogDraining;
+        }
+        else if (_pipeline.Poll.Status == PollServiceStatus.BacklogDraining)
+        {
+            state = TrayIconState.BacklogDraining;
+        }
+
+        SetState(state);
     }
 
     private void OnPollServiceStatusChanged(PollServiceStatus status)
@@ -87,7 +150,7 @@ public class TrayIconService
             PollServiceStatus.Error => TrayIconState.Error,
             PollServiceStatus.Polling => TrayIconState.Polling,
             PollServiceStatus.BacklogDraining => TrayIconState.BacklogDraining,
-            _ => _discoveryQueue.Count > 0 ? TrayIconState.BacklogDraining : TrayIconState.Idle,
+            _ => _pipeline.Queue.Count > 0 ? TrayIconState.BacklogDraining : TrayIconState.Idle,
         };
 
         SetState(state);
@@ -133,12 +196,13 @@ public class TrayIconService
 
     private void OnPauseResume()
     {
-        _pollService.SetPaused(!_pollService.IsPaused);
+        var poll = _pipeline.Poll;
+        poll.SetPaused(!poll.IsPaused);
     }
 
     private void OnCheckNow()
     {
-        _pollService.RequestCheckNow();
+        _pipeline.Poll.RequestCheckNow();
     }
 
     private void OnRecentNotifications()

@@ -16,7 +16,7 @@ namespace MostaqlK.Infrastructure.Notifications;
 /// from the Start Menu shortcut's <c>System.AppUserModel.ToastActivatorCLSID</c> property (see
 /// <see cref="ToastAumidRegistrar"/>). Without this, clicking the toast body silently does nothing
 /// — which was the root cause of "buttons ARE NOT WORKING" for the general click (the explicit
-/// "عرض على مستقل" button uses protocol activation and is launched by the OS directly, so it did
+/// the source-link toast button uses protocol activation and is launched by the OS directly, so it did
 /// not depend on this).
 /// </para>
 /// </summary>
@@ -91,6 +91,30 @@ public static class ToastActivator
                     return;
                 }
 
+                // Decide the target route FIRST, before touching the window, so a malformed project
+                // toast can be ignored outright rather than restoring the window to a half-navigation.
+                //
+                // §6 (B5 hardening): a project-body click must resolve to ITS OWN source. The B-era
+                // senders always stamp a `sourceId` argument on individual toasts, so a project click
+                // whose sourceId is missing or unparsable is a stale/corrupt payload — falling back to
+                // the default source here would silently open a DIFFERENT source's project that happens
+                // to share the same site-local numeric id. Ignore the activation and log it instead of
+                // navigating. This tightens ONLY the toast-argument path: external pre-v3 deep links keep
+                // the documented route-level default (an absent sourceId still means the default source
+                // in AppRoutes.ProjectDetails and ProjectDetailsPage.OnAppearing — both left unchanged).
+                var target = AppRoutes.Projects;
+                if (args.TryGetValue(AppRoutes.ProjectIdQueryParam, out var projectIdStr) && long.TryParse(projectIdStr, out var projectId))
+                {
+                    if (!args.TryGetValue(AppRoutes.SourceIdQueryParam, out var sourceStr)
+                        || !MostaqlK.Core.Sources.SourceId.TryFrom(sourceStr, out var source))
+                    {
+                        InteractionLogger.Mark("ToastActivator.NavigateFromActivation", "Ignored-MissingSourceId", new { Arguments = invokedArgs, ProjectId = projectId });
+                        return;
+                    }
+
+                    target = AppRoutes.ProjectDetails(source, projectId);
+                }
+
                 var appLifecycleService = services.GetService<Services.AppLifecycleService>();
                 if (appLifecycleService is { IsInBackground: true })
                 {
@@ -98,14 +122,19 @@ public static class ToastActivator
                     trayService?.OnOpen();
                 }
 
-                if (args.TryGetValue(AppRoutes.ProjectIdQueryParam, out var projectIdStr) && long.TryParse(projectIdStr, out var projectId))
+                // §6 morph-first (owner decision): permanently morph to the clicked project's
+                // source before navigating (no-op when already active). See SourceMorph.
+                if (args.TryGetValue(AppRoutes.SourceIdQueryParam, out var morphStr)
+                    && MostaqlK.Core.Sources.SourceId.TryFrom(morphStr, out var morphSource))
                 {
-                    await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(projectId));
+                    MostaqlK.Services.SourceMorph.Apply(
+                        services.GetService<MostaqlK.Core.Sources.ISettingsRepository>(),
+                        services.GetService<Services.GlobalAppStatusService>(),
+                        services.GetService<MostaqlK.UI.DesignSystem.BrandTokens.IBrandTokenProvider>(),
+                        morphSource);
                 }
-                else
-                {
-                    await AppRoutes.NavigateAsync(AppRoutes.Projects);
-                }
+
+                await AppRoutes.NavigateAsync(target);
             }
             catch (Exception ex)
             {
@@ -146,7 +175,7 @@ public static class ToastActivator
     [ComImport, Guid("53E31837-6600-4A81-9395-75CFFE746F94"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     private interface INotificationActivationCallback
     {
-        void Activate(
+        public void Activate(
             [MarshalAs(UnmanagedType.LPWStr)] string appUserModelId,
             [MarshalAs(UnmanagedType.LPWStr)] string invokedArgs,
             [MarshalAs(UnmanagedType.LPArray)] NotificationUserInputData[] data,
@@ -178,8 +207,8 @@ public static class ToastActivator
     [ComImport, Guid("00000001-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     private interface IClassFactory
     {
-        [PreserveSig] int CreateInstance(IntPtr pUnkOuter, ref Guid riid, out IntPtr ppvObject);
-        [PreserveSig] int LockServer([MarshalAs(UnmanagedType.Bool)] bool fLock);
+        [PreserveSig] public int CreateInstance(IntPtr pUnkOuter, ref Guid riid, out IntPtr ppvObject);
+        [PreserveSig] public int LockServer([MarshalAs(UnmanagedType.Bool)] bool fLock);
     }
 
     private sealed class ClassFactory(Func<object> createInstance) : IClassFactory

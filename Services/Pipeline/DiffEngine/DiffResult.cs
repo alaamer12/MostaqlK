@@ -1,3 +1,5 @@
+using MostaqlK.Core.Sources;
+
 namespace MostaqlK.Services.Pipeline.DiffEngine;
 
 /// <summary>
@@ -5,7 +7,7 @@ namespace MostaqlK.Services.Pipeline.DiffEngine;
 /// </summary>
 public sealed class DiffResult
 {
-    public List<long> NewProjectIds { get; } = [];
+    public List<SourceProjectId> NewProjectIds { get; } = [];
 
-    public List<long> AlreadyKnownProjectIds { get; } = [];
+    public List<SourceProjectId> AlreadyKnownProjectIds { get; } = [];
 }

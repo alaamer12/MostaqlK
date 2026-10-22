@@ -1,0 +1,10 @@
+{
+  "url": "https://nafezly.com/project/56515-%D9%85%D8%B7%D9%84%D9%88%D8%A8-%D9%85%D8%B7%D9%88%D8%B1-%D9%88%D9%8A%D8%A8-%D9%84%D8%B9%D9%85%D9%84-%D8%A8%D9%88%D8%B1%D8%AA%D9%81%D9%88%D9%84%D9%8A%D9%88-%D8%A8%D8%A7%D9%84ai-%D8%AE%D9%84%D8%A7%D9%84-%D9%8A%D9%88%D9%85-%D9%88%D8%A7%D8%AD%D8%AF",
+  "url_effective": "https://nafezly.com/project/56515-%D9%85%D8%B7%D9%84%D9%88%D8%A8-%D9%85%D8%B7%D9%88%D8%B1-%D9%88%D9%8A%D8%A8-%D9%84%D8%B9%D9%85%D9%84-%D8%A8%D9%88%D8%B1%D8%AA%D9%81%D9%88%D9%84%D9%8A%D9%88-%D8%A8%D8%A7%D9%84ai-%D8%AE%D9%84%D8%A7%D9%84-%D9%8A%D9%88%D9%85-%D9%88%D8%A7%D8%AD%D8%AF",
+  "method": "curl HTTPS GET, browser UA + Accept/Accept-Language, --compressed, forced UTF-8 decoding",
+  "captured_utc": "2026-10-22T02:05:26+00:00",
+  "http_status": 200,
+  "byte_size": 366818,
+  "sha256": "75950ec01e5403a9d45519a241078a74edd3077f15881f62eaf5203eeaa20f81",
+  "note": "first attempt returned Cloudflare 1015 (rate limit); recovered from listing page (id 56515)"
+}

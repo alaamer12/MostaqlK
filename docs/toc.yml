@@ -1,0 +1,52 @@
+- name: Architecture
+  items:
+    - name: MostaqlK Evolution and Architecture Journey
+      href: mostaqlk-evolution-and-architecture-journey.md
+    - name: Single Ground Architecture Blueprint
+      href: single-ground-architecture-blueprint.md
+    - name: Table Reference
+      href: table-reference.md
+- name: ADRs
+  items:
+    - name: ADR-0001 Storage Engine
+      href: adr/ADR-0001-storage-engine.md
+- name: Postmortems
+  items:
+    - name: Long-Idle Background Crash (Full Investigation)
+      href: postmoterm/long-idle-background-crash-full-investigation.md
+    - name: Long-Idle Background Crash (Postmortem)
+      href: postmoterm/long-idle-background-crash-postmortem.md
+    - name: Onboarding Icon Crash Report
+      href: postmoterm/onboarding-icon-crash-report.md
+    - name: Windows Single-File Portable Postmortem
+      href: postmoterm/windows-single-file-portable-postmortem.md
+    - name: Windows Single-File Temp Eviction and Native Crash Handling
+      href: postmoterm/windows-single-file-temp-eviction-and-native-crash-handling.md
+- name: Agents & Audits
+  items:
+    - name: Master Plan Checklist
+      href: agents/master-plan-checklist.md
+    - name: Mobile Readiness
+      items:
+        - name: Abstraction Findings 3
+          href: agents/mobile-readiness/abstraction-findings-3.md
+        - name: Abstraction Findings 4
+          href: agents/mobile-readiness/abstraction-findings-4.md
+        - name: Cross-Platform Findings 1
+          href: agents/mobile-readiness/cross-platform-findings-1.md
+        - name: Cross-Platform Findings 2
+          href: agents/mobile-readiness/cross-platform-findings-2.md
+        - name: IF-Windows Audit
+          href: agents/mobile-readiness/if-windows-audit.md
+        - name: Parity Findings
+          href: agents/mobile-readiness/parity-findings.md
+        - name: Refactor Backlog
+          href: agents/mobile-readiness/refactor-backlog.md
+        - name: Windows Workaround Findings
+          href: agents/mobile-readiness/windows-workaround-findings.md
+- name: Skills & Reference
+  items:
+    - name: Error Handling Audit
+      href: skill/error-handling-audit.md
+    - name: MAUI Phone Development Parity
+      href: skill/maui_phone_development_parity.md

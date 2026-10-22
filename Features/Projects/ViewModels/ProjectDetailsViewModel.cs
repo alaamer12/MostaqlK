@@ -2,11 +2,13 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MostaqlK.Core.Formatting;
+using MostaqlK.Core.Sources;
 using MostaqlK.Infrastructure.Database;
 using MostaqlK.Infrastructure.Http;
 using MostaqlK.Models;
 using MostaqlK.Services;
 using MostaqlK.Services.Diagnostics;
+using MostaqlK.Services.Pipeline;
 using MostaqlK.UI.DesignSystem.Badges;
 using MostaqlK.UI.PlatformComponents;
 
@@ -16,6 +18,7 @@ namespace MostaqlK.Features.Projects.ViewModels;
 public sealed partial class AttachmentItemViewModel : ObservableObject
 {
     private readonly AssetDownloadService _assetDownloadService;
+    private readonly SourceId _source;
 
     public Asset Asset { get; }
 
@@ -37,11 +40,12 @@ public sealed partial class AttachmentItemViewModel : ObservableObject
 
     private string? _localPath;
 
-    public AttachmentItemViewModel(Asset asset, AssetDownloadService assetDownloadService)
+    public AttachmentItemViewModel(Asset asset, AssetDownloadService assetDownloadService, SourceId source)
     {
         Asset = asset;
         _assetDownloadService = assetDownloadService;
-        
+        _source = source;
+
         // Initial state: if Asset already has a LocalPath, it's downloaded.
         if (!string.IsNullOrEmpty(asset.LocalPath) && File.Exists(asset.LocalPath))
         {
@@ -87,7 +91,7 @@ public sealed partial class AttachmentItemViewModel : ObservableObject
         StatusMessage = "جارٍ التحميل...";
         try
         {
-            var resolution = await _assetDownloadService.ResolveAsync(Asset);
+            var resolution = await _assetDownloadService.ResolveAsync(_source, Asset);
             Status = resolution.Status;
             StatusMessage = resolution.Message ?? resolution.LocalPath ?? resolution.Url;
 
@@ -100,7 +104,7 @@ public sealed partial class AttachmentItemViewModel : ObservableObject
             {
                 IsDownloaded = true;
                 _localPath = resolution.LocalPath;
-                
+
                 // On Windows, we can open the file directly.
                 await Microsoft.Maui.ApplicationModel.Launcher.Default.OpenAsync(new Microsoft.Maui.ApplicationModel.OpenFileRequest
                 {
@@ -136,6 +140,7 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     private readonly IProjectRepository _projectRepository;
     private readonly AssetDownloadService _assetDownloadService;
     private readonly GlobalAppStatusService _globalStatus;
+    private readonly ActivePipeline _activePipeline;
 
     public ObservableCollection<ProjectSkill> Skills { get; } = [];
 
@@ -158,6 +163,9 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(OwnerInProgressProjectsText))]
     [NotifyPropertyChangedFor(nameof(OwnerOngoingCommunicationsText))]
     [NotifyPropertyChangedFor(nameof(OwnerCompletedProjectsText))]
+    [NotifyPropertyChangedFor(nameof(ShowExecutorSection))]
+    [NotifyPropertyChangedFor(nameof(ExecutorName))]
+    [NotifyPropertyChangedFor(nameof(ShowRetryAffordance))]
     public partial ProjectDetails? Details { get; set; }
 
     [ObservableProperty]
@@ -173,7 +181,7 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     public bool ShowDetails => !IsLoading && !HasError && Details is not null;
 
     public GlobalAppStatusService GlobalStatus => _globalStatus;
-    
+
     public EnrichmentStatus EnrichmentStatus => Details?.EnrichmentStatus ?? EnrichmentStatus.Pending;
 
     public string EnrichmentBadgeText => EnrichmentBadgeStyle.GetText(EnrichmentStatus);
@@ -184,8 +192,8 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
 
     public AppIconGlyph EnrichmentBadgeIcon => EnrichmentBadgeStyle.GetIcon(EnrichmentStatus);
 
-    /// <summary>Formatted budget in canonical currency presentation (e.g., "2,500 - 5,500 ر.س").</summary>
-    public string Budget => Details?.Budget is not null ? BudgetFormatter.Format(Details.Budget) : "—";
+    /// <summary>Formatted budget with the project source's currency suffix (e.g., "2,500 - 5,500" + suffix).</summary>
+    public string Budget => Details?.Budget is not null ? BudgetFormatter.Format(Details.Budget, MostaqlK.Core.Sources.SourceRegistryProvider.DescriptorFor(Details.Source)?.CurrencySuffix ?? string.Empty) : "—";
 
     /// <summary>Formatted delivery duration in canonical Arabic plural form.</summary>
     public string Duration => Details?.DeliveryDays is int days ? ArabicRelativeTime.Days(days) : "—";
@@ -219,22 +227,86 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     /// <summary>Owner completed projects count or fallback.</summary>
     public string OwnerCompletedProjectsText => Details?.Owner?.CompletedProjectsCount is int count ? count.ToString() : "0";
 
-    public ProjectDetailsViewModel(IProjectRepository projectRepository, AssetDownloadService assetDownloadService, GlobalAppStatusService globalStatus)
+    // -----------------------------------------------------------------
+    // Schema-driven / capability-gated composition (B4, contract §1/§7/§9)
+    // -----------------------------------------------------------------
+
+    /// <summary>
+    /// The meta rows for every source section, grouped by the descriptor's <c>SchemaMap</c> section
+    /// and ordered within each group by its <c>Order</c>. Built by <see cref="DetailSchemaRenderer"/>
+    /// straight from <c>descriptor.SchemaMap</c> + the loaded <see cref="Details"/>; a field with no
+    /// value is omitted, and the executor group only appears when the source's
+    /// <see cref="SourceCapabilities.HasExecutorInfo"/> holds AND the project carries an executor name.
+    /// Empty ⇒ no section is rendered (never an empty header).
+    /// </summary>
+    public IReadOnlyList<DetailSectionGroup> MetaSections { get; private set; } = [];
+
+    /// <summary>
+    /// Real UI read of <see cref="SourceCapabilities.HasExecutorInfo"/> (contract §1): the executor
+    /// affordance is present iff the active source's capability says so AND the row carries a name.
+    /// The layout binds section visibility to this so an absent capability never renders empty.
+    /// </summary>
+    public bool ShowExecutorSection =>
+        SourceDescriptor?.Capabilities.HasExecutorInfo == true
+        && !string.IsNullOrWhiteSpace(Details?.ExecutorName);
+
+    /// <summary>The executor name for the gated block (only meaningful when <see cref="ShowExecutorSection"/>).</summary>
+    public string ExecutorName => Details?.ExecutorName ?? string.Empty;
+
+    /// <summary>
+    /// §9 retry affordance: shown only on a project whose enrichment failed (reachable-but-gated page).
+    /// Retrying re-enqueues it through the ACTIVE pipeline's queue (<see cref="ActivePipeline"/>), the
+    /// one seam the parent shipped for acting on whichever source is currently shown.
+    /// </summary>
+    public bool ShowRetryAffordance => Details?.EnrichmentStatus == EnrichmentStatus.Failed;
+
+    /// <summary>Skills chip block is rendered only when the project actually has skills (absent ⇒ no section).</summary>
+    public bool HasSkills => Skills.Count > 0;
+
+    /// <summary>Attachments block is rendered only when the project actually has attachments (absent ⇒ no section).</summary>
+    public bool HasAttachments => Attachments.Count > 0;
+
+    private ISourceDescriptor? SourceDescriptor =>
+        Details is null ? null : SourceRegistryProvider.DescriptorFor(Details.Source);
+
+    [RelayCommand]
+    public async Task RetryEnrichmentAsync()
+    {
+        if (Details is not { } details || details.EnrichmentStatus != EnrichmentStatus.Failed)
+        {
+            return;
+        }
+
+        // Re-enqueue the composite identity on the ACTIVE pipeline's queue; the worker picks it up
+        // on its next pass. Optimistically drop back to Pending so the badge/affordance reflect the
+        // re-queued state immediately (the store-and-forget row keeps its last known facts meanwhile).
+        await _activePipeline.Queue.EnqueueAsync(new SourceProjectId(details.Source, details.ProjectId));
+        details.EnrichmentStatus = EnrichmentStatus.Pending;
+        Details = null;
+        Details = details;
+    }
+
+    public ProjectDetailsViewModel(
+        IProjectRepository projectRepository,
+        AssetDownloadService assetDownloadService,
+        GlobalAppStatusService globalStatus,
+        ActivePipeline activePipeline)
     {
         _projectRepository = projectRepository;
         _assetDownloadService = assetDownloadService;
         _globalStatus = globalStatus;
+        _activePipeline = activePipeline;
     }
 
     [RelayCommand]
-    public async Task OpenOnMostaqlAsync()
+    public async Task OpenOnSourceAsync()
     {
         var url = Details?.Url;
         if (string.IsNullOrWhiteSpace(url))
         {
             if (Details?.ProjectId > 0)
             {
-                url = $"https://mostaql.com/project/{Details.ProjectId}";
+                url = MostaqlK.Core.Sources.SourceRegistryProvider.DescriptorFor(Details.Source)?.BuildProjectUrl(Details.ProjectId) ?? string.Empty;
             }
             else
             {
@@ -248,12 +320,12 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            MostaqlK.Services.Diagnostics.InteractionLogger.Fault("ProjectDetailsViewModel.OpenOnMostaqlAsync", ex);
+            MostaqlK.Services.Diagnostics.InteractionLogger.Fault("ProjectDetailsViewModel.OpenOnSourceAsync", ex);
         }
     }
 
     [RelayCommand]
-    public async Task LoadAsync(long projectId)
+    public async Task LoadAsync(SourceProjectId projectId)
     {
         IsLoading = true;
         HasError = false;
@@ -286,14 +358,45 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
             Attachments.Clear();
             foreach (var asset in Details.Attachments)
             {
-                Attachments.Add(new AttachmentItemViewModel(asset, _assetDownloadService));
+                Attachments.Add(new AttachmentItemViewModel(asset, _assetDownloadService, Details.Source));
             }
+
+            // Schema-driven meta rows: read the descriptor's SchemaMap/Capabilities, never the source id.
+            RebuildMetaSections();
         }
         finally
         {
             IsLoading = false;
             OnPropertyChanged(nameof(ShowDetails));
+            OnPropertyChanged(nameof(HasSkills));
+            OnPropertyChanged(nameof(HasAttachments));
         }
+    }
+
+    /// <summary>
+    /// Rebuilds <see cref="MetaSections"/> from the descriptor's <c>SchemaMap</c> + the loaded
+    /// <see cref="Details"/>, grouping the renderer's rows by section (in first-appearance order)
+    /// while preserving within-section <c>Order</c>. Called whenever the details/skill state changes.
+    /// </summary>
+    private void RebuildMetaSections()
+    {
+        var descriptor = SourceDescriptor;
+        var details = Details;
+        if (descriptor is null || details is null)
+        {
+            MetaSections = [];
+            return;
+        }
+
+        MetaSections = DetailSchemaRenderer.Render(descriptor, details)
+            .GroupBy(r => r.Section)
+            .Select(g => new DetailSectionGroup(
+                g.Key,
+                DetailSchemaRenderer.SectionTitleAr(g.Key),
+                g.OrderBy(r => r.Order).ToList()))
+            .ToList();
+
+        OnPropertyChanged(nameof(MetaSections));
     }
 
     public void SetError(string message)
