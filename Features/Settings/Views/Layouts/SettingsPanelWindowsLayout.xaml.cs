@@ -66,4 +66,16 @@ public partial class SettingsPanelWindowsLayout : ContentView
         // re-points via the ActivePipeline projection set by the rail).
         await AppRoutes.NavigateAsync(AppRoutes.Projects);
     }
+
+    /// <summary>
+    /// settings.html shows a value plus a "تغيير" link per numeric row; the link only focuses the
+    /// inline value editor (persistence stays the existing two-way binding path).
+    /// </summary>
+    private void OnEditValueClicked(object? sender, EventArgs e)
+    {
+        if (sender is Button { CommandParameter: Entry entry })
+        {
+            entry.Focus();
+        }
+    }
 }

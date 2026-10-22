@@ -84,6 +84,9 @@ public enum AppIconGlyph
     /// <summary>Projects feed "الفلاتر" button icon (projects.html). Solid <c>fa-sliders</c> (f1de).</summary>
     Sliders,
 
+    /// <summary>Settings page "المنصة" section header icon (settings.html). Solid <c>fa-plug</c> (f1e6).</summary>
+    Plug,
+
     /// <summary>Projects feed "عدد المقترحات" stat icon. Solid <c>fa-users</c> (f0c0).</summary>
     Users,
 

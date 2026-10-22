@@ -44,6 +44,18 @@ public partial class LastScanStatus : ContentView
         nameof(LabelAutomationId), typeof(string), typeof(LastScanStatus), null,
         propertyChanged: OnLabelAutomationIdChanged);
 
+    /// <summary>
+    /// False renders only the elapsed figure ("منذ 12 ثانية"), for hosts whose row already carries
+    /// its own "آخر فحص" label (settings.html's row anatomy). Defaults to the labelled line.
+    /// </summary>
+    public static readonly BindableProperty ShowLabelProperty = BindableProperty.Create(
+        nameof(ShowLabel), typeof(bool), typeof(LastScanStatus), true,
+        propertyChanged: OnStateChanged);
+
+    /// <summary>Font family of the readout; hosts that need the bold value face set "TajawalBold".</summary>
+    public static readonly BindableProperty LabelFontFamilyProperty = BindableProperty.Create(
+        nameof(LabelFontFamily), typeof(string), typeof(LastScanStatus), "Tajawal");
+
     public static readonly BindableProperty RefreshAutomationIdProperty = BindableProperty.Create(
         nameof(RefreshAutomationId), typeof(string), typeof(LastScanStatus), null,
         propertyChanged: OnRefreshAutomationIdChanged);
@@ -92,6 +104,18 @@ public partial class LastScanStatus : ContentView
     {
         get => (string?)GetValue(LabelAutomationIdProperty);
         set => SetValue(LabelAutomationIdProperty, value);
+    }
+
+    public bool ShowLabel
+    {
+        get => (bool)GetValue(ShowLabelProperty);
+        set => SetValue(ShowLabelProperty, value);
+    }
+
+    public string LabelFontFamily
+    {
+        get => (string)GetValue(LabelFontFamilyProperty);
+        set => SetValue(LabelFontFamilyProperty, value);
     }
 
     public string? RefreshAutomationId
@@ -168,7 +192,9 @@ public partial class LastScanStatus : ContentView
     {
         // While an actual scan is running, the wording follows it 1:1 instead of the stale
         // "since N seconds" figure, matching the design's "جاري الفحص..." copy.
-        var text = IsChecking ? "جاري الفحص..." : LastScanText.Labelled(LastScanAt);
+        var text = IsChecking
+            ? "جاري الفحص..."
+            : ShowLabel ? LastScanText.Labelled(LastScanAt) : LastScanText.Elapsed(LastScanAt);
 
         // Only assign on change: this runs every second, and a needless Text write costs a layout
         // pass on the whole footer/panel row.

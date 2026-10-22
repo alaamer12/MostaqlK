@@ -29,6 +29,7 @@ public partial class AppEntry
             }
 
             textBox.BorderThickness = new WinThickness(0);
+            textBox.Padding = new WinThickness(0);
             textBox.Background = new WinSolidColorBrush(Microsoft.UI.Colors.Transparent);
 
             // The template reads these theme resources on every visual state; the control

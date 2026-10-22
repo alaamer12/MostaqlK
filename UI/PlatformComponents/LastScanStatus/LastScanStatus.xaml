@@ -11,7 +11,7 @@
          which is exactly why this is one unit instead of two hand-written labels. -->
     <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
         <Label x:Name="TextLabel"
-               FontFamily="Tajawal"
+               FontFamily="{Binding LabelFontFamily, Source={x:Reference Root}}"
                LineBreakMode="TailTruncation"
                MaxLines="1"
                VerticalOptions="Center"

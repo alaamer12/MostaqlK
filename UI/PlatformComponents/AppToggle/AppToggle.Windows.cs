@@ -1,3 +1,6 @@
+using Microsoft.Maui.Handlers;
+using Microsoft.UI.Xaml.Controls;
+
 namespace MostaqlK.UI.PlatformComponents;
 
 /// <summary>
@@ -5,9 +8,24 @@ namespace MostaqlK.UI.PlatformComponents;
 /// </summary>
 public partial class AppToggle
 {
-    // TODO: customize the WinUI ToggleSwitch handler mapping here (e.g. track/thumb colors)
-    // if the default Switch handler needs adjustments beyond what styles can express.
+    /// <summary>
+    /// WinUI's <see cref="ToggleSwitch"/> template reserves a ~154px label column for its On/Off
+    /// content even when both are empty. The app's toggles are track-only, so that reserved column
+    /// pushed the visible switch ~115px inward from the row's end (settings.html puts the track on
+    /// the row edge). Clearing the content and the min width collapses the control to the track.
+    /// </summary>
+    static AppToggle()
+    {
+        SwitchHandler.Mapper.AppendToMapping("AppToggleCompact", (handler, view) =>
+        {
+            if (view is not AppToggle || handler.PlatformView is not ToggleSwitch toggle)
+            {
+                return;
+            }
 
-    // A future .Android.cs / .iOS.cs / .MacCatalyst.cs partial would live alongside this file
-    // once V3 mobile work actually starts (per the "avoid empty/premature folders" rule).
+            toggle.OnContent = null;
+            toggle.OffContent = null;
+            toggle.MinWidth = 0;
+        });
+    }
 }
