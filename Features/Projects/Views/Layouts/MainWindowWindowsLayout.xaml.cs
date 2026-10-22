@@ -3,6 +3,7 @@ using MostaqlK.Core.Sources;
 using MostaqlK.Features.Notifications.ViewModels;
 using MostaqlK.Features.Projects.ViewModels;
 using MostaqlK.UI.PlatformComponents.ContentSettle;
+using MostaqlK.UI.PlatformComponents.PipelineDashboard;
 using MostaqlK.UI.PlatformComponents.SourceRail;
 
 namespace MostaqlK.Features.Projects.Views.Layouts;
@@ -30,6 +31,46 @@ public partial class MainWindowWindowsLayout : ContentView
         // view-model's single settings-mutation path (mirrors Settings.OnQueryParamsChanged).
         FiltersModal.ApplyRequested += OnFiltersApplyRequested;
         FiltersModal.CloseRequested += (_, _) => FiltersModal.IsVisible = false;
+
+        // The shell columns are explicit tracks (see the XAML note): keep the panel/splitter
+        // tracks in step with the panel's live width so the feed star is always resolved with the
+        // rail and panel already accounted for. Without this the rail was laid out past the
+        // window's physical-left edge and the feed clipped mid-content.
+        SyncShellColumns();
+        PipelinePanel.PropertyChanged += OnPipelinePanelPropertyChanged;
+    }
+
+    private void OnPipelinePanelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(View.WidthRequest) or nameof(PipelineDashboardPanel.IsExpanded))
+        {
+            SyncShellColumns();
+        }
+    }
+
+    /// <summary>
+    /// Mirrors the panel's live width (including its 240ms expand/collapse slide) onto the root
+    /// grid's absolute panel/splitter tracks. The rail track is fixed from the shared
+    /// <see cref="RailWidths.ColumnWidth"/> token.
+    /// </summary>
+    private void SyncShellColumns()
+    {
+        var panelWidth = PipelinePanel.WidthRequest > 0
+            ? PipelinePanel.WidthRequest
+            : Math.Max(PipelineDashboardPanel.RailWidth, PipelinePanel.ExpandedWidth);
+        var splitterWidth = PipelinePanel.IsExpanded ? PanelSplitter.WidthRequest : 0;
+
+        SetColumnWidth(0, panelWidth);
+        SetColumnWidth(1, splitterWidth);
+    }
+
+    private void SetColumnWidth(int index, double width)
+    {
+        var track = new GridLength(Math.Max(0, width));
+        if (!Root.ColumnDefinitions[index].Width.Equals(track))
+        {
+            Root.ColumnDefinitions[index].Width = track;
+        }
     }
 
     /// <summary>Opens the typed-facet dialog, pre-filled through the active descriptor's own parser.</summary>

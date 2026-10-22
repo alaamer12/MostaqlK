@@ -13,6 +13,14 @@ public static class RailWidths
     /// <summary>Total rail width (<c>.rail { width: 64px }</c>).</summary>
     public const double Width = 64;
 
+    /// <summary>
+    /// <see cref="Width"/> as a grid track, for shell hosts that must pin the rail column to an
+    /// absolute width. An <c>Auto</c> rail column is resolved after the neighbouring star track
+    /// (its cell lives in a star row, so MAUI defers measuring it), which let the star consume the
+    /// rail's width and pushed the rail outside the window frame (RTL clips at the physical left).
+    /// </summary>
+    public static readonly GridLength ColumnWidth = new(Width);
+
     /// <summary>One rail icon button / source tile (<c>.rail-btn { width: 44px; height: 44px }</c>).</summary>
     public const double TileSize = 44;
 

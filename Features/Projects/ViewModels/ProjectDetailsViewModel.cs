@@ -172,6 +172,7 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(ExecutorName))]
     [NotifyPropertyChangedFor(nameof(ShowRetryAffordance))]
     [NotifyPropertyChangedFor(nameof(SourceNameAr))]
+    [NotifyPropertyChangedFor(nameof(OpenOnSourceLabel))]
     [NotifyPropertyChangedFor(nameof(ShowSourceChip))]
     [NotifyPropertyChangedFor(nameof(DiscoveredAtText))]
     [NotifyPropertyChangedFor(nameof(BudgetIsMoney))]
@@ -276,13 +277,34 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     /// <summary>The active source's Arabic display name, for the header caption chip (from the descriptor, never a literal).</summary>
     public string SourceNameAr => SourceDescriptor?.DisplayNameAr ?? string.Empty;
 
+    /// <summary>
+    /// Header CTA copy: the mockup's "عرض في {المنصة}" names the PROJECT's own source, not whatever
+    /// identity the shell happens to be morphed to (the details page can be opened for a peer
+    /// source's project). Pure display text over <see cref="SourceNameAr"/>.
+    /// </summary>
+    public string OpenOnSourceLabel => string.IsNullOrEmpty(SourceNameAr) ? "عرض في الموقع" : $"عرض في {SourceNameAr}";
+
     /// <summary>Header source chip is shown only when the descriptor carries a display name.</summary>
     public bool ShowSourceChip => !string.IsNullOrWhiteSpace(SourceNameAr);
 
-    /// <summary>Discovery timestamp rendered for the header "· اكتُشف {date}" caption. Empty ⇒ the caption is omitted.</summary>
+    /// <summary>
+    /// Discovery timestamp rendered for the header "· اكتُشف {date}" caption. Empty ⇒ the caption is
+    /// omitted. Mockup wording is Arabic-month style ("21 أكتوبر 2026 14:32"), so the month name comes
+    /// from the shared Arabic month vocabulary instead of an ISO "2026-10-21" string.
+    /// </summary>
     public string DiscoveredAtText => Details is null
         ? string.Empty
-        : Details.DiscoveredAt.ToString("yyyy/MM/dd HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+        : $"{Details.DiscoveredAt.DateTime:dd} {ArabicMonth(Details.DiscoveredAt.Month)} {Details.DiscoveredAt.DateTime:yyyy HH:mm}";
+
+    private static string ArabicMonth(int month) => month is >= 1 and <= 12
+        ? MonthNamesAr[month - 1]
+        : month.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    private static readonly string[] MonthNamesAr =
+    [
+        "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+        "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
+    ];
 
     /// <summary>
     /// True when the loaded project's budget is a Latin-currency figure (nafezly "$") that the decision

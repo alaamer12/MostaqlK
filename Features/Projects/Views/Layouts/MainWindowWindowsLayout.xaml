@@ -36,9 +36,19 @@
          clamps it against the shared RailWidths token). -->
     <Grid x:Name="Root"
           BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#0F172A}"
-          ColumnDefinitions="Auto,Auto,*,Auto"
           RowDefinitions="Auto,*,Auto"
           SizeChanged="OnRootSizeChanged">
+
+        <!-- Shell tracks are pinned, never Auto: MAUI resolves the feed star before Auto tracks whose
+             cells live in a star row are measured, so an Auto rail column landed outside the window
+             frame (RTL clips it at the physical left) and an Auto panel column was folded into the
+             feed's measured width. Code-behind keeps col 0/1 in step with the panel's live width. -->
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="252" /> <!-- pipeline panel (44/252/… per expanded state) -->
+            <ColumnDefinition Width="8" />   <!-- splitter (0 when the panel is collapsed) -->
+            <ColumnDefinition Width="*" />   <!-- feed -->
+            <ColumnDefinition Width="{x:Static rail:RailWidths.ColumnWidth}" /> <!-- shell rail -->
+        </Grid.ColumnDefinitions>
 
         <rail:SourceRail Grid.Column="3"
                          Grid.RowSpan="3"
@@ -57,15 +67,16 @@
         <Grid Grid.Row="0"
               Grid.Column="0"
               Grid.ColumnSpan="3"
-              Padding="24,20,24,16"
+              Padding="24,20,24,20"
               RowDefinitions="Auto"
               BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}">
 
             <!-- Centered page title + cadence caption (the "يتم الفحص كل" string stays rendered here
                  for the cross-page poll-interval consistency test). -->
-            <VerticalStackLayout Grid.Row="0" HorizontalOptions="Center" VerticalOptions="Center" Spacing="6">
+            <VerticalStackLayout Grid.Row="0" HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
                 <Label Text="المشاريع"
-                       FontSize="30"
+                       FontSize="36"
+                       LineHeight="1.11"
                        FontFamily="TajawalBold"
                        HorizontalTextAlignment="Center"
                        TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
@@ -136,7 +147,7 @@
                                    Grid.Row="1"
                                    Grid.Column="1"
                                    AutomationId="Pipeline_ResizeHandle"
-                                   Minimum="260"
+                                   Minimum="252"
                                    Maximum="560"
                                    DragSign="1"
                                    IsVisible="{Binding Source={x:Reference PipelinePanel}, Path=IsExpanded}"

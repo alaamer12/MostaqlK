@@ -58,7 +58,7 @@
 
             <!-- Provisional → ShimmerBox skeleton mirroring the band geometry (title, description,
                  owner+facts rows). ContentSettle handles the mount; no new animation here. -->
-            <VerticalStackLayout Spacing="14" Padding="28,22" IsVisible="{Binding IsProvisional}">
+            <VerticalStackLayout Spacing="14" Padding="32,24" IsVisible="{Binding IsProvisional}">
                 <Grid ColumnDefinitions="*,Auto">
                     <ds:ShimmerBox Grid.Column="0" HeightRequest="22" WidthRequest="260" HorizontalOptions="Start" />
                     <ds:ShimmerBox Grid.Column="1" HeightRequest="22" WidthRequest="84" HorizontalOptions="End" />
@@ -95,8 +95,10 @@
                 </Grid>
             </Border>
 
-            <!-- Normal content (Confirmed / Stale). Stale dims to 55% (stale-while-revalidate). -->
-            <VerticalStackLayout Spacing="0" Padding="28,22" IsVisible="{Binding ShowsNormalContent}">
+            <!-- Normal content (Confirmed / Stale). Stale dims to 55% (stale-while-revalidate).
+                 Rhythm mirrors projects.html `.section-row { padding: 1.5rem 2rem }` → 24px block /
+                 32px inline; the 4px edge column adds the mockup's inline-start border on top. -->
+            <VerticalStackLayout Spacing="0" Padding="32,24" IsVisible="{Binding ShowsNormalContent}">
                 <VerticalStackLayout.Triggers>
                     <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding IsStale}" Value="True">
                         <Setter Property="Opacity" Value="0.55" />
@@ -133,7 +135,7 @@
                     </Border>
                 </Grid>
 
-                <!-- band 2: description (text-sm ink-2, line-clamp-2). -->
+                <!-- band 2: description (text-sm leading-relaxed mb-4=16px, line-clamp-2). -->
                 <Label Text="{Binding Description}"
                        FontSize="14"
                        LineHeight="1.6"
@@ -141,14 +143,16 @@
                        TextColor="{AppThemeBinding Light=#475569, Dark=#CBD5E1}"
                        MaxLines="2"
                        LineBreakMode="TailTruncation"
-                       Margin="0,0,0,14" />
+                       Margin="0,0,0,16" />
 
-                <!-- band 3: skill chips (BrandSoft/BrandInk, right-aligned wrap). -->
+                <!-- band 3: skill chips (BrandSoft/BrandInk, right-aligned wrap). gap-2=8px wrap
+                     gap comes from each chip's 8px trailing/bottom margin; the flex box then carries
+                     the remaining 8px so the mb-4=16px lands exactly under the last chip row. -->
                 <FlexLayout BindableLayout.ItemsSource="{Binding SkillItems}"
                             Wrap="Wrap"
                             Direction="Row"
                             JustifyContent="Start"
-                            Margin="0,0,0,16"
+                            Margin="0,0,0,8"
                             IsVisible="{Binding HasSkills}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="vm:SkillTagItem">
@@ -225,8 +229,8 @@
                                    TextColor="{AppThemeBinding Light=#2E9E6B, Dark=#4FBF8C}" />
                         </VerticalStackLayout>
 
-                        <!-- مدة التسليم -->
-                        <VerticalStackLayout Spacing="4">
+                        <!-- مدة التسليم — Mostaql-trio only (Nafezly swaps it for the state row). -->
+                        <VerticalStackLayout Spacing="4" IsVisible="{Binding ShowsDeliveryFact}">
                             <Label Text="مدة التسليم" FontSize="11" FontFamily="Tajawal"
                                    TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
                             <Label Text="{Binding Delivery}"
@@ -236,9 +240,9 @@
                                    TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
                         </VerticalStackLayout>
 
-                        <!-- عدد المقترحات -->
+                        <!-- عدد المقترحات (mostaql) / العروض المقدمة (nafezly) — label is source-native. -->
                         <VerticalStackLayout Spacing="4">
-                            <Label Text="عدد المقترحات" FontSize="11" FontFamily="Tajawal"
+                            <Label Text="{Binding ProposalFactLabel}" FontSize="11" FontFamily="Tajawal"
                                    TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
                             <Label Text="{Binding ProposalCountText}"
                                    FontSize="13"

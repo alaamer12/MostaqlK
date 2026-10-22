@@ -35,6 +35,8 @@ public sealed partial class ProjectCardViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(PublishTimeText))]
     [NotifyPropertyChangedFor(nameof(StatusText))]
     [NotifyPropertyChangedFor(nameof(HasStatusText))]
+    [NotifyPropertyChangedFor(nameof(ShowsDeliveryFact))]
+    [NotifyPropertyChangedFor(nameof(ProposalFactLabel))]
     [NotifyPropertyChangedFor(nameof(ProposalCount))]
     [NotifyPropertyChangedFor(nameof(ProposalCountText))]
     [NotifyPropertyChangedFor(nameof(Budget))]
@@ -209,6 +211,21 @@ public sealed partial class ProjectCardViewModel : ObservableObject
     public string? StatusText => string.IsNullOrWhiteSpace(Project.ProjectStatus) ? null : Project.ProjectStatus.Trim();
 
     public bool HasStatusText => StatusText is not null;
+
+    /// <summary>
+    /// W-facts-band: the delivery ("مدة التسليم") mini is part of Mostaql's fact trio and absent
+    /// from Nafezly's, whose trio swaps it for the scraped project state. Discriminated purely on
+    /// <see cref="HasStatusText"/> (presence-by-data: only a listing that publishes a state row is
+    /// in the state-trio shape) — never a source-id check. Pure display routing.
+    /// </summary>
+    public bool ShowsDeliveryFact => !HasStatusText;
+
+    /// <summary>
+    /// Fact label for the proposal-count mini, source-native: Mostaql prints "عدد المقترحات",
+    /// Nafezly "العروض المقدمة" (projects.html). Driven by the same <see cref="HasStatusText"/>
+    /// state-trio discriminator; the count itself (<see cref="ProposalCountText"/>) is unchanged.
+    /// </summary>
+    public string ProposalFactLabel => HasStatusText ? "العروض المقدمة" : "عدد المقترحات";
 
     public int ProposalCount => Project.ProposalCount;
 

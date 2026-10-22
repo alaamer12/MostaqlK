@@ -29,8 +29,11 @@ public partial class PipelineDashboardPanel : ContentView
     private const double ToggleDuration = 240;
     private const double TextRefreshMilliseconds = 250;
 
-    /// <summary>Width of the collapsed status rail. Also the panel's minimum footprint.</summary>
-    public const double RailWidth = 40;
+    /// <summary>
+    /// Width of the collapsed status rail. Also the panel's minimum footprint.
+    /// W-locked to the mockup's `.pipeline-panel.collapsed { width: 44px }` (dev22 token region).
+    /// </summary>
+    public const double RailWidth = 44;
 
     private readonly IDispatcherTimer? _textTimer;
     private readonly BoxView[] _workerDots;
@@ -164,7 +167,7 @@ public partial class PipelineDashboardPanel : ContentView
     }
 
     public static readonly BindableProperty ExpandedWidthProperty = BindableProperty.Create(
-        nameof(ExpandedWidth), typeof(double), typeof(PipelineDashboardPanel), 320.0,
+        nameof(ExpandedWidth), typeof(double), typeof(PipelineDashboardPanel), 252.0,
         defaultBindingMode: BindingMode.TwoWay,
         propertyChanged: OnExpandedWidthChanged);
 
@@ -289,12 +292,13 @@ public partial class PipelineDashboardPanel : ContentView
             return;
         }
 
-        // The dial takes the panel width minus its padding, capped so it stays a dial and not a
-        // wall - and floored so it never shrinks back to the unreadable footer size.
+        // The dial takes the panel width minus its padding. W-locked to the mockup radar
+        // (`.pipeline-panel` 252px wide → 140px dial) so a compact solid readout sits in the
+        // header, never a wall-to-wall dial that out-measures the mockup's compact geometry.
         // Quantised to 8dp steps: while the user pans the splitter the width changes on every
         // pointer move, and re-sizing the canvas each time relayouts the whole column for a change
         // nobody can see. Snapping means the dial resizes a handful of times per drag instead.
-        var diameter = Math.Clamp(ExpandedWidth - 48, 140, 260);
+        var diameter = Math.Clamp(ExpandedWidth - 108, 140, 160);
         Radar.Diameter = Math.Round(diameter / 8.0) * 8.0;
     }
 
@@ -431,20 +435,11 @@ public partial class PipelineDashboardPanel : ContentView
             ? (IsDark ? MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.AccentDark : Color.FromArgb("#1D6FA5"))
             : IdleDotColor;
 
-        Assign(DiscoveryStatusLabel, scanning ? "الحالة: جارٍ الفحص" : "الحالة: خامل");
-
-        // The shared readout words and re-times itself; the panel only hands it the timestamp.
+        // W-content-polish: the mockup's discovery box is a compact "الاكتشاف + آخر فحص" pair. The
+        // MVP status/count/interval/result diagnostics are hidden-by-design (IsVisible=false in XAML);
+        // their Assign calls are retired so nothing re-shows them on the timer. Discovery state and
+        // error surfaces stay (they self-collapse when empty) so a failing poll still reads honestly.
         DiscoveryLastScan.LastScanAt = _status?.LastScanCompletedAt;
-        Assign(DiscoveryCountLabel, $"مشاريع مكتشفة: {_status?.ProjectsDiscoveredCount ?? 0}");
-        Assign(DiscoveryIntervalLabel, $"فترة الفحص: {_status?.ScanIntervalSeconds ?? 0} ث");
-
-        // Outcome of the last *attempt*. Before this, a scan that failed and a scan that succeeded
-        // with nothing new both left the whole panel at zero, so neither could be told apart from a
-        // pipeline that was not running at all.
-        var attempts = _status?.ScanAttemptCount ?? 0;
-        Assign(DiscoveryResultLabel, attempts == 0
-            ? "محاولات الفحص: 0"
-            : $"آخر نتيجة: {_status?.LastScanSeenCount ?? 0} مشروع، {_status?.LastScanNewCount ?? 0} جديد (محاولات: {attempts})");
 
         var failed = _status?.LastScanFailed == true;
         var errorText = failed
@@ -460,10 +455,10 @@ public partial class PipelineDashboardPanel : ContentView
 
     private void RefreshQueue(double queueCount, int capacity, double utilisation)
     {
-        Assign(QueueValueLabel, $"{Math.Round(queueCount)} / {capacity}");
-        Assign(QueueUtilLabel, $"{Math.Round(utilisation * 100)}%");
-        Assign(QueueOldestLabel, $"أقدم عنصر: {Format(_status?.OldestQueuedItemSeconds ?? 0)} ث");
-        Assign(QueueAvgLabel, $"متوسط الانتظار: {Format(_status?.AverageQueueWaitSeconds ?? 0)} ث");
+        // W-content-polish: the mockup's queue box is ONE compact line ("3 في الانتظار · تخطي 40٪")
+        // over the utilisation bar. The big "N / 50" block and the oldest/average diagnostics are
+        // hidden-by-design, so their Assign calls are retired here.
+        Assign(QueueUtilLabel, $"{Math.Round(queueCount)} في الانتظار · تخطي {Math.Round(utilisation * 100)}%");
         ApplyQueueBar(utilisation);
     }
 

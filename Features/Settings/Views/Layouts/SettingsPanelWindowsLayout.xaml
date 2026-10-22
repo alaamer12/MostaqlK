@@ -93,7 +93,13 @@
          to land on the physical left and the settings content (col 0, *) renders to its right,
          exactly mirroring the mockup's `<div style="direction:ltr">` [rail | main(rtl)] split.
          RailWidths.Width (64px) replaces the old 256px AppSidebar column, reclaiming 192px. -->
-    <Grid BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#0F172A}" ColumnDefinitions="*,Auto">
+    <Grid BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#0F172A}">
+        <!-- Rail track pinned (never Auto): an Auto rail column is resolved after the content star
+             and lands outside the window frame (RTL clips at the physical left). -->
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="{x:Static rail:RailWidths.ColumnWidth}" />
+        </Grid.ColumnDefinitions>
 
         <!-- Shared v3 shell rail (contract §3). Same switching/nav semantics as the projects page:
              ActivePage marks the الإعدادات row, the bell (no flyout host on this page) navigates to
@@ -117,11 +123,12 @@
             <VerticalStackLayout Grid.Row="0"
                                  Spacing="6"
                                  Padding="24,20"
-                                 BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
-                <BoxView BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}" HeightRequest="0" />
+                                 BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}">
+                <BoxView BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}" HeightRequest="0" />
                 <Label Text="الإعدادات"
                        FontFamily="TajawalBold"
-                       FontSize="30"
+                       FontSize="36"
+                       LineHeight="1.11"
                        TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
                        HorizontalOptions="Center" />
                 <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
@@ -160,18 +167,18 @@
             </VerticalStackLayout>
 
             <ScrollView Grid.Row="1">
-                <VerticalStackLayout BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}" Spacing="0">
+                <VerticalStackLayout BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}" Spacing="0">
 
                     <!-- Inline validation message (existing VM surface, kept reachable) -->
                     <Label Text="{Binding ValidationMessage}"
                            TextColor="{AppThemeBinding Light=#DC2626, Dark=#F87171}"
                            FontSize="13"
                            FontFamily="Tajawal"
-                           Padding="24,12"
+                           Padding="32,11"
                            IsVisible="{Binding HasValidationError}" />
 
                     <!-- ================= Section المنصة ================= -->
-                    <VerticalStackLayout Spacing="2" Padding="24,16" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+                    <VerticalStackLayout Spacing="2" Padding="32,18" BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}">
                         <HorizontalStackLayout Spacing="8">
                             <platform:AppIcon Icon="Windows" WidthRequest="18" HeightRequest="18"
                                               TextColor="{DynamicResource BrandInk}" VerticalOptions="Center" />
@@ -184,7 +191,7 @@
                     </VerticalStackLayout>
 
                     <!-- فاصل الفحص -->
-                    <Grid ColumnDefinitions="*,Auto" Padding="24,12" ColumnSpacing="16">
+                    <Grid ColumnDefinitions="*,Auto" Padding="32,11" ColumnSpacing="16">
                         <VerticalStackLayout Spacing="0" VerticalOptions="Center">
                             <Label Text="فاصل الفحص" Style="{StaticResource SetLabel}" />
                             <Label Text="كل كم ثانية يُفحص البحث عن مشاريع جديدة" Style="{StaticResource SetHint}" />
@@ -197,10 +204,10 @@
                             <Label Text="ثانية" Style="{StaticResource SetUnit}" />
                         </HorizontalStackLayout>
                     </Grid>
-                    <BoxView Style="{StaticResource SetDivider}" Margin="24,0" />
+                    <BoxView Style="{StaticResource SetDivider}" Margin="32,0" />
 
                     <!-- حد الطلبات -->
-                    <Grid ColumnDefinitions="*,Auto" Padding="24,12" ColumnSpacing="16">
+                    <Grid ColumnDefinitions="*,Auto" Padding="32,11" ColumnSpacing="16">
                         <VerticalStackLayout Spacing="0" VerticalOptions="Center">
                             <Label Text="حد الطلبات" Style="{StaticResource SetLabel}" />
                             <Label Text="سقف لبق يحمي الحساب والموقع" Style="{StaticResource SetHint}" />
@@ -213,10 +220,10 @@
                             <Label Text="طلب/دقيقة" Style="{StaticResource SetUnit}" />
                         </HorizontalStackLayout>
                     </Grid>
-                    <BoxView Style="{StaticResource SetDivider}" Margin="24,0" />
+                    <BoxView Style="{StaticResource SetDivider}" Margin="32,0" />
 
                     <!-- تنبيهات هذه المنصة -->
-                    <Grid ColumnDefinitions="*,Auto" Padding="24,12" ColumnSpacing="16">
+                    <Grid ColumnDefinitions="*,Auto" Padding="32,11" ColumnSpacing="16">
                         <Label Text="تنبيهات هذه المنصة" Style="{StaticResource SetLabel}" />
                         <platform:AppToggle Grid.Column="1"
                                             AutomationId="Settings_SourceNotificationsToggle"
@@ -225,10 +232,10 @@
                                             ThumbColor="White"
                                             VerticalOptions="Center" />
                     </Grid>
-                    <BoxView Style="{StaticResource SetDivider}" Margin="24,0" />
+                    <BoxView Style="{StaticResource SetDivider}" Margin="32,0" />
 
                     <!-- أنواع المشاريع المتابَعة — only when the source has supervised projects -->
-                    <Grid ColumnDefinitions="*,Auto" Padding="24,12" ColumnSpacing="16"
+                    <Grid ColumnDefinitions="*,Auto" Padding="32,11" ColumnSpacing="16"
                           IsVisible="{Binding ShowSupervisedTypesRow}">
                         <VerticalStackLayout Spacing="0" VerticalOptions="Center">
                             <Label Text="أنواع المشاريع المتابَعة" Style="{StaticResource SetLabel}" />
@@ -239,7 +246,7 @@
 
                     <!-- جلسة الإثراء — only when the descriptor marks session-gated enrichment -->
                     <VerticalStackLayout IsVisible="{Binding ShowSessionEnrichmentRow}">
-                        <Grid ColumnDefinitions="*,Auto" Padding="24,12" ColumnSpacing="16"
+                        <Grid ColumnDefinitions="*,Auto" Padding="32,11" ColumnSpacing="16"
                               IsVisible="{Binding IsCookieEditorClosed}">
                             <VerticalStackLayout Spacing="0" VerticalOptions="Center">
                                 <Label Text="جلسة الإثراء" Style="{StaticResource SetLabel}" />
@@ -299,7 +306,7 @@
                     </VerticalStackLayout>
 
                     <!-- عملة الميزانية — display row, only when non-default currency -->
-                    <Grid ColumnDefinitions="*,Auto" Padding="24,12" ColumnSpacing="16"
+                    <Grid ColumnDefinitions="*,Auto" Padding="32,11" ColumnSpacing="16"
                           IsVisible="{Binding ShowBudgetCurrencyRow}">
                         <VerticalStackLayout Spacing="0" VerticalOptions="Center">
                             <Label Text="عملة الميزانية" Style="{StaticResource SetLabel}" />
@@ -311,7 +318,7 @@
                     </Grid>
 
                     <!-- آخر فحص — reused LastScanStatus unit (code-setter AutomationId form) -->
-                    <Grid ColumnDefinitions="*,Auto" Padding="24,12" ColumnSpacing="16">
+                    <Grid ColumnDefinitions="*,Auto" Padding="32,11" ColumnSpacing="16">
                         <Label Text="آخر فحص" Style="{StaticResource SetLabel}" />
                         <lastscan:LastScanStatus Grid.Column="1"
                                                  VerticalOptions="Center"
@@ -320,10 +327,10 @@
                                                  LabelAutomationId="Settings_LastScanLabel"
                                                  LastScanAt="{Binding GlobalStatus.LastScanCompletedAt}" />
                     </Grid>
-                    <BoxView Style="{StaticResource SetDivider}" Margin="24,0" />
+                    <BoxView Style="{StaticResource SetDivider}" Margin="32,0" />
 
                     <!-- الأرشيف — count + عرض -->
-                    <Grid ColumnDefinitions="*,Auto" Padding="24,12" ColumnSpacing="16">
+                    <Grid ColumnDefinitions="*,Auto" Padding="32,11" ColumnSpacing="16">
                         <Label Text="الأرشيف" Style="{StaticResource SetLabel}" />
                         <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
                             <Label Text="{Binding ArchiveCountText}" Style="{StaticResource SetValue}" />
@@ -333,7 +340,7 @@
                                     Clicked="OnViewArchiveClicked" />
                         </HorizontalStackLayout>
                     </Grid>
-                    <BoxView Style="{StaticResource SetDivider}" Margin="24,0" />
+                    <BoxView Style="{StaticResource SetDivider}" Margin="32,0" />
 
                     <!-- Contributed per-source sections (contract §4/§10) — rendered through the generic
                          ISourceSettingsSectionViewModel template; the "تخطي المشاريع المغلقة" toggle and
@@ -348,10 +355,10 @@
                                     <Grid Padding="24,10">
                                         <Label Text="{Binding HeaderAr}" Style="{StaticResource SetLabel}" />
                                     </Grid>
-                                    <BoxView Style="{StaticResource SetDivider}" Margin="24,0" />
+                                    <BoxView Style="{StaticResource SetDivider}" Margin="32,0" />
 
                                     <!-- retry toggle row -->
-                                    <Grid ColumnDefinitions="*,Auto" Padding="24,12" ColumnSpacing="16" IsVisible="{Binding HasRetryToggle}">
+                                    <Grid ColumnDefinitions="*,Auto" Padding="32,11" ColumnSpacing="16" IsVisible="{Binding HasRetryToggle}">
                                         <Label Text="{Binding RetryToggleLabelAr}" Style="{StaticResource SetLabel}" />
                                         <platform:AppToggle Grid.Column="1"
                                                             AutomationId="Settings_ContributedRetryToggle"
@@ -362,7 +369,7 @@
                                     </Grid>
 
                                     <!-- session read-out row -->
-                                    <Grid ColumnDefinitions="*,Auto" Padding="24,12" ColumnSpacing="16" IsVisible="{Binding HasSessionRow}">
+                                    <Grid ColumnDefinitions="*,Auto" Padding="32,11" ColumnSpacing="16" IsVisible="{Binding HasSessionRow}">
                                         <Label Text="{Binding SessionRowLabelAr}" Style="{StaticResource SetLabel}" />
                                         <Label Grid.Column="1"
                                                Text="{Binding SessionStateText}"
@@ -371,14 +378,14 @@
                                                HorizontalOptions="End"
                                                VerticalOptions="Center" />
                                     </Grid>
-                                    <BoxView Style="{StaticResource SetDivider}" Margin="24,0" />
+                                    <BoxView Style="{StaticResource SetDivider}" Margin="32,0" />
                                 </VerticalStackLayout>
                             </DataTemplate>
                         </BindableLayout.ItemTemplate>
                     </VerticalStackLayout>
 
                     <!-- ================= Section عام ================= -->
-                    <VerticalStackLayout Spacing="2" Padding="24,16" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+                    <VerticalStackLayout Spacing="2" Padding="32,18" BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}">
                         <HorizontalStackLayout Spacing="8">
                             <platform:AppIcon Icon="Gear" WidthRequest="18" HeightRequest="18"
                                               TextColor="{DynamicResource BrandInk}" VerticalOptions="Center" />
@@ -388,7 +395,7 @@
                     </VerticalStackLayout>
 
                     <!-- تشغيل مع النظام -->
-                    <Grid ColumnDefinitions="*,Auto" Padding="24,12" ColumnSpacing="16" IsVisible="{Binding IsStartupVisible}">
+                    <Grid ColumnDefinitions="*,Auto" Padding="32,11" ColumnSpacing="16" IsVisible="{Binding IsStartupVisible}">
                         <VerticalStackLayout Spacing="0" VerticalOptions="Center">
                             <Label Text="تشغيل مع النظام" Style="{StaticResource SetLabel}" />
                             <Label Text="يبدأ التطبيق في الدرج دون نافذة" Style="{StaticResource SetHint}" />
@@ -400,10 +407,10 @@
                                             ThumbColor="White"
                                             VerticalOptions="Center" />
                     </Grid>
-                    <BoxView Style="{StaticResource SetDivider}" Margin="24,0" IsVisible="{Binding IsStartupVisible}" />
+                    <BoxView Style="{StaticResource SetDivider}" Margin="32,0" IsVisible="{Binding IsStartupVisible}" />
 
                     <!-- تجميع التنبيهات (existing per-source grouping pref, shown under عام per mockup) -->
-                    <Grid ColumnDefinitions="*,Auto" Padding="24,12" ColumnSpacing="16">
+                    <Grid ColumnDefinitions="*,Auto" Padding="32,11" ColumnSpacing="16">
                         <VerticalStackLayout Spacing="0" VerticalOptions="Center">
                             <Label Text="تجميع التنبيهات" Style="{StaticResource SetLabel}" />
                             <Label Text="تنبيه واحد لكل دفعة بدل تنبيه لكل مشروع — على كل المنصات" Style="{StaticResource SetHint}" />
@@ -415,10 +422,10 @@
                                             ThumbColor="White"
                                             VerticalOptions="Center" />
                     </Grid>
-                    <BoxView Style="{StaticResource SetDivider}" Margin="24,0" />
+                    <BoxView Style="{StaticResource SetDivider}" Margin="32,0" />
 
                     <!-- نمط التجميع (kept for UI-test continuity: Settings_GroupingModePicker) -->
-                    <Grid ColumnDefinitions="*,Auto" Padding="24,12" ColumnSpacing="16">
+                    <Grid ColumnDefinitions="*,Auto" Padding="32,11" ColumnSpacing="16">
                         <Label Text="نمط التجميع" Style="{StaticResource SetLabel}" />
                         <Picker Grid.Column="1"
                                 AutomationId="Settings_GroupingModePicker"
@@ -430,10 +437,10 @@
                                 ItemsSource="{Binding GroupingModeOptions}"
                                 SelectedIndex="{Binding GroupingModeIndex, Mode=TwoWay}" />
                     </Grid>
-                    <BoxView Style="{StaticResource SetDivider}" Margin="24,0" />
+                    <BoxView Style="{StaticResource SetDivider}" Margin="32,0" />
 
                     <!-- حد التجميع (kept for UI-test continuity: Settings_GroupingThresholdInput) -->
-                    <Grid ColumnDefinitions="*,Auto" Padding="24,12" ColumnSpacing="16">
+                    <Grid ColumnDefinitions="*,Auto" Padding="32,11" ColumnSpacing="16">
                         <VerticalStackLayout Spacing="0" VerticalOptions="Center">
                             <Label Text="حد التجميع" Style="{StaticResource SetLabel}" />
                             <Label Text="عدد المشاريع الذي يُجمَّع عنده التنبيه" Style="{StaticResource SetHint}" />
@@ -444,10 +451,10 @@
                                            Keyboard="Numeric"
                                            Text="{Binding GroupingThreshold, Mode=TwoWay}" />
                     </Grid>
-                    <BoxView Style="{StaticResource SetDivider}" Margin="24,0" />
+                    <BoxView Style="{StaticResource SetDivider}" Margin="32,0" />
 
                     <!-- تذكر آخر منصة مفتوحة (new global pref, default on) -->
-                    <Grid ColumnDefinitions="*,Auto" Padding="24,12" ColumnSpacing="16">
+                    <Grid ColumnDefinitions="*,Auto" Padding="32,11" ColumnSpacing="16">
                         <VerticalStackLayout Spacing="0" VerticalOptions="Center">
                             <Label Text="تذكر آخر منصة مفتوحة" Style="{StaticResource SetLabel}" />
                             <Label Text="عند إعادة تشغيل التطبيق يعود لنفس المنصة التي كنت عليها" Style="{StaticResource SetHint}" />
@@ -459,11 +466,11 @@
                                             ThumbColor="White"
                                             VerticalOptions="Center" />
                     </Grid>
-                    <BoxView Style="{StaticResource SetDivider}" Margin="24,0" />
+                    <BoxView Style="{StaticResource SetDivider}" Margin="32,0" />
 
                     <!-- الوضع الداكن — relocated to the rail in the mockup, kept here bound for UI-test
                          continuity (Settings_DarkModeToggle) and reachable theme control. -->
-                    <Grid ColumnDefinitions="*,Auto" Padding="24,12" ColumnSpacing="16">
+                    <Grid ColumnDefinitions="*,Auto" Padding="32,11" ColumnSpacing="16">
                         <VerticalStackLayout Spacing="0" VerticalOptions="Center">
                             <Label Text="الوضع الداكن" Style="{StaticResource SetLabel}" />
                             <Label Text="تبديل مظهر التطبيق بين الفاتح والداكن" Style="{StaticResource SetHint}" />
@@ -475,7 +482,7 @@
                                             ThumbColor="White"
                                             VerticalOptions="Center" />
                     </Grid>
-                    <BoxView Style="{StaticResource SetDivider}" Margin="24,0" />
+                    <BoxView Style="{StaticResource SetDivider}" Margin="32,0" />
 
                     <!-- Save (kept: every field persists live on change; Save is the page-loaded marker
                          + confirm-no-pending the UI tests assert via Settings_SaveButton) -->

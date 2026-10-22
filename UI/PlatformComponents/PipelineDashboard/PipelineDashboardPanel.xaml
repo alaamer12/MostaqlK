@@ -89,25 +89,28 @@
                                          EnrichmentActivity="{Binding EnrichmentActivity, Source={x:Reference Root}}"
                                          IsSnapshotActive="{Binding IsSnapshotActive, Source={x:Reference Root}}" />
 
-                    <!-- Discovery -->
+                    <!-- Discovery → mockup `.stat-box` compact pair: "الاكتشاف" + "آخر فحص".
+                         The MVP-era status/count/interval/result diagnostics are hidden (the v3
+                         mockup shows none of them); the error/fix rows stay wired so a failing
+                         poll still surfaces honestly. -->
                     <Border Style="{StaticResource DashCardStyle}">
                         <VerticalStackLayout Spacing="6">
                             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
                                 <BoxView x:Name="DiscoveryDot" Grid.Column="0" WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="{DynamicResource Brand}" VerticalOptions="Center" />
-                                <Label Grid.Column="1" Text="الاستكشاف" Style="{StaticResource DashSectionLabelStyle}" VerticalOptions="Center" />
+                                <Label Grid.Column="1" Text="الاكتشاف" Style="{StaticResource DashSectionLabelStyle}" VerticalOptions="Center" />
                             </Grid>
-                            <Label x:Name="DiscoveryStatusLabel" Style="{StaticResource DashValueLabelStyle}" />
+                            <Label x:Name="DiscoveryStatusLabel" IsVisible="False" Style="{StaticResource DashValueLabelStyle}" />
                             <!-- Same unit the projects footer uses: one wording, one timer, one
                                  timestamp - the two used to disagree with each other. -->
                             <lastscan:LastScanStatus x:Name="DiscoveryLastScan"
                                                      FontSize="12"
                                                      TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
-                            <Label x:Name="DiscoveryCountLabel" Style="{StaticResource DashValueLabelStyle}" />
-                            <Label x:Name="DiscoveryIntervalLabel" Style="{StaticResource DashValueLabelStyle}" />
-                            <!-- "Saw 41 projects, 0 new" - without this line a healthy scan that
-                                 finds nothing new is indistinguishable from a scan that never ran. -->
+                            <Label x:Name="DiscoveryCountLabel" IsVisible="False" Style="{StaticResource DashValueLabelStyle}" />
+                            <Label x:Name="DiscoveryIntervalLabel" IsVisible="False" Style="{StaticResource DashValueLabelStyle}" />
+                            <!-- Hidden by design (MVP diagnostic): the v3 mockup shows no "محاولات الفحص" readout. -->
                             <Label x:Name="DiscoveryResultLabel"
                                    AutomationId="Pipeline_DiscoveryResultLabel"
+                                   IsVisible="False"
                                    Style="{StaticResource DashValueLabelStyle}" />
                             <!-- The failure surface. A failing poll cycle used to be completely
                                  silent: the DomainError was built and dropped, so a permanent 403
@@ -128,20 +131,26 @@
                         </VerticalStackLayout>
                     </Border>
 
-                    <!-- Queue -->
+                    <!-- Queue → mockup `.stat-box`: "الطابور" + a single "N في الانتظار · تخطي X%"
+                         value line + the utilisation bar. The MVP-era big "N / 50" number and the
+                         oldest/average diagnostics are hidden (none appear in the v3 mockup). -->
                     <Border Style="{StaticResource DashCardStyle}">
                         <VerticalStackLayout Spacing="6">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <Label Grid.Column="0" Text="قائمة الانتظار" Style="{StaticResource DashSectionLabelStyle}" VerticalOptions="Center" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Label Grid.Column="0" Text="الطابور" Style="{StaticResource DashSectionLabelStyle}" VerticalOptions="Center" />
                                 <Label x:Name="QueueUtilLabel"
                                        Grid.Column="1"
                                        FontSize="12"
                                        FontFamily="TajawalBold"
+                                       MaxLines="1"
+                                       LineBreakMode="TailTruncation"
                                        VerticalOptions="Center"
+                                       HorizontalOptions="End"
                                        TextColor="{AppThemeBinding Light=#B45309, Dark=#F59E0B}" />
                             </Grid>
                             <Label x:Name="QueueValueLabel"
                                    AutomationId="Pipeline_QueueValueLabel"
+                                   IsVisible="False"
                                    FontSize="24"
                                    FontFamily="TajawalBold"
                                    TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
@@ -151,13 +160,13 @@
                                 <BoxView CornerRadius="2" Color="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" />
                                 <BoxView x:Name="QueueBarFill" CornerRadius="2" Color="#F59E0B" WidthRequest="0" HorizontalOptions="Start" />
                             </Grid>
-                            <Label x:Name="QueueOldestLabel" Style="{StaticResource DashValueLabelStyle}" />
-                            <Label x:Name="QueueAvgLabel" Style="{StaticResource DashValueLabelStyle}" />
+                            <Label x:Name="QueueOldestLabel" IsVisible="False" Style="{StaticResource DashValueLabelStyle}" />
+                            <Label x:Name="QueueAvgLabel" IsVisible="False" Style="{StaticResource DashValueLabelStyle}" />
                         </VerticalStackLayout>
                     </Border>
 
                     <!-- Workers. Clicking a row focuses that worker in the dial (and vice versa). -->
-                    <Label Text="العوامل" Style="{StaticResource DashSectionLabelStyle}" Margin="4,0,0,0" />
+                    <Label Text="العوامل" IsVisible="False" Style="{StaticResource DashSectionLabelStyle}" Margin="4,0,0,0" />
 
                     <Border x:Name="Worker0Card" Style="{StaticResource DashCardStyle}">
                         <Grid>
@@ -210,9 +219,11 @@
                         </Grid>
                     </Border>
 
-                    <!-- Drill-in: follows the dial's selection (click a worker) and falls back to
-                         whatever is hovered, then to the backlog overview. -->
-                    <Border Style="{StaticResource DashCardStyle}"
+                    <!-- Drill-in: an MVP-era detail block (worker/region read-out) the v3 mockup does
+                         not show. Kept wired for a future relocation, hidden on the feed surface. -->
+                    <Border x:Name="DrillInCard"
+                            Style="{StaticResource DashCardStyle}"
+                            IsVisible="False"
                             BackgroundColor="{AppThemeBinding Light=#EFF6FF, Dark=#1A2A44}">
                         <VerticalStackLayout Spacing="6">
                             <Label x:Name="DetailTitleLabel"

@@ -419,6 +419,16 @@ public sealed class DesignDataSeeder
     }
 
     /// <summary>
+    /// The discovery instant <c>project-details.html</c> prints in its header caption
+    /// ("· اكتُشف 21 أكتوبر 2026 14:32"). The details page renders the stored
+    /// <c>ProjectDetails.discovered_at</c> verbatim, so the two stable details-capture targets
+    /// carry this fixed literal (their <c>ProjectSummary.discovered_at</c> stays relative, so feed
+    /// ordering is untouched). D2 seed-literal alignment.
+    /// </summary>
+    private static DateTimeOffset V3DetailsDiscoveredAt =>
+        new(new DateTime(2026, 10, 21, 14, 32, 0, DateTimeKind.Unspecified));
+
+    /// <summary>
     /// The seven Mostaql cards of <c>postmvp/v3-multisource/projects.html</c>, verbatim: titles,
     /// descriptions, budgets, owners, elapsed-time texts, proposal counts, skills, unread flags
     /// (cards 1/3/6) and enrichment badges (Enriched / Pending / Failed).
@@ -442,7 +452,8 @@ public sealed class DesignDataSeeder
             proposalCount: 69,
             isUnread: true,
             status: EnrichmentStatus.Enriched,
-            discoveredAt: now.AddMinutes(-3));
+            discoveredAt: now.AddMinutes(-3),
+            detailsDiscoveredAt: V3DetailsDiscoveredAt);
 
         yield return BuildV3(
             source: mostaql,
@@ -576,7 +587,8 @@ public sealed class DesignDataSeeder
             ownerRegisteredAt: "على نفذلي منذ 2023",
             ownerOpenProjects: 7,
             ownerHiringRatePercent: 61,
-            ownerRating: 4.6);
+            ownerRating: 4.6,
+            detailsDiscoveredAt: V3DetailsDiscoveredAt);
 
         yield return BuildV3(
             source: nafezly,
@@ -631,7 +643,8 @@ public sealed class DesignDataSeeder
         string? ownerRegisteredAt = null,
         int? ownerOpenProjects = null,
         double? ownerHiringRatePercent = null,
-        double? ownerRating = null)
+        double? ownerRating = null,
+        DateTimeOffset? detailsDiscoveredAt = null)
     {
         var descriptor = _registry.Get(source);
         var url = descriptor.BuildProjectUrl(projectId);
@@ -690,7 +703,7 @@ public sealed class DesignDataSeeder
                 Owner = owner,
                 Attachments = [],
                 EnrichmentStatus = status,
-                DiscoveredAt = discoveredAt,
+                DiscoveredAt = detailsDiscoveredAt ?? discoveredAt,
                 EnrichedAt = status == EnrichmentStatus.Enriched ? discoveredAt : null,
             });
     }

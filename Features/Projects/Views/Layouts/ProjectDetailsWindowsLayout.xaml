@@ -22,7 +22,13 @@
     <!-- v3 shell (contract §3): the 64px SourceRail replaces the 256px AppSidebar, physical LEFT
          (rail rides the last column of this RTL grid → reclaiming 192px). The details page belongs
          to the المشاريع section, so ActivePage=Projects. Content is untouched (dev23-era, verified). -->
-    <Grid ColumnDefinitions="*,Auto" BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
+    <Grid BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
+        <!-- Rail track pinned (never Auto): an Auto rail column is resolved after the content star
+             and lands outside the window frame (RTL clips at the physical left). -->
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="{x:Static rail:RailWidths.ColumnWidth}" />
+        </Grid.ColumnDefinitions>
 
         <rail:SourceRail Grid.Column="1"
                          x:Name="Rail"
@@ -43,11 +49,11 @@
                  Back-arrow side follows the mockup (inline-start of the RTL row). -->
             <VerticalStackLayout Grid.Row="0"
                                  BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}"
-                                 Padding="28,20,28,16"
+                                 Padding="24,20,24,16"
                                  Spacing="10">
-                <!-- Scraped project title, centered, big. -->
+                <!-- Scraped project title, centered, big (mockup text-3xl leading-snug = 30px/1.375). -->
                 <Label Text="{Binding Details.Title}"
-                       FontSize="26" FontFamily="TajawalBold"
+                       FontSize="30" LineHeight="1.375" FontFamily="TajawalBold"
                        TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
                        HorizontalTextAlignment="Center" HorizontalOptions="Center" />
 
@@ -102,6 +108,7 @@
 
                     <components:SourceLinkButton Grid.Column="2"
                                                  Command="{Binding OpenOnSourceCommand}"
+                                                 Label="{Binding OpenOnSourceLabel}"
                                                  HorizontalOptions="End" VerticalOptions="Center"
                                                  AutomationId="Details_OpenOnSourceButton" />
                 </Grid>
@@ -128,21 +135,26 @@
                     <VerticalStackLayout Spacing="0">
 
                         <!-- ===== DECISION STRIP: the 2-second go/no-go scan. Tiny label above a big value.
-                             Each fact is emitted only when the project carries it (data-driven omission). ===== -->
+                             Each fact is emitted only when the project carries it (data-driven omission).
+                             Mockup `grid grid-cols-5 gap-6 text-center`: equal 172px columns (1024 content
+                             / 5) with 24px gaps and centre-aligned text, not a right-packed strip. ===== -->
                         <HorizontalStackLayout BindableLayout.ItemsSource="{Binding DecisionFacts}"
-                                               Spacing="0" Padding="28,20" IsVisible="{Binding HasDecisionFacts}">
+                                               Spacing="24" Padding="24,20" IsVisible="{Binding HasDecisionFacts}">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="vm:DecisionFact">
-                                    <VerticalStackLayout Spacing="4" Margin="0,0,40,0" WidthRequest="120">
+                                    <VerticalStackLayout Spacing="4" WidthRequest="172" Margin="-26,0">
                                         <Label Text="{Binding LabelAr}" FontSize="11" FontFamily="Tajawal"
+                                               HorizontalTextAlignment="Center"
                                                TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
                                         <!-- Accent (state-green) facts: الميزانية · الحالة. Never brand. -->
                                         <Label Text="{Binding Value}" FontSize="22" FontFamily="TajawalBold"
                                                IsVisible="{Binding IsAccent}"
+                                               HorizontalTextAlignment="Center"
                                                FlowDirection="{Binding IsMoney, Converter={StaticResource BoolToFlowDirectionConverter}}"
                                                TextColor="{AppThemeBinding Light=#2E9E6B, Dark=#4FBF8C}" />
                                         <Label Text="{Binding Value}" FontSize="22" FontFamily="TajawalBold"
                                                IsVisible="{Binding IsAccent, Converter={StaticResource InvertedBoolConverter}}"
+                                               HorizontalTextAlignment="Center"
                                                TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
                                     </VerticalStackLayout>
                                 </DataTemplate>

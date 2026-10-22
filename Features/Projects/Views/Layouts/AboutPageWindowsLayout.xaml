@@ -11,7 +11,13 @@
          (rail rides the last column of this RTL grid → reclaiming 192px). Content (dev23-era About
          cards) is untouched — shell swap only. BindingContext is the GlobalAppStatusService, so the
          bell's unread pill binds UnreadNotificationCount directly. -->
-    <Grid BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}" ColumnDefinitions="*,Auto">
+    <Grid BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
+        <!-- Rail track pinned (never Auto): an Auto rail column is resolved after the content star
+             and lands outside the window frame (RTL clips at the physical left). -->
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="{x:Static rail:RailWidths.ColumnWidth}" />
+        </Grid.ColumnDefinitions>
 
         <rail:SourceRail Grid.Column="1"
                          x:Name="Rail"
