@@ -22,4 +22,12 @@ public interface IBrandTokenProvider
     /// No-op when already on that source.
     /// </summary>
     public void SwapTo(SourceId source);
+
+    /// <summary>
+    /// The current source's palette projected for one theme: the four base fields carry that
+    /// theme's variants (dark maps the <c>*Dark</c> fields onto the base names). Link fields are
+    /// theme-explicit by name and pass through unchanged. Consumers bind through this instead of
+    /// <see cref="Current"/> wherever theme-variant colors are wanted.
+    /// </summary>
+    public BrandTokenSet CurrentFor(AppTheme theme);
 }

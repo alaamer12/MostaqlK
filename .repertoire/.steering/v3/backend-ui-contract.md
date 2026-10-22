@@ -30,7 +30,7 @@
 
 | Surface | Shape | Status |
 |---|---|---|
-| `BrandTokenSet` | `Brand BrandInk BrandSoft OnBrand LinkLight LinkDark` hex strings, per source descriptor `Brands` | REAL |
+| `BrandTokenSet` | `Brand BrandInk BrandSoft OnBrand LinkLight LinkDark BrandDark BrandInkDark BrandSoftDark OnBrandDark` hex strings, per source descriptor `Brands`; provider `CurrentFor(AppTheme)` projects theme variants onto base names | REAL (B1-core) — **consumers still read `Current` + inline hexes until the B1b DynamicResource sweep** |
 | `IBrandTokenProvider` | `CurrentSource Current TokensSwapped SwapTo(source)` — single swap path; components subscribe on Loaded / release on Unloaded | REAL (consumers **B1/B2**) |
 | DynamicResource `Brand*` palette fed by provider | App-level dictionaries replacing inline hexes; grep gate bans new inline brand hexes. **Locked design:** `BrandTokenSet` gains the four dark counterparts (`BrandDark BrandInkDark BrandSoftDark OnBrandDark`); `LinkLight/LinkDark` already exist; provider exposes theme selection (`CurrentFor(AppTheme)`), palette swap fires on `TokensSwapped` AND theme change. Verified dual sets to seed: mostaql light `#2386C8 #1A6DA6 #EFF6FB #ffffff` / dark `#5CA8DE #5CA8DE #245CA8DE(alpha .14→ARGB) #0b1c2a`; nafezly light `#FFA200 #9A6100 #FFF4DE #3a2a00` / dark `#FFB84D #FFB84D #24FFB84D(alpha .14) #2a1d00` (mockups README = source of truth; rgba→8-hex ARGB conversion at seed time). A3 does NOT extend the record — B1 does, atomically with the hex sweep. | **PLANNED (B1)** |
 | Nafezly palette | mockup orange set incl. AA-safe `BrandInk` for ≤14px text | **REAL (A3 light seed)** — `NafezlySource.Brands` = light `#FFA200 #9A6100 #FFF4DE #3a2a00` + links `#9A6100/#FFB84D`; the four dark counterparts land with B1's record extension |
@@ -40,7 +40,7 @@
 | Surface | Shape | Status |
 |---|---|---|
 | `ISettingsRepository` | `Get/Set(source,key)` namespaced containers (descriptor `SettingsContainerId`) with legacy flat read-through + lazy migrate; `GetGlobal/SetGlobal/Contains/ContainsGlobal` | REAL |
-| `SettingsKeys` | per-source: PollIntervalSeconds MaxRequestsPerMinute SafeRequests QueryParams IncludeAssets MaxConcurrentDetailFetches NotificationGroupingEnabled GroupingMode GroupingThreshold · global: IsDarkMode StartupEnabled IsPollingActive (+ `mostaqlk-source` active-source persistence **PLANNED B1**) | REAL |
+| `SettingsKeys` | per-source: PollIntervalSeconds MaxRequestsPerMinute SafeRequests QueryParams IncludeAssets MaxConcurrentDetailFetches NotificationGroupingEnabled GroupingMode GroupingThreshold · global: IsDarkMode StartupEnabled IsPollingActive + `mostaqlk-source` active-source persistence (**REAL B1-core**: written by nobody yet — B2's switch sets it; startup restore already swaps the provider) | REAL |
 | Per-source settings rendering | descriptor data rows + contributed sections (see §8) | data REAL, render **PLANNED (B4)** |
 
 ## 5. HTTP / sessions / cookies — REAL

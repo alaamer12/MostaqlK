@@ -49,5 +49,7 @@ public static class SettingsKeys
     // Deliberately global (app behavior, not per-source):
     public const string IsDarkMode = "settings_is_dark_mode";
     public const string StartupEnabled = "settings_startup_enabled";
+    /// <summary>Global: id of the source the UI projects (v3 morph); absent ⇒ default source.</summary>
+    public const string ActiveSource = "mostaqlk-source";
     public const string IsPollingActive = "settings_is_polling_active";
 }

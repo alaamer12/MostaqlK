@@ -58,6 +58,16 @@ public partial class App : Application
             : null;
         UserAppTheme = StartupNavigation.ResolveTheme(Environment.GetCommandLineArgs(), storedIsDarkMode);
 
+        // v3 morph persistence: restore the source the UI projects (absent ⇒ default source, so a
+        // first run of this version behaves exactly like every previous one).
+        var storedActiveSource = settings.GetGlobal(MostaqlK.Core.Sources.SettingsKeys.ActiveSource, (string?)null);
+        if (MostaqlK.Core.Sources.SourceId.TryFrom(storedActiveSource, out var activeSource)
+            && activeSource != MostaqlK.Core.Sources.SourceId.Default)
+        {
+            services.GetRequiredService<MostaqlK.UI.DesignSystem.BrandTokens.IBrandTokenProvider>()
+                .SwapTo(activeSource);
+        }
+
 #if WINDOWS
 		// FIX ("not a single notification, ever since day one"): AUMID + Start Menu shortcut +
 		// AppNotificationManager COM registration used to happen lazily, only the first time a

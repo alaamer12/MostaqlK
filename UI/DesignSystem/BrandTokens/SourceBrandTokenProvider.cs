@@ -35,4 +35,18 @@ public sealed class SourceBrandTokenProvider : IBrandTokenProvider
         Current = _registry.Get(source).Brands;
         TokensSwapped?.Invoke(Current);
     }
+
+    public BrandTokenSet CurrentFor(AppTheme theme)
+    {
+        var brands = Current;
+        return theme == AppTheme.Dark
+            ? brands with
+            {
+                Brand = brands.BrandDark,
+                BrandInk = brands.BrandInkDark,
+                BrandSoft = brands.BrandSoftDark,
+                OnBrand = brands.OnBrandDark,
+            }
+            : brands;
+    }
 }

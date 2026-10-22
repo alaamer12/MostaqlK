@@ -28,7 +28,7 @@ public sealed class MostaqlSource : ISourceDescriptor
 
     // Seeded to the exact colors the app renders today (DesignTokens/inline hexes);
     // the UI phase will swap in the real per-source brand palette.
-    public BrandTokenSet Brands { get; } = new("#2386C8", "#1A6DA6", "#EFF6FB", "#ffffff", "#2563EB", "#60A5FA");
+    public BrandTokenSet Brands { get; } = new("#2386C8", "#1A6DA6", "#EFF6FB", "#ffffff", "#2563EB", "#60A5FA", "#5CA8DE", "#5CA8DE", "#245CA8DE", "#0b1c2a");
 
     public int DefaultPollIntervalSeconds => 30;
 
