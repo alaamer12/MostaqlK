@@ -25,7 +25,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     // The per-source values are stored in this source's namespaced settings container, read back
     // through the repository's legacy flat-key fallback (see ISettingsRepository). Dark mode,
     // startup, and polling-active stay deliberately global (app behavior, not per-source).
-    private readonly SourceId _source = SourceId.Default;
+    /// <summary>
+    /// The source whose namespaced preferences this transient VM edits — the live ACTIVE source
+    /// (v3 morph), not a startup snapshot: the page is reconstructed per opening, so it always
+    /// edits what the rail currently projects (contract §4).
+    /// </summary>
+    private SourceId _source => _globalStatus?.ActiveSource ?? SourceId.Default;
 
     // configuration-reference.md: `poll_interval_seconds` default 30, `max_requests_per_minute`
     // default 2. This screen used to advertise a 60s default while PollService itself defaulted to

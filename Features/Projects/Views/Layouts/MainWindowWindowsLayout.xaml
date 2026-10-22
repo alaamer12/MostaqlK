@@ -34,6 +34,7 @@
                             AdvancedSearchClicked="OnAdvancedSearchNavClicked"
                             SettingsClicked="OnSettingsNavClicked"
                             AboutClicked="OnAboutNavClicked"
+                            SourceChanged="OnSourceChanged"
                             VerticalOptions="Fill" />
 
         <Grid x:Name="FeedContent"

@@ -64,6 +64,9 @@ public partial class App : Application
         if (MostaqlK.Core.Sources.SourceId.TryFrom(storedActiveSource, out var activeSource)
             && activeSource != MostaqlK.Core.Sources.SourceId.Default)
         {
+            // Same order as the rail's SwitchTo: status facade first, then the brand palette.
+            services.GetRequiredService<MostaqlK.Services.GlobalAppStatusService>()
+                .SetActiveProjection(activeSource);
             services.GetRequiredService<MostaqlK.UI.DesignSystem.BrandTokens.IBrandTokenProvider>()
                 .SwapTo(activeSource);
         }

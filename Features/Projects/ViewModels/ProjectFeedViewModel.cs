@@ -32,7 +32,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     private readonly TokenBucketRateLimiter _rateLimiter;
     private readonly GlobalAppStatusService _globalStatus;
     private readonly ISettingsRepository _settings;
-    private readonly SourceId _source = SourceId.Default;
+    private SourceId _source = SourceId.Default;
 
     // Guards against overlapping LoadAsync calls racing each other: if the search box's
     // debounce fires more than once in quick succession (e.g. WinAppDriver/remote SendKeys
@@ -203,6 +203,42 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         PollIntervalSeconds = _settings.Get(_source, SettingsKeys.PollIntervalSeconds, _pollService.PollIntervalSeconds);
         RequestsPerMinute = _settings.Get(_source, SettingsKeys.MaxRequestsPerMinute, Math.Max(1, _rateLimiter.Capacity));
         IsPollingActive = !_pollService.IsPaused;
+    }
+
+    /// <summary>The source whose projects this feed currently lists.</summary>
+    public SourceId CurrentSourceId => _source;
+
+    /// <summary>
+    /// Re-points the feed at a freshly-active source (called by the shell when a source-morph tile
+    /// taps). Every repository/FTS call below is already source-scoped (composite identity), so the
+    /// re-point is: swap the scoping source, drop the stale rows, clear the active search term (a
+    /// mostaql query must never leak into the nafezly feed), and reload. No pipeline work is started
+    /// or stopped — both engines already run unattended; this is pure projection (contract §2/§4.1).
+    /// </summary>
+    /// <remarks>
+    /// Surfaced gap (not fixed here — parent/B-sibling owned): <c>_pollService</c>/<c>_rateLimiter</c>
+    /// are the container's singletons wired to the <b>default</b> pipeline
+    /// (<see cref="SourcePipelineOrchestrator.Active"/>), so the footer cadence fallback and the
+    /// poll-pause control still address mostaql's engine even when <c>_source</c> is nafezly. A
+    /// sibling surface <c>Services/Pipeline/ActivePipeline.cs</c> is being built to hand consumers the
+    /// currently-viewed pipeline's poll/limiter/queue through DI; closing this needs (a) that
+    /// <see cref="SourcePipelineOrchestrator"/>.<c>Active</c> to follow the projected source and
+    /// (b) the feed injected through <c>ActivePipeline</c> — both outside this task's write boundary
+    /// (pipeline internals / MauiProgram), so it is surfaced rather than hacked here (see report).
+    /// </remarks>
+    public async Task SwitchSourceAsync(SourceId source)
+    {
+        if (source == _source)
+        {
+            return;
+        }
+
+        _source = source;
+        SearchQuery = string.Empty;
+        Projects.Clear();
+        TrackedCount = 0;
+        UnreadCount = 0;
+        await LoadAsync();
     }
 
     [RelayCommand]

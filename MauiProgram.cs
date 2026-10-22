@@ -149,18 +149,21 @@ public static class MauiProgram
 
         // Pipeline services: one full engine per registered source, assembled by the factory
         // and grouped by the orchestrator. The per-source components (queue, tracker, limiter,
-        // poll loop, worker pool) are NOT registered globally - only the active pipeline's
-        // instances are surfaced below, so the settings UI, status bar, feed, and tray keep
-        // injecting the exact objects the running engine uses. Adding a source changes nothing
-        // here: its pipeline appears next to the existing one with its own budget and telemetry.
+        // poll loop, worker pool) are registered as TRANSIENT live-facade resolutions of the
+        // CURRENTLY ACTIVE pipeline: transient UI VMs (settings, feed, status bar) reconstruct per
+        // opening and thereby re-point automatically on a source morph, while singleton hosts
+        // (tray, dispatcher) capture the active instances at their own construction, exactly as
+        // before. Object identity is unchanged while the active source is stable — same engine,
+        // same budget, same telemetry; only a switch changes what a fresh resolution sees.
         builder.Services.AddSingleton<SourcePipelineFactory>();
         builder.Services.AddSingleton<SourcePipelineOrchestrator>();
-        builder.Services.AddSingleton(sp => sp.GetRequiredService<SourcePipelineOrchestrator>().Active.Queue);
-        builder.Services.AddSingleton(sp => sp.GetRequiredService<SourcePipelineOrchestrator>().Active.Tracker);
-        builder.Services.AddSingleton(sp => sp.GetRequiredService<SourcePipelineOrchestrator>().Active.Limiter);
-        builder.Services.AddSingleton<IEnrichmentService>(sp => sp.GetRequiredService<SourcePipelineOrchestrator>().Active.Enrichment);
-        builder.Services.AddSingleton<IPollService>(sp => sp.GetRequiredService<SourcePipelineOrchestrator>().Active.Poll);
-        builder.Services.AddSingleton(sp => sp.GetRequiredService<SourcePipelineOrchestrator>().Active.Pool);
+        builder.Services.AddSingleton<ActivePipeline>();
+        builder.Services.AddTransient(sp => sp.GetRequiredService<ActivePipeline>().Queue);
+        builder.Services.AddTransient(sp => sp.GetRequiredService<ActivePipeline>().Tracker);
+        builder.Services.AddTransient(sp => sp.GetRequiredService<ActivePipeline>().Limiter);
+        builder.Services.AddTransient<IEnrichmentService>(sp => sp.GetRequiredService<ActivePipeline>().Enrichment);
+        builder.Services.AddTransient<IPollService>(sp => sp.GetRequiredService<ActivePipeline>().Poll);
+        builder.Services.AddTransient(sp => sp.GetRequiredService<ActivePipeline>().Pool);
         builder.Services.AddSingleton<OnboardingStateService>();
 
         // Notifications

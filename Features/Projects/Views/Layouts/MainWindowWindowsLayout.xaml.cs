@@ -1,5 +1,7 @@
 using MostaqlK.Core.Navigation;
+using MostaqlK.Core.Sources;
 using MostaqlK.Features.Notifications.ViewModels;
+using MostaqlK.Features.Projects.ViewModels;
 
 namespace MostaqlK.Features.Projects.Views.Layouts;
 
@@ -62,6 +64,19 @@ public partial class MainWindowWindowsLayout : ContentView
     private void OnProjectsNavClicked(object? sender, EventArgs e)
     {
         // Already on the projects feed — no-op for now.
+    }
+
+    /// <summary>
+    /// The global morph projection (persist + status facade + brand swap) already ran inside the
+    /// rail; here the only host-specific work is re-pointing this page's feed at the freshly-active
+    /// source so the list shows that source's rows only.
+    /// </summary>
+    private async void OnSourceChanged(object? sender, SourceId source)
+    {
+        if (BindingContext is ProjectFeedViewModel feed)
+        {
+            await feed.SwitchSourceAsync(source);
+        }
     }
 
     private async void OnAdvancedSearchNavClicked(object? sender, EventArgs e)

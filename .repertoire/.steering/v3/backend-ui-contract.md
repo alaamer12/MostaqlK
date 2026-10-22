@@ -23,7 +23,7 @@
 | `SourcePipelineOrchestrator` | one engine per registered source; `Active` (default), `For(SourceId)`, `All`, `StartAll(token)` | REAL |
 | `SourcePipeline` | `Descriptor Source Status Queue Tracker Limiter Enrichment Poll Pool` | REAL |
 | `SourcePipelineStatus` | per-source radar/queue/worker/scan telemetry (ObservableObject, dispatcher-guarded); `Source` property tells which source it is | REAL |
-| `GlobalAppStatusService` | UI projection facade: `Active`, `StatusFor(source)`, `All`, `SetActiveProjection(source)`, `AnyScanning`, `AnyScanFailed`, + forwarded members (ProjectsAddedToday*, QueueCount, IsScanning, LastScan*, Workers, WorkerStates, ConnectionText…) | REAL |
+| `GlobalAppStatusService` | UI projection facade: `Active`, `StatusFor(source)`, `All`, `SetActiveProjection(source)` (**first caller = B2 `SourceSwitchTiles`** — the morph re-points the projection on switch), `AnyScanning`, `AnyScanFailed`, + forwarded members (ProjectsAddedToday*, QueueCount, IsScanning, LastScan*, Workers, WorkerStates, ConnectionText…) | REAL |
 | Pause/resume/poll-now | `IPollService` via Active facade today; per-source access = `orchestrator.For(s).Poll` | REAL |
 
 ## 3. Identity / theming — REAL
@@ -40,7 +40,7 @@
 | Surface | Shape | Status |
 |---|---|---|
 | `ISettingsRepository` | `Get/Set(source,key)` namespaced containers (descriptor `SettingsContainerId`) with legacy flat read-through + lazy migrate; `GetGlobal/SetGlobal/Contains/ContainsGlobal` | REAL |
-| `SettingsKeys` | per-source: PollIntervalSeconds MaxRequestsPerMinute SafeRequests QueryParams IncludeAssets MaxConcurrentDetailFetches NotificationGroupingEnabled GroupingMode GroupingThreshold · global: IsDarkMode StartupEnabled IsPollingActive + `mostaqlk-source` active-source persistence (**REAL B1-core**: written by nobody yet — B2's switch sets it; startup restore already swaps the provider) | REAL |
+| `SettingsKeys` | per-source: PollIntervalSeconds MaxRequestsPerMinute SafeRequests QueryParams IncludeAssets MaxConcurrentDetailFetches NotificationGroupingEnabled GroupingMode GroupingThreshold · global: IsDarkMode StartupEnabled IsPollingActive + `mostaqlk-source` active-source persistence (**REAL B1-core**, write flipped **REAL B2**: the `SourceSwitchTiles` morph writes it on switch; startup restore already swaps the provider) | REAL |
 | Per-source settings rendering | descriptor data rows + contributed sections (see §8) | data REAL, render **PLANNED (B4)** |
 
 ## 5. HTTP / sessions / cookies — REAL
@@ -86,7 +86,7 @@
 
 | Surface | Shape | Status |
 |---|---|---|
-| `ISourcePageContribution` | `SourceId Source; route; Arabic title; rail glyph; optional badge` — rail shows them ONLY while the source is active; routes registered sourceId-scoped | **PLANNED (A3)** |
+| `ISourcePageContribution` | `SourceId Source; route; Arabic title; rail glyph; optional badge` — rail shows them ONLY while the source is active; routes registered sourceId-scoped | **REAL (B2)** — the rail rendering path is coded and data-driven: `AppSidebar` renders `SourceContributionRegistry.PagesFor(activeSource)` after the standard nav items via `SourceRailContributionProjection` (`UI/PlatformComponents/AppSidebar/`), honoring `Order`/`Glyph`/`TitleAr` and navigating through `AppRoutes`/Shell. Rebuilt on `Loaded` + on the `SourceSwitchTiles` morph. nafezly ships none yet, so the rail shows its contributions only when it registers them — proven with a temporary dev-only fake (headless: `PagesFor` filters to the active source and sorts by `Order`; the empty-for-no-contributions case is the nafezly-today path), then removed. Zero source-id branch (contract §10 hard rule). |
 | `ISourceSettingsSectionContribution` | `SourceId; section header; view-model factory` — Settings appends active source's sections after descriptor rows | **REAL (A3)**: `NafezlySettingsSectionContribution` + `NafezlySettingsSectionViewModel` (enrichment-retry toggle + session-state read-out, module-local keys) registered by `NafezlyModule`; Settings rendering of contributed sections **PLANNED (B4)** |
 | `SourceContributionRegistry` | mirrors `SourceRegistry`; built from `GetServices<>`; `For(SourceId)` | **REAL (A3)**: registered in `MauiProgram` from `GetServices<ISourcePageContribution>()`/`GetServices<ISourceSettingsSectionContribution>()`; `SettingsSectionsFor(nafezly)` returns nafezly's one section, `…For(mostaql)` returns none — no source-id branch (ParserTests `TestNafezlyContributionRegistry`) |
 | Hard rule | shared UI NEVER branches `if (source == X)`; constants in `Core/Sources` defaults + each module's own files only (grep gate) | RULE |

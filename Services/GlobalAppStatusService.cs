@@ -25,6 +25,18 @@ public sealed partial class GlobalAppStatusService : ObservableObject
     /// </summary>
     private SourcePipelineStatus _active;
 
+    /// <summary>The source the projection (and therefore the visible UI) currently follows.</summary>
+    public SourceId ActiveSource
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _active.Source;
+            }
+        }
+    }
+
     public GlobalAppStatusService(SourceRegistry registry)
     {
         _active = new SourcePipelineStatus(SourceId.Default, registry);
