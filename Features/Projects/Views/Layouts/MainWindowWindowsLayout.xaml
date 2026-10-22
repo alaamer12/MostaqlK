@@ -6,7 +6,7 @@
              xmlns:vm="clr-namespace:MostaqlK.Features.Projects.ViewModels"
              xmlns:views="clr-namespace:MostaqlK.Features.Projects.Views"
              xmlns:notifViews="clr-namespace:MostaqlK.Features.Notifications.Views"
-             xmlns:sidebar="clr-namespace:MostaqlK.UI.PlatformComponents.AppSidebar"
+             xmlns:rail="clr-namespace:MostaqlK.UI.PlatformComponents.SourceRail"
              xmlns:dashboard="clr-namespace:MostaqlK.UI.PlatformComponents.PipelineDashboard"
              xmlns:lastscan="clr-namespace:MostaqlK.UI.PlatformComponents.LastScanStatus"
              xmlns:filtermodal="clr-namespace:MostaqlK.UI.PlatformComponents.FilterModal"
@@ -15,31 +15,36 @@
              FlowDirection="RightToLeft"
              BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
 
-    <!-- Layout mirrors projects.html: sidebar + header controls + active-query + dense cards + footer. -->
+    <!-- Layout mirrors the v3 mockup projects.html: icon rail + header controls + active-query +
+         dense feed + footer. -->
     <!-- Colours follow the mockup's light/dark class pairs (bg-slate-100 dark:bg-slate-950 for the
          page, bg-white dark:bg-slate-900 for panels, border-slate-200 dark:border-slate-800). -->
-    <!-- Columns (the page is RTL, so column 0 renders on the *right*): nav sidebar, project feed,
-         drag handle, pipeline dashboard. The dashboard therefore sits on the visual left, opposite
-         the nav rail, and the handle lets the user pan the boundary between the two sections
-         within each one's minimum width (see OnRootSizeChanged). -->
+    <!-- Columns (the page is RTL, so column 0 renders on the *right*): pipeline dashboard, drag
+         handle, project feed, nav rail. This reproduces the mockup's visual order — rail on the
+         physical LEFT (`.rail` in its `direction: ltr` wrapper), feed in the middle, panel on the
+         physical RIGHT ("pipeline panel (right) + splitter + feed column") — with the rail and the
+         panel on opposite edges exactly as before, only the sides mirrored when AppSidebar gave way
+         to the 64px SourceRail. The handle pans the panel/feed boundary within each side's minimum
+         width (see OnRootSizeChanged; the rail width comes from the shared RailWidths token). -->
     <Grid x:Name="Root"
           BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}"
-          ColumnDefinitions="Auto,*,Auto,Auto"
+          ColumnDefinitions="Auto,Auto,*,Auto"
           SizeChanged="OnRootSizeChanged">
 
-        <BoxView Grid.Column="0" Color="{AppThemeBinding Light=White, Dark=#0F172A}" />
-        <sidebar:AppSidebar Grid.Column="0"
-                            ActivePage="Projects"
-                            StatValue="{Binding GlobalStatus.ProjectsAddedTodayText}"
-                            ProjectsClicked="OnProjectsNavClicked"
-                            AdvancedSearchClicked="OnAdvancedSearchNavClicked"
-                            SettingsClicked="OnSettingsNavClicked"
-                            AboutClicked="OnAboutNavClicked"
-                            SourceChanged="OnSourceChanged"
-                            VerticalOptions="Fill" />
+        <rail:SourceRail Grid.Column="3"
+                         x:Name="Rail"
+                         ActivePage="Projects"
+                         UnreadCount="{Binding GlobalStatus.UnreadNotificationCount}"
+                         ProjectsClicked="OnProjectsNavClicked"
+                         AdvancedSearchClicked="OnAdvancedSearchNavClicked"
+                         SettingsClicked="OnSettingsNavClicked"
+                         AboutClicked="OnAboutNavClicked"
+                         NotificationsClicked="OnRailNotificationsClicked"
+                         SourceChanged="OnSourceChanged"
+                         VerticalOptions="Fill" />
 
         <Grid x:Name="FeedContent"
-              Grid.Column="1"
+              Grid.Column="2"
               RowDefinitions="Auto,*,Auto"
               Padding="24,24,24,0"
               BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
@@ -366,17 +371,17 @@
         </Grid>
 
         <components:SplitterHandle x:Name="PanelSplitter"
-                                   Grid.Column="2"
+                                   Grid.Column="1"
                                    AutomationId="Pipeline_ResizeHandle"
                                    Minimum="260"
                                    Maximum="560"
-                                   DragSign="-1"
+                                   DragSign="1"
                                    IsVisible="{Binding Source={x:Reference PipelinePanel}, Path=IsExpanded}"
                                    Value="{Binding Source={x:Reference PipelinePanel}, Path=ExpandedWidth, Mode=TwoWay}"
                                    DragCompleted="OnPanelSplitterDragCompleted" />
 
         <dashboard:PipelineDashboardPanel x:Name="PipelinePanel"
-                                          Grid.Column="3"
+                                          Grid.Column="0"
                                           AutomationId="Pipeline_DashboardPanel"
                                           VerticalOptions="Fill"
                                           DiscoveryProgress="{Binding GlobalStatus.DiscoveryProgress}"
@@ -401,7 +406,7 @@
 
         <notifViews:RecentNotificationsFlyout x:Name="NotificationsFlyout"
                                                AutomationId="Notifications_Flyout"
-                                               Grid.Column="1"
+                                               Grid.Column="2"
                                                IsVisible="False"
                                                HorizontalOptions="End"
                                                VerticalOptions="Start"

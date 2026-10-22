@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:components="clr-namespace:MostaqlK.UI.PlatformComponents"
+             xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem"
+             xmlns:rail="clr-namespace:MostaqlK.UI.PlatformComponents.SourceRail"
+             x:Class="MostaqlK.UI.PlatformComponents.SourceRail.SourceRail"
+             x:Name="Root"
+             WidthRequest="{x:Static rail:RailWidths.Width}"
+             FlowDirection="LeftToRight">
+
+    <!-- The v3 shell rail (contract §3; design/postmvp/v3-multisource/projects.html
+         "<aside class=\"rail\">"): 64px wide, icons only, physical LEFT. The mockup wraps the rail
+         in an explicit `direction: ltr` column while the app content stays RTL — mirrored here as
+         the unit's own FlowDirection="LeftToRight" (contract §11.3: the rail-left placement is the
+         ONE approved physical-left exception). Everything a tile paints comes from the DynamicResource
+         brand keys (B1 scheme) — no inline brand hex in this file; the neutrals are the mockup's
+         surface/line token pairs (light #FFFFFF / #E2E8F0, dark #1E293B / #334155).
+
+         Structured as a 3-row Grid (top stack / star spacer / bottom stack) exactly like the
+         mockup's `flex flex-col` + `flex-1` spacer: the bell + theme toggle pin to the rail's
+         bottom edge. A VerticalStackLayout cannot express that. -->
+
+    <ContentView.Resources>
+        <!-- Transparent full-size Button overlaid on every rail cell: a plain Border + tap never
+             surfaces an AutomationId to the Windows UI Automation tree (dotnet/maui#4715), so the
+             hit target + AutomationId live on this Button, the Border is visuals only — the same
+             pattern AppSidebar proved on Android's accessibility tree too (portable, no #if). -->
+        <Style x:Key="RailHitTargetStyle" TargetType="Button">
+            <Setter Property="BackgroundColor" Value="Transparent" />
+            <Setter Property="BorderWidth" Value="0" />
+            <Setter Property="Text" Value="" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="FontFamily" Value="TajawalMedium" />
+        </Style>
+
+        <!-- Mockup `.rail-btn { width/height 44; border-radius 12; }` cell chrome. Sizes ride the
+             shared RailWidths token — the same one the host layout's splitter clamp reads. -->
+        <Style x:Key="RailCellStyle" TargetType="Grid">
+            <Setter Property="WidthRequest" Value="{x:Static rail:RailWidths.Width}" />
+            <Setter Property="HeightRequest" Value="{x:Static rail:RailWidths.TileSize}" />
+            <Setter Property="HorizontalOptions" Value="Center" />
+        </Style>
+    </ContentView.Resources>
+
+    <Grid ColumnDefinitions="*,1"
+          RowDefinitions="Auto,*,Auto"
+          BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}">
+
+        <!-- Rail end-edge hairline (mockup `.rail { border-inline-end: 1px solid line-token }`;
+             LTR wrapper → inline-end is the physical right, the edge facing the content column). -->
+        <BoxView Grid.Column="1" Grid.RowSpan="3"
+                 Color="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" />
+
+        <!-- TOP: brand mark · separator · source tiles · separator · section nav · contributions -->
+        <VerticalStackLayout Grid.Column="0" Grid.Row="0" Spacing="8" Padding="0,16,0,0">
+
+            <!-- App mark: 40px rounded tile filled with the ACTIVE brand (mockup: background = brand);
+                 in the mockup — the mark re-tints on every morph). -->
+            <Border WidthRequest="40" HeightRequest="40" Margin="0,0,0,4"
+                    HorizontalOptions="Center" StrokeThickness="0"
+                    BackgroundColor="{DynamicResource Brand}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="12" />
+                </Border.StrokeShape>
+                <Label Text="M" FontFamily="TajawalBold" FontSize="18"
+                       TextColor="{DynamicResource OnBrand}"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+
+            <BoxView WidthRequest="32" HeightRequest="1" Margin="0,0,0,4" HorizontalOptions="Center"
+                     Color="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" />
+
+            <!-- Source tiles (contract §3): ONE tile per registered source, registry-driven,
+                 tap = SourceMorph.Apply. Rail visual form, shared switching unit. -->
+            <rail:SourceSwitchTiles x:Name="Tiles" IconOnly="True" SourceChanged="OnTilesSourceChanged" />
+
+            <BoxView WidthRequest="32" HeightRequest="1" Margin="4,4" HorizontalOptions="Center"
+                     Color="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" />
+
+            <!-- Sections of the active source's app (mockup order: المشاريع · البحث المتقدم ·
+                 الإعدادات · حول التطبيق). AutomationIds keep the Sidebar_* names the UI tests assert. -->
+            <Grid Style="{StaticResource RailCellStyle}">
+                <BoxView x:Name="ProjectsActiveBar" WidthRequest="3" HeightRequest="22" CornerRadius="3"
+                         Margin="3,0" HorizontalOptions="Start" VerticalOptions="Center" IsVisible="False"
+                         Color="{DynamicResource Brand}" />
+                <Border x:Name="ProjectsButton" WidthRequest="44" HeightRequest="44" StrokeThickness="0"
+                        BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <components:AppIcon x:Name="ProjectsIcon" Icon="ProjectsList" FontSize="18"
+                                        HorizontalOptions="Center" VerticalOptions="Center" />
+                </Border>
+                <Button x:Name="ProjectsHit" AutomationId="Sidebar_ProjectsButton"
+                        Style="{StaticResource RailHitTargetStyle}" Clicked="OnProjectsClicked" />
+                <Grid.Behaviors>
+                    <ds:PressableEffect ApplyHoverHighlight="True" />
+                </Grid.Behaviors>
+            </Grid>
+
+            <Grid Style="{StaticResource RailCellStyle}">
+                <BoxView x:Name="AdvancedSearchActiveBar" WidthRequest="3" HeightRequest="22" CornerRadius="3"
+                         Margin="3,0" HorizontalOptions="Start" VerticalOptions="Center" IsVisible="False"
+                         Color="{DynamicResource Brand}" />
+                <Border x:Name="AdvancedSearchButton" WidthRequest="44" HeightRequest="44" StrokeThickness="0"
+                        BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <components:AppIcon x:Name="AdvancedSearchIcon" Icon="Search" FontSize="18"
+                                        HorizontalOptions="Center" VerticalOptions="Center" />
+                </Border>
+                <Button x:Name="AdvancedSearchHit" AutomationId="Sidebar_AdvancedSearchButton"
+                        Style="{StaticResource RailHitTargetStyle}" Clicked="OnAdvancedSearchClicked" />
+                <Grid.Behaviors>
+                    <ds:PressableEffect ApplyHoverHighlight="True" />
+                </Grid.Behaviors>
+            </Grid>
+
+            <Grid Style="{StaticResource RailCellStyle}">
+                <BoxView x:Name="SettingsActiveBar" WidthRequest="3" HeightRequest="22" CornerRadius="3"
+                         Margin="3,0" HorizontalOptions="Start" VerticalOptions="Center" IsVisible="False"
+                         Color="{DynamicResource Brand}" />
+                <Border x:Name="SettingsButton" WidthRequest="44" HeightRequest="44" StrokeThickness="0"
+                        BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <components:AppIcon x:Name="SettingsIcon" Icon="Gear" FontSize="18"
+                                        HorizontalOptions="Center" VerticalOptions="Center" />
+                </Border>
+                <Button x:Name="SettingsHit" AutomationId="Sidebar_SettingsButton"
+                        Style="{StaticResource RailHitTargetStyle}" Clicked="OnSettingsClicked" />
+                <Grid.Behaviors>
+                    <ds:PressableEffect ApplyHoverHighlight="True" />
+                </Grid.Behaviors>
+            </Grid>
+
+            <Grid Style="{StaticResource RailCellStyle}">
+                <BoxView x:Name="AboutActiveBar" WidthRequest="3" HeightRequest="22" CornerRadius="3"
+                         Margin="3,0" HorizontalOptions="Start" VerticalOptions="Center" IsVisible="False"
+                         Color="{DynamicResource Brand}" />
+                <Border x:Name="AboutButton" WidthRequest="44" HeightRequest="44" StrokeThickness="0"
+                        BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <components:AppIcon x:Name="AboutIcon" Icon="Info" FontSize="18"
+                                        HorizontalOptions="Center" VerticalOptions="Center" />
+                </Border>
+                <Button x:Name="AboutHit" AutomationId="Sidebar_AboutButton"
+                        Style="{StaticResource RailHitTargetStyle}" Clicked="OnAboutClicked" />
+                <Grid.Behaviors>
+                    <ds:PressableEffect ApplyHoverHighlight="True" />
+                </Grid.Behaviors>
+            </Grid>
+
+            <!-- Per-source contributed pages (contract §10): the ACTIVE source's own rail entries
+                 straight from SourceContributionRegistry.PagesFor — presence-by-data, never a
+                 source-id branch. Built in code, in registry Order, after the standard sections. -->
+            <VerticalStackLayout x:Name="ContributionNavHost" Spacing="8" IsVisible="False" />
+        </VerticalStackLayout>
+
+        <!-- BOTTOM cluster (mockup `flex-1` spacer above): bell (unread pill) then theme toggle. -->
+        <VerticalStackLayout Grid.Column="0" Grid.Row="2" Spacing="8" Padding="0,0,0,16">
+
+            <Grid Style="{StaticResource RailCellStyle}">
+                <Border x:Name="NotificationsButton" WidthRequest="44" HeightRequest="44" StrokeThickness="0"
+                        BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <components:AppIcon x:Name="NotificationsIcon" Icon="Bell" FontSize="18"
+                                        HorizontalOptions="Center" VerticalOptions="Center" />
+                </Border>
+                <!-- Unread affordance: the live UnreadNotificationCount pill (the count the old
+                     sidebar row carried, now riding the rail's bell per contract §3/D7). -->
+                <Border x:Name="UnreadBadge" WidthRequest="18" HeightRequest="18" IsVisible="False"
+                        HorizontalOptions="End" VerticalOptions="Start" Margin="0,4,6,0"
+                        StrokeThickness="0" BackgroundColor="{DynamicResource Brand}">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="9" />
+                    </Border.StrokeShape>
+                    <Label x:Name="UnreadBadgeLabel" Text="0" FontSize="10" FontFamily="TajawalBold"
+                           TextColor="{DynamicResource OnBrand}"
+                           HorizontalTextAlignment="Center" VerticalTextAlignment="Center" />
+                </Border>
+                <Button x:Name="NotificationsHit" AutomationId="Sidebar_NotificationsButton"
+                        Style="{StaticResource RailHitTargetStyle}" Clicked="OnNotificationsClicked" />
+                <Grid.Behaviors>
+                    <ds:PressableEffect ApplyHoverHighlight="True" />
+                </Grid.Behaviors>
+            </Grid>
+
+            <Grid Style="{StaticResource RailCellStyle}">
+                <Border x:Name="ThemeButton" WidthRequest="44" HeightRequest="44" StrokeThickness="0"
+                        BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <components:AppIcon x:Name="ThemeIcon" Icon="Moon" FontSize="18"
+                                        HorizontalOptions="Center" VerticalOptions="Center" />
+                </Border>
+                <!-- Same AutomationId + persistence path as the old sidebar row (SettingsKeys.IsDarkMode
+                     → UserAppTheme), so diagnostics and the Settings page stay in sync from here too.
+                     The mockup's moon↔sun swap needs a pre-baked sun raster the app does not have yet
+                     (AppIcon history forbids runtime re-resolution) — moon stands for the toggle until
+                     the asset ships; state changes never re-resolve the ImageSource. -->
+                <Button x:Name="ThemeHit" AutomationId="Sidebar_DarkModeToggle"
+                        Style="{StaticResource RailHitTargetStyle}" Clicked="OnThemeClicked" />
+                <Grid.Behaviors>
+                    <ds:PressableEffect ApplyHoverHighlight="True" />
+                </Grid.Behaviors>
+            </Grid>
+        </VerticalStackLayout>
+
+    </Grid>
+
+</ContentView>

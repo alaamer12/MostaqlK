@@ -1,6 +1,6 @@
 using MostaqlK.Core.Sources;
 
-namespace MostaqlK.UI.PlatformComponents.AppSidebar;
+namespace MostaqlK.UI.PlatformComponents.SourceRail;
 
 /// <summary>
 /// A source's contributed page rendered as a rail nav item — the exact shape the shell rail

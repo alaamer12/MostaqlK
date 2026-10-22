@@ -2,6 +2,7 @@ using MostaqlK.Core.Navigation;
 using MostaqlK.Core.Sources;
 using MostaqlK.Features.Notifications.ViewModels;
 using MostaqlK.Features.Projects.ViewModels;
+using MostaqlK.UI.PlatformComponents.SourceRail;
 
 namespace MostaqlK.Features.Projects.Views.Layouts;
 
@@ -83,9 +84,11 @@ public partial class MainWindowWindowsLayout : ContentView
     private void OnRootSizeChanged(object? sender, EventArgs e)
     {
         const double minimumFeedWidth = 520;
-        const double sidebarWidth = 256;
 
-        var available = Root.Width - sidebarWidth - minimumFeedWidth;
+        // The rail width is the shared RailWidths token, not a local copy of the old 256px sidebar:
+        // resizing the shell strip changes ONE constant (UI/PlatformComponents/SourceRail/RailWidths.cs)
+        // and this clamp follows automatically.
+        var available = Root.Width - RailWidths.Width - minimumFeedWidth;
         PanelSplitter.Maximum = Math.Max(PanelSplitter.Minimum, available);
     }
 
@@ -122,6 +125,15 @@ public partial class MainWindowWindowsLayout : ContentView
     }
 
     private void OnNotificationsButtonTapped(object? sender, TappedEventArgs e)
+    {
+        SetNotificationsFlyoutVisible(!NotificationsFlyout.IsVisible);
+    }
+
+    /// <summary>
+    /// Rail bell (v3 contract §3/D7 — the notification entry lives in the rail, not a page header):
+    /// same toggle semantics as the in-header bell button above.
+    /// </summary>
+    private void OnRailNotificationsClicked(object? sender, EventArgs e)
     {
         SetNotificationsFlyoutVisible(!NotificationsFlyout.IsVisible);
     }

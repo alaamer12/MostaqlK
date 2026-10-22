@@ -4,18 +4,25 @@ using MostaqlK.Core.Sources;
 using MostaqlK.Services;
 using MostaqlK.UI.DesignSystem.BrandTokens;
 
-namespace MostaqlK.UI.PlatformComponents.AppSidebar;
+namespace MostaqlK.UI.PlatformComponents.SourceRail;
 
 /// <summary>
-/// The v3 source-morph tiles (contract §3/§4; the interactive core of the future
-/// <c>SourceRail</c>). Renders ONE tile per <see cref="SourceRegistry.All"/> entry — glyph and
-/// Arabic label come straight from each <see cref="ISourceDescriptor"/> — so a third source
-/// appears here with zero code change. The tile is <em>always</em> painted in its own source's
-/// brand (identity preview, per the mockups), and the ACTIVE source is distinguished by full
-/// opacity plus a <c>{DynamicResource Brand}</c> inline-start indicator bar; inactive tiles drop
-/// to the mockup's 45% opacity.
+/// The v3 source-morph tiles (contract §3/§4; the interactive core of the <see cref="SourceRail"/>).
+/// Renders ONE tile per <see cref="SourceRegistry.All"/> entry — glyph and Arabic label come straight
+/// from each <see cref="ISourceDescriptor"/> — so a third source appears here with zero code change.
+/// The tile is <em>always</em> painted in its own source's brand (identity preview, per the mockups),
+/// and the ACTIVE source is distinguished by full opacity plus a <c>{DynamicResource Brand}</c>
+/// inline-start indicator bar; inactive tiles drop to the mockup's 45% opacity.
 /// </summary>
 /// <remarks>
+/// Two visual forms, one unit (no duplicated switching logic):
+/// <list type="bullet">
+/// <item><see cref="IconOnly"/> = true → the rail form from the v3 mockups: a vertical stack of
+/// centered 44px glyph squares, the 3×22px indicator bar flush to the rail's outer edge, and the
+/// hover tooltip carrying name + domain ("مستقل — mostaql.com").</item>
+/// <item><see cref="IconOnly"/> = false (default) → the legacy horizontal chip (indicator + glyph +
+/// Arabic name) still hosted by <c>AppSidebar</c> on the pages that have not migrated to the rail yet.</item>
+/// </list>
 /// Hard rules honored here: shared UI never branches on a source id — every fact is a
 /// descriptor/registry lookup — and no brand hex is inline in this file: the tile fill is
 /// resolved from <c>descriptor.Brands</c> (the module owns the hexes) and the active chrome bar
@@ -43,6 +50,27 @@ public sealed class SourceSwitchTiles : ContentView
     /// <summary>Raised after a tile tap has switched the app's active source projection.</summary>
     public event EventHandler<SourceId>? SourceChanged;
 
+    public static readonly BindableProperty IconOnlyProperty = BindableProperty.Create(
+        nameof(IconOnly), typeof(bool), typeof(SourceSwitchTiles), false,
+        propertyChanged: OnIconOnlyChanged);
+
+    /// <summary>
+    /// Renders the tiles in the v3 rail form (icon-only vertical stack, mockup `.rail .src-tile`)
+    /// instead of the legacy horizontal chip. Flipping it rebuilds the tile tree; the switching
+    /// logic, registry enumeration, AutomationIds and palette subscriptions are identical in both.
+    /// </summary>
+    public bool IconOnly
+    {
+        get => (bool)GetValue(IconOnlyProperty);
+        set => SetValue(IconOnlyProperty, value);
+    }
+
+    private static void OnIconOnlyChanged(BindableObject bindable, object oldValue, object newValue)
+    {
+        var self = (SourceSwitchTiles)bindable;
+        self.RebuildTiles();
+    }
+
     public SourceSwitchTiles()
     {
         _registry = IPlatformApplication.Current?.Services.GetService<SourceRegistry>();
@@ -56,8 +84,16 @@ public sealed class SourceSwitchTiles : ContentView
         Unloaded += OnUnloaded;
     }
 
+    private void RebuildTiles()
+    {
+        _tiles.Clear();
+        Content = BuildTiles();
+    }
+
     private View BuildTiles()
     {
+        // Rail form: tiles stack vertically like the mockup's `<aside class="rail flex flex-col
+        // gap-2">`; the chip form keeps its own column inside the sidebar's horizontal nav stack.
         var stack = new VerticalStackLayout { Spacing = 8 };
         if (_registry is null)
         {
@@ -78,8 +114,6 @@ public sealed class SourceSwitchTiles : ContentView
 
     private Tile BuildTile(ISourceDescriptor descriptor)
     {
-        // One compact horizontal chip per source: [44px brand glyph square][Arabic name], so both
-        // tiles are live immediately and each carries glyph + label straight from the descriptor.
         var glyphLabel = new Label
         {
             Text = descriptor.RailGlyph,
@@ -99,35 +133,65 @@ public sealed class SourceSwitchTiles : ContentView
             BackgroundColor = ResolveOwnBrandFill(descriptor),
             StrokeShape = new RoundRectangle { CornerRadius = 12 },
             Content = glyphLabel,
+            HorizontalOptions = IconOnly ? LayoutOptions.Center : LayoutOptions.Start,
+            VerticalOptions = LayoutOptions.Center,
         };
         glyphLabel.TextColor = ResolveOwnBrandOnText(descriptor);
 
-        var nameLabel = new Label
-        {
-            Text = descriptor.DisplayNameAr,
-            FontFamily = "TajawalMedium",
-            FontSize = 14,
-            VerticalTextAlignment = TextAlignment.Center,
-            HorizontalOptions = LayoutOptions.Fill,
-        };
-
         var indicator = new BoxView
         {
-            WidthRequest = 3,
-            HeightRequest = 22,
+            WidthRequest = RailWidths.IndicatorWidth,
+            HeightRequest = RailWidths.IndicatorHeight,
             CornerRadius = 3,
             VerticalOptions = LayoutOptions.Center,
             IsVisible = false,
         };
         indicator.SetDynamicResource(BackgroundColorProperty, BrandPalette.BrandKey);
 
-        var row = new HorizontalStackLayout
+        Label? nameLabel = null;
+        Grid cell;
+
+        if (IconOnly)
         {
-            Spacing = 12,
-            Padding = new Thickness(12, 8),
-            VerticalOptions = LayoutOptions.Center,
-            Children = { indicator, glyphSquare, nameLabel },
-        };
+            // Mockup rail tile: a full-rail-width cell so the indicator bar can sit flush against
+            // the rail's outer edge (`.rail-btn.active::before { inset-inline-start: -10px }`),
+            // with the 44px glyph square centered in the remaining gutter.
+            indicator.HorizontalOptions = LayoutOptions.Start;
+            indicator.Margin = new Thickness(3, 0);
+
+            cell = new Grid
+            {
+                WidthRequest = RailWidths.Width,
+                HeightRequest = RailWidths.TileSize,
+                HorizontalOptions = LayoutOptions.Center,
+            };
+            cell.Children.Add(indicator);
+            cell.Children.Add(glyphSquare);
+        }
+        else
+        {
+            // Legacy chip: [indicator][44px brand glyph square][Arabic name], so both tiles are
+            // live immediately and each carries glyph + label straight from the descriptor.
+            nameLabel = new Label
+            {
+                Text = descriptor.DisplayNameAr,
+                FontFamily = "TajawalMedium",
+                FontSize = 14,
+                VerticalTextAlignment = TextAlignment.Center,
+                HorizontalOptions = LayoutOptions.Fill,
+            };
+
+            var chipRow = new HorizontalStackLayout
+            {
+                Spacing = 12,
+                Padding = new Thickness(12, 8),
+                VerticalOptions = LayoutOptions.Center,
+                Children = { indicator, glyphSquare, nameLabel },
+            };
+
+            cell = new Grid();
+            cell.Children.Add(chipRow);
+        }
 
         var hit = new Button
         {
@@ -140,10 +204,13 @@ public sealed class SourceSwitchTiles : ContentView
         // Mockup tile aria-label "تحويل التطبيق إلى {source}" — composed from the descriptor's own
         // Arabic name, never a hardcoded site string.
         SemanticProperties.SetDescription(hit, $"تحويل التطبيق إلى {descriptor.DisplayNameAr}");
+        // Mockup rail tooltip: name + domain ("مستقل — mostaql.com"), straight from the descriptor.
+        ToolTipProperties.SetText(hit, $"{descriptor.DisplayNameAr} — {descriptor.Domain}");
         hit.Clicked += (_, _) => SwitchTo(descriptor.Id);
 
-        var cell = new Grid();
-        cell.Children.Add(row);
+        // The cell is the tree root for both modes: the hit Button overlays the visuals, exactly
+        // like every other rail row (plain Border + tap never surfaces an AutomationId to Windows
+        // UI Automation — dotnet/maui#4715).
         cell.Children.Add(hit);
 
         return new Tile(descriptor, cell, indicator, glyphSquare, glyphLabel, nameLabel);
@@ -202,18 +269,22 @@ public sealed class SourceSwitchTiles : ContentView
             tile.Indicator.IsVisible = isActive;
             tile.Root.Opacity = isActive ? 1d : InactiveTileOpacity;
 
+            if (tile.NameLabel is not { } name)
+            {
+                continue; // rail form has no name label — the tooltip above carries the identity.
+            }
+
             // Active name-ink is the live readable brand text key (repaints free); inactive is the
             // neutral slate AppSidebar uses for its own inactive rows — state chrome, never brand.
+            name.RemoveDynamicResource(Label.TextColorProperty);
             if (isActive)
             {
-                tile.NameLabel.RemoveDynamicResource(Label.TextColorProperty);
-                tile.NameLabel.SetDynamicResource(Label.TextColorProperty, BrandPalette.BrandInkKey);
+                name.SetDynamicResource(Label.TextColorProperty, BrandPalette.BrandInkKey);
             }
             else
             {
-                tile.NameLabel.RemoveDynamicResource(Label.TextColorProperty);
                 var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
-                tile.NameLabel.TextColor = Color.FromArgb(isDark ? InactiveNameDark : InactiveNameLight);
+                name.TextColor = Color.FromArgb(isDark ? InactiveNameDark : InactiveNameLight);
             }
         }
     }
@@ -240,5 +311,5 @@ public sealed class SourceSwitchTiles : ContentView
         BoxView Indicator,
         Border GlyphSquare,
         Label GlyphLabel,
-        Label NameLabel);
+        Label? NameLabel);
 }
