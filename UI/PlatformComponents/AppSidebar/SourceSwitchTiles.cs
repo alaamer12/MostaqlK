@@ -156,10 +156,8 @@ public sealed class SourceSwitchTiles : ContentView
             return;
         }
 
-        // Pure projection, in contract order: persist → re-point status facade → swap brand palette.
-        _settings?.SetGlobal(SettingsKeys.ActiveSource, source.Value);
-        _status?.SetActiveProjection(source);
-        _provider.SwapTo(source);
+        // Pure projection via the canonical triple (shared with toast activation, contract §6).
+        MostaqlK.Services.SourceMorph.Apply(_settings, _status, _provider, source);
 
         // BrandPalette repaints on TokensSwapped; opacity/indicator re-apply also rides that event
         // (subscribed below), but re-apply now so the rail is correct even before a repaint lands.

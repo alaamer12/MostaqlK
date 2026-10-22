@@ -491,4 +491,5 @@ Rules:
   any glyph-font element must keep its icon font.
 - Contrary to the runtime-font limitation documented for `AppIcon`, the bundled Tajawal faces *do*
   load on the unpackaged Windows build (confirmed visually against the parity screenshots), because
-  they are referenced statically as `FontFamily` values on XAML elements.
+  they are referenced statically as `FontFamily` values on XAML elements.| `SourceMorph.Apply` (`Services/SourceMorph.cs`) | The canonical permanent-morph triple (persist active source → re-point status projection → swap brand palette) shared by rail tile taps and toast morph-first activation (contract §6). No-op when already on that source. | Active |
+

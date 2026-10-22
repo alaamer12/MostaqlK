@@ -183,6 +183,21 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         _globalStatus.ProjectDiscovered += OnProjectDiscovered;
         _globalStatus.WorkerStateChanged += OnWorkerStateChanged;
         _globalStatus.ProjectRemovedFromQueue += OnProjectRemovedFromQueue;
+        _globalStatus.PropertyChanged += OnGlobalStatusPropertyChanged;
+    }
+
+    /// <summary>
+    /// §6 morph-first: a switch initiated anywhere else (toast activation, restored startup
+    /// projection) re-points this list too — the blanket projection-changed event from
+    /// <see cref="GlobalAppStatusService.SetActiveProjection"/> is the signal.
+    /// </summary>
+    private void OnGlobalStatusPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        var active = _globalStatus.ActiveSource;
+        if ((e.PropertyName is null or "" or nameof(GlobalAppStatusService.ActiveSource)) && active != _source)
+        {
+            _ = SwitchSourceAsync(active);
+        }
     }
 
     private void OnProjectDiscovered(long projectId, string title) => ScheduleAutoReload();

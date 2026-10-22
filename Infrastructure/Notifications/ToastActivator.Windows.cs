@@ -122,6 +122,18 @@ public static class ToastActivator
                     trayService?.OnOpen();
                 }
 
+                // §6 morph-first (owner decision): permanently morph to the clicked project's
+                // source before navigating (no-op when already active). See SourceMorph.
+                if (args.TryGetValue(AppRoutes.SourceIdQueryParam, out var morphStr)
+                    && MostaqlK.Core.Sources.SourceId.TryFrom(morphStr, out var morphSource))
+                {
+                    MostaqlK.Services.SourceMorph.Apply(
+                        services.GetService<MostaqlK.Core.Sources.ISettingsRepository>(),
+                        services.GetService<Services.GlobalAppStatusService>(),
+                        services.GetService<MostaqlK.UI.DesignSystem.BrandTokens.IBrandTokenProvider>(),
+                        morphSource);
+                }
+
                 await AppRoutes.NavigateAsync(target);
             }
             catch (Exception ex)

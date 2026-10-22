@@ -72,6 +72,16 @@ public sealed class WinAppSdkVariation : IToastVariation
                         trayService?.OnOpen();
                     }
 
+                    // §6 morph-first (owner decision): a notification from another source
+                    // PERMANENTLY switches the app to that source before navigating, so the
+                    // details page, palette, feed and live pipeline consumers all agree with
+                    // what the user clicked. No-op when already on that source.
+                    MostaqlK.Services.SourceMorph.Apply(
+                        services.GetService<MostaqlK.Core.Sources.ISettingsRepository>(),
+                        services.GetService<Services.GlobalAppStatusService>(),
+                        services.GetService<MostaqlK.UI.DesignSystem.BrandTokens.IBrandTokenProvider>(),
+                        source);
+
                     await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(source, projectId));
                 }
                 catch (Exception ex)
