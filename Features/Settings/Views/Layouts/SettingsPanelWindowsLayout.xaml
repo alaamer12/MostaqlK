@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:MostaqlK.Features.Settings.ViewModels"
              xmlns:platform="clr-namespace:MostaqlK.UI.PlatformComponents"
-             xmlns:sidebar="clr-namespace:MostaqlK.UI.PlatformComponents.AppSidebar"
+             xmlns:rail="clr-namespace:MostaqlK.UI.PlatformComponents.SourceRail"
              xmlns:lastscan="clr-namespace:MostaqlK.UI.PlatformComponents.LastScanStatus"
              xmlns:sources="clr-namespace:MostaqlK.Core.Sources"
              xmlns:converters="clr-namespace:MostaqlK.UI.DesignSystem.Converters"
@@ -88,23 +88,30 @@
         </ResourceDictionary>
     </ContentView.Resources>
 
-    <Grid BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#0F172A}" ColumnDefinitions="Auto,*">
+    <!-- v3 shell (contract §3): every page now hosts the 64px SourceRail, physical LEFT — identical
+         to MainWindowWindowsLayout. The root Grid is RTL, so the rail rides the LAST column (col 1)
+         to land on the physical left and the settings content (col 0, *) renders to its right,
+         exactly mirroring the mockup's `<div style="direction:ltr">` [rail | main(rtl)] split.
+         RailWidths.Width (64px) replaces the old 256px AppSidebar column, reclaiming 192px. -->
+    <Grid BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#0F172A}" ColumnDefinitions="*,Auto">
 
-        <!-- Current source host: the AppSidebar already carries the v3 SourceSwitchTiles morph row
-             (contract §3/§4). That tile unit is being relocated into SourceRail by a parallel agent;
-             this page binds to the sidebar host that exists today and does NOT reference SourceSwitchTiles
-             directly, so the relocation cannot break it. PLACEHOLDER / HANDOFF: the header tile switcher
-             below shows only the active source's name+glyph; wiring an interactive tile here to the
-             finished SourceRail tile unit is deferred to the parent at review. -->
-        <sidebar:AppSidebar Grid.Column="0"
-                            ActivePage="Settings"
-                            StatValue="{Binding GlobalStatus.ProjectsAddedTodayText}"
-                            ProjectsClicked="OnProjectsNavClicked"
-                            AdvancedSearchClicked="OnAdvancedSearchNavClicked"
-                            SettingsClicked="OnSettingsNavClicked"
-                            AboutClicked="OnAboutNavClicked" />
+        <!-- Shared v3 shell rail (contract §3). Same switching/nav semantics as the projects page:
+             ActivePage marks the الإعدادات row, the bell (no flyout host on this page) navigates to
+             the projects feed which owns the notifications flyout, source tiles morph the app via
+             the unit's own SourceMorph.ApplyOptimistic path, and the settings surface re-points its
+             descriptor-driven rows on SourceChanged. Sidebar_* AutomationIds live inside this rail. -->
+        <rail:SourceRail Grid.Column="1"
+                         x:Name="Rail"
+                         ActivePage="Settings"
+                         UnreadCount="{Binding GlobalStatus.UnreadNotificationCount}"
+                         ProjectsClicked="OnProjectsNavClicked"
+                         AdvancedSearchClicked="OnAdvancedSearchNavClicked"
+                         SettingsClicked="OnSettingsNavClicked"
+                         AboutClicked="OnAboutNavClicked"
+                         NotificationsClicked="OnRailNotificationsClicked"
+                         SourceChanged="OnRailSourceChanged" />
 
-        <Grid Grid.Column="1" RowDefinitions="Auto,*" BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#0F172A}">
+        <Grid Grid.Column="0" RowDefinitions="Auto,*" BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#0F172A}">
 
             <!-- Header band (mockup <header>): centered title + "إعدادات المنصة الحالية: {tile} {name}" -->
             <VerticalStackLayout Grid.Row="0"
@@ -123,7 +130,13 @@
                            FontSize="12"
                            VerticalOptions="Center"
                            TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
-                    <!-- active source tile glyph (descriptor RailGlyph), filled with the live brand -->
+                    <!-- dev33 shell-unify: the header stays the mockup's COMPACT single active-source
+                         tile + name (settings.html `<p …><span class="w-5 h-5 src-tile">…<span id=set-src-name>`).
+                         The interactive IconOnly SourceSwitchTiles switcher is wired into THIS page via the
+                         SourceRail above (its own IconOnly SourceSwitchTiles + SourceChanged → refresh);
+                         a full two-tile switcher here inflated the header height and vertically ghosted
+                         every content row in the parity matrix, so the compact display form is kept.
+                         The tile/name repaint on a rail source switch through RefreshForActiveSource. -->
                     <Border BackgroundColor="{DynamicResource Brand}"
                             StrokeThickness="0"
                             WidthRequest="20"

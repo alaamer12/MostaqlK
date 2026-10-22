@@ -7,7 +7,7 @@
              xmlns:vm="clr-namespace:MostaqlK.Features.Projects.ViewModels"
              xmlns:models="clr-namespace:MostaqlK.Models"
              xmlns:converters="clr-namespace:MostaqlK.UI.DesignSystem.Converters"
-             xmlns:sidebar="clr-namespace:MostaqlK.UI.PlatformComponents.AppSidebar"
+             xmlns:rail="clr-namespace:MostaqlK.UI.PlatformComponents.SourceRail"
              x:Class="MostaqlK.Features.Projects.Views.Layouts.ProjectDetailsWindowsLayout"
              x:DataType="vm:ProjectDetailsViewModel"
              FlowDirection="RightToLeft">
@@ -19,17 +19,22 @@
         </ResourceDictionary>
     </ContentView.Resources>
 
-    <Grid ColumnDefinitions="Auto,*" BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
+    <!-- v3 shell (contract §3): the 64px SourceRail replaces the 256px AppSidebar, physical LEFT
+         (rail rides the last column of this RTL grid → reclaiming 192px). The details page belongs
+         to the المشاريع section, so ActivePage=Projects. Content is untouched (dev23-era, verified). -->
+    <Grid ColumnDefinitions="*,Auto" BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
 
-        <sidebar:AppSidebar Grid.Column="0"
-                             ActivePage="Projects"
-                             StatValue="{Binding GlobalStatus.ProjectsAddedTodayText}"
-                             ProjectsClicked="OnProjectsNavClicked"
-                             AdvancedSearchClicked="OnAdvancedSearchNavClicked"
-                             SettingsClicked="OnSettingsNavClicked"
-                             AboutClicked="OnAboutNavClicked" />
+        <rail:SourceRail Grid.Column="1"
+                         x:Name="Rail"
+                         ActivePage="Projects"
+                         UnreadCount="{Binding GlobalStatus.UnreadNotificationCount}"
+                         ProjectsClicked="OnProjectsNavClicked"
+                         AdvancedSearchClicked="OnAdvancedSearchNavClicked"
+                         SettingsClicked="OnSettingsNavClicked"
+                         AboutClicked="OnAboutNavClicked"
+                         NotificationsClicked="OnRailNotificationsClicked" />
 
-        <Grid Grid.Column="1" RowDefinitions="Auto,*">
+        <Grid Grid.Column="0" RowDefinitions="Auto,*">
 
             <!-- ============ HEADER BAND (surface, bottom hairline) ============
                  v3: the page title IS the scraped project title (not the static "تفاصيل المشروع"),

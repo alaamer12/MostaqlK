@@ -42,6 +42,16 @@ public partial class AboutPageWindowsLayout : ContentView
         await AppRoutes.NavigateAsync(AppRoutes.About);
     }
 
+    /// <summary>
+    /// Rail bell: the About page owns no notifications flyout (the projects feed does), so the bell
+    /// navigates back to the feed — mirroring the rail's event semantics and
+    /// <c>SidebarNavigationTests.FromAbout_Click_NotificationsRow_NavigatesBackToProjects</c>.
+    /// </summary>
+    private async void OnRailNotificationsClicked(object? sender, EventArgs e)
+    {
+        await AppRoutes.NavigateAsync(AppRoutes.Projects);
+    }
+
     private async void OnMostaqlLinkTapped(object? sender, TappedEventArgs e)
     {
         try

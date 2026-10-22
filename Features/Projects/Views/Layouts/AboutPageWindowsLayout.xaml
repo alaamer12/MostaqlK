@@ -1,23 +1,29 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:sidebar="clr-namespace:MostaqlK.UI.PlatformComponents.AppSidebar"
+             xmlns:rail="clr-namespace:MostaqlK.UI.PlatformComponents.SourceRail"
              xmlns:components="clr-namespace:MostaqlK.UI.PlatformComponents"
              xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem"
              x:Class="MostaqlK.Features.Projects.Views.Layouts.AboutPageWindowsLayout"
              FlowDirection="RightToLeft">
 
-    <Grid BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}" ColumnDefinitions="Auto,*">
+    <!-- v3 shell (contract §3): the 64px SourceRail replaces the 256px AppSidebar, physical LEFT
+         (rail rides the last column of this RTL grid → reclaiming 192px). Content (dev23-era About
+         cards) is untouched — shell swap only. BindingContext is the GlobalAppStatusService, so the
+         bell's unread pill binds UnreadNotificationCount directly. -->
+    <Grid BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}" ColumnDefinitions="*,Auto">
 
-        <sidebar:AppSidebar Grid.Column="0"
-                             ActivePage="About"
-                             StatValue="{Binding ProjectsAddedTodayText}"
-                             ProjectsClicked="OnProjectsNavClicked"
-                             AdvancedSearchClicked="OnAdvancedSearchNavClicked"
-                             SettingsClicked="OnSettingsNavClicked"
-                             AboutClicked="OnAboutNavClicked" />
+        <rail:SourceRail Grid.Column="1"
+                         x:Name="Rail"
+                         ActivePage="About"
+                         UnreadCount="{Binding UnreadNotificationCount}"
+                         ProjectsClicked="OnProjectsNavClicked"
+                         AdvancedSearchClicked="OnAdvancedSearchNavClicked"
+                         SettingsClicked="OnSettingsNavClicked"
+                         AboutClicked="OnAboutNavClicked"
+                         NotificationsClicked="OnRailNotificationsClicked" />
 
-        <Grid Grid.Column="1" RowDefinitions="32,Auto,*" Padding="24,20,24,24" RowSpacing="16">
+        <Grid Grid.Column="0" RowDefinitions="32,Auto,*" Padding="24,20,24,24" RowSpacing="16">
             <BoxView Grid.Row="0" BackgroundColor="Transparent" InputTransparent="True" />
 
             <Border Grid.Row="1" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}" Padding="16,12">

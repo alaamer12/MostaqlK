@@ -343,6 +343,42 @@ public sealed partial class SettingsViewModel : ObservableObject
         _ = LoadArchiveCountAsync();
     }
 
+    /// <summary>
+    /// Re-points the settings surface after a source morph (the rail tiles or the header
+    /// <see cref="MostaqlK.UI.PlatformComponents.SourceRail.SourceSwitchTiles"/> switched the active
+    /// platform). The global projection is already applied inside the tiles unit
+    /// (<see cref="MostaqlK.Services.SourceMorph.ApplyOptimistic"/>); this only repaints what reads
+    /// <see cref="_source"/>: the per-source preference rows, the contributed sections, the session
+    /// cookie read-out, and the descriptor-driven visibility/name/currency display properties (plain
+    /// getters over <c>ActiveDescriptor</c>, so they must be re-raised explicitly). Reuses the exact
+    /// private loads the constructor runs — no new mutation paths, no source-id branch.
+    /// </summary>
+    public void RefreshForActiveSource()
+    {
+        LoadFromPreferences();
+        LoadContributedSections();
+        RefreshCookieStatus();
+
+        foreach (var name in new[]
+                 {
+                     nameof(ActiveSourceName),
+                     nameof(ActiveSourceGlyph),
+                     nameof(ShowSessionEnrichmentRow),
+                     nameof(ShowSupervisedTypesRow),
+                     nameof(ShowBudgetCurrencyRow),
+                     nameof(BudgetCurrencyDisplayText),
+                     nameof(SessionEnrichmentHint),
+                     nameof(SessionValueText),
+                     nameof(CookiePastePlaceholder),
+                 })
+        {
+            OnPropertyChanged(name);
+        }
+
+        _ = LoadProjectsAddedTodayAsync();
+        _ = LoadArchiveCountAsync();
+    }
+
     // -----------------------------------------------------------------
     // Session cookie ("ملف الجلسة")
     // -----------------------------------------------------------------
