@@ -1,0 +1,9 @@
+{
+  "url": "https://nafezly.com/projects?page=2",
+  "url_effective": "https://nafezly.com/projects?page=2",
+  "method": "curl HTTPS GET, browser UA + Accept/Accept-Language, --compressed, forced UTF-8 decoding",
+  "captured_utc": "2026-10-22T01:49:59+00:00",
+  "http_status": 200,
+  "byte_size": 322604,
+  "sha256": "da7c69a45eb1b9ea3467b940d58ad51d14b5b4c9f452f4230bbbb99772288581"
+}
