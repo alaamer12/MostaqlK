@@ -93,6 +93,7 @@ public static partial class SourceMorphTransition
         // no ring, no settle. Mandatory, not optional (contract §4.2 / animation-safety rule 1).
         if (MotionPreferences.IsReducedMotionRequested || targetRegion is null)
         {
+            MostaqlK.Services.Diagnostics.InteractionLogger.Mark("Morph.RevealStarted", "instant");
             applyStateChange();
             return;
         }

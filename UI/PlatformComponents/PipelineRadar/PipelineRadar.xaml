@@ -38,6 +38,25 @@
             </GraphicsView.Behaviors>
         </GraphicsView>
 
+        <!-- Rotating overlay layers (dev30 de-managed ticker): painted STATIC (head at 12 o'clock),
+             rotated by one looping compositor RotationAngleInDegrees key-frame each on Windows
+             while active — see PipelineRadar.Windows.cs. Transparent to input and never animated
+             by the frame ticker; the managed canvas below only repaints on real data change.
+             Same LTR pin and proportional bounds as RadarCanvas. -->
+        <GraphicsView x:Name="ScannerCanvas"
+                      FlowDirection="LeftToRight"
+                      InputTransparent="True"
+                      IsVisible="False"
+                      AbsoluteLayout.LayoutBounds="0,0,1,1"
+                      AbsoluteLayout.LayoutFlags="All" />
+
+        <GraphicsView x:Name="SweepCanvas"
+                      FlowDirection="LeftToRight"
+                      InputTransparent="True"
+                      IsVisible="False"
+                      AbsoluteLayout.LayoutBounds="0,0,1,1"
+                      AbsoluteLayout.LayoutFlags="All" />
+
         <Border x:Name="TooltipPanel"
                 AutomationId="Pipeline_RadarTooltip"
                 AbsoluteLayout.LayoutBounds="-176,-112,180,108"

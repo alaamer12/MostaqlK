@@ -71,11 +71,16 @@ public partial class App : Application
             : null;
         UserAppTheme = StartupNavigation.ResolveTheme(Environment.GetCommandLineArgs(), storedIsDarkMode);
 
-        // v3 morph persistence: restore the source the UI projects (absent ⇒ default source, so a
-        // first run of this version behaves exactly like every previous one). A v3 parity launch
-        // can pin the identity for THIS run with an explicit `--source-id=` (the same argument the
-        // details route already uses); without the flag nothing changes.
-        var storedActiveSource = settings.GetGlobal(MostaqlK.Core.Sources.SettingsKeys.ActiveSource, (string?)null);
+        // v3 morph persistence: restore the source the UI projects, honoring the
+        // "تذكر آخر منصة مفتوحة" setting (SettingsKeys.RememberLastSource, shipped in dev24; the
+        // deferred parent follow-up is wired here in dev30). Absent ⇒ default ON, so behavior is
+        // identical to every previous build unless the user switched the toggle off — then the
+        // stored ActiveSource is ignored and the default source is projected. A v3 parity launch
+        // can still pin the identity for THIS run with an explicit `--source-id=` (the same
+        // argument the details route already uses); the flag outranks both preference states.
+        var storedActiveSource = settings.GetGlobal(MostaqlK.Core.Sources.SettingsKeys.RememberLastSource, true)
+            ? settings.GetGlobal(MostaqlK.Core.Sources.SettingsKeys.ActiveSource, (string?)null)
+            : null;
         var explicitStartupSource = startupArgs
             .FirstOrDefault(arg => arg.StartsWith("--source-id=", StringComparison.OrdinalIgnoreCase))?["--source-id=".Length..];
         var requestedSource = !string.IsNullOrWhiteSpace(explicitStartupSource) ? explicitStartupSource : storedActiveSource;
@@ -295,6 +300,19 @@ public partial class App : Application
         {
             MostaqlK.Services.Diagnostics.InteractionLogger.Mark("App.Shutdown.PipelineCancelled", "A");
             _pipelineCts.Cancel();
+        }
+
+        // Deferred-preference durability guard: BOTH deferred queues drain before the process goes
+        // away so the next launch restores the truth — SourceMorph's rail-morph/theme persistence
+        // queue and the dev29 DeferredPreferences queue (settings/filter writes).
+        MostaqlK.Services.SourceMorph.FlushDeferredPersistence(TimeSpan.FromMilliseconds(2000));
+        try
+        {
+            MostaqlK.Core.Platform.DeferredPreferences.FlushAsync().Wait(TimeSpan.FromMilliseconds(2000));
+        }
+        catch (Exception ex)
+        {
+            MostaqlK.Services.Diagnostics.InteractionLogger.Mark("App.Shutdown.DeferredPrefsFlushFault", "B", new { error = ex.Message });
         }
     }
 

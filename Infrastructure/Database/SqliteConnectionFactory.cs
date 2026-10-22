@@ -21,6 +21,37 @@ public sealed class SqliteConnectionFactory
     private readonly object _migrationLock = new();
     private bool _schemaVerified;
 
+#if DEBUG
+    private static readonly bool DebugLatencyEnabled =
+        !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("MOSTAQLK_DB_LATENCY"));
+
+    /// <summary>
+    /// DEBUG-only: when <c>MOSTAQLK_DB_LATENCY</c> is set (any non-empty value; same generic env
+    /// pattern as the <c>MOSTAQLK_COOKIE_*</c> development fallbacks), randomly pause the calling
+    /// thread before every connection/command: uniform 0-300ms, with a ~5% chance of an 800-1200ms
+    /// outlier. Blocking the caller thread is intentional — a real slow source parks whoever awaits
+    /// it, and any UI thread that ends up parked here IS the coupling this test exists to expose.
+    /// </summary>
+    [System.Diagnostics.Conditional("DEBUG")]
+    private static void ApplyDebugLatencyPoison()
+    {
+        if (!DebugLatencyEnabled)
+        {
+            return;
+        }
+
+        var delayMs = Random.Shared.Next(100) < 5
+            ? Random.Shared.Next(800, 1200)
+            : Random.Shared.Next(0, 300);
+
+        if (delayMs > 0)
+        {
+            System.Diagnostics.Debug.WriteLine($"[MOSTAQLK_DB_LATENCY] injected {delayMs}ms before DB command");
+            Task.Delay(delayMs).GetAwaiter().GetResult();
+        }
+    }
+#endif
+
     public SqliteConnectionFactory()
         : this(AppPaths.DatabasePath)
     {
@@ -37,6 +68,15 @@ public sealed class SqliteConnectionFactory
     /// </summary>
     public SqliteConnection CreateConnection()
     {
+#if DEBUG
+        // Dev-only tail-latency poison (plan step 5): every repository call goes through this
+        // per-call seam, so a random 0-300ms (+ ~5% 800-1200ms outlier) pause lands before each
+        // command executes — a fast local DB is still a slow SOURCE. The click path must stay
+        // responsive anyway (reveal starts in-frame, feed paints from memory). Zero effect when
+        // the env var is unset, and the whole member compiles away outside DEBUG.
+        ApplyDebugLatencyPoison();
+#endif
+
         var connection = new SqliteConnection(_connectionString);
         connection.Open();
 

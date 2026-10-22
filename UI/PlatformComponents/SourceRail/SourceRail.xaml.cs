@@ -379,10 +379,14 @@ public partial class SourceRail : ContentView
             {
                 var isDark = Application.Current?.RequestedTheme != AppTheme.Dark;
 
-                if (IPlatformApplication.Current?.Services.GetService<ISettingsRepository>() is { } settingsRepository)
-                {
-                    settingsRepository.SetGlobal(SettingsKeys.IsDarkMode, isDark);
-                }
+                // Click-path dev30: the theme write joins the rail's deferred-persistence queue
+                // (ordered last-wins, flushed on window close) so the click frame never pays the
+                // synchronous preferences.dat write. The repaint below stays synchronous — it IS
+                // the optimistic paint the reveal animates over.
+                MostaqlK.Services.SourceMorph.DeferSet(
+                    IPlatformApplication.Current?.Services.GetService<ISettingsRepository>(),
+                    SettingsKeys.IsDarkMode,
+                    isDark);
 
                 if (Application.Current is { } app)
                 {

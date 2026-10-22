@@ -1,5 +1,7 @@
 namespace MostaqlK.UI.PlatformComponents.PipelineRadar;
 
+using System.Diagnostics;
+
 /// <summary>Which visual region of the radar the pointer is currently over.</summary>
 public enum RadarRegion
 {
@@ -159,8 +161,12 @@ public sealed class RadarPipelineState
     public const int WorkerCount = 3;
     private const int MaxVisibleTokens = 10;
 
-    // Durations in seconds - the spec's recommended starting points (section 21).
-    private const double ScannerPeriod = 4.0;          // one seamless revolution
+    // Durations in seconds - the spec's recommended starting points (section 21). The two
+    // rotation periods are public because on Windows the COMPOSITOR (not this model) spins the
+    // scanner/sweep via a looping RotationAngleInDegrees key-frame (dev30 de-managed ticker):
+    // the animation duration and the managed angle read-out must stay on the same clock constant.
+    public const double ScannerPeriodSeconds = 4.0;    // one seamless revolution
+    public const double SweepPeriodSeconds = 1.5;      // snapshot diff sweep revolution
     private const double EnterQueueDuration = 0.45;
     private const double ReorderDuration = 0.35;
     private const double ToWorkerDuration = 0.65;
@@ -193,14 +199,34 @@ public sealed class RadarPipelineState
 
     // --- Discovery tier ---
     public bool IsScanning { get; private set; }
-    public double ScannerProgress { get; private set; }
+    private double _scannerProgress;
     public double ScannerIntensity { get; private set; }
     private double _scannerIntensityVelocity;
     public double AmbientPhase { get; private set; }
 
+    /// <summary>
+    /// True on Windows, where the <em>rotation</em> of the scanner head and the snapshot sweep is
+    /// delegated to a looping compositor <c>RotationAngleInDegrees</c> key-frame animation
+    /// (render thread, zero managed per-frame work — animation-safety rule-3 class). The ticker
+    /// then only advances the DATA tweens and parks even while a scan runs; the head angle stays
+    /// derivable from the shared wall clock (see <see cref="ScannerAngle"/> and
+    /// <see cref="ResyncScannerEpoch"/>). Non-Windows builds keep the original per-frame model.
+    /// </summary>
+    public bool RotationDelegatedToCompositor { get; set; }
+
+    private long _scanEpoch;
+    private double _scannerAngleStatic = -90;
+
+    /// <summary>Aligns the managed wall-clock angle read-out with a (re)started compositor spin.</summary>
+    public void ResyncScannerEpoch()
+    {
+        _scanEpoch = Stopwatch.GetTimestamp();
+        _scannerAngleStatic = -90;
+        _scannerProgress = 0;
+    }
+
     // --- Snapshot / diff sweep ---
     public bool IsSnapshotActive { get; set; }
-    public double SweepProgress { get; private set; }
 
     // --- Queue tier ---
     /// <summary>Currently *displayed* queue utilisation (0..1) - always interpolated, never snapped.</summary>
@@ -248,7 +274,9 @@ public sealed class RadarPipelineState
 
     // ------------------------------------------------------------------ events in
 
-    /// <summary>Scan started/stopped. Never resets the rest of the radar.</summary>
+    /// <summary>Scan started/stopped. Never resets the rest of the radar. (Rotation-phase
+    /// re-basing lives in the host: <c>PipelineRadar.SyncRotations</c> calls
+    /// <see cref="ResyncScannerEpoch"/> exactly when the compositor spin starts.)</summary>
     public void SetScanning(bool scanning) => IsScanning = scanning;
 
     /// <summary>
@@ -448,8 +476,27 @@ public sealed class RadarPipelineState
         }
     }
 
-    /// <summary>Scanner head angle in degrees, derived from progress (0..1 -> 0..360).</summary>
-    public double ScannerAngle => -90 + (ScannerProgress * 360);
+    /// <summary>
+    /// Scanner head angle in degrees. Delegated (Windows): derived lazily from the wall clock —
+    /// identical value the compositor animation is at right now, readable WITHOUT any per-frame
+    /// managed advance (detection pulses/token spawns ask for it only when they happen). Model
+    /// (mobile / reduced motion): the frozen angle of the last ticker frame or the static rest.
+    /// </summary>
+    public double ScannerAngle
+    {
+        get
+        {
+            if (RotationDelegatedToCompositor && IsScanning && !ReducedMotion)
+            {
+                var elapsed = (Stopwatch.GetTimestamp() - _scanEpoch) / (double)Stopwatch.Frequency;
+                var revolutions = elapsed / ScannerPeriodSeconds;
+                revolutions -= Math.Floor(revolutions);
+                return -90 + (revolutions * 360);
+            }
+
+            return _scannerAngleStatic;
+        }
+    }
 
     // ------------------------------------------------------------------ per-frame advance
 
@@ -476,26 +523,19 @@ public sealed class RadarPipelineState
             busy = true;
         }
 
-        if (IsScanning && !ReducedMotion)
+        if (IsScanning && !ReducedMotion && !RotationDelegatedToCompositor)
         {
-            // Linear, seamless wrap - the head never jumps back to the start.
-            ScannerProgress += dt / ScannerPeriod;
-            if (ScannerProgress >= 1)
+            // Legacy managed rotation (non-Windows): the head is advanced per frame and keeps the
+            // ticker alive. On Windows the spin lives on the compositor (see
+            // RotationDelegatedToCompositor), so NOTHING here keeps a frame loop running while a
+            // scan is active — the canvas only repaints when actual data tweens.
+            _scannerProgress += dt / ScannerPeriodSeconds;
+            if (_scannerProgress >= 1)
             {
-                ScannerProgress -= Math.Floor(ScannerProgress);
+                _scannerProgress -= Math.Floor(_scannerProgress);
             }
 
-            busy = true;
-        }
-
-        if (IsSnapshotActive && !ReducedMotion)
-        {
-            SweepProgress += dt / 1.5;
-            if (SweepProgress >= 1)
-            {
-                SweepProgress -= Math.Floor(SweepProgress);
-            }
-
+            _scannerAngleStatic = -90 + (_scannerProgress * 360);
             busy = true;
         }
 

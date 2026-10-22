@@ -92,6 +92,38 @@ public static partial class SourceMorphTransition
     // it ticks exactly once, after the render-thread animations have landed (animation-safety 1).
     private static IDispatcherTimer? _cleanupTimer;
 
+    // ------------------------------------------------------------------ quiesced pre-capture (dev30 click path)
+    //
+    // A click must START the reveal inside its own frame; a capture begun at click costs the
+    // RenderAsync round-trip before anything is on screen. So one cached RenderTargetBitmap of the
+    // morph target's anchor region is refreshed ~1 frame after each settle — event-driven ONLY:
+    // reveal finish, brand/theme repaint (BrandPalette.PaletteChanged, which also covers the source
+    // morph's own swap), and anchor resize. Cache miss (cold start, invalidated underneath) falls
+    // back to the existing capture-then-reveal; the full degrade ladder is untouched and the
+    // Run(...) API is frozen. Idle app ⇒ no armed timer, no recurring capture (heartbeat-safe).
+
+    // ~1 dispatcher frame + paint settle margin after which the refreshed frame is grabbed.
+    private const double QuiesceRefreshDelayMs = 150d;
+
+    private sealed record CachedFrame(
+        WinUIFrameworkElement Anchor,
+        double Scale,
+        double WidthDip,
+        double HeightDip,
+        RenderTargetBitmap Snapshot);
+
+    private static CachedFrame? _cachedFrame;
+    private static IDispatcherTimer? _refreshTimer;
+    private static bool _refreshPending;
+
+    static SourceMorphTransition()
+    {
+        // App-lifetime static publisher ⇒ app-lifetime static subscriber (one handler, no instance
+        // roots). A palette repaint (theme flip or morph) makes the cached OLD frame wrong-colored:
+        // drop it and re-quiesce-capture the new one shortly after.
+        BrandPalette.PaletteChanged += OnPaletteInvalidated;
+    }
+
     static partial void PerformReveal(
         VisualElement? origin,
         VisualElement targetRegion,
@@ -126,6 +158,7 @@ public static partial class SourceMorphTransition
         _revealToken++;
         _current?.Finish();
         CompleteReveal();
+        ScheduleQuiescedRefresh();
     }
 
     // One reused single-shot timer whose tick finalizes whatever reveal is currently running.
@@ -154,6 +187,7 @@ public static partial class SourceMorphTransition
         _cleanupTimer?.Stop();
         _current?.Finish();
         CompleteReveal();
+        ScheduleQuiescedRefresh();
     }
 
     private static void ArmCleanup(uint durationMs)
@@ -166,6 +200,292 @@ public static partial class SourceMorphTransition
         timer.Stop();
         timer.Interval = TimeSpan.FromMilliseconds(durationMs + CompletionGraceMs);
         timer.Start();
+    }
+
+    // ------------------------------------------------------------------ pre-capture cache ops
+
+    /// <summary>
+    /// Queue the one-shot quiesce re-capture. Called from every reveal landing, the palette/theme
+    /// invalidation, and anchor resize — NEVER on a standing schedule: after the timer ticks once
+    /// and the frame is cached, nothing stays armed until the next invalidating event.
+    /// </summary>
+    private static void ScheduleQuiescedRefresh()
+    {
+        _refreshPending = true;
+        if (EnsureRefreshTimer() is not { } timer)
+        {
+            _refreshPending = false;
+            return;
+        }
+
+        timer.Stop();
+        timer.Interval = TimeSpan.FromMilliseconds(QuiesceRefreshDelayMs);
+        timer.Start();
+    }
+
+    private static IDispatcherTimer? EnsureRefreshTimer()
+    {
+        if (_refreshTimer is not null)
+        {
+            return _refreshTimer;
+        }
+
+        var timer = Application.Current?.Dispatcher.CreateTimer();
+        if (timer is null)
+        {
+            return null;
+        }
+
+        timer.Tick += OnRefreshTick;
+        _refreshTimer = timer;
+        return timer;
+    }
+
+    private static void OnRefreshTick(object? sender, EventArgs e)
+    {
+        // One-shot semantics, same convention as the cleanup tick: stop first, then decide.
+        _refreshTimer?.Stop();
+
+        if (!_refreshPending)
+        {
+            return;
+        }
+
+        if (_running)
+        {
+            // A fresh reveal started right after the previous settle — capturing now would snapshot
+            // a clipped/ringed surface. Re-arm once; bounded by the in-flight reveal's duration,
+            // and repeated spam simply keeps deferring (still one one-shot timer, never per-frame).
+            if (_refreshTimer is { } timer)
+            {
+                timer.Interval = TimeSpan.FromMilliseconds(QuiesceRefreshDelayMs);
+                timer.Start();
+            }
+
+            return;
+        }
+
+        _ = CaptureForCacheAsync();
+    }
+
+    private static async Task CaptureForCacheAsync()
+    {
+        _refreshPending = false;
+
+        try
+        {
+            // Hidden-to-tray: nobody will click a hidden window's rail — skip the capture entirely
+            // (the next reveal finish / palette event re-queues it once the window is back).
+            if (MotionPreferences.IsAmbientMotionSuspended)
+            {
+                return;
+            }
+
+            // The rail + theme paths always morph the default target (the window's root page); the
+            // cache keys on the anchor identity/size, so a caller with an explicit targetRegion
+            // simply misses the cache and pays today's capture — never a wrong frame.
+            if (ResolveDefaultTarget() is not VisualElement mauiTarget
+                || mauiTarget.Handler?.PlatformView is not WinUIUIElement element)
+            {
+                InvalidateCache();
+                return;
+            }
+
+            if (!TryResolveAnchor(element, mauiTarget, out var panel, out var anchor, out var scale)
+                || panel is null || anchor is null)
+            {
+                InvalidateCache();
+                return;
+            }
+
+            var snapshot = await CaptureRegionAsync(anchor, scale);
+
+            // A reveal slipped in while we were capturing, or the frame came back degenerate:
+            // drop it; the reveal's own landing re-queues the refresh.
+            if (snapshot is null || _running)
+            {
+                return;
+            }
+
+            SetCache(new CachedFrame(anchor, scale, anchor.ActualWidth, anchor.ActualHeight, snapshot));
+        }
+        catch (Exception)
+        {
+            // A failed background refresh must never surface; the ladder just captures at click.
+            InvalidateCache();
+        }
+    }
+
+    /// <summary>Consume the cached OLD frame for this reveal, or null (cold/invalidated/mismatch).
+    /// Consumption invalidates: the frame is now painted as the overlay and a fresh one is
+    /// re-queued by the reveal's landing.</summary>
+    private static RenderTargetBitmap? TryConsumeCache(WinUIFrameworkElement? anchor, double scale)
+    {
+        var cached = _cachedFrame;
+        if (cached is null || anchor is null)
+        {
+            return null;
+        }
+
+        if (!ReferenceEquals(cached.Anchor, anchor)
+            || Math.Abs(cached.Scale - scale) > 0.01
+            || Math.Abs(cached.WidthDip - anchor.ActualWidth) > 0.5
+            || Math.Abs(cached.HeightDip - anchor.ActualHeight) > 0.5)
+        {
+            InvalidateCache();
+            return null;
+        }
+
+        var snapshot = cached.Snapshot;
+        InvalidateCache();
+        return snapshot;
+    }
+
+    private static void SetCache(CachedFrame frame)
+    {
+        InvalidateCache();
+        _cachedFrame = frame;
+        frame.Anchor.SizeChanged += OnAnchorSizeChanged;
+    }
+
+    private static void InvalidateCache()
+    {
+        if (_cachedFrame is { } cached)
+        {
+            cached.Anchor.SizeChanged -= OnAnchorSizeChanged;
+        }
+
+        _cachedFrame = null;
+    }
+
+    private static void OnAnchorSizeChanged(object? sender, Microsoft.UI.Xaml.SizeChangedEventArgs e)
+    {
+        // Resize invalidates the cached region geometry AND pixels — re-quiesce and re-capture.
+        InvalidateCache();
+        ScheduleQuiescedRefresh();
+    }
+
+    private static void OnPaletteInvalidated()
+    {
+        // Theme flip or brand morph (both land as a PaletteChanged): the cached frame carries the
+        // OLD palette. Drop it now (a click in the meantime degrades to capture-then-reveal — the
+        // pre-existing, still-correct rung) and refresh the new frame shortly after.
+        InvalidateCache();
+        ScheduleQuiescedRefresh();
+    }
+
+    /// <summary>
+    /// Shared anchor resolution (window-content panel + the panel's direct child containing the
+    /// target's platform view), used by a live reveal AND by the quiesce refresh so both key on
+    /// the exact same region. Pure reads; any tree surprise ⇒ false, never a throw.
+    /// </summary>
+    private static bool TryResolveAnchor(
+        WinUIUIElement platformElement,
+        VisualElement targetRegion,
+        out WinUIPanel? panel,
+        out WinUIFrameworkElement? anchor,
+        out double scale)
+    {
+        panel = null;
+        anchor = null;
+        scale = 0d;
+
+        try
+        {
+            if (ResolveMauiWindowFor(targetRegion)?.Handler?.PlatformView is not WinUIWindow nativeWindow
+                || nativeWindow.Content is not WinUIPanel contentPanel)
+            {
+                return false;
+            }
+
+            if (platformElement is not WinUIFrameworkElement elementFe)
+            {
+                return false;
+            }
+
+            var current = elementFe;
+            var guard = 0;
+            while (!ReferenceEquals(current.Parent, contentPanel))
+            {
+                if (current.Parent is not WinUIFrameworkElement parent || ++guard > 64)
+                {
+                    return false;
+                }
+
+                current = parent;
+            }
+
+            if (ReferenceEquals(current, contentPanel) || contentPanel.Children.IndexOf(current) < 0)
+            {
+                return false;
+            }
+
+            if (contentPanel.XamlRoot is { } xamlRoot)
+            {
+                scale = xamlRoot.RasterizationScale;
+            }
+            else
+            {
+                return false;
+            }
+
+            panel = contentPanel;
+            anchor = current;
+            return scale > 0d && current.ActualWidth > 1d && current.ActualHeight > 1d;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    private static Microsoft.Maui.Controls.Window? ResolveMauiWindowFor(VisualElement targetRegion)
+    {
+        var windows = Application.Current?.Windows;
+        if (windows is null)
+        {
+            return null;
+        }
+
+        foreach (var window in windows)
+        {
+            if (ReferenceEquals(window.Page, targetRegion))
+            {
+                return window;
+            }
+        }
+
+        foreach (var window in windows)
+        {
+            if (window.Page is not null)
+            {
+                return window;
+            }
+        }
+
+        return null;
+    }
+
+    private static async Task<RenderTargetBitmap?> CaptureRegionAsync(WinUIFrameworkElement anchor, double scale)
+    {
+        try
+        {
+            var rtb = new RenderTargetBitmap();
+
+            // WinUI3's RTB exposes no settable DpiX/DpiY — pin the resolution by rendering into the
+            // RAW-PIXEL size of the anchored region (compositor space = physical pixels), so at 150%
+            // scale the snapshot is 1:1 sharp against what the surface just drew.
+            var pixelSize = new WinUISize(
+                Math.Round(anchor.ActualWidth * scale),
+                Math.Round(anchor.ActualHeight * scale));
+            await rtb.RenderAsync(anchor, (int)pixelSize.Width, (int)pixelSize.Height);
+            return rtb.PixelWidth < 2 || rtb.PixelHeight < 2 ? null : rtb;
+        }
+        catch (Exception)
+        {
+            // MAUI/WinUI capture surprise — degrade to the dissolve instead of failing the morph.
+            return null;
+        }
     }
 
     /// <summary>
@@ -241,132 +561,59 @@ public static partial class SourceMorphTransition
                 return;
             }
 
-            // The snapshot must be taken BEFORE the swap, so the pipeline continues on a
-            // dispatcher continuation; the old state stays painted while it captures (~1 frame).
+            // Quiesced pre-capture hit: the OLD frame is already in hand, so the whole reveal is
+            // built and its render-thread animations STARTED inside this click frame — no capture
+            // round-trip on the critical path (plan step 2 "reveal de-block").
+            var cached = TryConsumeCache(_anchor, _scale);
+            if (cached is not null)
+            {
+                try
+                {
+                    BuildAndStart(cached, fromCache: true);
+                }
+                catch (Exception)
+                {
+                    // Same guarantee the capture continuation gives: whatever failed mid-build,
+                    // the mutation lands exactly once and the half-built surface is restored.
+                    ApplyOnce();
+                    Finish();
+                }
+
+                return;
+            }
+
+            // Cold / invalidated cache: the snapshot must be taken BEFORE the swap, so the pipeline
+            // continues on a dispatcher continuation; the old state stays painted while it captures.
             _ = CaptureThenRevealAsync();
         }
 
         // ---------------------------------------------------------------- host resolution
 
         /// <summary>
-        /// Resolves, at runtime and per invocation, the window-content panel that hosts the
-        /// target's platform view plus the panel's direct child on the target's parent chain — the
-        /// snapshot goes immediately BELOW that child and the ring immediately ABOVE everything.
-        /// All reads via the element's own <c>Parent</c> chain / live XamlRoot, so fractional-DPI
-        /// (150%) placements derive from actual runtime pixel sizes, never load-time values.
+        /// Per-invocation host resolution delegated to the shared <see cref="TryResolveAnchor"/>
+        /// (same path the quiesce refresh uses, so both key on the identical anchor region).
         /// </summary>
         private bool TryResolveHost()
         {
-            try
+            if (!TryResolveAnchor(_element, _targetRegion, out var panel, out var anchor, out var scale)
+                || panel is null || anchor is null)
             {
-                var mauiWindow = ResolveMauiWindow();
-                if (mauiWindow?.Handler?.PlatformView is not WinUIWindow nativeWindow
-                    || nativeWindow.Content is not WinUIPanel panel)
-                {
-                    return false;
-                }
-
-                if (_element is not WinUIFrameworkElement elementFe)
-                {
-                    return false;
-                }
-
-                // Walk the LIVE visual/logical parent chain up to the panel's direct child.
-                var current = elementFe;
-                var guard = 0;
-                while (!ReferenceEquals(current.Parent, panel))
-                {
-                    if (current.Parent is not WinUIFrameworkElement parent || ++guard > 64)
-                    {
-                        return false; // element not hosted under this window's content (popup, other island)
-                    }
-
-                    current = parent;
-                }
-
-                if (ReferenceEquals(current, panel) || panel.Children.IndexOf(current) < 0)
-                {
-                    return false;
-                }
-
-                if (panel.XamlRoot is { } xamlRoot)
-                {
-                    _scale = xamlRoot.RasterizationScale;
-                }
-                else
-                {
-                    return false;
-                }
-
-                _panel = panel;
-                _anchor = current;
-                return _scale > 0d && current.ActualWidth > 1d && current.ActualHeight > 1d;
-            }
-            catch (Exception)
-            {
-                return false; // any tree surprise ⇒ degrade ladder, never a crash
-            }
-        }
-
-        private Microsoft.Maui.Controls.Window? ResolveMauiWindow()
-        {
-            var windows = Application.Current?.Windows;
-            if (windows is null)
-            {
-                return null;
+                return false;
             }
 
-            // Prefer the window whose root page IS the morph target; fall back to the first live
-            // window (same resolution order the shared ResolveDefaultTarget uses).
-            foreach (var window in windows)
-            {
-                if (ReferenceEquals(window.Page, _targetRegion))
-                {
-                    return window;
-                }
-            }
-
-            foreach (var window in windows)
-            {
-                if (window.Page is not null)
-                {
-                    return window;
-                }
-            }
-
-            return null;
+            _panel = panel;
+            _anchor = anchor;
+            _scale = scale;
+            return true;
         }
 
         // ---------------------------------------------------------------- capture
-
-        private async Task<RenderTargetBitmap?> CaptureAnchorAsync()
-        {
-            try
-            {
-                var anchor = _anchor!;
-                var rtb = new RenderTargetBitmap();
-
-                // WinUI3's RTB exposes no settable DpiX/DpiY — pin the resolution by rendering into
-                // the RAW-PIXEL size of the anchored region (compositor space = physical pixels),
-                // so at 150% scale the snapshot is 1:1 sharp against what the surface just drew.
-                var pixelSize = new WinUISize(
-                    Math.Round(anchor.ActualWidth * _scale),
-                    Math.Round(anchor.ActualHeight * _scale));
-                await rtb.RenderAsync(anchor, (int)pixelSize.Width, (int)pixelSize.Height);
-                return rtb.PixelWidth < 2 || rtb.PixelHeight < 2 ? null : rtb;
-            }
-            catch (Exception)
-            {
-                // MAUI/WinUI capture surprise — degrade to the dissolve instead of failing the morph.
-                return null;
-            }
-        }
 
         private async Task CaptureThenRevealAsync()
         {
             try
             {
-                var snapshot = await CaptureAnchorAsync();
+                var snapshot = await CaptureRegionAsync(_anchor!, _scale);
 
                 if (_token != _revealToken)
                 {
@@ -383,7 +630,7 @@ public static partial class SourceMorphTransition
                     return;
                 }
 
-                BuildAndStart(snapshot);
+                BuildAndStart(snapshot, fromCache: false);
             }
             catch (Exception ex)
             {
@@ -412,7 +659,7 @@ public static partial class SourceMorphTransition
 
         // ---------------------------------------------------------------- build + animate
 
-        private void BuildAndStart(RenderTargetBitmap snapshot)
+        private void BuildAndStart(RenderTargetBitmap snapshot, bool fromCache)
         {
             var panel = _panel!;
             var anchor = _anchor!;
@@ -583,6 +830,11 @@ public static partial class SourceMorphTransition
             _started.Add((shapeVisual, OpacityPropertyName));
 
             ArmCleanup(_durationMs);
+
+            // Click→reveal-start evidence (plan step 5): "cached" proves the pre-capture path
+            // (reveal began inside the click frame, no capture on it); "captured" is the cold rung.
+            MostaqlK.Services.Diagnostics.InteractionLogger.Mark(
+                "Morph.RevealStarted", fromCache ? "cached" : "captured", new { durationMs = _durationMs });
         }
 
         /// <summary>
@@ -640,6 +892,10 @@ public static partial class SourceMorphTransition
                 _disposables.Add(easeInOut);
 
                 ArmCleanup(_durationMs);
+
+                // Degraded rung — evidence that the effect still started in the invoking frame.
+                MostaqlK.Services.Diagnostics.InteractionLogger.Mark(
+                    "Morph.RevealStarted", "dissolve", new { durationMs = _durationMs });
             }
             catch (Exception)
             {
@@ -697,6 +953,11 @@ public static partial class SourceMorphTransition
                 }
 
                 CompleteReveal();
+
+                // Every landing path (completion tick, fast-finish, duration-0, no-timer fallback,
+                // any catch) funnels through here: the surface is settled NEW state now, so queue
+                // the one-shot quiesce re-capture that refills the pre-capture cache.
+                ScheduleQuiescedRefresh();
             }
         }
 

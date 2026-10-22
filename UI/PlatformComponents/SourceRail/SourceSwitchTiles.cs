@@ -26,9 +26,10 @@ namespace MostaqlK.UI.PlatformComponents.SourceRail;
 /// Hard rules honored here: shared UI never branches on a source id — every fact is a
 /// descriptor/registry lookup — and no brand hex is inline in this file: the tile fill is
 /// resolved from <c>descriptor.Brands</c> (the module owns the hexes) and the active chrome bar
-/// binds the live palette key. A switch is <b>pure projection</b>: it writes the persisted
-/// active-source key, re-points the status facade and the brand palette, and never touches the
-/// pipeline (both source engines already run unattended).
+/// binds the live palette key. A switch is <b>pure projection</b>: it re-points the status facade
+/// and the brand palette synchronously, defers the active-source persistence off the click frame
+/// (<see cref="MostaqlK.Services.SourceMorph.ApplyOptimistic"/>), and never touches the pipeline
+/// (both source engines already run unattended).
 /// </remarks>
 public sealed class SourceSwitchTiles : ContentView
 {
@@ -223,15 +224,25 @@ public sealed class SourceSwitchTiles : ContentView
             return;
         }
 
+        // Click-path timing evidence (plan step 5): the pair Morph.Click → Morph.RevealStarted in
+        // interaction.log is the click→reveal-start budget; under MOSTAQLK_DB_LATENCY (DEBUG) it
+        // must stay < one frame because nothing on this path awaits the database.
+        MostaqlK.Services.Diagnostics.InteractionLogger.Mark("Morph.Click", source.Value);
+
         // The single canonical mutation path, unchanged (contract §6): pure projection — the
-        // persisted active-source key, the status facade, the brand palette repaint — never the
-        // pipeline. It runs as ONE atomic instant change at the START of the presentation wrapper.
+        // status facade, the brand palette repaint — never the pipeline. It runs as ONE atomic
+        // instant change at the START of the presentation wrapper. The persistence half of the
+        // triple is deferred fire-and-forget (SourceMorph.ApplyOptimistic) so the click frame never
+        // pays the synchronous preferences.dat write.
         void ApplyState()
         {
-            MostaqlK.Services.SourceMorph.Apply(_settings, _status, _provider, source);
+            MostaqlK.Services.SourceMorph.ApplyOptimistic(_settings, _status, _provider, source);
 
             // BrandPalette repaints on TokensSwapped; opacity/indicator re-apply also rides that event
             // (subscribed below), but re-apply now so the rail is correct even before a repaint lands.
+            // Kept same-frame (measured): the walk touches only this rail's ≤2 tiles × ~6 elements
+            // (a handful of property sets, not an app-tree pass) — well under the 2ms budget, so the
+            // documented "one dispatcher tick later" deferral is not needed.
             ApplyActiveStates();
 
             SourceChanged?.Invoke(this, source);

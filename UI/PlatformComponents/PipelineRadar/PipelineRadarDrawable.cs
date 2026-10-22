@@ -41,8 +41,6 @@ public sealed class PipelineRadarDrawable : IDrawable
     private static readonly float[] DiscoveryDash = [3f, 3f];
     private static readonly float[] ConnectorDash = [2f, 3f];
 
-    private const int ScannerTailSegments = 9;
-    private const float ScannerTailDegrees = 78f;
     private const float WorkerGapDegrees = 12f;
 
     private readonly RadarPipelineState _state;
@@ -68,9 +66,6 @@ public sealed class PipelineRadarDrawable : IDrawable
 
     private Color ErrorColor => IsDarkTheme ? ErrorDark : ErrorLight;
 
-    /// <summary>The snapshot sweep has to contrast with the panel, not with the dark theme only.</summary>
-    private Color SweepColor => IsDarkTheme ? Colors.White : Color.FromArgb("#334155");
-
     public void Draw(ICanvas canvas, RectF dirtyRect)
     {
         var cx = dirtyRect.Center.X;
@@ -90,10 +85,10 @@ public sealed class PipelineRadarDrawable : IDrawable
         DrawPulses(canvas, cx, cy, radius);
         DrawTokens(canvas, cx, cy, radius);
 
-        if (_state.IsSnapshotActive)
-        {
-            DrawSnapshotSweep(canvas, cx, cy, radius);
-        }
+        // The scanner head/tail and the snapshot sweep are painted by the dedicated overlay
+        // drawables (ScannerSweepDrawable / SnapshotSweepDrawable): on Windows their ROTATION is a
+        // looping compositor RotationAngleInDegrees key-frame, so the per-frame canvas invalidation
+        // this unit used to run just to spin them is gone (dev30 de-managed ticker, plan step 4).
     }
 
     // ------------------------------------------------------------------ rings
@@ -113,41 +108,8 @@ public sealed class PipelineRadarDrawable : IDrawable
         canvas.DrawCircle(cx, cy, r);
         canvas.StrokeDashPattern = null;
 
-        var intensity = (float)_state.ScannerIntensity;
-        if (intensity <= 0.01f)
-        {
-            return;
-        }
-
-        // Active scan: one continuous head with a soft fading trail. The angle is derived from the
-        // animation progress, so the wrap from 360 back to 0 is invisible.
-        var head = _state.ScannerAngle;
-        var chunk = ScannerTailDegrees / ScannerTailSegments;
-        canvas.StrokeLineCap = LineCap.Round;
-        canvas.StrokeSize = 2.2f + (0.6f * emphasis);
-
-        for (var i = 0; i < ScannerTailSegments; i++)
-        {
-            var fade = 1f - (i / (float)ScannerTailSegments);
-            var alpha = fade * fade * 0.85f * intensity * dim;
-            if (alpha < 0.01f)
-            {
-                continue;
-            }
-
-            canvas.StrokeColor = DiscoveryColor.WithAlpha(alpha);
-            var segEnd = head - (i * chunk);
-            DrawArcSegment(canvas, cx, cy, r, segEnd - chunk, segEnd);
-        }
-
-        canvas.StrokeLineCap = LineCap.Butt;
-
-        // Bright scanner head.
-        Polar(cx, cy, r, head, out var hx, out var hy);
-        canvas.FillColor = DiscoveryColor.WithAlpha(0.25f * intensity * dim);
-        canvas.FillCircle(hx, hy, 3.2f);
-        canvas.FillColor = DiscoveryColor.WithAlpha(intensity * dim);
-        canvas.FillCircle(hx, hy, 1.5f);
+        // The active-scan head/trail moved to ScannerSweepDrawable (overlay canvas rotated by the
+        // compositor on Windows); the ring itself keeps its dash + breath + emphasis painting.
     }
 
     private void DrawQueueRing(ICanvas canvas, float cx, float cy, float radius)
@@ -349,24 +311,6 @@ public sealed class PipelineRadarDrawable : IDrawable
         canvas.StrokeColor = ColorFor(_state.Workers[worker].State).WithAlpha(0.55f * reveal);
         canvas.DrawLine(x1, y1, x, y);
         canvas.StrokeDashPattern = null;
-    }
-
-    private void DrawSnapshotSweep(ICanvas canvas, float cx, float cy, float radius)
-    {
-        var head = -90 + (_state.SweepProgress * 360);
-        canvas.StrokeSize = 1.4f;
-
-        for (var i = 0; i < 12; i++)
-        {
-            var alpha = (1f - (i / 12f)) * (IsDarkTheme ? 0.18f : 0.26f);
-            Polar(cx, cy, radius, head - (i * 2.5), out var x, out var y);
-            canvas.StrokeColor = SweepColor.WithAlpha(alpha);
-            canvas.DrawLine(cx, cy, x, y);
-        }
-
-        Polar(cx, cy, radius, head, out var nx, out var ny);
-        canvas.StrokeColor = SweepColor.WithAlpha(0.55f);
-        canvas.DrawLine(cx, cy, nx, ny);
     }
 
     // ------------------------------------------------------------------ helpers
