@@ -20,6 +20,12 @@ public partial class MainWindowWindowsLayout : ContentView
         InitializeComponent();
         _notificationCenterViewModel = notificationCenterViewModel;
         NotificationsFlyout.BindingContext = _notificationCenterViewModel;
+
+        // Bell badge = the same source-scoped inbox the flyout renders. The global
+        // UnreadNotificationCount is app-wide, which showed a badge over an empty dropdown when
+        // the unread items belonged to the other source.
+        Rail.UnreadCount = _notificationCenterViewModel.UnreadBadgeCount;
+        _notificationCenterViewModel.PropertyChanged += OnNotificationCenterPropertyChanged;
         NotificationsFlyout.CloseRequested += OnNotificationsFlyoutCloseRequested;
 
         // v3 mount polish: hand the feed's CollectionView to ContentSettle so a source/theme morph
@@ -45,6 +51,14 @@ public partial class MainWindowWindowsLayout : ContentView
         if (e.PropertyName is nameof(View.WidthRequest) or nameof(PipelineDashboardPanel.IsExpanded))
         {
             SyncShellColumns();
+        }
+    }
+
+    private void OnNotificationCenterPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(NotificationCenterViewModel.UnreadBadgeCount))
+        {
+            Rail.UnreadCount = _notificationCenterViewModel.UnreadBadgeCount;
         }
     }
 
@@ -114,6 +128,7 @@ public partial class MainWindowWindowsLayout : ContentView
     {
         NotificationsFlyout.IsVisible = visible;
         NotificationsBackdrop.IsVisible = visible;
+        _notificationCenterViewModel.SetInboxOpen(visible);
         if (visible)
         {
             _notificationCenterViewModel.MarkAllAsSeen();

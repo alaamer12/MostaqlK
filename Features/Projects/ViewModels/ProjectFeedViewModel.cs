@@ -136,15 +136,15 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     /// <summary>True once loading has finished with no error and at least one result — drives the success-state ScrollView.</summary>
     public bool ShowFeed => !IsLoading && !HasError && !IsEmpty;
 
-    public string PollIntervalText => IsPollingActive
-        ? $"يتم الفحص كل {PollIntervalSeconds} ثانية"
-        : "الفحص متوقف";
+    /// <summary>Header cadence caption, worded exactly like projects.html ("المسح كل 30 ثانية").</summary>
+    public string PollIntervalText => $"المسح كل {PollIntervalSeconds} ثانية";
 
-    public string RateLimitText => $"{RequestsPerMinute} طلب / دقيقة";
+    /// <summary>Header rate caption; projects.html prints "12 طلب/دقيقة" (no spaces around the slash).</summary>
+    public string RateLimitText => $"{RequestsPerMinute} طلب/دقيقة";
 
     public string LiveStatusText => IsPollingActive ? "مباشر" : "متوقف";
 
-    public string PollToggleLabel => IsPollingActive ? "إيقاف" : "بدء الفحص";
+    public string PollToggleLabel => IsPollingActive ? "إيقاف الفحص" : "استئناف الفحص";
 
     public Color PollToggleColor => IsPollingActive
         ? DesignTokens.Colors.PollToggleActive
@@ -162,8 +162,8 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     /// <summary>The active source's Arabic display name (مستقل / نفذلي), from the descriptor — never a literal.</summary>
     public string ActiveSourceName => SourceRegistryProvider.DescriptorFor(_source)?.DisplayNameAr ?? string.Empty;
 
-    /// <summary>Search box placeholder naming the active source (mockup "بحث متقدم في مشاريع {source}…").</summary>
-    public string SearchPlaceholder => $"بحث متقدم في مشاريع {ActiveSourceName}…";
+    /// <summary>Search box placeholder, worded exactly like projects.html.</summary>
+    public string SearchPlaceholder => $"بحث في مشاريع {ActiveSourceName} (العنوان، الوصف، المهارات، الميزانية...)";
 
     /// <summary>
     /// Footer inline-start tracked count (mockup "98 مشروعًا من مستقل"). Kept separate from

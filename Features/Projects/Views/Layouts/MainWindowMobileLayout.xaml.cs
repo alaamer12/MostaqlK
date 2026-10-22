@@ -24,6 +24,7 @@ public partial class MainWindowMobileLayout : ContentView
     {
         NotificationsFlyout.IsVisible = visible;
         NotificationsBackdrop.IsVisible = visible;
+        _notificationCenterViewModel.SetInboxOpen(visible);
         if (visible)
         {
             _notificationCenterViewModel.MarkAllAsSeen();

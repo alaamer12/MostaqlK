@@ -52,6 +52,7 @@ public static class AppIconGlyphExtensions
         AppIconGlyph.Info => "icon_circle_info",
         AppIconGlyph.Moon => "icon_moon",
         AppIconGlyph.Filter => "icon_filter",
+        AppIconGlyph.Sliders => "icon_sliders",
         AppIconGlyph.Pause => "icon_pause",
         AppIconGlyph.Play => "icon_play",
         AppIconGlyph.Users => "icon_users",

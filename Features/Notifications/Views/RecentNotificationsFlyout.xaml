@@ -55,7 +55,8 @@
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="vm:NotificationItemViewModel">
-                        <Border Padding="10,8" Margin="6,2" StrokeThickness="0" StrokeShape="RoundRectangle 8"
+                        <Border Padding="10,8" Margin="6,2" StrokeThickness="0"
+                                BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}"
                                 AutomationId="Notifications_Row">
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer
@@ -68,13 +69,15 @@
                             <!-- Unread items get a tinted background + a small accent dot + a bold title,
                                  mirroring the sidebar's unread badge. Once IsUnread flips to false (see
                                  NotificationCenterViewModel.MarkAllAsSeen), the row falls back to the plain
-                                 read style. -->
+                                 read style. Read rows keep the flyout's opaque surface (not Transparent)
+                                 so the shared PressableEffect hover highlight has a base color to blend
+                                 against and is actually visible. -->
                             <Border.Triggers>
                                 <DataTrigger TargetType="Border" Binding="{Binding IsUnread}" Value="True">
                                     <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#EFF6FF, Dark=#0B2540}" />
                                 </DataTrigger>
                                 <DataTrigger TargetType="Border" Binding="{Binding IsUnread}" Value="False">
-                                    <Setter Property="BackgroundColor" Value="Transparent" />
+                                    <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=White, Dark=#0F172A}" />
                                 </DataTrigger>
                             </Border.Triggers>
                             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">

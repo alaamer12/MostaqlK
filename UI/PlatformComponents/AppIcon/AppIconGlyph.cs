@@ -81,6 +81,9 @@ public enum AppIconGlyph
     /// <summary>Settings page "استعلام الفحص" section header icon, and the projects.html active-query bar icon. Solid <c>fa-filter</c> (f0b0).</summary>
     Filter,
 
+    /// <summary>Projects feed "الفلاتر" button icon (projects.html). Solid <c>fa-sliders</c> (f1de).</summary>
+    Sliders,
+
     /// <summary>Projects feed "عدد المقترحات" stat icon. Solid <c>fa-users</c> (f0c0).</summary>
     Users,
 

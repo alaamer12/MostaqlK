@@ -120,10 +120,7 @@
     .rail .src-tile { opacity: .45; filter: saturate(.4); }
     .rail .src-tile.active { opacity: 1; filter: none; }
 
-    /* Feed cards — unread edge reads --brand, so it re-tints on morph */
-    .project-card { border-inline-start: 4px solid transparent; }
-    .project-card.unread { border-inline-start-color: var(--brand); }
-    .project-card.read { border-inline-start-color: var(--line); }
+    /* Feed cards — flat continuous rows (no inline-start edge) */
     .card-surface { background: var(--surface); border: 1px solid var(--line); }
     .chip { background: var(--brand-soft); color: var(--brand-ink); }
     h2.title-link:hover { color: var(--brand-ink); }
@@ -857,6 +854,41 @@
         if (document.documentElement.classList.contains('dark')) {
             var icon = document.getElementById('theme-icon');
             if (icon) icon.className = 'fa-solid fa-sun';
+        }
+    })();
+</script>
+<script id="parity-force" data-purpose="harness-state-forcing">
+    // v3 visual-parity harness ONLY (tools/v3_parity.py): reads ?theme / ?source / ?state /
+    // ?project query params and forces the corresponding ItC + identity states through the
+    // page's OWN existing functions/classes (applySource, toggle classList, panel .collapsed,
+    // openFilters). Additive: with no params this script returns immediately and the default
+    // render is byte-identical to the pre-script page. Never restructures markup or styles.
+    (function () {
+        var q;
+        try { q = new URLSearchParams(window.location.search); } catch (e) { return; }
+        var theme = q.get('theme'), source = q.get('source'), state = q.get('state');
+        if (!theme && !source && !state && !q.get('project')) return;
+
+        if (theme === 'dark' || theme === 'light') {
+            var dark = theme === 'dark';
+            document.documentElement.classList.toggle('dark', dark);
+            var icon = document.getElementById('theme-icon');
+            if (icon) icon.className = dark ? 'fa-solid fa-sun' : 'fa-regular fa-moon';
+            try { localStorage.setItem('mostaqlk-theme', theme); } catch (e) {}
+        }
+        if (source === 'nafezly' || source === 'mostaql') {
+            applySource(source); // the page's own no-animation state applier (tiles, feeds, footer, chip)
+        }
+        var panel = document.getElementById('pipeline-panel');
+        if (state === 'panel-collapsed') {
+            if (panel) panel.classList.add('collapsed');
+            try { localStorage.setItem('mostaqlk-panel-collapsed', '1'); } catch (e) {}
+        } else if (state === 'filters-open') {
+            if (panel) panel.classList.remove('collapsed');
+            openFilters();
+        } else if (state === 'default' || state) {
+            if (panel) panel.classList.remove('collapsed');
+            try { localStorage.setItem('mostaqlk-panel-collapsed', '0'); } catch (e) {}
         }
     })();
 </script>

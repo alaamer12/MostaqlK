@@ -10,12 +10,12 @@
              FlowDirection="RightToLeft">
 
     <!-- v3 continuous feed row (projects.html `.project-card.section-row`): rows live on ONE surface,
-         hairline-divided, 4px inline-start edge (brand when unread / line when read), faint brand wash
-         when unread. NO rounded floating card, NO "جديد" ribbon, NO diagonal enrichment sweep — those
-         v1 affordances are retired here; enrichment state now reads solely from the band-1 pill.
-         Colours follow the mockup slate scale + the brand DynamicResource family only (no inline brand
-         hex); ink/state pairs mirror ProjectDetailsWindowsLayout (dev23). RowState (dev29) drives the
-         three lifecycle variants: Provisional → skeleton, Stale → dimmed content, Broken → red-ghost. -->
+         hairline-divided, faint brand wash when unread. NO rounded floating card, NO "جديد" ribbon,
+         NO diagonal enrichment sweep — those v1 affordances are retired here; enrichment state now
+         reads solely from the band-1 pill. Colours follow the mockup slate scale + the brand
+         DynamicResource family only (no inline brand hex); ink/state pairs mirror
+         ProjectDetailsWindowsLayout (dev23). RowState (dev29) drives the three lifecycle variants:
+         Provisional → skeleton, Stale → dimmed content, Broken → red-ghost. -->
 
     <ContentView.Resources>
         <ResourceDictionary>
@@ -26,7 +26,6 @@
     <Grid x:Name="ProjectCard_Root"
           AutomationId="ProjectCard_Root"
           SemanticProperties.Description="{Binding Title}"
-          ColumnDefinitions="4,*"
           RowDefinitions="Auto"
           BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}">
 
@@ -34,27 +33,30 @@
             <TapGestureRecognizer Command="{Binding SelectCommand}" />
         </Grid.GestureRecognizers>
 
-        <!-- Unread wash (mockup `color-mix(brand 6%, surface)`): the source-aware BrandSoft DynamicResource
-             reads as the tint over the surface and re-tints on a source morph. -->
-        <BoxView Grid.ColumnSpan="2"
-                 Color="{DynamicResource BrandSoft}"
+        <!-- Unread wash (mockup `color-mix(brand 6%, surface)`): the brand color at 6% opacity over
+             the row surface reproduces the mockup's faint tint exactly (BrandSoft at full opacity
+             was far heavier). -->
+        <BoxView x:Name="UnreadWash"
+                 Color="{DynamicResource Brand}"
+                 Opacity="0.06"
                  IsVisible="{Binding IsUnread}" />
 
-        <!-- 4px inline-start edge: read → line, unread → brand (overlay). -->
-        <BoxView Grid.Row="0" Grid.Column="0"
-                 Color="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" />
-        <BoxView Grid.Row="0" Grid.Column="0"
-                 Color="{DynamicResource Brand}"
-                 IsVisible="{Binding IsUnread}" />
+        <!-- Hover wash (mockup `.project-card:hover`): read rows → surface-2, unread rows → a 9%
+             brand mix over the surface. A solid overlay (not the row's BackgroundColor) keeps the
+             AppThemeBinding on the root intact; the divider renders above it. -->
+        <BoxView x:Name="HoverLayer"
+                 Grid.Row="0"
+                 IsVisible="False"
+                 InputTransparent="True" />
 
         <!-- Bottom hairline divider (continuous-row grammar, not a card border). -->
-        <BoxView Grid.ColumnSpan="2" Grid.Row="0"
+        <BoxView Grid.Row="0"
                  HeightRequest="1"
                  VerticalOptions="End"
                  Color="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" />
 
-        <!-- ============ CONTENT (col 1) — three lifecycle variants stacked, one visible ============ -->
-        <Grid Grid.Column="1">
+        <!-- ============ CONTENT — three lifecycle variants stacked, one visible ============ -->
+        <Grid>
 
             <!-- Provisional → ShimmerBox skeleton mirroring the band geometry (title, description,
                  owner+facts rows). ContentSettle handles the mount; no new animation here. -->

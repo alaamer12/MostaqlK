@@ -54,7 +54,6 @@
                          Grid.RowSpan="3"
                          x:Name="Rail"
                          ActivePage="Projects"
-                         UnreadCount="{Binding GlobalStatus.UnreadNotificationCount}"
                          ProjectsClicked="OnProjectsNavClicked"
                          AdvancedSearchClicked="OnAdvancedSearchNavClicked"
                          SettingsClicked="OnSettingsNavClicked"
@@ -67,63 +66,85 @@
         <Grid Grid.Row="0"
               Grid.Column="0"
               Grid.ColumnSpan="3"
-              Padding="24,20,24,20"
               RowDefinitions="Auto"
               BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}">
 
-            <!-- Centered page title + cadence caption (the "يتم الفحص كل" string stays rendered here
-                 for the cross-page poll-interval consistency test). -->
-            <VerticalStackLayout Grid.Row="0" HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
-                <Label Text="المشاريع"
-                       FontSize="36"
-                       LineHeight="1.11"
-                       FontFamily="TajawalBold"
-                       HorizontalTextAlignment="Center"
-                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
-                <HorizontalStackLayout HorizontalOptions="Center" Spacing="6">
-                    <Label Text="{Binding PollIntervalText}"
-                           FontSize="12"
-                           FontFamily="Tajawal"
-                           VerticalOptions="Center"
-                           TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
-                    <Label Text="·"
-                           FontSize="12"
-                           VerticalOptions="Center"
-                           TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}" />
-                    <Label Text="{Binding RateLimitText}"
-                           FontSize="12"
-                           FontFamily="Tajawal"
-                           VerticalOptions="Center"
-                           TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
-                </HorizontalStackLayout>
-            </VerticalStackLayout>
+            <!-- Padded content band. The hairline lives OUTSIDE this grid: inside the padded grid
+                 VerticalOptions=End put it on the content's bottom edge, leaving a strip of empty
+                 header below it instead of the band's true bottom border. -->
+            <Grid Grid.Row="0" Padding="24,20,24,16" RowDefinitions="Auto">
 
-            <!-- Today stat card — top-right (inline-start in RTL). Bordered soft box: label over a big
-                 number bound to the existing per-source ProjectsAddedToday read. -->
-            <Border Grid.Row="0"
-                    HorizontalOptions="Start"
-                    VerticalOptions="Start"
-                    StrokeThickness="1"
-                    Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
-                    BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#172032}"
-                    Padding="14,8">
-                <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
-                    <Label Text="أُضيفت اليوم"
-                           FontSize="11"
+                <!-- Margin top compensates for Tajawal's compact MAUI line box vs the mockup's
+                     leading-tight/text-xs boxes: the glyph rows then land on the mockup's y
+                     positions and the band measures 105px (20 + 8 + content + 16). -->
+                <VerticalStackLayout Grid.Row="0" Margin="0,8,0,0" HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
+                    <Label Text="المشاريع"
+                           FontSize="36"
+                           LineHeight="1.25"
                            FontFamily="TajawalBold"
                            HorizontalTextAlignment="Center"
-                           TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
-                    <Label Text="{Binding GlobalStatus.ProjectsAddedTodayText}"
-                           AutomationId="Sidebar_StatValueLabel"
-                           FontSize="26"
-                           FontFamily="TajawalBold"
-                           HorizontalTextAlignment="Center"
-                           TextColor="{DynamicResource BrandInk}" />
+                           TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                    <HorizontalStackLayout HorizontalOptions="Center" Spacing="6">
+                        <Label Text="{Binding PollIntervalText}"
+                               FontSize="12"
+                               LineHeight="1.33"
+                               FontFamily="Tajawal"
+                               VerticalOptions="Center"
+                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                        <Label Text="·"
+                               FontSize="12"
+                               LineHeight="1.33"
+                               VerticalOptions="Center"
+                               TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}" />
+                        <Label Text="{Binding RateLimitText}"
+                               FontSize="12"
+                               LineHeight="1.33"
+                               FontFamily="Tajawal"
+                               VerticalOptions="Center"
+                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                    </HorizontalStackLayout>
                 </VerticalStackLayout>
-            </Border>
 
-            <!-- Bottom hairline. -->
+                <!-- Today counter — projects.html `.today-card`: 12px radius, hairline border, soft
+                     165deg surface gradient + 1px shadow, 11px label over a 30px/1 brand-ink value,
+                     absolute top-4 (16px) on the inline-start. The animated metal sheen is painted
+                     into the glyphs by ChromeValueLabel (one shared gated ticker; static band under
+                     reduced motion / while hidden — animation-safety.md). -->
+                <Border Grid.Row="0"
+                        HorizontalOptions="Start"
+                        VerticalOptions="Start"
+                        Margin="0,-4,0,0"
+                        StrokeThickness="1"
+                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
+                        Padding="15,16,15,0">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0.35,0" EndPoint="0.65,1">
+                            <GradientStop Color="{AppThemeBinding Light=#F8FAFC, Dark=#172032}" Offset="0.0" />
+                            <GradientStop Color="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}" Offset="1.0" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <Border.Shadow>
+                        <Shadow Brush="#020617" Opacity="0.08" Offset="0,1" Radius="3" />
+                    </Border.Shadow>
+                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                    <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
+                        <Label Text="أُضيفت اليوم"
+                               FontSize="11"
+                               FontFamily="TajawalBold"
+                               HorizontalTextAlignment="Center"
+                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                        <components:ChromeValueLabel Text="{Binding GlobalStatus.ProjectsAddedTodayText}"
+                                                     AutomationId="Sidebar_StatValueLabel"
+                                                     FontSize="30"
+                                                     LineHeight="1"
+                                                     FontFamily="TajawalBold"
+                                                     HorizontalTextAlignment="Center"
+                                                     TextColor="{DynamicResource BrandInk}" />
+                    </VerticalStackLayout>
+                </Border>
+            </Grid>
+
+            <!-- Bottom hairline, on the band's true bottom edge. -->
             <BoxView Grid.Row="0"
                      HeightRequest="1"
                      VerticalOptions="End"
@@ -168,7 +189,7 @@
                   Padding="24,16">
                 <Border Grid.Column="0"
                         StrokeThickness="1"
-                        HeightRequest="40"
+                        HeightRequest="42"
                         VerticalOptions="Center"
                         Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
                         BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#172032}">
@@ -179,7 +200,7 @@
                           FlowDirection="LeftToRight">
                         <components:AppIcon Grid.Column="0"
                                             Icon="Search"
-                                            FontSize="16"
+                                            FontSize="14"
                                             TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
                                             VerticalOptions="Center" />
                         <components:SearchInputField Grid.Column="1"
@@ -201,7 +222,7 @@
 
                 <Border Grid.Column="1"
                         StrokeThickness="1"
-                        HeightRequest="40"
+                        HeightRequest="42"
                         AutomationId="Projects_FiltersButton"
                         SemanticProperties.Description="فلاتر البحث"
                         VerticalOptions="Center"
@@ -217,14 +238,14 @@
                         <design:PressableEffect ApplyHoverHighlight="True" />
                     </Border.Behaviors>
                     <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
-                        <components:AppIcon Icon="Filter"
+                        <components:AppIcon Icon="Sliders"
                                             FontSize="12"
-                                            TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                            TextColor="{AppThemeBinding Light=#475569, Dark=#CBD5E1}"
                                             VerticalOptions="Center" />
                         <Label Text="الفلاتر"
                                FontSize="14"
                                FontFamily="TajawalBold"
-                               TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
+                               TextColor="{AppThemeBinding Light=#475569, Dark=#CBD5E1}"
                                VerticalOptions="Center" />
                     </HorizontalStackLayout>
                 </Border>
@@ -407,8 +428,8 @@
                                                Grid.Column="2"
                                                IsVisible="False"
                                                HorizontalOptions="End"
-                                               VerticalOptions="Start"
-                                               Margin="0,12,12,0" />
+                                               VerticalOptions="End"
+                                               Margin="0,0,12,12" />
 
         <!-- B3 typed-facet FilterModal: a page-covering overlay (backdrop + centered card built into
              the unit, same host-managed visibility mechanic as the notifications flyout above).
