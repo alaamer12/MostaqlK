@@ -53,6 +53,24 @@ public partial class MainWindowPage : ContentPage
         await _viewModel.LoadAsync();
         _appLifecycleService.IsReadyToNotify = true;
 
+        // v3 mount polish: the design's page-open moment is a `card-settle` — the realized cards land
+        // with the transform-only rise instead of painting flat. One-shot and self-cancelling; the
+        // windows layout's notify is a no-op on reduced-motion / non-Windows, so mobile is unchanged.
+        if (_activeLayout is MainWindowWindowsLayout windowsLayout)
+        {
+            windowsLayout.NotifyFeedRepopulated();
+        }
+
+        // v3 parity harness: --parity-state=filters-open forces the feed's one interactive
+        // modal open at startup, through the SAME unit entry points the real الفلاتر button
+        // uses (FilterModal.Open + visibility). The tree walk keeps the shell/layout files
+        // harness-free; with no flag this method never runs and behavior is unchanged.
+        if (Services.ParityLaunchFlags.ParityState(Environment.GetCommandLineArgs())
+            == Services.ParityLaunchFlags.StateFiltersOpen)
+        {
+            OpenFilterModalForParity();
+        }
+
         // Defer background pipeline startup until after UI has loaded and rendered
         if (Application.Current is App app)
         {
@@ -62,5 +80,72 @@ public partial class MainWindowPage : ContentPage
                 app.EnsurePipelineStarted();
             });
         }
+    }
+
+    private void OpenFilterModalForParity()
+    {
+        if (_activeLayout is null)
+        {
+            return;
+        }
+
+        if (FindFilterModal(_activeLayout) is not { } modal)
+        {
+            MostaqlK.Services.Diagnostics.InteractionLogger.Mark("MainWindowPage.ParityFiltersOpen", "B", new { reason = "modal not found in layout" });
+            return;
+        }
+
+        if (_viewModel.FilterDescriptor is not { } descriptor)
+        {
+            return;
+        }
+
+        modal.Open(descriptor, _viewModel.FilterStoredQuery);
+        modal.IsVisible = true;
+        MostaqlK.Services.Diagnostics.InteractionLogger.Mark("MainWindowPage.ParityFiltersOpen", "A");
+    }
+
+    /// <summary>
+    /// Finds the <see cref="MostaqlK.UI.PlatformComponents.FilterModal.FilterModal"/> instance the
+    /// active layout hosts. Walks the element tree through the standard MAUI container properties
+    /// (<c>Content</c> / <c>Children</c> / <c>Views</c>) via reflection so this page does not
+    /// depend on any layout-specific public surface the shell wave might reshape.
+    /// </summary>
+    private static MostaqlK.UI.PlatformComponents.FilterModal.FilterModal? FindFilterModal(object? root, int depth = 0)
+    {
+        if (root is null || depth > 24)
+        {
+            return null;
+        }
+
+        if (root is MostaqlK.UI.PlatformComponents.FilterModal.FilterModal modal)
+        {
+            return modal;
+        }
+
+        var type = root.GetType();
+        var nested = type.GetProperty("Content", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
+            ?.GetValue(root);
+        if (FindFilterModal(nested, depth + 1) is { } fromContent)
+        {
+            return fromContent;
+        }
+
+        foreach (var name in new[] { "Children", "Views" })
+        {
+            if (type.GetProperty(name, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
+                ?.GetValue(root) is System.Collections.IEnumerable children)
+            {
+                foreach (var child in children)
+                {
+                    if (FindFilterModal(child, depth + 1) is { } found)
+                    {
+                        return found;
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 }

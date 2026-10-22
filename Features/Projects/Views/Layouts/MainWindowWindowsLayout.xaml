@@ -291,7 +291,8 @@
                                           Text="{Binding EmptyStateTitle}"
                                           SubText="{Binding EmptyStateSubtitle}" />
 
-                <CollectionView IsVisible="{Binding ShowFeed}"
+                <CollectionView x:Name="ProjectsCollectionView"
+                                IsVisible="{Binding ShowFeed}"
                                 AutomationId="Projects_ProjectsCollectionView"
                                 ItemsSource="{Binding Projects}">
                     <CollectionView.ItemTemplate>

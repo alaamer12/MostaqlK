@@ -2,6 +2,7 @@ using MostaqlK.Core.Navigation;
 using MostaqlK.Core.Sources;
 using MostaqlK.Features.Notifications.ViewModels;
 using MostaqlK.Features.Projects.ViewModels;
+using MostaqlK.UI.PlatformComponents.ContentSettle;
 using MostaqlK.UI.PlatformComponents.SourceRail;
 
 namespace MostaqlK.Features.Projects.Views.Layouts;
@@ -16,6 +17,11 @@ public partial class MainWindowWindowsLayout : ContentView
         _notificationCenterViewModel = notificationCenterViewModel;
         NotificationsFlyout.BindingContext = _notificationCenterViewModel;
         NotificationsFlyout.CloseRequested += OnNotificationsFlyoutCloseRequested;
+
+        // v3 mount polish: hand the feed's CollectionView to ContentSettle so a source/theme morph
+        // can land the realized cards with the mockup's `card-settle` (also reachable post-reveal via
+        // ContentSettle.RunForActiveFeed() without this layout exposing the control).
+        ContentSettle.RegisterActiveFeed(ProjectsCollectionView);
 
         // B3 FilterModal: the unit renders + collects; persistence goes through the feed
         // view-model's single settings-mutation path (mirrors Settings.OnQueryParamsChanged).
@@ -103,14 +109,34 @@ public partial class MainWindowWindowsLayout : ContentView
     /// <summary>
     /// The global morph projection (persist + status facade + brand swap) already ran inside the
     /// rail; here the only host-specific work is re-pointing this page's feed at the freshly-active
-    /// source so the list shows that source's rows only.
+    /// source so the list shows that source's rows only, then landing the new rows with the mockup's
+    /// <c>card-settle</c> mount (transform-only, one-shot). The settle self-triggers today so the
+    /// mount polish works even before the radial-reveal wave invokes it post-reveal.
     /// </summary>
     private async void OnSourceChanged(object? sender, SourceId source)
     {
         if (BindingContext is ProjectFeedViewModel feed)
         {
             await feed.SwitchSourceAsync(source);
+            NotifyFeedRepopulated();
         }
+    }
+
+    /// <summary>
+    /// Runs the one-shot <see cref="ContentSettle"/> mount pass over the feed's realized cards.
+    /// Deferred one dispatcher frame so the just-swapped <c>ItemsSource</c> has propagated to the
+    /// platform list before the compositor pass enumerates it. No-op (instant) under reduced motion
+    /// / tray-hidden / non-Windows; a new call fast-finishes any in-flight pass. Public so the page
+    /// (first open) and the morph presenter (post-reveal) can drive the same single entrypoint.
+    /// </summary>
+    public void NotifyFeedRepopulated()
+    {
+        if (ProjectsCollectionView is null)
+        {
+            return;
+        }
+
+        Dispatcher.Dispatch(() => ContentSettle.RunFor(ProjectsCollectionView));
     }
 
     private async void OnAdvancedSearchNavClicked(object? sender, EventArgs e)
