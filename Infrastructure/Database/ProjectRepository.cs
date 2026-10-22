@@ -122,12 +122,12 @@ public sealed class ProjectRepository : IProjectRepository
                         (project_id, source_id, site_project_id, title, url, client_name,
                          publish_time_number, publish_time_text,
                          proposal_count, proposal_count_text, description, budget, delivery_days,
-                         project_status, owner_id, enrichment_status, discovered_at, enriched_at)
+                         project_status, executor_name, owner_id, enrichment_status, discovered_at, enriched_at)
                     VALUES
                         (@project_id, @source_id, @site_project_id, @title, @url, @client_name,
                          @publish_time_number, @publish_time_text,
                          @proposal_count, @proposal_count_text, @description, @budget, @delivery_days,
-                         @project_status, @owner_id, @enrichment_status, @discovered_at, @enriched_at)
+                         @project_status, @executor_name, @owner_id, @enrichment_status, @discovered_at, @enriched_at)
                     ON CONFLICT(project_id) DO UPDATE SET
                         title = excluded.title,
                         url = excluded.url,
@@ -159,6 +159,7 @@ public sealed class ProjectRepository : IProjectRepository
                         budget = excluded.budget,
                         delivery_days = excluded.delivery_days,
                         project_status = excluded.project_status,
+                        executor_name = excluded.executor_name,
                         owner_id = excluded.owner_id,
                         enrichment_status = excluded.enrichment_status,
                         enriched_at = excluded.enriched_at;
@@ -177,6 +178,7 @@ public sealed class ProjectRepository : IProjectRepository
                 upsertCommand.Parameters.AddWithValue("@budget", details.Budget is null ? DBNull.Value : details.Budget);
                 upsertCommand.Parameters.AddWithValue("@delivery_days", details.DeliveryDays is null ? DBNull.Value : details.DeliveryDays);
                 upsertCommand.Parameters.AddWithValue("@project_status", details.ProjectStatus is null ? DBNull.Value : details.ProjectStatus);
+                upsertCommand.Parameters.AddWithValue("@executor_name", details.ExecutorName is null ? DBNull.Value : details.ExecutorName);
                 upsertCommand.Parameters.AddWithValue("@owner_id", internalOwnerId is null ? DBNull.Value : internalOwnerId);
                 upsertCommand.Parameters.AddWithValue("@enrichment_status", details.EnrichmentStatus.ToString());
                 upsertCommand.Parameters.AddWithValue("@discovered_at", details.DiscoveredAt != default ? details.DiscoveredAt.ToString("O") : DateTimeOffset.UtcNow.ToString("O"));
@@ -386,7 +388,7 @@ public sealed class ProjectRepository : IProjectRepository
                     SELECT p.project_id, p.source_id, p.title, p.url, p.description, p.budget, p.delivery_days,
                            p.enrichment_status, p.enriched_at, p.project_status,
                            p.publish_time_number, p.publish_time_text,
-                           p.proposal_count, p.proposal_count_text, p.discovered_at,
+                           p.proposal_count, p.proposal_count_text, p.discovered_at, p.executor_name,
                            o.owner_id, o.name, o.profile_url, o.avatar_url, o.rating,
                            o.completed_projects_count, o.hiring_rate_percent,
                            o.registered_at, o.open_projects_count, o.in_progress_projects_count,
@@ -710,7 +712,7 @@ public sealed class ProjectRepository : IProjectRepository
                     SELECT p.project_id, p.source_id, p.title, p.url, p.description, p.budget, p.delivery_days,
                            p.enrichment_status, p.enriched_at, p.project_status,
                            p.publish_time_number, p.publish_time_text,
-                           p.proposal_count, p.proposal_count_text, p.discovered_at,
+                           p.proposal_count, p.proposal_count_text, p.discovered_at, p.executor_name,
                            o.owner_id, o.name, o.profile_url, o.avatar_url, o.rating,
                            o.completed_projects_count, o.hiring_rate_percent,
                            o.registered_at, o.open_projects_count, o.in_progress_projects_count,

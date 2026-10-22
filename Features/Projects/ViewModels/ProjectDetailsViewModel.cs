@@ -8,6 +8,7 @@ using MostaqlK.Infrastructure.Http;
 using MostaqlK.Models;
 using MostaqlK.Services;
 using MostaqlK.Services.Diagnostics;
+using MostaqlK.Services.Pipeline;
 using MostaqlK.UI.DesignSystem.Badges;
 using MostaqlK.UI.PlatformComponents;
 
@@ -139,6 +140,7 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     private readonly IProjectRepository _projectRepository;
     private readonly AssetDownloadService _assetDownloadService;
     private readonly GlobalAppStatusService _globalStatus;
+    private readonly ActivePipeline _activePipeline;
 
     public ObservableCollection<ProjectSkill> Skills { get; } = [];
 
@@ -161,6 +163,9 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(OwnerInProgressProjectsText))]
     [NotifyPropertyChangedFor(nameof(OwnerOngoingCommunicationsText))]
     [NotifyPropertyChangedFor(nameof(OwnerCompletedProjectsText))]
+    [NotifyPropertyChangedFor(nameof(ShowExecutorSection))]
+    [NotifyPropertyChangedFor(nameof(ExecutorName))]
+    [NotifyPropertyChangedFor(nameof(ShowRetryAffordance))]
     public partial ProjectDetails? Details { get; set; }
 
     [ObservableProperty]
@@ -222,11 +227,75 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
     /// <summary>Owner completed projects count or fallback.</summary>
     public string OwnerCompletedProjectsText => Details?.Owner?.CompletedProjectsCount is int count ? count.ToString() : "0";
 
-    public ProjectDetailsViewModel(IProjectRepository projectRepository, AssetDownloadService assetDownloadService, GlobalAppStatusService globalStatus)
+    // -----------------------------------------------------------------
+    // Schema-driven / capability-gated composition (B4, contract §1/§7/§9)
+    // -----------------------------------------------------------------
+
+    /// <summary>
+    /// The meta rows for every source section, grouped by the descriptor's <c>SchemaMap</c> section
+    /// and ordered within each group by its <c>Order</c>. Built by <see cref="DetailSchemaRenderer"/>
+    /// straight from <c>descriptor.SchemaMap</c> + the loaded <see cref="Details"/>; a field with no
+    /// value is omitted, and the executor group only appears when the source's
+    /// <see cref="SourceCapabilities.HasExecutorInfo"/> holds AND the project carries an executor name.
+    /// Empty ⇒ no section is rendered (never an empty header).
+    /// </summary>
+    public IReadOnlyList<DetailSectionGroup> MetaSections { get; private set; } = [];
+
+    /// <summary>
+    /// Real UI read of <see cref="SourceCapabilities.HasExecutorInfo"/> (contract §1): the executor
+    /// affordance is present iff the active source's capability says so AND the row carries a name.
+    /// The layout binds section visibility to this so an absent capability never renders empty.
+    /// </summary>
+    public bool ShowExecutorSection =>
+        SourceDescriptor?.Capabilities.HasExecutorInfo == true
+        && !string.IsNullOrWhiteSpace(Details?.ExecutorName);
+
+    /// <summary>The executor name for the gated block (only meaningful when <see cref="ShowExecutorSection"/>).</summary>
+    public string ExecutorName => Details?.ExecutorName ?? string.Empty;
+
+    /// <summary>
+    /// §9 retry affordance: shown only on a project whose enrichment failed (reachable-but-gated page).
+    /// Retrying re-enqueues it through the ACTIVE pipeline's queue (<see cref="ActivePipeline"/>), the
+    /// one seam the parent shipped for acting on whichever source is currently shown.
+    /// </summary>
+    public bool ShowRetryAffordance => Details?.EnrichmentStatus == EnrichmentStatus.Failed;
+
+    /// <summary>Skills chip block is rendered only when the project actually has skills (absent ⇒ no section).</summary>
+    public bool HasSkills => Skills.Count > 0;
+
+    /// <summary>Attachments block is rendered only when the project actually has attachments (absent ⇒ no section).</summary>
+    public bool HasAttachments => Attachments.Count > 0;
+
+    private ISourceDescriptor? SourceDescriptor =>
+        Details is null ? null : SourceRegistryProvider.DescriptorFor(Details.Source);
+
+    [RelayCommand]
+    public async Task RetryEnrichmentAsync()
+    {
+        if (Details is not { } details || details.EnrichmentStatus != EnrichmentStatus.Failed)
+        {
+            return;
+        }
+
+        // Re-enqueue the composite identity on the ACTIVE pipeline's queue; the worker picks it up
+        // on its next pass. Optimistically drop back to Pending so the badge/affordance reflect the
+        // re-queued state immediately (the store-and-forget row keeps its last known facts meanwhile).
+        await _activePipeline.Queue.EnqueueAsync(new SourceProjectId(details.Source, details.ProjectId));
+        details.EnrichmentStatus = EnrichmentStatus.Pending;
+        Details = null;
+        Details = details;
+    }
+
+    public ProjectDetailsViewModel(
+        IProjectRepository projectRepository,
+        AssetDownloadService assetDownloadService,
+        GlobalAppStatusService globalStatus,
+        ActivePipeline activePipeline)
     {
         _projectRepository = projectRepository;
         _assetDownloadService = assetDownloadService;
         _globalStatus = globalStatus;
+        _activePipeline = activePipeline;
     }
 
     [RelayCommand]
@@ -291,12 +360,43 @@ public sealed partial class ProjectDetailsViewModel : ObservableObject
             {
                 Attachments.Add(new AttachmentItemViewModel(asset, _assetDownloadService, Details.Source));
             }
+
+            // Schema-driven meta rows: read the descriptor's SchemaMap/Capabilities, never the source id.
+            RebuildMetaSections();
         }
         finally
         {
             IsLoading = false;
             OnPropertyChanged(nameof(ShowDetails));
+            OnPropertyChanged(nameof(HasSkills));
+            OnPropertyChanged(nameof(HasAttachments));
         }
+    }
+
+    /// <summary>
+    /// Rebuilds <see cref="MetaSections"/> from the descriptor's <c>SchemaMap</c> + the loaded
+    /// <see cref="Details"/>, grouping the renderer's rows by section (in first-appearance order)
+    /// while preserving within-section <c>Order</c>. Called whenever the details/skill state changes.
+    /// </summary>
+    private void RebuildMetaSections()
+    {
+        var descriptor = SourceDescriptor;
+        var details = Details;
+        if (descriptor is null || details is null)
+        {
+            MetaSections = [];
+            return;
+        }
+
+        MetaSections = DetailSchemaRenderer.Render(descriptor, details)
+            .GroupBy(r => r.Section)
+            .Select(g => new DetailSectionGroup(
+                g.Key,
+                DetailSchemaRenderer.SectionTitleAr(g.Key),
+                g.OrderBy(r => r.Order).ToList()))
+            .ToList();
+
+        OnPropertyChanged(nameof(MetaSections));
     }
 
     public void SetError(string message)

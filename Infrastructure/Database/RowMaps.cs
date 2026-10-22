@@ -99,6 +99,7 @@ internal static class RowMaps
         public int? proposal_count { get; set; }
         public string? proposal_count_text { get; set; }
         public string? discovered_at { get; set; }
+        public string? executor_name { get; set; }
         public long? owner_id { get; set; }
         public string? name { get; set; }
         public string? profile_url { get; set; }
@@ -237,6 +238,7 @@ internal static class RowMaps
             EnrichmentStatus = Enum.Parse<EnrichmentStatus>(row.enrichment_status),
             EnrichedAt = row.enriched_at is null ? null : DateTimeOffset.Parse(row.enriched_at),
             ProjectStatus = row.project_status,
+            ExecutorName = row.executor_name,
             PublishTimeNumber = row.publish_time_number ?? 0,
             PublishTimeText = row.publish_time_text ?? string.Empty,
             ProposalCount = row.proposal_count ?? 0,

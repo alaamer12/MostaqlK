@@ -178,6 +178,11 @@ public static class NafezlyDetailParser
         // ---- owner (poster): app-gated, so read the owner anchor text + avatar directly. ----
         var owner = ExtractOwner(root);
 
+        // ---- executor (منفذ المشروع): present only on awarded projects; the name is the
+        //      freelancer anchor in the بطاقة المشروع person block (capture-manifest §1.9). The
+        //      success-count / rating / profile URL are app-gated → never read here (name only). ----
+        var executorName = ExtractExecutorName(root);
+
         // Attachments are ABSENT for anonymous nafezly (capture-manifest §1.11) → empty, never guessed.
         var attachments = new List<Asset>();
 
@@ -203,6 +208,7 @@ public static class NafezlyDetailParser
             ProposalCountText = proposalText,
             Skills = skills,
             Owner = owner,
+            ExecutorName = executorName,
             Attachments = attachments,
             EnrichmentStatus = status,
             DiscoveredAt = DateTimeOffset.UtcNow,
@@ -418,6 +424,62 @@ public static class NafezlyDetailParser
         owner.OwnerId = name.Length > 0 ? StableHash(name) : 0;
         // rating / completed-projects-count are app-gated → stay null.
         return owner;
+    }
+
+    /// <summary>
+    /// Reads the awarded freelancer's name (منفذ المشروع) from the بطاقة المشروع person block. The
+    /// label sits in its own <c>col-12</c> wrapper and the person row is the following sibling block,
+    /// so the freelancer anchors are located inside that row — deliberately NOT the (far more numerous)
+    /// <c>data-profile-role="freelancer"</c> offer-submitter anchors, which live earlier in the page in
+    /// <c>#project-load-offers</c>. Open projects carry no <c>منفذ المشروع</c> block at all (capture-
+    /// manifest §1.9) → the method returns <c>null</c> and the executor row is simply absent. Name only:
+    /// the success-count / rating / profile URL are app-gated and never present in anonymous HTML.
+    /// </summary>
+    private static string? ExtractExecutorName(HtmlNode root)
+    {
+        foreach (var label in HtmlStructureEngine.FindLabelElements(root, "منفذ المشروع"))
+        {
+            // The label's own wrapper (col-12) is followed by the person-row block holding the anchor.
+            var sibling = label.ParentNode?.NextSibling;
+            while (sibling is not null)
+            {
+                var anchors = sibling.SelectSingleNode(".//a[@data-profile-role='freelancer']");
+                if (anchors is not null)
+                {
+                    break;
+                }
+
+                sibling = sibling.NextSibling;
+            }
+
+            var row = sibling;
+            if (row is null)
+            {
+                continue;
+            }
+
+            // Prefer the anchor whose own text is the name; fall back to the avatar <img alt> (mirrors
+            // the owner path) when the text anchor is empty.
+            foreach (var anchor in row.SelectNodes(".//a[@data-profile-role='freelancer']") ?? Enumerable.Empty<HtmlNode>())
+            {
+                var name = HtmlStructureEngine.Normalize(HtmlEntity.DeEntitize(anchor.InnerText));
+                if (name.Length > 0)
+                {
+                    return name;
+                }
+            }
+
+            foreach (var anchor in row.SelectNodes(".//a[@data-profile-role='freelancer']") ?? Enumerable.Empty<HtmlNode>())
+            {
+                var alt = FindNearbyAvatarAlt(anchor);
+                if (alt.Length > 0)
+                {
+                    return alt;
+                }
+            }
+        }
+
+        return null;
     }
 
     private static string FindNearbyAvatarAlt(HtmlNode anchor)

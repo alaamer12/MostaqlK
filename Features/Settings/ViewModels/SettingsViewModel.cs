@@ -54,6 +54,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly CloseBehaviorService _closeBehaviorService;
     private readonly IStartupService _startupService;
     private readonly ISettingsRepository _settings;
+    private readonly SourceContributionRegistry _contributions;
+    private readonly IServiceProvider _services;
     private bool _isLoading;
 
     [ObservableProperty]
@@ -146,6 +148,28 @@ public sealed partial class SettingsViewModel : ObservableObject
     public GlobalAppStatusService GlobalStatus => _globalStatus;
 
     /// <summary>
+    /// Sections the ACTIVE source's module contributes beyond the shared descriptor rows (contract
+    /// §4/§10). Built from <see cref="SourceContributionRegistry.SettingsSectionsFor"/> — never an
+    /// <c>if (source == X)</c>. A source with no contribution (mostaql today) yields an empty list, so
+    /// <see cref="HasContributedSections"/> is false and the host renders nothing for it (absent =
+    /// never rendered, not empty). Each entry is the module's own bindable view-model.
+    /// </summary>
+    public IReadOnlyList<ISourceSettingsSectionViewModel> ContributedSections { get; private set; } = [];
+
+    /// <summary>Drives the host's section-group visibility.</summary>
+    public bool HasContributedSections => ContributedSections.Count > 0;
+
+    private void LoadContributedSections()
+    {
+        ContributedSections = _contributions.SettingsSectionsFor(_source)
+            .Select(contribution => contribution.CreateViewModel(_services))
+            .OfType<ISourceSettingsSectionViewModel>()
+            .ToList();
+        OnPropertyChanged(nameof(ContributedSections));
+        OnPropertyChanged(nameof(HasContributedSections));
+    }
+
+    /// <summary>
     /// Validation feedback surfaced to the UI (reusing <c>LabelWithSubText</c>'s
     /// external/fix message shape). Empty when every field is currently valid.
     /// </summary>
@@ -166,7 +190,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         CookieStore cookieStore,
         CloseBehaviorService closeBehaviorService,
         IStartupService startupService,
-        ISettingsRepository settings)
+        ISettingsRepository settings,
+        SourceContributionRegistry contributions,
+        IServiceProvider services)
     {
         _cookieStore = cookieStore;
         _pollService = pollService;
@@ -179,8 +205,11 @@ public sealed partial class SettingsViewModel : ObservableObject
         _closeBehaviorService = closeBehaviorService;
         _startupService = startupService;
         _settings = settings;
+        _contributions = contributions;
+        _services = services;
 
         LoadFromPreferences();
+        LoadContributedSections();
         RefreshCookieStatus();
 
         // Guarded the same way LoadFromPreferences guards its own initial reads: setting

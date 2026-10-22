@@ -20,7 +20,7 @@ public static class NafezlySettingsKeys
 /// <see cref="ISettingsRepository"/> and the descriptor, so it is DI-constructible and unit-linkable
 /// without the MAUI stack.
 /// </summary>
-public sealed class NafezlySettingsSectionViewModel
+public sealed class NafezlySettingsSectionViewModel : ISourceSettingsSectionViewModel
 {
     private readonly ISettingsRepository? _settings;
     private readonly SourceId _source;
@@ -33,12 +33,23 @@ public sealed class NafezlySettingsSectionViewModel
 
     public string HeaderAr => "إعدادات نفذلي";
 
+    // The section carries exactly two rows, both always present for nafezly: the enrichment-retry
+    // toggle and the session-state read-out. The <c>Has*</c> flags drive the shared host's per-row
+    // visibility (contract §4/§10 — an absent row is never rendered, not rendered empty).
+    public bool HasRetryToggle => true;
+
+    public string RetryToggleLabelAr => "إعادة محاولة الإثراء التلقائي";
+
     /// <summary>
     /// Nafezly enrichment does NOT require a session for its core facts (JSON-LD + meta rows are
     /// anonymous, contract §1 capabilities); the flag is surfaced straight from the descriptor so the
     /// UI reflects the source truth instead of hardcoding it.
     /// </summary>
     public bool RequiresSession => NafezlySource.Instance.Capabilities.NeedsSessionForFullEnrichment;
+
+    public bool HasSessionRow => true;
+
+    public string SessionRowLabelAr => "جلسة الإثراء";
 
     public string SessionStateText => RequiresSession
         ? "يتطلب تسجيل الدخول لبيانات كاملة"

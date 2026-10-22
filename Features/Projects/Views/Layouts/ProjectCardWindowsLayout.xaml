@@ -139,7 +139,7 @@
                      and pushes the unread marker to the far end via `justify-between` — not four equal
                      columns, which spread the labels ~200px apart from the mockup. Each label is
                      `mb-1` (4px) above its value. -->
-                <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*" ColumnSpacing="24">
+                <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" ColumnSpacing="24">
                     <VerticalStackLayout Grid.Column="0" Spacing="4">
                         <Label Text="تاريخ النشر" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
                         <Label Text="{Binding PublishTimeText}" FontSize="13" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
@@ -169,7 +169,16 @@
                         </HorizontalStackLayout>
                     </VerticalStackLayout>
 
-                    <HorizontalStackLayout Grid.Column="5"
+                    <!-- Project state — the nafezly card's "حالة المشروع" stat (label + scraped text
+                         verbatim, plain ink per the v3 mockup; the site's own state colors are its
+                         display, the app never retints chrome from them). Hidden entirely when the
+                         source's listing carries no state for the row — presence-by-data. -->
+                    <VerticalStackLayout Grid.Column="5" Spacing="4" IsVisible="{Binding HasStatusText}">
+                        <Label Text="حالة المشروع" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
+                        <Label Text="{Binding StatusText}" FontSize="13" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                    </VerticalStackLayout>
+
+                    <HorizontalStackLayout Grid.Column="6"
                                            Spacing="6"
                                            HorizontalOptions="End"
                                            VerticalOptions="End"

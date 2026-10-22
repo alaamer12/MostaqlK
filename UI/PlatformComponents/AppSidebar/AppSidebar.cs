@@ -46,7 +46,7 @@ public partial class AppSidebar : ContentView
 
     /// <summary>
     /// Raised when a source-morph tile taps a new active source. The global projection (persist +
-    /// <see cref="GlobalAppStatusService.SetActiveProjection"/> + brand <see cref="IBrandTokenProvider.SwapTo"/>)
+    /// <see cref="MostaqlK.Services.GlobalAppStatusService.SetActiveProjection"/> + brand <see cref="IBrandTokenProvider.SwapTo"/>)
     /// already ran inside <see cref="SourceSwitchTiles"/>; this lets a host that owns a source-scoped
     /// surface (the projects feed) re-point its own data to the freshly-active source.
     /// </summary>

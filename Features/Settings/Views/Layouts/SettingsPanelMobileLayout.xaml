@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:MostaqlK.Features.Settings.ViewModels"
              xmlns:platform="clr-namespace:MostaqlK.UI.PlatformComponents"
+             xmlns:sources="clr-namespace:MostaqlK.Core.Sources"
              xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem"
              xmlns:converters="clr-namespace:MostaqlK.UI.DesignSystem.Converters"
              x:Class="MostaqlK.Features.Settings.Views.Layouts.SettingsPanelMobileLayout"
@@ -195,6 +196,33 @@
                                             VerticalOptions="Center" />
                     </Grid>
                 </Border>
+
+                <!-- Contributed per-source sections (contract §4/§10): after the shared descriptor
+                     rows, only for the ACTIVE source; absent source (mostaql) contributes nothing and
+                     the group is never rendered empty. Each row is presence-gated by its Has* flag. -->
+                <VerticalStackLayout Spacing="12" IsVisible="{Binding HasContributedSections}" BindableLayout.ItemsSource="{Binding ContributedSections}">
+                    <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="sources:ISourceSettingsSectionViewModel">
+                                <Border Padding="16" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+                                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                                    <VerticalStackLayout Spacing="12">
+                                        <Label Text="{Binding HeaderAr}" FontSize="15" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                                        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasRetryToggle}">
+                                            <Label Text="{Binding RetryToggleLabelAr}" FontSize="13" TextColor="{AppThemeBinding Light=#334155, Dark=#E2E8F0}" VerticalOptions="Center" FontFamily="Tajawal" />
+                                            <platform:AppToggle Grid.Column="1"
+                                                                AutomationId="Settings_Mobile_ContributedRetryToggle"
+                                                                IsToggled="{Binding EnrichmentRetryEnabled, Mode=TwoWay}"
+                                                                VerticalOptions="Center" />
+                                        </Grid>
+                                        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasSessionRow}">
+                                            <Label Text="{Binding SessionRowLabelAr}" FontSize="13" TextColor="{AppThemeBinding Light=#334155, Dark=#E2E8F0}" VerticalOptions="Center" FontFamily="Tajawal" />
+                                            <Label Grid.Column="1" Text="{Binding SessionStateText}" FontSize="12" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" HorizontalOptions="End" />
+                                        </Grid>
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
 
             </VerticalStackLayout>
         </ScrollView>

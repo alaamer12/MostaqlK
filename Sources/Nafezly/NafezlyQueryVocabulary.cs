@@ -1,3 +1,5 @@
+using MostaqlK.Core.Sources;
+
 namespace MostaqlK.Sources.Nafezly;
 
 /// <summary>
@@ -75,4 +77,109 @@ public static class NafezlyQueryVocabulary
 
         return parts.Count == 0 ? string.Empty : "?" + string.Join("&", parts);
     }
+
+    /// <summary>
+    /// The typed facet vocabulary the shared FilterModal renders for this source (B3; contract §8):
+    /// the <c>specialize</c> chips straight from <see cref="SpecializeFacets"/> (no duplicated slugs
+    /// or labels), the <c>skills</c> facet as a choice kind with NO options — the site's skill list is
+    /// search/session-driven and has no anonymous option vocabulary (capture-manifest §3), so the UI
+    /// honestly shows nothing for it while its values still round-trip — and the <c>pricing</c>
+    /// slider as a range. Captions are the site's OWN sidebar group headings, verbatim from the
+    /// fixtures: <c>التصنيفات</c> / <c>المهارات</c> / <c>الميزانية</c>. <c>page</c> is pagination,
+    /// not a user facet, so it is parse/build-preserved but never rendered.
+    /// </summary>
+    public static IReadOnlyList<FilterFacetSpec> FacetSpecs { get; } =
+    [
+        new(SpecializeParam, FilterFacetKind.MultiChoice, "التصنيفات",
+            [.. SpecializeFacets.Select(f => new FilterFacetOption(f.Slug, f.LabelAr))]),
+        new(SkillsParam, FilterFacetKind.MultiChoice, "المهارات", []),
+        new(PricingParam, FilterFacetKind.Range, "الميزانية", []),
+    ];
+
+    /// <summary>
+    /// Serialize a modal selection back into the query string, reusing <see cref="BuildQuery"/> for
+    /// every recognized facet (single grammar site) and echoing any other parsed keys afterwards in
+    /// their original order, so values the modal never rendered (skills slugs, <c>page</c>, unknown
+    /// params) survive Apply untouched.
+    /// </summary>
+    public static string BuildQueryFromFacetSelection(IReadOnlyDictionary<string, IReadOnlyList<string>> selections)
+    {
+        var known = new HashSet<string>(StringComparer.Ordinal) { SpecializeParam, SkillsParam, PricingParam, PageParam };
+
+        IReadOnlyList<string>? specialize = Take(SpecializeParam), skills = Take(SkillsParam);
+        (long Min, long Max)? pricing = null;
+        if (selections.TryGetValue(PricingParam, out var band) && band.Count >= 2
+            && long.TryParse(band[0], out var min) && long.TryParse(band[1], out var max))
+        {
+            pricing = (min, max);
+        }
+
+        int? page = null;
+        if (selections.TryGetValue(PageParam, out var pageNo) && pageNo.Count > 0
+            && int.TryParse(pageNo[0], out var parsedPage) && parsedPage > 0)
+        {
+            page = parsedPage;
+        }
+
+        IReadOnlyList<string>? Take(string key) =>
+            selections.TryGetValue(key, out var values) && values.Count > 0 ? values : null;
+
+        var extras = selections
+            .Where(kv => !known.Contains(kv.Key))
+            .Select(kv => kv.Value.Count > 0 ? $"{kv.Key}={string.Join(",", kv.Value)}" : kv.Key)
+            .ToList();
+
+        var baseQuery = BuildQuery(specialize, skills, pricing, page);
+        if (extras.Count == 0)
+        {
+            return baseQuery;
+        }
+
+        var extrasQuery = string.Join("&", extras);
+        return baseQuery.Length == 0 ? "?" + extrasQuery : baseQuery + "&" + extrasQuery;
+    }
+
+    /// <summary>
+    /// Parse a stored query string into the facet-selection shape: every <c>key=value</c> segment
+    /// becomes key → value list, comma-separated ("a,b") and site-echoed percent-encoded ("a%2Cb")
+    /// forms alike — the <c>Uri.UnescapeDataString</c> decode happens before the split,
+    /// so %2C is a value separator, never data. Positional commas are kept (a blank bound stays a
+    /// blank entry, so <c>pricing=,100</c> parses min-blank/max-100), and everything after the first
+    /// '=' stays raw. A leading '?' (which <see cref="BuildQuery"/> emits and Settings may omit) is
+    /// not data and is dropped.
+    /// </summary>
+    public static IReadOnlyDictionary<string, IReadOnlyList<string>> ParseFacetSelection(string? queryParams)
+    {
+        var result = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+        var raw = queryParams?.Trim() ?? string.Empty;
+        if (raw.Length == 0)
+        {
+            return result;
+        }
+
+        if (raw[0] == '?')
+        {
+            raw = raw[1..];
+        }
+
+        foreach (var segment in raw.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var separator = segment.IndexOf('=');
+            var key = separator < 0 ? segment : segment[..separator];
+            var valueText = separator < 0 ? string.Empty : segment[(separator + 1)..];
+
+            IReadOnlyList<string> values = valueText.Length == 0
+                ? []
+                : [.. SplitValues(Uri.UnescapeDataString(valueText))];
+
+            result[key] = result.TryGetValue(key, out var existing)
+                ? [.. existing, .. values]
+                : values;
+        }
+
+        return result;
+    }
+
+    /// <summary>Comma split that keeps blank positions ("100," → ["100",""]), unlike RemoveEmptyEntries.</summary>
+    private static IEnumerable<string> SplitValues(string decoded) => decoded.Split(',');
 }

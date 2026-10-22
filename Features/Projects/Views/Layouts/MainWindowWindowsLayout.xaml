@@ -9,6 +9,7 @@
              xmlns:sidebar="clr-namespace:MostaqlK.UI.PlatformComponents.AppSidebar"
              xmlns:dashboard="clr-namespace:MostaqlK.UI.PlatformComponents.PipelineDashboard"
              xmlns:lastscan="clr-namespace:MostaqlK.UI.PlatformComponents.LastScanStatus"
+             xmlns:filtermodal="clr-namespace:MostaqlK.UI.PlatformComponents.FilterModal"
              x:Class="MostaqlK.Features.Projects.Views.Layouts.MainWindowWindowsLayout"
              x:DataType="vm:ProjectFeedViewModel"
              FlowDirection="RightToLeft"
@@ -62,6 +63,11 @@
                              here around the shared SearchInputField unit. The inner grid is
                              forced LeftToRight because `left-4` is a physical edge, not a
                              start-edge, and the page itself is RTL. -->
+                        <!-- Mockup search row: the search box stretches and the "الفلاتر" button
+                             docks at its left; the whole pair is squeezed by the pipeline panel.
+                             The button is presence-by-data (HasFilterFacets): a source without a
+                             typed facet vocabulary never shows a dialog with nothing to configure. -->
+                        <Grid Grid.Column="0" ColumnDefinitions="*,Auto" ColumnSpacing="12">
                         <Border Grid.Column="0"
                                 StrokeThickness="1"
                                 HeightRequest="40"
@@ -96,6 +102,39 @@
                                                               FontFamily="Tajawal" />
                             </Grid>
                         </Border>
+
+                            <Border Grid.Column="1"
+                                    StrokeThickness="1"
+                                    HeightRequest="40"
+                                    AutomationId="Projects_FiltersButton"
+                                    SemanticProperties.Description="فلاتر البحث"
+                                    VerticalOptions="Center"
+                                    IsVisible="{Binding HasFilterFacets}"
+                                    Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
+                                    BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}"
+                                    Padding="14,0">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="8" />
+                                </Border.StrokeShape>
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnOpenFiltersTapped" />
+                                </Border.GestureRecognizers>
+                                <Border.Behaviors>
+                                    <design:PressableEffect ApplyHoverHighlight="True" />
+                                </Border.Behaviors>
+                                <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                                    <components:AppIcon Icon="Filter"
+                                                        FontSize="12"
+                                                        TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                                        VerticalOptions="Center" />
+                                    <Label Text="الفلاتر"
+                                           FontSize="14"
+                                           FontFamily="TajawalBold"
+                                           TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
+                                           VerticalOptions="Center" />
+                                </HorizontalStackLayout>
+                            </Border>
+                        </Grid>
 
                         <HorizontalStackLayout Grid.Column="1" Spacing="16" VerticalOptions="Center">
                             <Label Text="{Binding PollIntervalText}"
@@ -200,21 +239,25 @@
                                    TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
                                    VerticalOptions="Center"
                                    FontFamily="Tajawal" />
-                            <Label Text="كل المشاريع"
+                            <Label Text="{Binding ActiveQueryText}"
                                    FontSize="13"
                                    FontFamily="TajawalBold"
                                    TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
                                    VerticalOptions="Center" />
                         </HorizontalStackLayout>
                         <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
-                            <components:AppIcon Icon="Edit" WidthRequest="14" HeightRequest="14" TextColor="{DynamicResource Brand}" VerticalOptions="Center" />
+                            <components:AppIcon Icon="Edit" WidthRequest="14" HeightRequest="14" TextColor="{DynamicResource Brand}" VerticalOptions="Center" IsVisible="{Binding HasFilterFacets}" />
                             <Label Text="تعديل"
+                                   IsVisible="{Binding HasFilterFacets}"
                                    FontSize="13"
                                    FontFamily="TajawalBold"
                                    TextColor="{DynamicResource Brand}"
                                    VerticalOptions="Center">
                                 <Label.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding SearchCommand}" />
+                                    <!-- Opens the same FilterModal as the header "الفلاتر" button.
+                                         (Previously fired SearchCommand with no parameter — a
+                                         silent reload, never the dialog the mockup's "تعديل" means.) -->
+                                    <TapGestureRecognizer Tapped="OnOpenFiltersTapped" />
                                 </Label.GestureRecognizers>
                                 <Label.Behaviors>
                                     <design:PressableEffect ApplyHoverHighlight="True" />
@@ -363,6 +406,15 @@
                                                HorizontalOptions="End"
                                                VerticalOptions="Start"
                                                Margin="0,12,12,0" />
+
+        <!-- B3 typed-facet FilterModal: a page-covering overlay (backdrop + centered card built into
+             the unit, same host-managed visibility mechanic as the notifications flyout above).
+             Every control inside it is generated from the ACTIVE source's descriptor.FilterFacets —
+             this layout names no facet and no site. -->
+        <filtermodal:FilterModal x:Name="FiltersModal"
+                                 Grid.ColumnSpan="4"
+                                 AutomationId="Projects_FiltersModal"
+                                 IsVisible="False" />
 
     </Grid>
 

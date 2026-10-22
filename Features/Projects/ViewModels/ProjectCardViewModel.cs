@@ -32,6 +32,8 @@ public sealed partial class ProjectCardViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(ClientInitials))]
     [NotifyPropertyChangedFor(nameof(ClientMeta))]
     [NotifyPropertyChangedFor(nameof(PublishTimeText))]
+    [NotifyPropertyChangedFor(nameof(StatusText))]
+    [NotifyPropertyChangedFor(nameof(HasStatusText))]
     [NotifyPropertyChangedFor(nameof(ProposalCount))]
     [NotifyPropertyChangedFor(nameof(ProposalCountText))]
     [NotifyPropertyChangedFor(nameof(Budget))]
@@ -110,10 +112,25 @@ public sealed partial class ProjectCardViewModel : ObservableObject
     public string ClientMeta => Descriptor?.OwnerFallbackMeta ?? "—";
 
     /// <summary>
-    /// Relative post time shown at the end of the client row ("منذ 3 دقائق" in projects.html),
-    /// computed dynamically from the absolute <c>discovered_at</c> timestamp.
+    /// Relative post time shown on the card (projects.html "منذ 3 دقائق"). The SITE's own scraped
+    /// relative text wins when present (nafezly rows are old projects re-discovered today —
+    /// "منذ ساعة" from the listing, not "منذ دقيقة" since our poll saw them); the dynamic recompute
+    /// from <c>discovered_at</c> is the documented fallback for rows without scraped text
+    /// (mostaql discovery rows / design-seeded cards).
     /// </summary>
-    public string PublishTimeText => ArabicRelativeTime.Since(Project.DiscoveredAt);
+    public string PublishTimeText => string.IsNullOrWhiteSpace(Project.PublishTimeText)
+        ? ArabicRelativeTime.Since(Project.DiscoveredAt)
+        : Project.PublishTimeText.Trim();
+
+    /// <summary>
+    /// Scraped project-state text shown VERBATIM (contract §7: "UI shows scraped text verbatim";
+    /// nafezly مفتوح/تحت التنفيذ/مكتمل from the listing meta row). Presence-by-data: sources/rows
+    /// whose listing carries no state render no status block at all — never a placeholder, never a
+    /// source-id check.
+    /// </summary>
+    public string? StatusText => string.IsNullOrWhiteSpace(Project.ProjectStatus) ? null : Project.ProjectStatus.Trim();
+
+    public bool HasStatusText => StatusText is not null;
 
     public int ProposalCount => Project.ProposalCount;
 

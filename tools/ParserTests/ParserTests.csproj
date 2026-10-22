@@ -40,6 +40,13 @@
 		<Compile Include="..\..\Core\Sources\SourceCapabilities.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Sources\ISourceDescriptor.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Sources\FieldSpec.cs" LinkBase="Core" />
+		<!-- B3: the descriptor now exposes the typed facet vocabulary, so the pure spec record links
+		     alongside it (the nafezly/mostaql facet tests below drive it). -->
+		<Compile Include="..\..\Core\Sources\FilterFacetSpec.cs" LinkBase="Core" />
+		<!-- B4: the schema-driven details renderer is MAUI-free (descriptor + models + Core/Formatting
+		     only), so it links here and its ordering / null-omission / capability gating / money flags
+		     are verified offline against the real descriptors. -->
+		<Compile Include="..\..\Features\Projects\ViewModels\DetailSchemaRenderer.cs" LinkBase="Features" />
 		<!-- ISourceDescriptor now exposes SchemaMap/Profile/Selectors, so the Mostaql data the
 		     descriptor returns must link alongside it. -->
 		<Compile Include="..\..\Sources\Mostaql\MostaqlParseProfile.cs" LinkBase="Sources" />
@@ -69,6 +76,7 @@
 		     without pulling in DI or the MAUI stack. -->
 		<Compile Include="..\..\Core\Sources\ISettingsRepository.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Sources\SourceContributions.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Sources\ISourceSettingsSectionViewModel.cs" LinkBase="Core" />
 		<Compile Include="..\..\Sources\Nafezly\Contributions\NafezlySettingsSectionContribution.cs" LinkBase="Sources" />
 		<Compile Include="..\..\Infrastructure\Http\CookieParser.cs" LinkBase="Http" />
 		<Compile Include="..\..\Models\ProjectDetails.cs" LinkBase="Models" />

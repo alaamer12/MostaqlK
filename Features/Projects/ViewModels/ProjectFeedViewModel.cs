@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 using MostaqlK.Core;
 using MostaqlK.Core.Navigation;
 using MostaqlK.Core.Sources;
@@ -97,6 +98,28 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RateLimitText))]
     public partial int RequestsPerMinute { get; set; } = 12;
+
+    /// <summary>
+    /// True when the ACTIVE source's descriptor exposes typed filter facets (B3) — the FilterModal
+    /// affordances are present-by-data and hide for a source with an empty vocabulary (mostaql's
+    /// preset-suffix flow keeps its Settings-only behavior; contract §8/§10 — never a source-id check).
+    /// </summary>
+    [ObservableProperty]
+    public partial bool HasFilterFacets { get; set; }
+
+    /// <summary>
+    /// The active-query line's value (projects.html footer "الاستعلام النشط"): the source's stored
+    /// <c>QueryParams</c> verbatim, or the "all projects" copy when nothing is set. The string is
+    /// whatever the module's builder wrote — the UI reads it, never parses or concatenates it.
+    /// </summary>
+    [ObservableProperty]
+    public partial string ActiveQueryText { get; set; } = "كل المشاريع";
+
+    /// <summary>The active source's descriptor as the FilterModal's vocabulary/parser seam (null only in design-time hosts).</summary>
+    public ISourceDescriptor? FilterDescriptor => SourceRegistryProvider.DescriptorFor(_source);
+
+    /// <summary>The active source's stored raw query string, handed to the modal for prefill parsing.</summary>
+    public string FilterStoredQuery => _settings.Get(_source, SettingsKeys.QueryParams, string.Empty);
 
 
     /// <summary>True once loading has finished with no error and at least one result — drives the success-state ScrollView.</summary>
@@ -203,6 +226,37 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         PollIntervalSeconds = _settings.Get(_source, SettingsKeys.PollIntervalSeconds, _pollService.PollIntervalSeconds);
         RequestsPerMinute = _settings.Get(_source, SettingsKeys.MaxRequestsPerMinute, Math.Max(1, _rateLimiter.Capacity));
         IsPollingActive = !_pollService.IsPaused;
+
+        // The filter vocabulary is descriptor data of the CURRENT source: re-read it on every
+        // header refresh (load + source morph) so the modal affordance and the active-query line
+        // always describe the source whose feed is on screen.
+        HasFilterFacets = SourceRegistryProvider.DescriptorFor(_source)?.FilterFacets.Count > 0;
+        var storedQuery = FilterStoredQuery;
+        ActiveQueryText = string.IsNullOrWhiteSpace(storedQuery) ? "كل المشاريع" : storedQuery;
+    }
+
+    /// <summary>
+    /// Persists a FilterModal Apply through the SAME single mutation path SettingsViewModel uses
+    /// today (<c>OnQueryParamsChanged</c>: write the namespaced setting, then hand the string to the
+    /// poll service) — the query itself is serialized module-side by the descriptor, and the next
+    /// poll cycle consumes it exactly like a Settings edit (no pipeline start/stop, no immediate
+    /// scan, per the B3 conservative-default decision).
+    /// </summary>
+    public void ApplyFilterSelection(IReadOnlyDictionary<string, IReadOnlyList<string>> selection)
+    {
+        if (SourceRegistryProvider.DescriptorFor(_source) is not { } descriptor)
+        {
+            return;
+        }
+
+        var built = descriptor.BuildQueryFromFacets(selection);
+        _settings.Set(_source, SettingsKeys.QueryParams, built);
+        // Property push goes to the LIVE projected pipeline, not the possibly startup-captured
+        // `_pollService` the Shell-cached VM holds (the gap surfaced in SwitchSourceAsync's
+        // remarks): transient resolution of ActivePipeline == what MauiProgram registers
+        // IPollService as, so this is the same mutation path, just re-pointed per call.
+        (IPlatformApplication.Current?.Services?.GetService<ActivePipeline>()?.Poll ?? _pollService).QueryParams = built;
+        RefreshHeaderStatus();
     }
 
     /// <summary>The source whose projects this feed currently lists.</summary>

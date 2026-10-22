@@ -37,6 +37,8 @@ internal static class Program
             TestV1ToV2Upgrade(Path.Combine(dir, "upgrade.db"));
             TestIdempotentRerun(Path.Combine(dir, "upgrade.db"));
             TestFreshInstallLandsAtV2(Path.Combine(dir, "fresh.db"));
+            TestFreshInstallHasExecutorColumn(Path.Combine(dir, "fresh2.db"));
+            TestV3ToV4ExecutorUpgrade(Path.Combine(dir, "v3.db"));
             TestCrossSourceCollision(Path.Combine(dir, "upgrade.db"));
             TestNafezlyBandCoexistence(Path.Combine(dir, "coexist.db"));
         }
@@ -70,7 +72,7 @@ internal static class Program
         using (var connection = factory.CreateConnection())
         {
             var version = GetUserVersion(connection);
-            Check(version == 3, $"user_version is 3 after full upgrade chain (got {version})");
+            Check(version == 4, $"user_version is 4 after full upgrade chain (got {version})");
 
             var columns = ReadColumnNames(connection, "projects");
             Check(columns.Contains("source_id") && columns.Contains("site_project_id"), "projects has source_id + site_project_id");
@@ -112,7 +114,7 @@ internal static class Program
         var factory = new SqliteConnectionFactory(dbPath);
         using (var connection = factory.CreateConnection())
         {
-            Check(GetUserVersion(connection) == 3, "user_version stays 3");
+            Check(GetUserVersion(connection) == 4, "user_version stays 4");
         }
 
         var afterCounts = ReadCounts(dbPath);
@@ -129,7 +131,7 @@ internal static class Program
         var factory = new SqliteConnectionFactory(dbPath);
         using var connection = factory.CreateConnection();
 
-        Check(GetUserVersion(connection) == 3, "fresh db reaches the current user_version without running numbered steps");
+        Check(GetUserVersion(connection) == 4, "fresh db reaches the current user_version without running numbered steps");
 
         var columns = ReadColumnNames(connection, "projects");
         Check(columns.Contains("source_id") && columns.Contains("site_project_id"), "fresh projects table already carries the v2 columns");
@@ -346,6 +348,183 @@ internal static class Program
         }
     }
 
+    /// <summary>
+    /// B4: an existing database sitting exactly at v3 (source-identity schema, no
+    /// <c>executor_name</c>) upgrading one step to v4. Asserts the additive ALTER ran, the column
+    /// exists, every pre-existing row survived untouched, and a second launch is a clean no-op.
+    /// Uses a throwaway temp DB (never a live user file).
+    /// </summary>
+    private static void TestV3ToV4ExecutorUpgrade(string dbPath)
+    {
+        Console.WriteLine("== v3 -> v4 executor-column upgrade ==");
+        File.Delete(dbPath);
+        BuildV3Database(dbPath);
+
+        var beforeIds = ReadIds(dbPath, "projects", "project_id");
+        var beforeCounts = ReadCounts(dbPath);
+
+        var factory = new SqliteConnectionFactory(dbPath);
+        using (var connection = factory.CreateConnection())
+        {
+            Check(GetUserVersion(connection) == 4, "user_version advanced 3 -> 4");
+            Check(ReadColumnNames(connection, "projects").Contains("executor_name"), "projects gained executor_name column");
+
+            // The pre-existing rows must be byte-preserved: same ids, same counts, same source split.
+            var afterIds = ReadIds(dbPath, "projects", "project_id");
+            Check(beforeIds.SequenceEqual(afterIds), "project rowids unchanged by the ALTER");
+
+            var afterCounts = ReadCounts(dbPath);
+            foreach (var (table, before) in beforeCounts)
+            {
+                Check(afterCounts[table] == before, $"{table} row count unchanged ({before} -> {afterCounts[table]})");
+            }
+
+            // executor_name is nullable: existing rows read back NULL, not ''.
+            Check(SingleScalar(connection, "SELECT COUNT(*) FROM projects WHERE executor_name IS NULL;")
+                    == SingleScalar(connection, "SELECT COUNT(*) FROM projects;"),
+                "all pre-existing rows have a NULL executor_name");
+        }
+
+        // Idempotent re-run: a brand-new factory against the already-v4 file must neither re-ALTER
+        // nor error (the ALTER would otherwise throw duplicate-column).
+        var factory2 = new SqliteConnectionFactory(dbPath);
+        using (var connection2 = factory2.CreateConnection())
+        {
+            Check(GetUserVersion(connection2) == 4, "user_version stays 4 on re-run");
+        }
+
+        var afterCounts2 = ReadCounts(dbPath);
+        foreach (var (table, before) in beforeCounts)
+        {
+            Check(afterCounts2[table] == before, $"{table} row count unchanged on re-run ({before} -> {afterCounts2[table]})");
+        }
+    }
+
+    /// <summary>
+    /// B4: a fresh install lands directly at v4 (via <c>InitialSchemaSql</c>) already carrying the
+    /// <c>executor_name</c> column, so brand-new databases never replay the numbered steps.
+    /// </summary>
+    private static void TestFreshInstallHasExecutorColumn(string dbPath)
+    {
+        Console.WriteLine("== fresh install v4 carries executor_name ==");
+        File.Delete(dbPath);
+        var factory = new SqliteConnectionFactory(dbPath);
+        using var connection = factory.CreateConnection();
+
+        Check(GetUserVersion(connection) == 4, "fresh db lands at the current v4 schema");
+        Check(ReadColumnNames(connection, "projects").Contains("executor_name"), "fresh projects table already carries executor_name");
+    }
+
+    /// <summary>
+    /// Builds a database sitting exactly at the v3 schema (post source-identity, pre executor):
+    /// the current bootstrap shape minus the <c>executor_name</c> column, <c>user_version = 3</c>,
+    /// with a small mix of mostaql + nafezly rows so the upgrade preserves cross-source data.
+    /// </summary>
+    private static void BuildV3Database(string dbPath)
+    {
+        using var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = dbPath }.ToString());
+        connection.Open();
+
+        Exec(connection, V3SchemaSql);
+        Exec(connection, """
+            INSERT INTO projects
+                (project_id, source_id, site_project_id, title, url, description, discovered_at, enrichment_status)
+            VALUES
+                (101, 'mostaql', 101, 'مشروع مستقل أول', 'https://mostaql.com/u/projects/101', 'وصف', '2026-10-19T10:00:00Z', 'Enriched'),
+                (102, 'mostaql', 102, 'مشروع مستقل ثانٍ', 'https://mostaql.com/u/projects/102', NULL, '2026-10-20T10:00:00Z', 'Pending'),
+                (1000000000101, 'nafezly', 101, 'مشروع نفذلي', 'https://nafezly.com/project/101', 'وصف', '2026-10-21T10:00:00Z', 'Enriched');
+
+            INSERT INTO owners (owner_id, source_id, name, last_seen_at)
+            VALUES (5001, 'mostaql', 'عميل', '2026-10-21T10:00:00Z');
+            INSERT INTO project_skills (project_id, name) VALUES (101, 'تصميم');
+            INSERT INTO assets (project_id, file_name) VALUES (101, 'a.pdf');
+            INSERT INTO projects_fts (project_id, title, description, skills)
+            VALUES (101, 'مشروع مستقل أول', 'وصف', 'تصميم'), (102, 'مشروع مستقل ثانٍ', '', ''), (1000000000101, 'مشروع نفذلي', 'وصف', '');
+            INSERT INTO discovery_backlog (source_id, project_id) VALUES ('mostaql', 102);
+            """);
+        Exec(connection, "PRAGMA user_version = 3;");
+    }
+
+    /// <summary>The v3 schema as it stood before B4 (source-identity, no executor_name column).</summary>
+    private const string V3SchemaSql = """
+        CREATE TABLE IF NOT EXISTS projects (
+            project_id INTEGER PRIMARY KEY,
+            source_id TEXT NOT NULL,
+            site_project_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            url TEXT NOT NULL,
+            client_name TEXT,
+            publish_time_number INTEGER,
+            publish_time_text TEXT,
+            proposal_count INTEGER,
+            proposal_count_text TEXT,
+            description TEXT,
+            budget TEXT,
+            delivery_days INTEGER,
+            project_status TEXT,
+            owner_id INTEGER,
+            is_unread INTEGER NOT NULL DEFAULT 1,
+            enrichment_status TEXT NOT NULL DEFAULT 'Pending',
+            discovered_at TEXT NOT NULL,
+            enriched_at TEXT
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_projects_source_site ON projects(source_id, site_project_id);
+
+        CREATE TABLE IF NOT EXISTS owners (
+            owner_id INTEGER PRIMARY KEY,
+            source_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            profile_url TEXT,
+            avatar_url TEXT,
+            rating REAL,
+            completed_projects_count INTEGER,
+            hiring_rate_percent REAL,
+            registered_at TEXT,
+            open_projects_count INTEGER,
+            in_progress_projects_count INTEGER,
+            ongoing_communications_count INTEGER,
+            last_seen_at TEXT NOT NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_owners_source_owner ON owners(source_id, owner_id);
+
+        CREATE TABLE IF NOT EXISTS project_skills (
+            project_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            url TEXT,
+            FOREIGN KEY (project_id) REFERENCES projects (project_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS assets (
+            asset_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL,
+            file_name TEXT NOT NULL,
+            url TEXT,
+            raw_url TEXT,
+            local_path TEXT,
+            size_bytes INTEGER,
+            extension TEXT,
+            requires_auth INTEGER NOT NULL DEFAULT 0,
+            size_text TEXT,
+            FOREIGN KEY (project_id) REFERENCES projects (project_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS discovery_backlog (
+            source_id TEXT NOT NULL,
+            project_id INTEGER NOT NULL,
+            discovered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            retry_count INTEGER DEFAULT 0,
+            PRIMARY KEY (source_id, project_id)
+        );
+
+        CREATE VIRTUAL TABLE IF NOT EXISTS projects_fts USING fts5(
+            project_id UNINDEXED,
+            title,
+            description,
+            skills,
+            tokenize = 'unicode61 remove_diacritics 2'
+        );
+        """;
+
 
     /// <summary>The historical v1 bootstrap schema, byte-for-byte what shipped pre-refactor.</summary>
     private const string V1SchemaSql = """
@@ -461,6 +640,12 @@ internal static class Program
         public MostaqlK.Core.Parsing.ParseProfile Profile => MostaqlK.Core.Parsing.ParseProfile.Empty;
         public MostaqlK.Core.Parsing.SelectorMap Selectors => MostaqlK.Core.Parsing.SelectorMap.Empty;
         public IReadOnlyList<MostaqlK.Core.Sources.FieldSpec> SchemaMap => [];
+        // The B3 facet-vocabulary members the migration harness never exercises (it only checks
+        // schema/identity), answered with the empty-data shapes so the stub stays valid.
+        public IReadOnlyList<MostaqlK.Core.Sources.FilterFacetSpec> FilterFacets => [];
+        public string BuildQueryFromFacets(IReadOnlyDictionary<string, IReadOnlyList<string>> selections) => string.Empty;
+        public IReadOnlyDictionary<string, IReadOnlyList<string>> ParseFacetSelection(string? queryParams) =>
+            new Dictionary<string, IReadOnlyList<string>>();
         public string CookieSecretKey => "cookie_" + Id.Value;
         public string? SessionCookieName => null;
         public string LegacyCookieSecretKey => "cookie_legacy_" + Id.Value;

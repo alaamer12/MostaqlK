@@ -147,4 +147,20 @@ public sealed class NafezlySource : ISourceDescriptor
 
     public bool IsSameSiteUrl(string url) =>
         url.Contains(Host, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Nafezly's typed filter vocabulary (contract §8/decision 5): the specialize chips, the
+    /// option-less skills choice, and the pricing range — all exposed straight from
+    /// <see cref="NafezlyQueryVocabulary"/>, so the shared FilterModal renders this site's facets
+    /// from module data without ever naming one (zero duplication of the slugs/labels above).
+    /// </summary>
+    public IReadOnlyList<FilterFacetSpec> FilterFacets => NafezlyQueryVocabulary.FacetSpecs;
+
+    /// <summary>Module-side serialization of a facet selection into nafezly's query grammar.</summary>
+    public string BuildQueryFromFacets(IReadOnlyDictionary<string, IReadOnlyList<string>> selections) =>
+        NafezlyQueryVocabulary.BuildQueryFromFacetSelection(selections);
+
+    /// <summary>Module-side parse of a stored query back into the facet selection (prefill + round-trip).</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> ParseFacetSelection(string? queryParams) =>
+        NafezlyQueryVocabulary.ParseFacetSelection(queryParams);
 }

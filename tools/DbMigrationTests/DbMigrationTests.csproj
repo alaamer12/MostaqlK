@@ -33,6 +33,9 @@
 		<!-- ISourceDescriptor now exposes Profile/Selectors/SchemaMap (A1), so the shared data
 		     types it references are linked; the migration tests themselves are unchanged. -->
 		<Compile Include="..\..\Core\Sources\FieldSpec.cs" Link="Core\Sources\FieldSpec.cs" />
+		<!-- B3: ISourceDescriptor now exposes the typed facet vocabulary, so the pure spec record
+		     links alongside it (empty/passthrough implementations live in the stub above). -->
+		<Compile Include="..\..\Core\Sources\FilterFacetSpec.cs" Link="Core\Sources\FilterFacetSpec.cs" />
 		<Compile Include="..\..\Core\Parsing\ParseProfile.cs" Link="Core\Parsing\ParseProfile.cs" />
 		<Compile Include="..\..\Core\Parsing\SelectorMap.cs" Link="Core\Parsing\SelectorMap.cs" />
 		<Compile Include="..\..\Core\Sources\ISettingsRepository.cs" Link="Core\Sources\ISettingsRepository.cs" />

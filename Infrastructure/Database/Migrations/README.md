@@ -13,6 +13,7 @@ throws `DatabaseSchemaException` (no silent best-effort drift).
 | 1 (bootstrap) | `0001_initial_schema.sql` (historical reference) | V1 tables: `projects` (write-once rows), `owners` (selective-update stats), `project_skills`, `assets` (metadata only), `discovery_backlog`, `projects_fts` (standalone FTS5 kept in sync explicitly by `ProjectRepository`). |
 | 2 | `0002_add_source_identity.sql` | Source identity: `source_id` + `site_project_id` on `projects`, `source_id` on `owners`/`discovery_backlog`, unique `(source_id, site_project_id)`. Mostaql's internal-id band is 0, so existing rowids (and every child/FTS reference to them) stay valid untouched. |
 | 3 | `0003_add_source_unique_keys.sql` | Enforces composite identity in storage: unique `(source_id, owner_id)` on owners; backlog rebuilt keyed `(source_id, project_id)` — band disjointness alone must not be the only guard against cross-source overwrite. |
+| 4 | `0004_add_executor.sql` | Adds the nafezly-only `executor_name` column on `projects` (منفذ المشروع). Additive nullable `TEXT`; no rebuild/drop, FTS untouched (the UI never searches executors). Existing rows keep NULL; enrichment fills it going forward. |
 
 Fresh installs never replay steps: `InitialSchemaSql` (version 0) already lands at the current
 `CurrentSchemaVersion`, and the numbered steps only run for databases that predate it.

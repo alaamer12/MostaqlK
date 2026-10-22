@@ -26,6 +26,15 @@ public sealed class ProjectDetails
 
     public string? ProjectStatus { get; set; }
 
+    /// <summary>
+    /// The freelancer a project was awarded to (منفذ المشروع), scraped from the detail page.
+    /// Populated only by sources whose pages expose it anonymously
+    /// (<see cref="SourceCapabilities.HasExecutorInfo"/> — nafezly on awarded projects); null
+    /// everywhere else (mostaql never carries it, nafezly open projects have none yet). The UI
+    /// renders the executor block iff the capability holds AND a value is present.
+    /// </summary>
+    public string? ExecutorName { get; set; }
+
     public int PublishTimeNumber { get; set; }
 
     public string PublishTimeText { get; set; } = string.Empty;

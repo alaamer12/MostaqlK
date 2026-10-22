@@ -15,6 +15,7 @@
     <ContentView.Resources>
         <ResourceDictionary>
             <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+            <converters:BoolToFlowDirectionConverter x:Key="BoolToFlowDirectionConverter" />
         </ResourceDictionary>
     </ContentView.Resources>
 
@@ -93,8 +94,8 @@
                             <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                             <VerticalStackLayout Spacing="14">
                                 <Label Text="تفاصيل المشروع" FontSize="18" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
-                                <Label Text="المهارات المطلوبة" FontSize="14" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#475569, Dark=#94A3B8}" />
-                                <FlexLayout BindableLayout.ItemsSource="{Binding Skills}" Wrap="Wrap" Direction="Row">
+                                <Label Text="المهارات المطلوبة" FontSize="14" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#475569, Dark=#94A3B8}" IsVisible="{Binding HasSkills}" />
+                                <FlexLayout BindableLayout.ItemsSource="{Binding Skills}" Wrap="Wrap" Direction="Row" IsVisible="{Binding HasSkills}">
                                     <BindableLayout.ItemTemplate>
                                         <DataTemplate x:DataType="models:ProjectSkill">
                                             <Border Padding="10,5" Margin="0,0,8,8" BackgroundColor="{AppThemeBinding Light=#EFF6FF, Dark=#132239}" StrokeThickness="0">
@@ -104,8 +105,8 @@
                                         </DataTemplate>
                                     </BindableLayout.ItemTemplate>
                                 </FlexLayout>
-                                <Label Text="المرفقات" FontSize="14" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#475569, Dark=#94A3B8}" />
-                                <CollectionView ItemsSource="{Binding Attachments}" AutomationId="Details_AttachmentsList">
+                                <Label Text="المرفقات" FontSize="14" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#475569, Dark=#94A3B8}" IsVisible="{Binding HasAttachments}" />
+                                <CollectionView ItemsSource="{Binding Attachments}" AutomationId="Details_AttachmentsList" IsVisible="{Binding HasAttachments}">
                                     <CollectionView.ItemTemplate>
                                         <DataTemplate x:DataType="vm:AttachmentItemViewModel">
                                             <Grid ColumnDefinitions="*,Auto" Padding="0,8" RowDefinitions="Auto,Auto">
@@ -139,29 +140,44 @@
                     </VerticalStackLayout>
                     <Border Grid.Column="1" Padding="22" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" StrokeThickness="1" VerticalOptions="Start">
                         <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                        <!-- Schema-driven meta card: one bordered group per descriptor SchemaMap
+                             section (بطاقة المشروع / صاحب المشروع / معلومات المنفذ), rows in Order,
+                             absent fields omitted. The executor group only appears when the source's
+                             HasExecutorInfo capability holds AND the project carries a name. A $ figure
+                             renders inside a LeftToRight cell; an Arabic currency stays in the RTL flow. -->
                         <VerticalStackLayout Spacing="18">
-                            <Label Text="بطاقة المشروع" FontSize="18" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
-                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="16">
-                                <Label Text="حالة المشروع" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" /><Label Grid.Column="1" Text="{Binding Details.ProjectStatus}" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" />
-                                <Label Grid.Row="1" Text="تاريخ النشر" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" /><Label Grid.Row="1" Grid.Column="1" Text="{Binding PublishTimeText}" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" />
-                                <Label Grid.Row="2" Text="الميزانية" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" /><Label Grid.Row="2" Grid.Column="1" Text="{Binding Budget}" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" />
-                                <Label Grid.Row="3" Text="مدة التنفيذ" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" /><Label Grid.Row="3" Grid.Column="1" Text="{Binding Duration}" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" />
-                            </Grid>
-                            
-                            <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" Margin="0,4" />
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding MetaSections}" Spacing="18">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:DetailSectionGroup">
+                                        <VerticalStackLayout Spacing="14">
+                                            <Label Text="{Binding HeaderAr}" FontSize="14" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#475569, Dark=#94A3B8}" />
+                                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Rows}" Spacing="14">
+                                                <BindableLayout.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:DetailMetaRow">
+                                                        <Grid ColumnDefinitions="*,Auto">
+                                                            <Label Text="{Binding LabelAr}" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
+                                                            <Label Grid.Column="1" Text="{Binding Value}" FontFamily="TajawalBold"
+                                                                   FlowDirection="{Binding IsMoney, Converter={StaticResource BoolToFlowDirectionConverter}}"
+                                                                   TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </BindableLayout.ItemTemplate>
+                                            </VerticalStackLayout>
+                                            <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" />
+                                        </VerticalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
 
-                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="16">
-                                <Label Text="صاحب المشروع" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" /><Label Grid.Column="1" Text="{Binding OwnerName}" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" />
-                                <Label Grid.Row="1" Text="تاريخ التسجيل" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" /><Label Grid.Row="1" Grid.Column="1" Text="{Binding OwnerRegisteredAt}" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" />
-                                <Label Grid.Row="2" Text="معدل التوظيف" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" /><Label Grid.Row="2" Grid.Column="1" Text="{Binding OwnerHiringRateText}" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" />
-                                <Label Grid.Row="3" Text="المشاريع المفتوحة" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" /><Label Grid.Row="3" Grid.Column="1" Text="{Binding OwnerOpenProjectsText}" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" />
-                                <Label Grid.Row="4" Text="قيد التنفيذ" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" /><Label Grid.Row="4" Grid.Column="1" Text="{Binding OwnerInProgressProjectsText}" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" />
-                                <Label Grid.Row="5" Text="التواصلات الجارية" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" /><Label Grid.Row="5" Grid.Column="1" Text="{Binding OwnerOngoingCommunicationsText}" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#E2E8F0}" />
-                            </Grid>
-                            
-                            <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" />
-                            
-                            <components:SourceLinkButton 
+                            <!-- §9 retry affordance: only on a Failed enrichment row. Re-enqueues on the
+                                 ACTIVE pipeline's queue; absent otherwise (never rendered empty). -->
+                            <components:AppButton Text="إعادة محاولة الإثراء"
+                                                  AutomationId="Details_RetryButton"
+                                                  Command="{Binding RetryEnrichmentCommand}"
+                                                  FontFamily="Tajawal"
+                                                  IsVisible="{Binding ShowRetryAffordance}" />
+
+                            <components:SourceLinkButton
                                 Command="{Binding OpenOnSourceCommand}"
                                 Margin="0,8,0,0"
                                 AutomationId="Details_OpenOnSourceButton" />

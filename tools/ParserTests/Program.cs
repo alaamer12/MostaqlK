@@ -3,6 +3,8 @@ using HtmlAgilityPack;
 using MostaqlK.Core.Formatting;
 using MostaqlK.Core.Sources;
 using MostaqlK.Infrastructure.Http;
+using MostaqlK.Features.Projects.ViewModels;
+using MostaqlK.Sources.Mostaql;
 using MostaqlK.Sources.Mostaql.Parsing;
 using MostaqlK.Sources.Nafezly;
 using MostaqlK.Sources.Nafezly.Parsing;
@@ -81,6 +83,17 @@ public static class Program
         Run(nameof(TestNafezlyNullableAbsentFields), TestNafezlyNullableAbsentFields);
         Run(nameof(TestNafezlyDegenerateInputs), TestNafezlyDegenerateInputs);
         Run(nameof(TestNafezlyContributionRegistry), TestNafezlyContributionRegistry);
+
+        // B4 — executor extraction + schema-driven details composition (contract §1/§7 UI-read gates).
+        Console.WriteLine("\n--- B4 (executor + schema renderer) ---\n");
+        Run(nameof(TestB4ExecutorExtraction), TestB4ExecutorExtraction);
+        Run(nameof(TestB4DetailSchemaRenderer), TestB4DetailSchemaRenderer);
+
+        // B3 — typed facet vocabulary on the descriptor + module-side query round-trips (contract §8).
+        Console.WriteLine("\n--- B3 (facet vocabulary + round-trips) ---\n");
+        Run(nameof(TestB3NafezlyFacetVocabulary), TestB3NafezlyFacetVocabulary);
+        Run(nameof(TestB3NafezlyQueryRoundTrip), TestB3NafezlyQueryRoundTrip);
+        Run(nameof(TestB3MostaqlLegacyPassthrough), TestB3MostaqlLegacyPassthrough);
 
         Console.WriteLine();
         Console.WriteLine(new string('=', 60));
@@ -657,6 +670,84 @@ public static class Program
         public object? GetService(Type serviceType) => null;
     }
 
+    /// <summary>
+    /// B4 executor end-to-end: the nafezly detail parser lifts منفذ المشروع from the anonymous HTML
+    /// (name only), the schema renderer surfaces the executor row iff the capability holds AND a value
+    /// is present, and mostaql (no executor capability, no scraped executor) stays null with no row.
+    /// </summary>
+    private static void TestB4ExecutorExtraction()
+    {
+        var nafezly = NafezlySource.Instance;
+
+        // Awarded pages (in-progress / completed) carry the freelancer block; open does not.
+        var open = NafezlyDetailParser.Parse(56540, LoadNafezlyFixture("detail-open.html"));
+        Check("nafezly detail-open executor name scraped", open.ExecutorName == "Abdelrahman Moneer", open.ExecutorName);
+
+        var done = NafezlyDetailParser.Parse(56515, LoadNafezlyFixture("detail-in-progress.html"));
+        Check("nafezly detail-in-progress executor name scraped (Arabic)", done.ExecutorName == "عبدالرحمن الزرقانى", done.ExecutorName);
+
+        var noExec = NafezlyDetailParser.Parse(56573, LoadNafezlyFixture("detail-extra.html"));
+        Check("nafezly open project has NO executor block → null (not guessed)", noExec.ExecutorName is null, noExec.ExecutorName);
+
+        // Mostaql never carries an executor: its detail parser leaves the field null.
+        var mostaql = MostaqlK.Sources.Mostaql.Parsing.DetailParser.Parse(1268113, LoadFixture("project_current_markup.html"));
+        Check("mostaql executor stays null (behavior-identical)", mostaql.ExecutorName is null, mostaql.ExecutorName);
+
+        Check("nafezly capability HasExecutorInfo true", nafezly.Capabilities.HasExecutorInfo);
+        Check("mostaql capability HasExecutorInfo false", !MostaqlSource.Instance.Capabilities.HasExecutorInfo);
+    }
+
+    /// <summary>
+    /// B4 schema-driven details composition: rows come from <c>descriptor.SchemaMap</c> in Section/Order,
+    /// absent/null fields are omitted (never an empty label), the executor row is capability+data gated,
+    /// and Latin-currency money is flagged for LTR isolation (§7) while the Arabic suffix is not.
+    /// </summary>
+    private static void TestB4DetailSchemaRenderer()
+    {
+        var nafezly = NafezlySource.Instance;
+        var mostaql = MostaqlSource.Instance;
+
+        // Money direction is a pure function of the descriptor's currency suffix.
+        Check("nafezly '$' money needs LTR isolation", DetailSchemaRenderer.MoneyNeedsLtr(nafezly.CurrencySuffix));
+        Check("mostaql 'ر.س' money stays RTL (no isolation)", !DetailSchemaRenderer.MoneyNeedsLtr(mostaql.CurrencySuffix));
+        Check("empty suffix needs no isolation", !DetailSchemaRenderer.MoneyNeedsLtr(string.Empty));
+
+        // nafezly awarded page → executor present → executor section row rendered, budget flagged money.
+        var awarded = NafezlyDetailParser.Parse(56540, LoadNafezlyFixture("detail-open.html"));
+        var rowsN = DetailSchemaRenderer.Render(nafezly, awarded);
+        var execRow = rowsN.FirstOrDefault(r => r.Key == "executor_name");
+        Check("nafezly executor row emitted (capability + value)", execRow is not null && execRow.Value == "Abdelrahman Moneer", execRow?.Value);
+        var budgetRowN = rowsN.FirstOrDefault(r => r.Key == "budget");
+        Check("nafezly budget row is money (LTR)", budgetRowN is not null && budgetRowN.IsMoney, budgetRowN?.Value);
+        Check("rows ordered ascending by SchemaMap Order",
+            rowsN.Select(r => r.Order).SequenceEqual(rowsN.Select(r => r.Order).OrderBy(o => o)),
+            string.Join(",", rowsN.Select(r => r.Order)));
+        Check("structural keys excluded from meta rows",
+            rowsN.All(r => r.Key != "title" && r.Key != "description" && r.Key != "skills"),
+            string.Join(",", rowsN.Select(r => r.Key)));
+
+        // nafezly open page → no executor → executor row simply absent (not empty-rendered).
+        var openN = NafezlyDetailParser.Parse(56573, LoadNafezlyFixture("detail-extra.html"));
+        var rowsOpen = DetailSchemaRenderer.Render(nafezly, openN);
+        Check("nafezly open project omits executor row entirely",
+            rowsOpen.All(r => r.Key != "executor_name"), string.Join(",", rowsOpen.Select(r => r.Key)));
+
+        // A null-valued field is omitted: clear budget/duration/status and confirm their rows vanish.
+        var bare = new ProjectDetails { Source = nafezly.Id, ProjectId = 1, Owner = new Owner { Name = "x" } };
+        var rowsBare = DetailSchemaRenderer.Render(nafezly, bare);
+        Check("null fields omitted (only owner row survives)",
+            rowsBare.Count == 1 && rowsBare[0].Key == "owner_name",
+            string.Join(",", rowsBare.Select(r => r.Key)));
+
+        // mostaql: no executor in schema AND no capability — a fabricated executor value still yields no row.
+        bare.ExecutorName = "should-not-appear";
+        var rowsM = DetailSchemaRenderer.Render(mostaql, bare);
+        Check("mostaql never renders an executor row (no capability, not even present in schema)",
+            rowsM.All(r => r.Key != "executor_name"), string.Join(",", rowsM.Select(r => r.Key)));
+        var budgetRowM = rowsM.FirstOrDefault(r => r.Key == "budget");
+        Check("mostaql budget (if present) is not money-isolated", budgetRowM is null || !budgetRowM.IsMoney, budgetRowM?.Value);
+    }
+
 
 
     // -----------------------------------------------------------------
@@ -905,6 +996,162 @@ public static class Program
             name = name.Replace(c, '_');
         }
         return name;
+    }
+
+    // -----------------------------------------------------------------
+    // B3 — typed facet vocabulary (contract §8): nafezly's descriptor-driven facets, both-sided
+    // Build/Parse round-trips, and mostaql's byte-identical legacy-suffix passthrough.
+    // -----------------------------------------------------------------
+
+    private static void TestB3NafezlyFacetVocabulary()
+    {
+        var nafezly = NafezlySource.Instance;
+        var facets = nafezly.FilterFacets;
+
+        Check("nafezly exposes exactly specialize/skills/pricing facets", facets.Count == 3,
+            string.Join("/", facets.Select(f => f.Key)));
+        Check("facet keys are the vocabulary's own param names (no duplicated literals)",
+            facets[0].Key == NafezlyQueryVocabulary.SpecializeParam
+            && facets[1].Key == NafezlyQueryVocabulary.SkillsParam
+            && facets[2].Key == NafezlyQueryVocabulary.PricingParam,
+            string.Join("/", facets.Select(f => f.Key)));
+        Check("specialize is MultiChoice, skills is MultiChoice, pricing is Range",
+            facets[0].Kind == FilterFacetKind.MultiChoice
+            && facets[1].Kind == FilterFacetKind.MultiChoice
+            && facets[2].Kind == FilterFacetKind.Range,
+            $"{facets[0].Kind}/{facets[1].Kind}/{facets[2].Kind}");
+
+        // Captions are the SITE's own sidebar group headings, verbatim from the fixtures/manifest §3.
+        Check("facet captions match the site headings",
+            facets[0].LabelAr == "التصنيفات" && facets[1].LabelAr == "المهارات" && facets[2].LabelAr == "الميزانية",
+            $"{facets[0].LabelAr}|{facets[1].LabelAr}|{facets[2].LabelAr}");
+
+        var specialize = facets[0].Options;
+        Check("specialize carries the seven confirmed category slugs (§3)", specialize.Count == 7,
+            $"{specialize.Count}");
+        Check("specialize slugs+labels are the SAME data as NafezlyQueryVocabulary.SpecializeFacets (no duplication)",
+            specialize.SequenceEqual(NafezlyQueryVocabulary.SpecializeFacets.Select(f => new FilterFacetOption(f.Slug, f.LabelAr))),
+            string.Join(",", specialize.Select(o => o.Value)));
+        Check("specialize slugs match the manifest set",
+            string.Join(",", specialize.Select(o => o.Value))
+            == "business,development,design,marketing,writing-translation,training,other",
+            string.Join(",", specialize.Select(o => o.Value)));
+
+        // skills has no anonymous option vocabulary (capture-manifest §3) — the spec honestly says so.
+        Check("skills facet seeds empty options (session/search-driven vocabulary)",
+            facets[1].Options.Count == 0, $"{facets[1].Options.Count}");
+        Check("pricing range seeds no invented defaults (null = unset)",
+            facets[2].MinDefault is null && facets[2].MaxDefault is null,
+            $"{facets[2].MinDefault},{facets[2].MaxDefault}");
+
+        // Mostaql keeps its preset-suffix flow: an empty vocabulary is the whole contract (§8).
+        Check("mostaql seeds an empty facet list", MostaqlK.Sources.Mostaql.MostaqlSource.Instance.FilterFacets.Count == 0,
+            $"{MostaqlK.Sources.Mostaql.MostaqlSource.Instance.FilterFacets.Count}");
+    }
+
+    private static void TestB3NafezlyQueryRoundTrip()
+    {
+        var nafezly = NafezlySource.Instance;
+
+        // The site's echoed form (capture-manifest §2: commas %2C-encoded, order specialize→skills→pricing→page).
+        var echoed = "?specialize=business%2Cdevelopment%2Cdesign%2Cmarketing%2Cwriting-translation%2Ctraining%2Cother"
+                   + "&skills=photoshop%2Cillustrator&pricing=100%2C10000&page=1";
+        var selection = nafezly.ParseFacetSelection(echoed);
+
+        Check("parse: specialize splits the %2C-encoded band into 7 slugs",
+            selection["specialize"].Count == 7 && selection["specialize"][0] == "business"
+            && selection["specialize"][6] == "other", string.Join(",", selection["specialize"]));
+        Check("parse: skills yields the two slugs",
+            selection["skills"].SequenceEqual(["photoshop", "illustrator"]), string.Join(",", selection["skills"]));
+        Check("parse: pricing yields positional min/max",
+            selection["pricing"].SequenceEqual(["100", "10000"]), string.Join(",", selection["pricing"]));
+        Check("parse: page is preserved (pagination passthrough, never a rendered facet)",
+            selection["page"].SequenceEqual(["1"]), string.Join(",", selection["page"]));
+
+        // %2C-safe: the decoded-comma form parses to exactly the same selection.
+        var plain = "?specialize=business,development,design,marketing,writing-translation,training,other"
+                  + "&skills=photoshop,illustrator&pricing=100,10000&page=1";
+        var plainSelection = nafezly.ParseFacetSelection(plain);
+        Check("parse: ','-form and '%2C'-form yield identical selections",
+            plainSelection.Count == selection.Count
+            && plainSelection.All(kv => selection[kv.Key].SequenceEqual(kv.Value)));
+
+        // Build emits the module's canonical grammar (BuildQuery: raw commas, canonical order) byte-for-byte.
+        var built = nafezly.BuildQueryFromFacets(plainSelection);
+        Check("build: canonical string round-trips byte-identically", built == plain, Preview(built));
+        Check("build: echo of BuildQuery output re-parses to the same selection",
+            nafezly.ParseFacetSelection(built).All(kv => kv.Value.SequenceEqual(plainSelection[kv.Key]))
+            && nafezly.BuildQueryFromFacets(nafezly.ParseFacetSelection(built)) == built);
+
+        // Editing one facet through the selection keeps the rest of the stored query alive.
+        var edited = new Dictionary<string, IReadOnlyList<string>>(plainSelection);
+        edited["specialize"] = ["design"];
+        var rebuilt = nafezly.BuildQueryFromFacets(edited);
+        Check("apply: edited specialize replaces only that facet, skills/pricing/page survive",
+            rebuilt == "?specialize=design&skills=photoshop,illustrator&pricing=100,10000&page=1",
+            Preview(rebuilt));
+
+        edited.Remove("specialize");
+        edited.Remove("skills");
+        edited.Remove("pricing");
+        var cleared = nafezly.BuildQueryFromFacets(edited);
+        Check("clear: removing the rendered facets leaves only the untouched passthrough params",
+            cleared == "?page=1", Preview(cleared));
+
+        edited.Remove("page");
+        Check("empty selection builds the empty query (= all projects)",
+            nafezly.BuildQueryFromFacets(edited) == string.Empty);
+        Check("parse of null/blank is an empty selection",
+            nafezly.ParseFacetSelection(null).Count == 0 && nafezly.ParseFacetSelection("  ").Count == 0);
+
+        // Unknown params are echoed (never dropped by Apply).
+        var unknown = nafezly.ParseFacetSelection("?key=%D9%85%D9%88%D9%82%D8%B9&specialize=design");
+        var unknownBuilt = nafezly.BuildQueryFromFacets(unknown);
+        Check("unknown params survive Apply after the canonical facets",
+            unknownBuilt == "?specialize=design&key=موقع", Preview(unknownBuilt));
+    }
+
+    private static void TestB3MostaqlLegacyPassthrough()
+    {
+        var mostaql = MostaqlK.Sources.Mostaql.MostaqlSource.Instance;
+
+        // The legacy suffix forms the app actually stores today (onboarding presets + Settings
+        // free text) must byte-survive Parse → Build — mostaql's today behavior IS the spec.
+        var legacyCases = new[]
+        {
+            "category=development&sort=latest",
+            "category=ai-machine-learning&sort=latest",
+            "?category=development&sort=latest",
+            "?category=software-dev",
+            "category=design&sub_category=logo&sort=latest",
+            "category=design",
+            "sort=latest",
+            "",
+            "?",
+            "a=1&&b=2",
+            "a=1&",
+            "=weird",
+            "no-equals-segment",
+            "category=development&category=design",
+        };
+        foreach (var raw in legacyCases)
+        {
+            var roundTripped = mostaql.BuildQueryFromFacets(mostaql.ParseFacetSelection(raw));
+            Check($"mostaql legacy passthrough byte-identical: \"{raw}\"", roundTripped == raw, Preview(roundTripped));
+        }
+
+        // And the polled URL is provably unchanged whatever the modal wrote back.
+        foreach (var raw in legacyCases)
+        {
+            var roundTripped = mostaql.BuildQueryFromFacets(mostaql.ParseFacetSelection(raw));
+            Check($"mostaql listing URL unchanged through the facet round-trip: \"{raw}\"",
+                mostaql.BuildListingUrl(roundTripped) == mostaql.BuildListingUrl(raw),
+                mostaql.BuildListingUrl(roundTripped));
+        }
+
+        var parsed = mostaql.ParseFacetSelection(null);
+        Check("mostaql parse of null is an empty selection that builds empty",
+            parsed.Count == 0 && mostaql.BuildQueryFromFacets(parsed) == string.Empty);
     }
 
     // -----------------------------------------------------------------

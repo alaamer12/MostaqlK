@@ -120,6 +120,32 @@ public interface ISourceDescriptor
     /// </summary>
     public long InternalIdBand { get; }
 
+    /// <summary>
+    /// The source's typed filter-facet vocabulary (contract §8, decision 5): what the shared
+    /// FilterModal renders for this source, as pure module data — captions, kinds, and the
+    /// option slugs/labels the SITE itself prints. A source with no typed filters (Mostaql's
+    /// preset-suffix flow) contributes an empty list and the modal shows nothing for it.
+    /// Keys are opaque to the UI: they are exactly the keys <see cref="ParseFacetSelection"/>
+    /// emits and <see cref="BuildQueryFromFacets"/> consumes.
+    /// </summary>
+    public IReadOnlyList<FilterFacetSpec> FilterFacets { get; }
+
+    /// <summary>
+    /// Serialize a facet selection back into this source's <c>QueryParams</c> string. The module
+    /// owns ALL query grammar (parameter order, comma semantics, band syntax); the UI hands values
+    /// back and never concatenates a query itself (contract §8 hard rule).
+    /// </summary>
+    /// <param name="selections">Facet key → chosen raw values, as produced by <see cref="ParseFacetSelection"/>.</param>
+    public string BuildQueryFromFacets(IReadOnlyDictionary<string, IReadOnlyList<string>> selections);
+
+    /// <summary>
+    /// Parse a stored <c>QueryParams</c> string into the facet-selection shape, so the modal can
+    /// pre-fill exactly what Settings/onboarding wrote. Every parameter the source recognizes
+    /// (and, where the module preserves unknown params, every one it does not) must survive a
+    /// Parse → Build round-trip unchanged for that source's canonical forms.
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> ParseFacetSelection(string? queryParams);
+
     /// <summary>The projects-listing URL this source polls, with the source-shaped query appended.</summary>
     public string BuildListingUrl(string? queryParams);
     /// <summary>True when the URL points at this site (replaces hardcoded host-<c>Contains</c> sniffs in shared code).</summary>

@@ -15,7 +15,7 @@ public sealed class SqliteConnectionFactory
     /// <c>Migrations/NNNN_*.sql</c> reference files; the executable copy of each step is the
     /// matching SQL constant below, applied in order by <see cref="EnsureSchema"/>.
     /// </summary>
-    private const int CurrentSchemaVersion = 3;
+    private const int CurrentSchemaVersion = 4;
 
     private readonly string _connectionString;
     private readonly object _migrationLock = new();
@@ -93,6 +93,12 @@ public sealed class SqliteConnectionFactory
             if (currentVersion == 2)
             {
                 RunStep(connection, Migration0003Sql);
+                currentVersion = 3;
+            }
+
+            if (currentVersion == 3)
+            {
+                RunStep(connection, Migration0004Sql);
             }
 
             SetUserVersion(connection, CurrentSchemaVersion);
@@ -212,6 +218,16 @@ public sealed class SqliteConnectionFactory
         """;
 
     /// <summary>
+    /// v3 -&gt; v4 step (see <c>Migrations/0004_add_executor.sql</c>): adds the nafezly-only
+    /// <c>executor_name</c> column (منفذ المشروع). Additive-only — a nullable <c>TEXT</c> column,
+    /// no rebuild, no drop, no index/FTS change (the UI never searches executors). Existing rows keep
+    /// NULL; <c>UpsertDetailsAsync</c> fills it as nafezly projects are enriched.
+    /// </summary>
+    private const string Migration0004Sql = """
+        ALTER TABLE projects ADD COLUMN executor_name TEXT;
+        """;
+
+    /// <summary>
     /// Bootstrap ("version 0") schema - lands directly at the current schema version so new DBs
     /// never run the numbered steps; see <c>Migrations/0001_initial_schema.sql</c> for the
     /// historical v1 statements.
@@ -232,6 +248,7 @@ public sealed class SqliteConnectionFactory
             budget TEXT,
             delivery_days INTEGER,
             project_status TEXT,
+            executor_name TEXT,
             owner_id INTEGER,
             is_unread INTEGER NOT NULL DEFAULT 1,
             enrichment_status TEXT NOT NULL DEFAULT 'Pending',

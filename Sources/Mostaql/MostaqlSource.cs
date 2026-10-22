@@ -142,4 +142,41 @@ public sealed class MostaqlSource : ISourceDescriptor
 
     public bool IsSameSiteUrl(string url) =>
         url.Contains(Host, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Mostaql has no typed facet vocabulary: its filtering today is the raw preset/suffix string
+    /// from onboarding/Settings (contract §8), so the shared FilterModal renders nothing for this
+    /// source and the string keeps flowing to <see cref="BuildListingUrl"/> untouched.
+    /// </summary>
+    public IReadOnlyList<FilterFacetSpec> FilterFacets => [];
+
+    /// <summary>
+    /// Legacy passthrough (today's behavior IS the spec): mostaql's "selection" is its raw query
+    /// string, so <see cref="ParseFacetSelection"/> echoes each '&amp;' segment as an opaque key and
+    /// this re-emits exactly those segments — byte-identical for any stored string, including a
+    /// leading '?' and values the parser never interprets (verified byte-for-byte in ParserTests).
+    /// </summary>
+    public string BuildQueryFromFacets(IReadOnlyDictionary<string, IReadOnlyList<string>> selections) =>
+        string.Join("&", selections.SelectMany(kv => kv.Value.Select(_ => kv.Key)));
+
+    /// <summary>Opaque echo-parse of the legacy suffix; see <see cref="BuildQueryFromFacets"/>.</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> ParseFacetSelection(string? queryParams)
+    {
+        var segments = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+        var raw = queryParams?.Trim() ?? string.Empty;
+        if (raw.Length == 0)
+        {
+            return segments;
+        }
+
+        // Split WITHOUT removing empties, so "a&&b" and "a=1&" echo back byte-identically too.
+        foreach (var segment in raw.Split('&'))
+        {
+            segments[segment] = segments.TryGetValue(segment, out var seen)
+                ? [.. seen, string.Empty]
+                : [string.Empty];
+        }
+
+        return segments;
+    }
 }
