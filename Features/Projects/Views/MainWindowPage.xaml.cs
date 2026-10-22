@@ -82,6 +82,24 @@ public partial class MainWindowPage : ContentPage
     }
 
     /// <summary>
+    /// Leaves no interactive surface open behind the page: the FilterModal is hosted inside this
+    /// page's layout, and a reused process (single-instance redirect, or a back-navigation to the
+    /// feed later) must never present a dialog the CURRENT state never asked for. The modal itself
+    /// has no persisted open-state — this is the belt closing it at the exact seam navigation
+    /// happens, so the parity matrix's per-state captures (and real navigation) can never inherit
+    /// an open filter dialog from an earlier activation.
+    /// </summary>
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        if (_activeLayout is not null && FindFilterModal(_activeLayout) is { IsVisible: true } modal)
+        {
+            modal.IsVisible = false;
+            MostaqlK.Services.Diagnostics.InteractionLogger.Mark("MainWindowPage.FilterModalClosedOnNav", "A");
+        }
+    }
+
+    /// <summary>
     /// Forces the filters modal into exactly the state the current launch requested — open ONLY for an
     /// explicit <c>--parity-state=filters-open</c>, closed for every other value. Because the app
     /// self-registers as a single instance, a fresh default launch and a redirected default activation
