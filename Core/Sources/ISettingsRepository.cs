@@ -45,6 +45,9 @@ public static class SettingsKeys
     public const string NotificationGroupingEnabled = "settings_notification_grouping_enabled";
     public const string GroupingMode = "settings_grouping_mode";
     public const string GroupingThreshold = "settings_grouping_threshold";
+    /// <summary>Per-source: whether this platform emits new-project notifications. v3 mockup's
+    /// "تنبيهات هذه المنصة" row; persisted through the namespaced container (contract §4/§9).</summary>
+    public const string EnableSourceNotifications = "settings_enable_source_notifications";
 
     // Deliberately global (app behavior, not per-source):
     public const string IsDarkMode = "settings_is_dark_mode";
@@ -52,4 +55,8 @@ public static class SettingsKeys
     /// <summary>Global: id of the source the UI projects (v3 morph); absent ⇒ default source.</summary>
     public const string ActiveSource = "mostaqlk-source";
     public const string IsPollingActive = "settings_is_polling_active";
+    /// <summary>Global: "تذكر آخر منصة مفتوحة" — when true (the default) the app restores the
+    /// remembered <see cref="ActiveSource"/> on next launch. The startup-restore consumer is wired
+    /// outside the settings page; this VM only exposes the persisted flag cleanly.</summary>
+    public const string RememberLastSource = "settings_remember_last_source";
 }

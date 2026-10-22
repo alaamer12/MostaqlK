@@ -34,4 +34,11 @@ public partial class SettingsPanelWindowsLayout : ContentView
     {
         await AppRoutes.NavigateAsync(AppRoutes.About);
     }
+
+    private async void OnViewArchiveClicked(object? sender, EventArgs e)
+    {
+        // "الأرشيف · عرض" jumps to the projects feed, scoped to the active source (the feed already
+        // re-points via the ActivePipeline projection set by the rail).
+        await AppRoutes.NavigateAsync(AppRoutes.Projects);
+    }
 }

@@ -145,6 +145,122 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsDarkMode { get; set; }
 
+    /// <summary>
+    /// "تذكر آخر منصة مفتوحة" — a deliberately-GLOBAL bool (default on). Persisting the flag is the
+    /// settings page's whole job here; the startup-restore that honours it (re-projecting the
+    /// remembered <see cref="SettingsKeys.ActiveSource"/>) lives outside this VM and is wired by the
+    /// parent, so this file must never touch App startup. Read/written through the single
+    /// <see cref="ISettingsRepository"/> global path exactly like dark mode / startup.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool RememberLastSource { get; set; } = true;
+
+    /// <summary>
+    /// "تنبيهات هذه المنصة" — the per-source notifications on/off switch (v3 mockup). Persisted in
+    /// the active source's namespaced container. NOTE: the toast dispatcher does not yet read this
+    /// flag; it is exposed cleanly (key + property) so the parent can wire dispatch-side gating.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool SourceNotificationsEnabled { get; set; } = true;
+
+    /// <summary>Number of projects stored for the active source ("الأرشيف" row count).</summary>
+    [ObservableProperty]
+    public partial int ArchiveCount { get; set; }
+
+    /// <summary>Reveals the inline session-cookie editor behind the "جلسة الإثراء" row's "ربط" link.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCookieEditorClosed))]
+    public partial bool IsCookieEditorOpen { get; set; }
+
+    /// <summary>True while the cookie editor is hidden (drives the row's compact value+link display).</summary>
+    public bool IsCookieEditorClosed => !IsCookieEditorOpen;
+
+    /// <summary>Total stored projects for the active source, for the "الأرشيف" row's "{n} مشروعًا".</summary>
+    public string ArchiveCountText => $"{ArchiveCount} مشروعًا";
+
+    partial void OnArchiveCountChanged(int value) => OnPropertyChanged(nameof(ArchiveCountText));
+
+    // -----------------------------------------------------------------
+    // Descriptor-driven row visibility (v3 §9: platform-scoped settings).
+    // Every flag reads the ACTIVE source's ISourceDescriptor (capabilities / currency), so a
+    // source that lacks a capability never renders its row (absent = never rendered, never empty)
+    // — zero source-id branches (contract §10 hard rule).
+    // -----------------------------------------------------------------
+
+    private MostaqlK.Core.Sources.ISourceDescriptor? ActiveDescriptor =>
+        MostaqlK.Core.Sources.SourceRegistryProvider.DescriptorFor(_source);
+
+    /// <summary>Arabic platform name for the header caption "إعدادات المنصة الحالية: …".</summary>
+    public string ActiveSourceName => ActiveDescriptor?.DisplayNameAr ?? "المنصة";
+
+    /// <summary>Single-letter rail glyph for the header caption's tile.</summary>
+    public string ActiveSourceGlyph => ActiveDescriptor?.RailGlyph ?? "•";
+
+    /// <summary>
+    /// "جلسة الإثراء" row shows only when the source's descriptor marks session-gated enrichment.
+    /// A source that enriches fully without a session renders no row (the module's own contributed
+    /// session read-out, if any, comes through <see cref="ContributedSections"/> instead).
+    /// </summary>
+    public bool ShowSessionEnrichmentRow => ActiveDescriptor?.Capabilities.NeedsSessionForFullEnrichment ?? false;
+
+    /// <summary>
+    /// "أنواع المشاريع المتابَعة" row shows only when the source declares a supervised-projects
+    /// capability. No registered source sets it true today, so the row is honestly absent until one
+    /// does — the same presence-by-data rule as the details schema (contract §1).
+    /// </summary>
+    public bool ShowSupervisedTypesRow => ActiveDescriptor?.Capabilities.HasSupervisedFlag ?? false;
+
+    /// <summary>
+    /// "عملة الميزانية" display row shows only when the source's currency differs from the default
+    /// source's (i.e. a non-ر.س platform) — the mockup renders it for the $-priced source only.
+    /// </summary>
+    public bool ShowBudgetCurrencyRow
+    {
+        get
+        {
+            var active = ActiveDescriptor?.CurrencySuffix;
+            if (string.IsNullOrEmpty(active))
+            {
+                return false;
+            }
+
+            var defaultSuffix = MostaqlK.Core.Sources.SourceRegistryProvider
+                .DescriptorFor(MostaqlK.Core.Sources.SourceId.Default)?.CurrencySuffix;
+            return !string.Equals(active, defaultSuffix, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>The budget-currency value text, e.g. "كما في الموقع ($)" — suffix straight from the descriptor.</summary>
+    public string BudgetCurrencyDisplayText => $"كما في الموقع ({ActiveDescriptor?.CurrencySuffix ?? string.Empty})";
+
+    /// <summary>Hint under the session row; the platform name is the descriptor's, never a literal.</summary>
+    public string SessionEnrichmentHint =>
+        $"بعض صفحات {ActiveSourceName} تتطلب جلسة للدخول — بدونها يُضاف المشروع من الملخص فقط";
+
+    /// <summary>Session row's state word: "مرتبطة" when a cookie is stored, else "غير مرتبطة".</summary>
+    public string SessionValueText => HasSessionCookie ? "مرتبطة" : "غير مرتبطة";
+
+    partial void OnHasSessionCookieChanged(bool value) => OnPropertyChanged(nameof(SessionValueText));
+
+    // Grouping-mode Picker bridge: the UI tests drive a SelectedIndex on `Settings_GroupingModePicker`,
+    // so the enum is exposed as an index over the three Arabic labels in <see cref="GroupingModeOptions"/>.
+    /// <summary>Arabic grouping-mode labels in enum order (EndOfMinute / AfterMinutes / AfterCount).</summary>
+    public IReadOnlyList<string> GroupingModeOptions { get; } =
+        ["نهاية الدقيقة", "بعد دقائق", "بعد عدد"];
+
+    /// <summary>Two-way Picker index mapped onto <see cref="GroupingMode"/>.</summary>
+    public int GroupingModeIndex
+    {
+        get => (int)GroupingMode;
+        set
+        {
+            if (value >= 0 && value < GroupingModeOptions.Count && (NotificationGroupingMode)value != GroupingMode)
+            {
+                GroupingMode = (NotificationGroupingMode)value;
+            }
+        }
+    }
+
     public GlobalAppStatusService GlobalStatus => _globalStatus;
 
     /// <summary>
@@ -221,6 +337,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _isLoading = false;
 
         _ = LoadProjectsAddedTodayAsync();
+        _ = LoadArchiveCountAsync();
     }
 
     // -----------------------------------------------------------------
@@ -435,6 +552,22 @@ public sealed partial class SettingsViewModel : ObservableObject
     }
 
     // -----------------------------------------------------------------
+    // "جلسة الإثراء" inline editor (v3 settings row)
+    // -----------------------------------------------------------------
+
+    /// <summary>Opens the compact cookie editor behind the session row's "ربط كوكيز" link.</summary>
+    [RelayCommand]
+    private void OpenCookieEditor() => IsCookieEditorOpen = true;
+
+    /// <summary>Closes the editor back to the row's compact value + "ربط/إلغاء الربط" link.</summary>
+    [RelayCommand]
+    private void CloseCookieEditor()
+    {
+        IsCookieEditorOpen = false;
+        SessionCookieInput = string.Empty;
+    }
+
+    // -----------------------------------------------------------------
     // Close-to-tray confirmation ("إغلاق التطبيق" / CloseBehaviorService)
     // -----------------------------------------------------------------
 
@@ -528,8 +661,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         QueryParams = _settings.Get(_source, SettingsKeys.QueryParams, string.Empty);
         IncludeAssets = _settings.Get(_source, SettingsKeys.IncludeAssets, false);
         NotificationGroupingEnabled = _settings.Get(_source, SettingsKeys.NotificationGroupingEnabled, false);
+        SourceNotificationsEnabled = _settings.Get(_source, SettingsKeys.EnableSourceNotifications, true);
         SafeRequests = _settings.Get(_source, SettingsKeys.SafeRequests, true);
         StartupEnabled = _settings.GetGlobal(SettingsKeys.StartupEnabled, false);
+        RememberLastSource = _settings.GetGlobal(SettingsKeys.RememberLastSource, true);
         GroupingThreshold = _settings.Get(_source, SettingsKeys.GroupingThreshold, 5);
         // Seed from the theme the app already resolved at startup (App.xaml.cs, which honours a
         // `--theme=light|dark` argument over the stored preference) and only fall back to the
@@ -551,6 +686,10 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         _isLoading = false;
 
+        // The Picker bridges the enum as an index; refresh it once the mode is seeded so the
+        // control shows the stored row on first paint (same guarded pattern as every other load).
+        OnPropertyChanged(nameof(GroupingModeIndex));
+
         // Apply the loaded values to the live pipeline services right away, so the running
         // instances always reflect whatever was last persisted (e.g. after an app restart).
         ApplyPollSettings();
@@ -565,6 +704,16 @@ public sealed partial class SettingsViewModel : ObservableObject
         if (!result.IsError)
         {
             _globalStatus.SetProjectsAddedToday(result.Value);
+        }
+    }
+
+    /// <summary>Loads the active source's total stored-project count for the "الأرشيف" row.</summary>
+    private async Task LoadArchiveCountAsync()
+    {
+        var result = await _projectRepository.CountTrackedAsync(_source);
+        if (!result.IsError)
+        {
+            ArchiveCount = result.Value.Tracked;
         }
     }
 
@@ -661,6 +810,8 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     partial void OnGroupingModeChanged(NotificationGroupingMode value)
     {
+        OnPropertyChanged(nameof(GroupingModeIndex));
+
         if (_isLoading)
         {
             return;
@@ -699,6 +850,29 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         _settings.SetGlobal(SettingsKeys.IsDarkMode, value);
         ApplyTheme();
+    }
+
+    partial void OnRememberLastSourceChanged(bool value)
+    {
+        if (_isLoading)
+        {
+            return;
+        }
+
+        // Global (not per-source) like dark mode / startup — the same single mutation path. The
+        // restore consumer lives outside this VM (parent-wired at startup); here we only persist.
+        _settings.SetGlobal(SettingsKeys.RememberLastSource, value);
+    }
+
+    partial void OnSourceNotificationsEnabledChanged(bool value)
+    {
+        if (_isLoading)
+        {
+            return;
+        }
+
+        // Per-source, namespaced container — every other pipeline knob uses the same path.
+        _settings.Set(_source, SettingsKeys.EnableSourceNotifications, value);
     }
 
     private void ApplyPollSettings()
