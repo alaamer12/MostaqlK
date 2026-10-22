@@ -1,0 +1,75 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Nafezly stress harness: parses every fixture (default, offline) or paced-live listing/detail
+       pages (owner-side, residential network — this codespace is Cloudflare-challenged, contract §11).
+       Usage: dotnet run --project tools/StressTest -- [--mode fixtures|live] [--pages 20]
+              [--random 0,100] [--seed 7] [--details 10] [--pace 8] [--out DIR]
+       Sources are linked (not referenced) exactly like tools/ParserTests: MAUI-free parser core. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="HtmlAgilityPack" Version="1.11.65" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../Core/Formatting/ArabicNameFormatter.cs" LinkBase="linked" />
+    <Compile Include="../../Core/Formatting/ArabicProposalParser.cs" LinkBase="linked" />
+    <Compile Include="../../Core/Formatting/ArabicRelativeTime.cs" LinkBase="linked" />
+    <Compile Include="../../Core/Formatting/BudgetFormatter.cs" LinkBase="linked" />
+    <Compile Include="../../Core/Formatting/PipelineTelemetryFormatter.cs" LinkBase="linked" />
+    <Compile Include="../../Core/Formatting/TextTruncator.cs" LinkBase="linked" />
+    <Compile Include="../../Core/Utilities/StringNormalization.cs" LinkBase="linked" />
+    <Compile Include="../../Core/Parsing/ParseProfile.cs" LinkBase="linked" />
+    <Compile Include="../../Core/Parsing/SelectorMap.cs" LinkBase="linked" />
+    <Compile Include="../../Core/Parsing/HtmlStructureEngine.cs" LinkBase="linked" />
+    <Compile Include="../../Core/Parsing/FieldInferenceEngine.cs" LinkBase="linked" />
+    <Compile Include="../../Core/Sources/SourceId.cs" LinkBase="linked" />
+    <Compile Include="../../Core/Sources/SourceProjectId.cs" LinkBase="linked" />
+    <Compile Include="../../Core/Sources/BrandTokenSet.cs" LinkBase="linked" />
+    <Compile Include="../../Core/Sources/SourceCapabilities.cs" LinkBase="linked" />
+    <Compile Include="../../Core/Sources/ISourceDescriptor.cs" LinkBase="linked" />
+    <Compile Include="../../Core/Sources/FieldSpec.cs" LinkBase="linked" />
+    <Compile Include="../../Core/Sources/FilterFacetSpec.cs" LinkBase="linked" />
+    <Compile Include="../../Features/Projects/ViewModels/DetailSchemaRenderer.cs" LinkBase="linked" />
+    <Compile Include="../../Sources/Mostaql/MostaqlParseProfile.cs" LinkBase="linked" />
+    <Compile Include="../../Sources/Mostaql/MostaqlSelectors.cs" LinkBase="linked" />
+    <Compile Include="../../Sources/Mostaql/MostaqlSource.cs" LinkBase="linked" />
+    <Compile Include="../../Sources/Mostaql/Parsing/DetailParser.cs" LinkBase="linked" />
+    <Compile Include="../../Sources/Mostaql/Parsing/ListingParser.cs" LinkBase="linked" />
+    <Compile Include="../../Sources/Mostaql/Parsing/StructuralExtractor.cs" LinkBase="linked" />
+    <Compile Include="../../Sources/Mostaql/Parsing/ParseErrors.cs" LinkBase="linked" />
+    <Compile Include="../../Sources/Mostaql/Parsing/ParseException.cs" LinkBase="linked" />
+    <Compile Include="../../Sources/Nafezly/NafezlySource.cs" LinkBase="linked" />
+    <Compile Include="../../Sources/Nafezly/NafezlyParseProfile.cs" LinkBase="linked" />
+    <Compile Include="../../Sources/Nafezly/NafezlySelectors.cs" LinkBase="linked" />
+    <Compile Include="../../Sources/Nafezly/NafezlyQueryVocabulary.cs" LinkBase="linked" />
+    <Compile Include="../../Sources/Nafezly/NafezlyStates.cs" LinkBase="linked" />
+    <Compile Include="../../Sources/Nafezly/Parsing/NafezlyJsonLd.cs" LinkBase="linked" />
+    <Compile Include="../../Sources/Nafezly/Parsing/NafezlyListingParser.cs" LinkBase="linked" />
+    <Compile Include="../../Sources/Nafezly/Parsing/NafezlyDetailParser.cs" LinkBase="linked" />
+    <Compile Include="../../Sources/Nafezly/Parsing/NafezlyParseErrors.cs" LinkBase="linked" />
+    <Compile Include="../../Sources/Nafezly/Parsing/NafezlyParseException.cs" LinkBase="linked" />
+    <Compile Include="../../Core/Sources/ISettingsRepository.cs" LinkBase="linked" />
+    <Compile Include="../../Core/Sources/SourceContributions.cs" LinkBase="linked" />
+    <Compile Include="../../Core/Sources/ISourceSettingsSectionViewModel.cs" LinkBase="linked" />
+    <Compile Include="../../Sources/Nafezly/Contributions/NafezlySettingsSectionContribution.cs" LinkBase="linked" />
+    <Compile Include="../../Infrastructure/Http/CookieParser.cs" LinkBase="linked" />
+    <Compile Include="../../Models/ProjectDetails.cs" LinkBase="linked" />
+    <Compile Include="../../Models/ProjectSummary.cs" LinkBase="linked" />
+    <Compile Include="../../Models/Owner.cs" LinkBase="linked" />
+    <Compile Include="../../Models/ProjectSkill.cs" LinkBase="linked" />
+    <Compile Include="../../Models/Asset.cs" LinkBase="linked" />
+    <Compile Include="../../Models/EnrichmentStatus.cs" LinkBase="linked" />
+    <Compile Include="../../Sources/Nafezly/NafezlyFetcher.cs" LinkBase="linked" />
+    <Compile Include="../../Infrastructure/Http/HttpErrors.cs" LinkBase="linked" />
+    <Compile Include="../../Infrastructure/Http/CookieJar.cs" LinkBase="linked" />
+    <Compile Include="../../Infrastructure/Http/CookieJarProvider.cs" LinkBase="linked" />
+    <Compile Include="../../Core/Sources/SourceRegistry.cs" LinkBase="linked" />
+    <Compile Include="../../Core/Sources/SourceRegistryProvider.cs" LinkBase="linked" />
+    <Compile Include="../../Core/Result.cs" LinkBase="linked" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+</Project>

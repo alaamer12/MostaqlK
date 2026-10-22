@@ -202,7 +202,9 @@ public static class NafezlyListingParser
         {
             var link = root.SelectSingleNode($"//ul[contains(@class, 'pagination')]//a[@rel='{rel}']");
             var href = link?.GetAttributeValue("href", string.Empty);
-            return string.IsNullOrEmpty(href) ? null : href;
+            // Attribute values arrive HTML-entity-encoded (&amp;amp; between facets) — the crawl
+            // feeds these back as request URLs, so decode before returning (stress-audit P1).
+            return string.IsNullOrEmpty(href) ? null : HtmlEntity.DeEntitize(href);
         }
 
         return (Read("prev"), Read("next"));
