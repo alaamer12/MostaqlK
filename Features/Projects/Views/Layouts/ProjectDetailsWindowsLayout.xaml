@@ -99,7 +99,7 @@
                                         <DataTemplate x:DataType="models:ProjectSkill">
                                             <Border Padding="10,5" Margin="0,0,8,8" BackgroundColor="{AppThemeBinding Light=#EFF6FF, Dark=#132239}" StrokeThickness="0">
                                                 <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
-                                                <Label Text="{Binding Name}" FontSize="12" TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" FontFamily="Tajawal" />
+                                                <Label Text="{Binding Name}" FontSize="12" TextColor="{DynamicResource BrandLink}" FontFamily="Tajawal" />
                                             </Border>
                                         </DataTemplate>
                                     </BindableLayout.ItemTemplate>

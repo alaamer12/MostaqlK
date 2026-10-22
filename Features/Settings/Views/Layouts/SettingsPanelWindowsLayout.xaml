@@ -57,7 +57,7 @@
         <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*" Padding="28,24,28,28" RowSpacing="18"
               BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
             <Grid Grid.Row="0" ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                <platform:AppIcon Icon="Gear" WidthRequest="24" HeightRequest="24" TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" VerticalOptions="Center" />
+                <platform:AppIcon Icon="Gear" WidthRequest="24" HeightRequest="24" TextColor="{DynamicResource BrandLink}" VerticalOptions="Center" />
                 <VerticalStackLayout Grid.Column="1" Spacing="2">
                     <Label Text="الإعدادات" FontSize="24" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
                     <Label Text="إدارة إعدادات التطبيق وسلوك المراقبة" FontSize="13" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
@@ -275,7 +275,7 @@
                                     <Button AutomationId="Settings_SaveCookieButton"
                                             Text="حفظ الكوكي"
                                             Command="{Binding SaveSessionCookieCommand}"
-                                            BackgroundColor="#2563EB"
+                                            BackgroundColor="{DynamicResource BrandLink}"
                                             TextColor="White"
                                             FontFamily="TajawalBold"
                                             FontSize="13"
@@ -354,7 +354,7 @@
                         <VerticalStackLayout>
                             <VerticalStackLayout Padding="24,16" Spacing="4">
                                 <HorizontalStackLayout Spacing="8">
-                                    <platform:AppIcon Icon="Moon" TextColor="#2563EB" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                                    <platform:AppIcon Icon="Moon" TextColor="{DynamicResource BrandLink}" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
                                     <Label Text="المظهر" FontSize="16" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
                                 </HorizontalStackLayout>
                                 <Label Text="تخصيص الوضع الليلي والواجهة" FontSize="12" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />

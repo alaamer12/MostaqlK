@@ -46,7 +46,7 @@
         <!-- Top App Bar with back button -->
         <Grid Grid.Row="0" Padding="16,12" ColumnDefinitions="Auto,*,Auto" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
             <ds:PressableButton Grid.Column="0" Text="← رجوع" AutomationId="Settings_Mobile_BackButton" Clicked="OnBackClicked"
-                                BackgroundColor="Transparent" TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" Padding="0"
+                                BackgroundColor="Transparent" TextColor="{DynamicResource BrandLink}" Padding="0"
                                 FontFamily="TajawalBold" FontSize="14" />
             <Label Grid.Column="1" Text="الإعدادات" FontSize="18" FontFamily="TajawalBold"
                    TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" HorizontalOptions="Center" VerticalOptions="Center" />
@@ -162,7 +162,7 @@
                             <Button AutomationId="Settings_Mobile_SaveCookieButton"
                                     Text="حفظ"
                                     Command="{Binding SaveSessionCookieCommand}"
-                                    BackgroundColor="#2563EB"
+                                    BackgroundColor="{DynamicResource BrandLink}"
                                     TextColor="White"
                                     FontFamily="TajawalBold"
                                     FontSize="12"
@@ -186,7 +186,7 @@
                     <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                     <Grid ColumnDefinitions="*,Auto">
                         <HorizontalStackLayout Spacing="8">
-                            <platform:AppIcon Icon="Moon" TextColor="#2563EB" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                            <platform:AppIcon Icon="Moon" TextColor="{DynamicResource BrandLink}" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
                             <Label Text="الوضع الداكن (Dark Mode)" FontSize="15" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" VerticalOptions="Center" />
                         </HorizontalStackLayout>
                         <platform:AppToggle Grid.Column="1"

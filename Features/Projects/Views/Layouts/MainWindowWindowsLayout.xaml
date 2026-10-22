@@ -206,11 +206,11 @@
                                    VerticalOptions="Center" />
                         </HorizontalStackLayout>
                         <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
-                            <components:AppIcon Icon="Edit" WidthRequest="14" HeightRequest="14" TextColor="{AppThemeBinding Light=#2386C8, Dark=#5CA8DE}" VerticalOptions="Center" />
+                            <components:AppIcon Icon="Edit" WidthRequest="14" HeightRequest="14" TextColor="{DynamicResource Brand}" VerticalOptions="Center" />
                             <Label Text="تعديل"
                                    FontSize="13"
                                    FontFamily="TajawalBold"
-                                   TextColor="{AppThemeBinding Light=#2386C8, Dark=#5CA8DE}"
+                                   TextColor="{DynamicResource Brand}"
                                    VerticalOptions="Center">
                                 <Label.GestureRecognizers>
                                     <TapGestureRecognizer Command="{Binding SearchCommand}" />
@@ -267,11 +267,11 @@
                 <HorizontalStackLayout Spacing="10" VerticalOptions="Center" Margin="0,4,0,0">
                     <Label Text="{Binding TrackedCountText}" AutomationId="Projects_TrackedCountLabel" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" VerticalOptions="Center" FontFamily="Tajawal" />
                     <BoxView WidthRequest="4" HeightRequest="4" Color="{AppThemeBinding Light=#CBD5E1, Dark=#475569}" CornerRadius="2" VerticalOptions="Center" />
-                    <Label Text="{Binding UnreadCountText}" AutomationId="Projects_UnreadCountLabel" FontSize="11" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#2386C8, Dark=#5CA8DE}" VerticalOptions="Center" />
+                    <Label Text="{Binding UnreadCountText}" AutomationId="Projects_UnreadCountLabel" FontSize="11" FontFamily="TajawalBold" TextColor="{DynamicResource Brand}" VerticalOptions="Center" />
                     <Label Text="تحديد الكل كمقروء"
                            AutomationId="Projects_MarkAllReadLabel"
                            FontSize="11"
-                           TextColor="{AppThemeBinding Light=#2386C8, Dark=#5CA8DE}"
+                           TextColor="{DynamicResource Brand}"
                            VerticalOptions="Center"
                            FontFamily="Tajawal">
                         <Label.GestureRecognizers>
