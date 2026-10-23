@@ -31,9 +31,17 @@ namespace MostaqlK.UI.PlatformComponents.SourceRail;
 public partial class SourceRail : ContentView
 {
     // Mockup `.rail-btn { color: var(--ink-3) }` neutral inactive ink (state chrome, never brand):
-    // the same slate pair AppSidebar uses for its inactive rows, kept in sync with that unit.
-    private const string InactiveInkLight = "#475569";
+    // projects.html tokens — light #64748b, dark #94a3b8.
+    private const string InactiveInkLight = "#64748B";
     private const string InactiveInkDark = "#94A3B8";
+
+    // Mockup `.rail-btn:hover { background: var(--surface-2); color: var(--ink-1) }` — the hover
+    // box is the 44px rounded button surface itself (NOT the full 64px cell, which is what the
+    // old PressableEffect highlight painted: a square-cornered full-width band).
+    private static readonly Color HoverSurfaceLight = Color.FromArgb("#F8FAFC");
+    private static readonly Color HoverSurfaceDark = Color.FromArgb("#172032");
+    private static readonly Color HoverInkLight = Color.FromArgb("#0F172A");
+    private static readonly Color HoverInkDark = Color.FromArgb("#F1F5F9");
 
     public static readonly BindableProperty ActivePageProperty = BindableProperty.Create(
         nameof(ActivePage), typeof(RailPage), typeof(SourceRail), RailPage.None,
@@ -84,6 +92,17 @@ public partial class SourceRail : ContentView
         AttachLabels(NotificationsHit, "التنبيهات");
         AttachLabels(ThemeHit, "الوضع الداكن");
 
+        // Mockup hover: `.rail-btn:hover { background: var(--surface-2); color: var(--ink-1) }` on
+        // the 44×44 radius-12 button surface (active rows keep their brand treatment — CSS gives
+        // .active the later rule). The hit Button fills the cell, so it is the reliable enter/exit
+        // source; the Border is the visual that changes.
+        AttachRailHover(ProjectsHit, ProjectsButton, ProjectsIcon, () => ActivePage == RailPage.Projects);
+        AttachRailHover(AdvancedSearchHit, AdvancedSearchButton, AdvancedSearchIcon, () => ActivePage == RailPage.AdvancedSearch);
+        AttachRailHover(SettingsHit, SettingsButton, SettingsIcon, () => ActivePage == RailPage.Settings);
+        AttachRailHover(AboutHit, AboutButton, AboutIcon, () => ActivePage == RailPage.About);
+        AttachRailHover(NotificationsHit, NotificationsButton, NotificationsIcon, () => false);
+        AttachRailHover(ThemeHit, ThemeButton, ThemeIcon, () => false);
+
         ApplyActiveState();
         UpdateUnreadBadge();
 
@@ -95,6 +114,40 @@ public partial class SourceRail : ContentView
     {
         ToolTipProperties.SetText(target, labelAr);
         SemanticProperties.SetDescription(target, labelAr);
+    }
+
+    /// <summary>Wire the mockup's 44px hover box onto one rail cell (see the constructor call).</summary>
+    private void AttachRailHover(View hit, Border row, TintableIcon icon, Func<bool> isActive)
+    {
+        var pointer = new PointerGestureRecognizer();
+        pointer.PointerEntered += (_, _) =>
+        {
+            if (isActive())
+            {
+                return;
+            }
+
+            var dark = Application.Current?.RequestedTheme == AppTheme.Dark;
+            row.BackgroundColor = dark ? HoverSurfaceDark : HoverSurfaceLight;
+            icon.TintColor = dark ? HoverInkDark : HoverInkLight;
+        };
+        pointer.PointerExited += (_, _) =>
+        {
+            if (isActive())
+            {
+                return;
+            }
+
+            RestoreInactiveRow(row, icon);
+        };
+        hit.GestureRecognizers.Add(pointer);
+    }
+
+    private static void RestoreInactiveRow(Border row, TintableIcon icon)
+    {
+        row.BackgroundColor = Colors.Transparent;
+        var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
+        icon.TintColor = Color.FromArgb(isDark ? InactiveInkDark : InactiveInkLight);
     }
 
     private void OnTilesSourceChanged(object? sender, SourceId source)
@@ -253,16 +306,25 @@ public partial class SourceRail : ContentView
         SetRowState(AdvancedSearchButton, AdvancedSearchIcon, AdvancedSearchActiveBar, ActivePage == RailPage.AdvancedSearch);
         SetRowState(SettingsButton, SettingsIcon, SettingsActiveBar, ActivePage == RailPage.Settings);
         SetRowState(AboutButton, AboutIcon, AboutActiveBar, ActivePage == RailPage.About);
+
+        // Mockup swaps the theme toggle moon↔sun (fa-regular fa-moon ↔ fa-sun); the bell carries
+        // no active state, so both just re-project the inactive ink on every theme/palette pass.
+        ThemeIcon.Icon = Application.Current?.RequestedTheme == AppTheme.Dark
+            ? AppIconGlyph.Sun
+            : AppIconGlyph.Moon;
+        RestoreInactiveRow(NotificationsButton, NotificationsIcon);
+        RestoreInactiveRow(ThemeButton, ThemeIcon);
     }
 
     /// <summary>
     /// Mockup `.rail-btn.active { background: var(--brand-soft); color: var(--brand-ink) }` + the
-    /// 3px inline-start bar. The wash and the bar bind the live brand keys and repaint for free on a
-    /// morph; the raster nav icon cannot re-tint (AppIcon history), so the active ink is the
-    /// pre-baked "_active" variant — matched the same AppSidebar-proven way, via the palette's
-    /// light link value, re-applied on <see cref="BrandPalette.PaletteChanged"/>.
+    /// 3px inline-start bar. The wash, the bar and the icon ink all read the live brand palette —
+    /// the nav icons are <see cref="TintableIcon"/> vectors now, so the active ink follows the
+    /// active source's brand-ink in both themes (the old raster AppIcon could only ever show the
+    /// baked mostaql-blue "_active" PNG) — re-applied on theme flip and
+    /// <see cref="BrandPalette.PaletteChanged"/>.
     /// </summary>
-    private static void SetRowState(Border row, AppIcon icon, BoxView bar, bool isActive)
+    private static void SetRowState(Border row, TintableIcon icon, BoxView bar, bool isActive)
     {
         bar.IsVisible = isActive;
 
@@ -270,14 +332,12 @@ public partial class SourceRail : ContentView
         {
             row.RemoveDynamicResource(BackgroundColorProperty);
             row.SetDynamicResource(BackgroundColorProperty, BrandPalette.BrandSoftKey);
-            icon.TextColor = BrandPalette.LinkLight;
+            icon.TintColor = BrandPalette.BrandInk;
         }
         else
         {
             row.RemoveDynamicResource(BackgroundColorProperty);
-            row.BackgroundColor = Colors.Transparent;
-            var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
-            icon.TextColor = Color.FromArgb(isDark ? InactiveInkDark : InactiveInkLight);
+            RestoreInactiveRow(row, icon);
         }
     }
 

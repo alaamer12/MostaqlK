@@ -284,15 +284,14 @@
             </VerticalStackLayout>
         </Grid>
 
-        <!-- Animated "جديد" ribbon on the row's inline-start corner — the physical RIGHT under this
-             view's FlowDirection="RightToLeft" (where the title lives, per the user's call), kept
-             fully inside the row. Active only while the project is unread; the badge fades itself
-             out on deactivation so the mark-read flip is a cross-fade, not a cut. -->
+        <!-- Animated "جديد" ribbon on the row's ORIGINAL top-left corner (this view runs
+             FlowDirection="RightToLeft", so HorizontalOptions="End" pins the physical left),
+             kept fully inside the row. Active only while the project is unread; the badge fades
+             itself out on deactivation so the mark-read flip is a cross-fade, not a cut. -->
         <ds:NewRibbonBadge x:Name="NewRibbon"
                            IsActive="{Binding IsUnread}"
-                           HorizontalOptions="Start"
+                           HorizontalOptions="End"
                            VerticalOptions="Start"
-                           Margin="0,0,26,0"
                            AutomationId="ProjectCard_NewRibbon" />
     </Grid>
 </ContentView>

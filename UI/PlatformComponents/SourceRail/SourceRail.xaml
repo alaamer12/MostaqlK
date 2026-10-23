@@ -90,13 +90,13 @@
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="12" />
                     </Border.StrokeShape>
-                    <components:AppIcon x:Name="ProjectsIcon" Icon="ProjectsList" FontSize="18"
+                    <components:TintableIcon x:Name="ProjectsIcon" Icon="ProjectsList" Size="18"
                                         HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
                 <Button x:Name="ProjectsHit" AutomationId="Sidebar_ProjectsButton"
                         Style="{StaticResource RailHitTargetStyle}" Clicked="OnProjectsClicked" />
                 <Grid.Behaviors>
-                    <ds:PressableEffect ApplyHoverHighlight="True" />
+                    <ds:PressableEffect ApplyHoverHighlight="False" />
                 </Grid.Behaviors>
             </Grid>
 
@@ -109,13 +109,13 @@
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="12" />
                     </Border.StrokeShape>
-                    <components:AppIcon x:Name="AdvancedSearchIcon" Icon="Search" FontSize="18"
+                    <components:TintableIcon x:Name="AdvancedSearchIcon" Icon="Search" Size="18"
                                         HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
                 <Button x:Name="AdvancedSearchHit" AutomationId="Sidebar_AdvancedSearchButton"
                         Style="{StaticResource RailHitTargetStyle}" Clicked="OnAdvancedSearchClicked" />
                 <Grid.Behaviors>
-                    <ds:PressableEffect ApplyHoverHighlight="True" />
+                    <ds:PressableEffect ApplyHoverHighlight="False" />
                 </Grid.Behaviors>
             </Grid>
 
@@ -128,13 +128,13 @@
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="12" />
                     </Border.StrokeShape>
-                    <components:AppIcon x:Name="SettingsIcon" Icon="Gear" FontSize="18"
+                    <components:TintableIcon x:Name="SettingsIcon" Icon="Gear" Size="18"
                                         HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
                 <Button x:Name="SettingsHit" AutomationId="Sidebar_SettingsButton"
                         Style="{StaticResource RailHitTargetStyle}" Clicked="OnSettingsClicked" />
                 <Grid.Behaviors>
-                    <ds:PressableEffect ApplyHoverHighlight="True" />
+                    <ds:PressableEffect ApplyHoverHighlight="False" />
                 </Grid.Behaviors>
             </Grid>
 
@@ -147,13 +147,13 @@
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="12" />
                     </Border.StrokeShape>
-                    <components:AppIcon x:Name="AboutIcon" Icon="Info" FontSize="18"
+                    <components:TintableIcon x:Name="AboutIcon" Icon="Info" Size="18"
                                         HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
                 <Button x:Name="AboutHit" AutomationId="Sidebar_AboutButton"
                         Style="{StaticResource RailHitTargetStyle}" Clicked="OnAboutClicked" />
                 <Grid.Behaviors>
-                    <ds:PressableEffect ApplyHoverHighlight="True" />
+                    <ds:PressableEffect ApplyHoverHighlight="False" />
                 </Grid.Behaviors>
             </Grid>
 
@@ -172,7 +172,7 @@
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="12" />
                     </Border.StrokeShape>
-                    <components:AppIcon x:Name="NotificationsIcon" Icon="Bell" FontSize="18"
+                    <components:TintableIcon x:Name="NotificationsIcon" Icon="Bell" Size="18"
                                         HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
                 <!-- Unread affordance: the live UnreadNotificationCount pill (the count the old
@@ -190,7 +190,7 @@
                 <Button x:Name="NotificationsHit" AutomationId="Sidebar_NotificationsButton"
                         Style="{StaticResource RailHitTargetStyle}" Clicked="OnNotificationsClicked" />
                 <Grid.Behaviors>
-                    <ds:PressableEffect ApplyHoverHighlight="True" />
+                    <ds:PressableEffect ApplyHoverHighlight="False" />
                 </Grid.Behaviors>
             </Grid>
 
@@ -200,7 +200,7 @@
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="12" />
                     </Border.StrokeShape>
-                    <components:AppIcon x:Name="ThemeIcon" Icon="Moon" FontSize="18"
+                    <components:TintableIcon x:Name="ThemeIcon" Icon="Moon" Size="18"
                                         HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
                 <!-- Same AutomationId + persistence path as the old sidebar row (SettingsKeys.IsDarkMode
@@ -211,7 +211,7 @@
                 <Button x:Name="ThemeHit" AutomationId="Sidebar_DarkModeToggle"
                         Style="{StaticResource RailHitTargetStyle}" Clicked="OnThemeClicked" />
                 <Grid.Behaviors>
-                    <ds:PressableEffect ApplyHoverHighlight="True" />
+                    <ds:PressableEffect ApplyHoverHighlight="False" />
                 </Grid.Behaviors>
             </Grid>
         </VerticalStackLayout>

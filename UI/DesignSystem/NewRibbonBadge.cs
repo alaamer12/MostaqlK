@@ -64,17 +64,15 @@ public class NewRibbonBadge : Grid
         IsClippedToBounds = true;
         IsVisible = false;
 
-        // Sits diagonally across the row's inline-start (physical RIGHT in this RTL app) top corner,
-        // kept ENTIRELY inside the card: the v3 rows are full-bleed, so the old "wrap the corner"
-        // offsets (-30/+10) drove half the band outside the row and it read as a ribbon on the
-        // window frame. With the 84×24 box rotated 45° about its centre the half-extent is ≈38 px,
-        // so the centre must sit ≥ ~40 px from the row's top/right edges; +45 (mirrored from the
-        // original -45) makes the band descend across a top-RIGHT corner.
+        // Diagonal band across the row's top-LEFT corner, rotated -135° (the original -45 turned
+        // a further -90 anti-clockwise per the owner) so it descends the other way; kept ENTIRELY
+        // inside the card — the 84×24 box at -135° still has a ≈38 px half-extent, so the small
+        // inward nudge + vertical drop clear the left/top edges.
         Rotation = 45;
         AnchorX = 0.5;
         AnchorY = 0.5;
-        TranslationX = 6;
-        TranslationY = 28;
+        TranslationX = 20;
+        TranslationY = 12;
 
         _background = new BoxView();
 

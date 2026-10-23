@@ -28,6 +28,9 @@ public enum AppIconGlyph
     /// <summary>Dark-mode row moon icon. Regular <c>fa-moon</c> (f186).</summary>
     Moon,
 
+    /// <summary>Dark-mode row sun icon (shown while dark, mirroring the mockup's moon↔sun swap). Solid <c>fa-sun</c> (f185).</summary>
+    Sun,
+
     /// <summary>Poll-toggle "إيقاف" button icon. Solid <c>fa-pause</c> (f04c).</summary>
     Pause,
 
