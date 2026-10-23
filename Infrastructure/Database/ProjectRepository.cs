@@ -41,12 +41,12 @@ public sealed class ProjectRepository : IProjectRepository
                 // Write-once: a project row is never overwritten once it exists (no-update policy).
                 command.CommandText = """
                     INSERT OR IGNORE INTO projects
-                        (project_id, source_id, site_project_id, title, url, client_name,
+                        (project_id, source_id, site_project_id, title, url, client_name, client_meta,
                          publish_time_number, publish_time_text,
                          proposal_count, proposal_count_text, description,
                          is_unread, enrichment_status, discovered_at)
                     VALUES
-                        (@project_id, @source_id, @site_project_id, @title, @url, @client_name,
+                        (@project_id, @source_id, @site_project_id, @title, @url, @client_name, @client_meta,
                          @publish_time_number, @publish_time_text,
                          @proposal_count, @proposal_count_text, @description,
                          @is_unread, @enrichment_status, @discovered_at);
@@ -57,6 +57,7 @@ public sealed class ProjectRepository : IProjectRepository
                 command.Parameters.AddWithValue("@title", project.Title);
                 command.Parameters.AddWithValue("@url", project.Url);
                 command.Parameters.AddWithValue("@client_name", project.ClientName);
+                command.Parameters.AddWithValue("@client_meta", (object?)project.ClientMeta ?? DBNull.Value);
                 command.Parameters.AddWithValue("@publish_time_number", project.PublishTimeNumber);
                 command.Parameters.AddWithValue("@publish_time_text", project.PublishTimeText);
                 command.Parameters.AddWithValue("@proposal_count", project.ProposalCount);
@@ -308,7 +309,7 @@ public sealed class ProjectRepository : IProjectRepository
         {
             using var connection = _connectionFactory.CreateConnection();
             const string sql = """
-                SELECT p.project_id, p.source_id, p.title, p.url, p.client_name,
+                SELECT p.project_id, p.source_id, p.title, p.url, p.client_name, p.client_meta,
                        p.publish_time_number, p.publish_time_text,
                        p.proposal_count, p.proposal_count_text,
                        p.description, p.budget, p.delivery_days,

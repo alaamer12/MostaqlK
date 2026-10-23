@@ -20,6 +20,12 @@ public sealed class ProjectSummary
 
     public string ClientName { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The listing card's owner sub-line (nafezly: the country under the name, e.g. "مصر"). Stored
+    /// per project; the card falls back to the descriptor's <c>OwnerFallbackMeta</c> when absent.
+    /// </summary>
+    public string? ClientMeta { get; set; }
+
     public int PublishTimeNumber { get; set; }
 
     public string PublishTimeText { get; set; } = string.Empty;

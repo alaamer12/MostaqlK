@@ -72,10 +72,11 @@ internal static class Program
         using (var connection = factory.CreateConnection())
         {
             var version = GetUserVersion(connection);
-            Check(version == 4, $"user_version is 4 after full upgrade chain (got {version})");
+            Check(version == 5, $"user_version is 5 after full upgrade chain (got {version})");
 
             var columns = ReadColumnNames(connection, "projects");
             Check(columns.Contains("source_id") && columns.Contains("site_project_id"), "projects has source_id + site_project_id");
+            Check(columns.Contains("client_meta"), "projects has the v5 client_meta column");
             Check(ReadColumnNames(connection, "owners").Contains("source_id"), "owners has source_id");
             Check(ReadColumnNames(connection, "discovery_backlog").Contains("source_id"), "discovery_backlog has source_id");
 
@@ -114,7 +115,7 @@ internal static class Program
         var factory = new SqliteConnectionFactory(dbPath);
         using (var connection = factory.CreateConnection())
         {
-            Check(GetUserVersion(connection) == 4, "user_version stays 4");
+            Check(GetUserVersion(connection) == 5, "user_version stays 5");
         }
 
         var afterCounts = ReadCounts(dbPath);
@@ -131,10 +132,11 @@ internal static class Program
         var factory = new SqliteConnectionFactory(dbPath);
         using var connection = factory.CreateConnection();
 
-        Check(GetUserVersion(connection) == 4, "fresh db reaches the current user_version without running numbered steps");
+        Check(GetUserVersion(connection) == 5, "fresh db reaches the current user_version without running numbered steps");
 
         var columns = ReadColumnNames(connection, "projects");
         Check(columns.Contains("source_id") && columns.Contains("site_project_id"), "fresh projects table already carries the v2 columns");
+        Check(columns.Contains("client_meta"), "fresh projects table carries the v5 client_meta column");
 
         // A fresh-schema projects table declares source_id NOT NULL without a DEFAULT, so a
         // source-blind insert must fail (v1's bare insert can no longer sneak through).
@@ -366,8 +368,9 @@ internal static class Program
         var factory = new SqliteConnectionFactory(dbPath);
         using (var connection = factory.CreateConnection())
         {
-            Check(GetUserVersion(connection) == 4, "user_version advanced 3 -> 4");
+            Check(GetUserVersion(connection) == 5, "user_version advanced 3 -> v4 -> current v5");
             Check(ReadColumnNames(connection, "projects").Contains("executor_name"), "projects gained executor_name column");
+            Check(ReadColumnNames(connection, "projects").Contains("client_meta"), "projects gained client_meta column");
 
             // The pre-existing rows must be byte-preserved: same ids, same counts, same source split.
             var afterIds = ReadIds(dbPath, "projects", "project_id");
@@ -390,7 +393,7 @@ internal static class Program
         var factory2 = new SqliteConnectionFactory(dbPath);
         using (var connection2 = factory2.CreateConnection())
         {
-            Check(GetUserVersion(connection2) == 4, "user_version stays 4 on re-run");
+            Check(GetUserVersion(connection2) == 5, "user_version stays 5 on re-run");
         }
 
         var afterCounts2 = ReadCounts(dbPath);
@@ -411,8 +414,9 @@ internal static class Program
         var factory = new SqliteConnectionFactory(dbPath);
         using var connection = factory.CreateConnection();
 
-        Check(GetUserVersion(connection) == 4, "fresh db lands at the current v4 schema");
+        Check(GetUserVersion(connection) == 5, "fresh db lands at the current v5 schema");
         Check(ReadColumnNames(connection, "projects").Contains("executor_name"), "fresh projects table already carries executor_name");
+        Check(ReadColumnNames(connection, "projects").Contains("client_meta"), "fresh projects table already carries client_meta");
     }
 
     /// <summary>

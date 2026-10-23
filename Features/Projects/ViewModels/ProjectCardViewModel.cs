@@ -189,7 +189,9 @@ public sealed partial class ProjectCardViewModel : ObservableObject
     /// so this shows the source's fallback owner meta (a fixture until real per-source owner
     /// fields arrive in v3); "—" when no descriptor is resolvable.
     /// </summary>
-    public string ClientMeta => Descriptor?.OwnerFallbackMeta ?? "—";
+    public string ClientMeta => !string.IsNullOrWhiteSpace(Project.ClientMeta)
+        ? Project.ClientMeta
+        : Descriptor?.OwnerFallbackMeta ?? "—";
 
     /// <summary>
     /// Relative post time shown on the card (projects.html "منذ 3 دقائق"). The SITE's own scraped

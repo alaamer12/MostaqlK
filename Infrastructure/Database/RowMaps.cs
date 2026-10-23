@@ -63,6 +63,7 @@ internal static class RowMaps
         public string title { get; set; } = string.Empty;
         public string url { get; set; } = string.Empty;
         public string? client_name { get; set; }
+        public string? client_meta { get; set; }
         public int? publish_time_number { get; set; }
         public string? publish_time_text { get; set; }
         public int? proposal_count { get; set; }
@@ -168,6 +169,7 @@ internal static class RowMaps
         public string title { get; set; } = string.Empty;
         public string url { get; set; } = string.Empty;
         public string? client_name { get; set; }
+        public string? client_meta { get; set; }
         public int? publish_time_number { get; set; }
         public string? publish_time_text { get; set; }
         public int? proposal_count { get; set; }
@@ -201,6 +203,7 @@ internal static class RowMaps
             Title = row.title,
             Url = row.url,
             ClientName = row.client_name ?? string.Empty,
+            ClientMeta = row.client_meta,
             PublishTimeNumber = row.publish_time_number ?? 0,
             PublishTimeText = row.publish_time_text ?? string.Empty,
             ProposalCount = row.proposal_count ?? 0,
@@ -316,6 +319,7 @@ internal static class RowMaps
             Title = row.title,
             Url = row.url,
             ClientName = row.client_name ?? string.Empty,
+            ClientMeta = row.client_meta,
             PublishTimeNumber = row.publish_time_number ?? 0,
             PublishTimeText = row.publish_time_text ?? string.Empty,
             ProposalCount = row.proposal_count ?? 0,

@@ -50,6 +50,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+### Fixed (dev38 — nafezly owner meta/country)
+- The nafezly listing parser now reads the poster's country from the owner block (the non-image `a[data-profile-role=owner]` name anchor plus the `fa-map-marker-alt` country span under it) and persists it as the new `ProjectSummary.ClientMeta`; the feed card sub-line shows the scraped value ("مصر") instead of the descriptor fallback/dash. Capture evidence: `.capture/dom/nafezly.com_projects.html` (owner card "Lily Mohamed / مصر"); fixture `listing-page1.html` owner "Nasser Alanzi / السعودية".
+- Schema v4→v5: additive nullable `projects.client_meta` (`Migrations/0005_add_client_meta.sql`, fresh schema updated), threaded through the summary insert, recent/FTS reads, RowMaps and the feed-store clone; the design seeder now passes each mockup card's owner meta. Existing rows keep NULL (store-and-forget) — only new discoveries gain the country.
+- Gates: ParserTests **335/335** (two new checks: owner name + country); DbMigrationTests all passed (v4→v5 upgrade, idempotent re-run, fresh v5 schema); Windows build 0 errors.
+
 ### Fixed (dev37 — details page section width + source swap)
 - The details page's first content section (the decision strip) is now a full-width five-column `Grid` (`ColumnDefinitions="*,*,*,*,*"`, `ColumnSpacing=24`, 32/24 padding) with each fact bound to its own `Column` index. The previous fixed-width/negative-margin row (and an interim flex row) measured wider than the content column and spilled the strip under the SourceRail; the Grid measures to the page width, so the strip, section text and dividers all respect the rail. Captured against `project-details.html` at 1280x800.
 - A details page is source-specific: the Details rail now raises `SourceChanged` and navigates back to the projects feed 650 ms after the source-morph reveal lands (tearing the page down mid-reveal reproduced the native `0xC000027B` fail-fast). The feed view-model re-points through its `ActiveSource` subscription, so the platform swap lands on the projects page instead of leaving the old platform's project on screen.

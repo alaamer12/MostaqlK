@@ -547,6 +547,8 @@ public static class Program
         var first = summaries[0];
         Check("slug-id 56609", first.ProjectId == 56609, $"{first.ProjectId}");
         Check("title present (truncated Arabic)", first.Title.Contains("مسوّق", StringComparison.Ordinal), first.Title);
+        Check("owner name parsed", first.ClientName == "Nasser Alanzi", first.ClientName);
+        Check("owner country meta parsed", first.ClientMeta == "السعودية", first.ClientMeta);
         Check("state text raw مفتوح", first.ProjectStatus == "مفتوح", first.ProjectStatus);
         Check("budget text '10 - 25 $'", first.Budget == "10 - 25 $", first.Budget);
         Check("proposals count 2", first.ProposalCount == 2, $"{first.ProposalCount}");

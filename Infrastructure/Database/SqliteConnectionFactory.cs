@@ -15,7 +15,7 @@ public sealed class SqliteConnectionFactory
     /// <c>Migrations/NNNN_*.sql</c> reference files; the executable copy of each step is the
     /// matching SQL constant below, applied in order by <see cref="EnsureSchema"/>.
     /// </summary>
-    private const int CurrentSchemaVersion = 4;
+    private const int CurrentSchemaVersion = 5;
 
     private readonly string _connectionString;
     private readonly object _migrationLock = new();
@@ -139,6 +139,13 @@ public sealed class SqliteConnectionFactory
             if (currentVersion == 3)
             {
                 RunStep(connection, Migration0004Sql);
+                currentVersion = 4;
+            }
+
+            if (currentVersion == 4)
+            {
+                RunStep(connection, Migration0005Sql);
+                currentVersion = 5;
             }
 
             SetUserVersion(connection, CurrentSchemaVersion);
@@ -268,6 +275,15 @@ public sealed class SqliteConnectionFactory
         """;
 
     /// <summary>
+    /// v4 -&gt; v5 step (see <c>Migrations/0005_add_client_meta.sql</c>): adds the listing owner
+    /// sub-line (nafezly's country, e.g. "مصر") persisted alongside <c>client_name</c> so the feed
+    /// card can show it instead of the descriptor fallback. Additive nullable TEXT, no rebuild.
+    /// </summary>
+    private const string Migration0005Sql = """
+        ALTER TABLE projects ADD COLUMN client_meta TEXT;
+        """;
+
+    /// <summary>
     /// Bootstrap ("version 0") schema - lands directly at the current schema version so new DBs
     /// never run the numbered steps; see <c>Migrations/0001_initial_schema.sql</c> for the
     /// historical v1 statements.
@@ -280,6 +296,7 @@ public sealed class SqliteConnectionFactory
             title TEXT NOT NULL,
             url TEXT NOT NULL,
             client_name TEXT,
+            client_meta TEXT,
             publish_time_number INTEGER,
             publish_time_text TEXT,
             proposal_count INTEGER,

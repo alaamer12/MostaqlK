@@ -660,8 +660,6 @@ public sealed class DesignDataSeeder
             Rating = ownerRating,
         };
 
-        _ = ownerMeta; // card meta line wording is rendered by the UI from owner fields + descriptor fallback
-
         return new SeedProject(
             owner,
             new ProjectSummary
@@ -671,6 +669,7 @@ public sealed class DesignDataSeeder
                 Title = title,
                 Url = url,
                 ClientName = ownerName,
+                ClientMeta = ownerMeta,
                 PublishTimeNumber = MostaqlK.Core.Formatting.ArabicRelativeTime.ParseRelativeNumber(postedRelative),
                 PublishTimeText = postedRelative,
                 ProposalCount = proposalCount,

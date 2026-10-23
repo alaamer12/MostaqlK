@@ -114,6 +114,17 @@ public static class NafezlyListingParser
         var publish = MetaIconText(row, "fa-clock");
         var status = MetaIconText(row, "fa-check-circle");
 
+        // Owner card: the poster name anchor + the country line under it (the map-marker icon).
+        // The listing did not carry the country before, so the feed card's sub-line fell back to a
+        // dash/descriptor fallback; the DOM carries "مصر" verbatim in span.d-inline-block next to
+        // the name (capture-manifest §2 owner block).
+        // The owner block has TWO anchors with data-profile-role=owner (the avatar image wrapper
+        // first, the name second). Take the one that carries text, then read the country from the
+        // same block; the row-wide fallback handles a future markup that drops the wrapper div.
+        var ownerNameAnchor = row.SelectSingleNode(".//a[@data-profile-role='owner' and not(img)]");
+        var ownerName = HtmlStructureEngine.Normalize(HtmlEntity.DeEntitize(ownerNameAnchor?.InnerText ?? string.Empty));
+        var clientMeta = ExtractOwnerCountry(ownerNameAnchor);
+
         var (proposalNum, proposalText) = ArabicProposalParser.Parse(proposals);
         var publishNum = IsRelativeTime(publish) ? ArabicRelativeTime.ParseRelativeNumber(publish) : 0;
 
@@ -123,6 +134,8 @@ public static class NafezlyListingParser
             Title = title,
             Url = href,
             Description = brief,
+            ClientName = ownerName,
+            ClientMeta = string.IsNullOrEmpty(clientMeta) ? null : clientMeta,
             Budget = string.IsNullOrEmpty(budget) ? null : budget,
             ProjectStatus = string.IsNullOrEmpty(status) ? null : status,
             ProposalCount = proposalNum,
@@ -151,6 +164,23 @@ public static class NafezlyListingParser
         }
 
         return HtmlStructureEngine.Normalize(HtmlEntity.DeEntitize(container.InnerText));
+    }
+
+    /// <summary>
+    /// Reads the owner country from the listing owner block: the map-marker icon's wrapping
+    /// <c>span.d-inline-block</c> holds the country text ("مصر"). Source-blind within the row:
+    /// no source id is referenced, just the captured DOM shape.
+    /// </summary>
+    private static string ExtractOwnerCountry(HtmlNode? ownerNameAnchor)
+    {
+        // The country lives in the owner name's parent block (div.d-inline-block), not in the row's
+        // project-meta column; scoping there prevents another map-marker fact from being read.
+        var scope = ownerNameAnchor?.ParentNode;
+        var icon = scope?.SelectSingleNode(".//span[contains(@class, 'fa-map-marker-alt')]");
+        var container = icon?.ParentNode;
+        return container is null
+            ? string.Empty
+            : HtmlStructureEngine.Normalize(HtmlEntity.DeEntitize(container.InnerText));
     }
 
     private static bool IsRelativeTime(string text) =>

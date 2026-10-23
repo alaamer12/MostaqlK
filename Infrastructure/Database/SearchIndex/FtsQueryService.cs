@@ -53,7 +53,7 @@ public sealed class FtsQueryService
 
             using var connection = _connectionFactory.CreateConnection();
             const string sql = """
-                SELECT p.project_id, p.source_id, p.title, p.url, p.client_name,
+                SELECT p.project_id, p.source_id, p.title, p.url, p.client_name, p.client_meta,
                        p.publish_time_number, p.publish_time_text,
                        p.proposal_count, p.proposal_count_text,
                        p.is_unread, p.enrichment_status, p.discovered_at, p.description, p.budget, p.delivery_days,

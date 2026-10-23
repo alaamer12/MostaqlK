@@ -696,6 +696,7 @@ public sealed class SourceFeedStore
             Title = summary.Title,
             Url = summary.Url,
             ClientName = summary.ClientName,
+            ClientMeta = summary.ClientMeta,
             PublishTimeNumber = summary.PublishTimeNumber,
             PublishTimeText = summary.PublishTimeText,
             ProposalCount = summary.ProposalCount,
