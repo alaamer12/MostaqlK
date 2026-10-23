@@ -28,7 +28,13 @@ public partial class PressableEffect
     {
         if (_associatedView?.Handler != null)
         {
-            _cursorApplied = false;
+            // Declarative cursor: WinUI hit-tests ProtectedCursor from the element itself, so it is
+            // applied ONCE when the platform view exists and survives minimize/restore plus pointer
+            // re-entry. (The old first-enter application went stale whenever enter/exit events
+            // unbalanced — e.g. the window minimizing while hovered left clickable rows with an
+            // arrow cursor.)
+            ApplyPlatformCursor();
+            _cursorApplied = true;
         }
     }
 

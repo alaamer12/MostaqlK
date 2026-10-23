@@ -301,19 +301,28 @@
                 <Label Text="{Binding FooterTrackedText}" AutomationId="Projects_TrackedCountLabel" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" VerticalOptions="Center" FontFamily="Tajawal" />
                 <BoxView WidthRequest="4" HeightRequest="4" Color="{AppThemeBinding Light=#CBD5E1, Dark=#475569}" CornerRadius="2" VerticalOptions="Center" />
                 <Label Text="{Binding UnreadCountText}" AutomationId="Projects_UnreadCountLabel" FontSize="11" FontFamily="TajawalBold" TextColor="{DynamicResource BrandInk}" VerticalOptions="Center" />
-                <Label Text="تحديد الكل كمقروء"
-                       AutomationId="Projects_MarkAllReadLabel"
-                       FontSize="11"
-                       TextColor="{DynamicResource BrandInk}"
-                       VerticalOptions="Center"
-                       FontFamily="Tajawal">
-                    <Label.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding MarkAllReadCommand}" />
-                    </Label.GestureRecognizers>
-                    <Label.Behaviors>
-                        <design:PressableEffect ApplyHoverHighlight="True" />
-                    </Label.Behaviors>
-                </Label>
+                <!-- Real Button, not a Label+tap: the mockup's "hover:underline" text action, but a
+                     Label tap gesture proved unreliable under a real pointer here (and a Button is the
+                     accessible, keyboard-focusable form of a command). Chrome stripped to match the
+                     surrounding 11px footer text. -->
+                <Button Text="تحديد الكل كمقروء"
+                        AutomationId="Projects_MarkAllReadLabel"
+                        Command="{Binding MarkAllReadCommand}"
+                        FontSize="11"
+                        FontFamily="TajawalBold"
+                        TextColor="{DynamicResource BrandInk}"
+                        BackgroundColor="Transparent"
+                        BorderWidth="0"
+                        Padding="0"
+                        Margin="0"
+                        MinimumWidthRequest="0"
+                        MinimumHeightRequest="0"
+                        HeightRequest="18"
+                        VerticalOptions="Center">
+                    <Button.Behaviors>
+                        <design:PressableEffect ApplyHoverHighlight="False" />
+                    </Button.Behaviors>
+                </Button>
             </HorizontalStackLayout>
 
             <!-- center: active query + تعديل (opens the same FilterModal as الفلاتر). -->

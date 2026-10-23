@@ -10,12 +10,13 @@
              FlowDirection="RightToLeft">
 
     <!-- v3 continuous feed row (projects.html `.project-card.section-row`): rows live on ONE surface,
-         hairline-divided, faint brand wash when unread. NO rounded floating card, NO "جديد" ribbon,
-         NO diagonal enrichment sweep — those v1 affordances are retired here; enrichment state now
-         reads solely from the band-1 pill. Colours follow the mockup slate scale + the brand
-         DynamicResource family only (no inline brand hex); ink/state pairs mirror
-         ProjectDetailsWindowsLayout (dev23). RowState (dev29) drives the three lifecycle variants:
-         Provisional → skeleton, Stale → dimmed content, Broken → red-ghost. -->
+         hairline-divided, faint brand wash when unread. NO rounded floating card — that v1 affordance
+         is retired here; enrichment state now reads solely from the band-1 pill. The "جديد" corner
+         ribbon (ds:NewRibbonBadge) is RESTORED over demand (dev31 retired it with the floating-card
+         design; the unread wash/dot/ribbon now cross-fade when a row flips to read). Colours follow
+         the mockup slate scale + the brand DynamicResource family only (no inline brand hex);
+         ink/state pairs mirror ProjectDetailsWindowsLayout (dev23). RowState (dev29) drives the
+         three lifecycle variants: Provisional → skeleton, Stale → dimmed content, Broken → red-ghost. -->
 
     <ContentView.Resources>
         <ResourceDictionary>
@@ -35,11 +36,11 @@
 
         <!-- Unread wash (mockup `color-mix(brand 6%, surface)`): the brand color at 6% opacity over
              the row surface reproduces the mockup's faint tint exactly (BrandSoft at full opacity
-             was far heavier). -->
+             was far heavier). Visibility/opacity are driven by the code-behind so an unread→read
+             flip (single tap or "تحديد الكل كمقروء") fades the wash out instead of cutting. -->
         <BoxView x:Name="UnreadWash"
                  Color="{DynamicResource Brand}"
-                 Opacity="0.06"
-                 IsVisible="{Binding IsUnread}" />
+                 Opacity="0.06" />
 
         <!-- Hover wash (mockup `.project-card:hover`): read rows → surface-2, unread rows → a 9%
              brand mix over the surface. A solid overlay (not the row's BackgroundColor) keeps the
@@ -264,12 +265,13 @@
                         </VerticalStackLayout>
                     </HorizontalStackLayout>
 
-                    <!-- Unread indicator inline-end: 8px brand dot + bold brand-ink "غير مقروء"; read → nothing. -->
-                    <HorizontalStackLayout Grid.Column="2"
+                    <!-- Unread indicator inline-end: 8px brand dot + bold brand-ink "غير مقروء"; read → fades
+                         out with the wash (code-behind drives IsVisible/Opacity for the read transition). -->
+                    <HorizontalStackLayout x:Name="UnreadIndicator"
+                                           Grid.Column="2"
                                            Spacing="6"
                                            HorizontalOptions="End"
-                                           VerticalOptions="Center"
-                                           IsVisible="{Binding IsUnread}">
+                                           VerticalOptions="Center">
                         <BoxView WidthRequest="8" HeightRequest="8"
                                  Color="{DynamicResource Brand}"
                                  CornerRadius="4"
@@ -281,5 +283,16 @@
                 </Grid>
             </VerticalStackLayout>
         </Grid>
+
+        <!-- Animated "جديد" ribbon on the row's inline-start corner — the physical RIGHT under this
+             view's FlowDirection="RightToLeft" (where the title lives, per the user's call), kept
+             fully inside the row. Active only while the project is unread; the badge fades itself
+             out on deactivation so the mark-read flip is a cross-fade, not a cut. -->
+        <ds:NewRibbonBadge x:Name="NewRibbon"
+                           IsActive="{Binding IsUnread}"
+                           HorizontalOptions="Start"
+                           VerticalOptions="Start"
+                           Margin="0,0,26,0"
+                           AutomationId="ProjectCard_NewRibbon" />
     </Grid>
 </ContentView>

@@ -3,16 +3,17 @@ using MostaqlK.UI.PlatformComponents;
 namespace MostaqlK.UI.DesignSystem;
 
 /// <summary>
-/// Diagonal, animated "new" corner ribbon overlaid on the physical-left corner of an unread
-/// <see cref="PlatformComponents.AppCard"/> (the app runs <c>FlowDirection="RightToLeft"</c>, so
-/// "physical left" is the layout's <c>End</c> edge, opposite the card's existing inline-start
-/// accent border in <see cref="PlatformComponents.AppCard.IsUnread"/>). Carries a looping shimmer
-/// sweep — the same "sweep a translucent highlight across the surface" idea as
-/// <see cref="ShimmerBox"/>, reused here as the "ribbled" motion effect the design calls for —
-/// so a fresh, unread project visibly stands out from the rest of the feed at a glance.
-/// Respects <see cref="MotionPreferences.IsReducedMotionRequested"/> (shows the ribbon as a
-/// static badge, no sweep, when the user has asked for reduced motion) and re-colors itself for
-/// light/dark theme, same pattern as <see cref="PlatformComponents.AppCard"/>.
+/// Diagonal "جديد" corner ribbon overlaid on the physical-left corner of an unread feed row
+/// (the app runs <c>FlowDirection="RightToLeft"</c>, so "physical left" is the layout's <c>End</c>
+/// edge). A fresh, unread project visibly stands out from the rest of the feed at a glance, and the
+/// ribbon CROSS-FADES OUT (not cuts) when the row flips to read — single tap or "تحديد الكل كمقروء".
+/// Carries a soft light-band pulse: one shared, gated 33 ms ticker (the ChromeValueLabel contract,
+/// see animation-safety.md) drives ONLY the sweep's Opacity — no per-frame TranslateTo*/Storyboard/
+/// RenderTransform churn, zero allocations on the hot path. The ticker path additionally parks on
+/// reduced motion (incl. tray-hidden ambient suspension), on any invisible ancestor, and whenever
+/// the badge is inactive or unloaded, so backgrounded/hidden windows do no render work.
+/// Re-colors itself for light/dark theme and follows the active source's brand palette, same
+/// pattern as <see cref="PlatformComponents.AppCard"/>.
 /// </summary>
 public class NewRibbonBadge : Grid
 {
@@ -23,44 +24,68 @@ public class NewRibbonBadge : Grid
         defaultValue: false,
         propertyChanged: OnIsActiveChanged);
 
-    /// <summary>Whether the owning card is unread — shows the ribbon and (re)starts its shimmer sweep loop.</summary>
+    /// <summary>Whether the owning card is unread — shows the ribbon and (re)starts its light pulse.</summary>
     public bool IsActive
     {
         get => (bool)GetValue(IsActiveProperty);
         set => SetValue(IsActiveProperty, value);
     }
 
+    /// <summary>One pulse period — matches the retired sweep loop (1.5 s crossing + 0.9 s rest).</summary>
+    private const double CycleDurationMs = 2400;
+
+    /// <summary>The band breathes during the first 1.5 s of the cycle, then rests invisible.</summary>
+    private const double PulseDurationMs = 1500;
+
+    /// <summary>Peak opacity of the light band (the old sweep's 0.75 constant).</summary>
+    private const double PulsePeakOpacity = 0.75;
+
+    /// <summary>Length of the deactivation cross-fade (reduced motion collapses it to 0).</summary>
+    private const uint DeactivateFadeMs = 220;
+
+    /// <summary>All loaded badges, pulsed by the single <see cref="_sharedTicker"/>.</summary>
+    private static readonly List<NewRibbonBadge> ActiveBadges = [];
+    private static IDispatcherTimer? _sharedTicker;
+    private static long _startTicks;
+
     private readonly BoxView _background;
     private readonly BoxView _sweep;
     private readonly Label _label;
-    private bool _isAnimating;
+    private bool _registered;
+    private int _deactivationGeneration;
 
     public NewRibbonBadge()
     {
         InputTransparent = true;
         HorizontalOptions = LayoutOptions.Start;
         VerticalOptions = LayoutOptions.Start;
-        WidthRequest = 96;
-        HeightRequest = 26;
+        WidthRequest = 84;
+        HeightRequest = 24;
         IsClippedToBounds = true;
         IsVisible = false;
 
-        // Sits diagonally across the card's physical-left corner, extending slightly past the
-        // edges so the ribbon reads as "wrapping the corner" instead of a floating rectangle.
-        Rotation = -45;
+        // Sits diagonally across the row's inline-start (physical RIGHT in this RTL app) top corner,
+        // kept ENTIRELY inside the card: the v3 rows are full-bleed, so the old "wrap the corner"
+        // offsets (-30/+10) drove half the band outside the row and it read as a ribbon on the
+        // window frame. With the 84×24 box rotated 45° about its centre the half-extent is ≈38 px,
+        // so the centre must sit ≥ ~40 px from the row's top/right edges; +45 (mirrored from the
+        // original -45) makes the band descend across a top-RIGHT corner.
+        Rotation = 45;
         AnchorX = 0.5;
         AnchorY = 0.5;
-        TranslationX = -30;
-        TranslationY = 10;
+        TranslationX = 6;
+        TranslationY = 28;
 
         _background = new BoxView();
 
+        // Static light band at the ribbon's centre; the shared ticker pulses its Opacity only
+        // (no transform animation — the retired TranslateToAsync loop violated animation-safety).
         _sweep = new BoxView
         {
             WidthRequest = 28,
-            Opacity = 0.75,
+            Opacity = 0,
             Color = Color.FromArgb("#66FFFFFF"),
-            TranslationX = -40,
+            HorizontalOptions = LayoutOptions.Center,
         };
 
         _label = new Label
@@ -102,19 +127,18 @@ public class NewRibbonBadge : Grid
         BrandTokens.BrandPalette.PaletteChanged += UpdateThemeColors;
 
         UpdateThemeColors();
-        RestartSweepIfNeeded();
+        Register();
     }
 
     private void OnBadgeUnloaded(object? sender, EventArgs e)
     {
-        _isAnimating = false;
-
         if (Application.Current is { } app)
         {
             app.RequestedThemeChanged -= OnRequestedThemeChanged;
         }
 
         BrandTokens.BrandPalette.PaletteChanged -= UpdateThemeColors;
+        Unregister();
     }
 
     private void OnRequestedThemeChanged(object? sender, AppThemeChangedEventArgs e) => UpdateThemeColors();
@@ -122,8 +146,34 @@ public class NewRibbonBadge : Grid
     private static void OnIsActiveChanged(BindableObject bindable, object oldValue, object newValue)
     {
         var badge = (NewRibbonBadge)bindable;
-        badge.IsVisible = (bool)newValue;
-        badge.RestartSweepIfNeeded();
+        if ((bool)newValue)
+        {
+            badge._deactivationGeneration++;
+            badge.CancelAnimations();
+            badge.Opacity = 1;
+            badge.IsVisible = true;
+        }
+        else
+        {
+            _ = badge.DeactivateWithFadeAsync();
+        }
+    }
+
+    /// <summary>Cross-fade the ribbon out when its row becomes read, then collapse it. A re-activation
+    /// during the fade (container recycling onto another unread project) bumps the generation and wins.</summary>
+    private async Task DeactivateWithFadeAsync()
+    {
+        var generation = ++_deactivationGeneration;
+        var duration = MotionPreferences.IsReducedMotionRequested ? 0u : DeactivateFadeMs;
+
+        await this.FadeToAsync(0, duration, Easing.CubicIn);
+
+        if (generation != _deactivationGeneration || IsActive)
+        {
+            return;
+        }
+
+        IsVisible = false;
     }
 
     private void UpdateThemeColors()
@@ -132,34 +182,113 @@ public class NewRibbonBadge : Grid
         _background.Color = BrandTokens.BrandPalette.Brand;
     }
 
-    private async void RestartSweepIfNeeded()
+    private void Register()
     {
-        if (!IsActive || !IsLoaded || _isAnimating)
+        if (_registered)
         {
             return;
         }
 
-        _isAnimating = true;
+        _registered = true;
+        lock (ActiveBadges)
+        {
+            ActiveBadges.Add(this);
+        }
+
+        EnsureSharedTickerRunning();
+    }
+
+    private void Unregister()
+    {
+        if (!_registered)
+        {
+            return;
+        }
+
+        _registered = false;
+        lock (ActiveBadges)
+        {
+            ActiveBadges.Remove(this);
+        }
+    }
+
+    /// <summary>
+    /// Advances this badge by one shared-ticker frame. Never throws outward: the badge can be
+    /// detached/recycled between ticks, so a stale reference hitting a torn-down handler must be
+    /// tolerated (same contract as ChromeValueLabel.Tick / ShimmerBox.Tick).
+    /// </summary>
+    private void Tick(double nowMs)
+    {
         try
         {
-            while (_isAnimating && IsActive && IsLoaded)
+            if (!IsActive || !IsLoaded || !IsEffectivelyVisible() || MotionPreferences.IsReducedMotionRequested)
             {
-                if (MotionPreferences.IsReducedMotionRequested)
-                {
-                    // Static badge only - no motion - honoring the reduced-motion preference.
-                    _sweep.TranslationX = -40;
-                    await Task.Delay(500);
-                    continue;
-                }
+                _sweep.Opacity = 0;
+                return;
+            }
 
-                _sweep.TranslationX = -40;
-                await _sweep.TranslateToAsync(Width + 40, 0, 1500, Easing.CubicInOut);
-                await Task.Delay(900);
+            var elapsedInCycle = nowMs % CycleDurationMs;
+            if (elapsedInCycle < 0)
+            {
+                elapsedInCycle += CycleDurationMs;
+            }
+
+            // First 62.5%: a sine breath up and back (smooth in, smooth out); the rest: rest state.
+            _sweep.Opacity = elapsedInCycle >= PulseDurationMs
+                ? 0
+                : PulsePeakOpacity * Math.Sin(Math.PI * (elapsedInCycle / PulseDurationMs));
+        }
+        catch (Exception)
+        {
+            // Purely decorative — a stale/disposed badge must never surface as a crash.
+            Unregister();
+        }
+    }
+
+    /// <summary>
+    /// True when this badge and every ancestor up to the page are visible. MAUI maps
+    /// <c>IsVisible=false</c> to a collapsed platform element that KEEPS its children attached,
+    /// so a per-instance gate on this badge's own flag alone would leave hidden ancestors ticking.
+    /// </summary>
+    private bool IsEffectivelyVisible()
+    {
+        for (Element? node = this; node is not null; node = node.Parent)
+        {
+            if (node is VisualElement visual && !visual.IsVisible)
+            {
+                return false;
             }
         }
-        finally
+
+        return true;
+    }
+
+    private static void EnsureSharedTickerRunning()
+    {
+        if (_sharedTicker is not null || Application.Current?.Dispatcher is not { } dispatcher)
         {
-            _isAnimating = false;
+            return;
+        }
+
+        _startTicks = Environment.TickCount64;
+        _sharedTicker = dispatcher.CreateTimer();
+        _sharedTicker.Interval = TimeSpan.FromMilliseconds(33); // ~30fps — smooth enough for a slow pulse.
+        _sharedTicker.Tick += OnSharedTickerTick;
+        _sharedTicker.Start();
+    }
+
+    private static void OnSharedTickerTick(object? sender, EventArgs e)
+    {
+        var nowMs = (double)(Environment.TickCount64 - _startTicks);
+
+        // Backwards so a badge that unregisters itself inside Tick (stale catch) never shifts an
+        // index out from under this loop; no ToArray() snapshot allocation per frame.
+        lock (ActiveBadges)
+        {
+            for (var i = ActiveBadges.Count - 1; i >= 0; i--)
+            {
+                ActiveBadges[i].Tick(nowMs);
+            }
         }
     }
 }

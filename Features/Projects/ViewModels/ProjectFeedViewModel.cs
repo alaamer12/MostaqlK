@@ -615,13 +615,20 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         }
     }
 
+    // NOTE: name stays WITHOUT the "Async" suffix — a synchronous void method named MarkAllReadAsync
+    // makes the RelayCommand generator emit MarkAllReadAsyncCommand, and both layouts bind
+    // MarkAllReadCommand (dev29's async→void rewrite silently broke the footer action).
     [RelayCommand]
-    public void MarkAllReadAsync()
+    public void MarkAllRead()
     {
         foreach (var project in Projects)
         {
-            project.MarkAsRead();
+            // Overlay FIRST: card.MarkAsRead() mutates the very ProjectSummary instance the
+            // snapshot's FeedItem references, so if the store is asked afterwards the row already
+            // reads as seen — Counts.Unread never decrements and the next batch repaints the stale
+            // footer count ("3 غير مقروء" after marking all read).
             _store.ApplyOptimisticRead(project.Project.Source, project.Project.ProjectId);
+            project.MarkAsRead();
         }
 
         UnreadCount = 0;
@@ -634,7 +641,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
             var result = await _projectRepository.MarkAllAsReadAsync(_source);
             if (!result.IsOk)
             {
-                InteractionLogger.Fault("ProjectFeedViewModel.MarkAllReadAsync", new InvalidOperationException(result.Error.InternalMessage));
+                InteractionLogger.Fault("ProjectFeedViewModel.MarkAllRead", new InvalidOperationException(result.Error.InternalMessage));
             }
         });
     }
@@ -652,12 +659,15 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
                 return;
             }
 
-            // Optimistic interaction (plan Step 3): the read flip is LOCAL first — the card and
-            // the store's next-snapshot overlay both go read now; the DB write is deferred behind
-            // the navigate below, so the tap-to-details latency never includes a store round-trip.
+            // Optimistic interaction (plan Step 3): the read flip is LOCAL first — the store's
+            // next-snapshot overlay AND the card both go read now (the overlay must be applied
+            // BEFORE the mutation: it shares the card's ProjectSummary instance, and after
+            // MarkAsRead the store can no longer see that a decrement is due). The DB write is
+            // deferred behind the navigate below, so tap-to-details latency never includes a
+            // store round-trip.
+            _store.ApplyOptimisticRead(card.Project.Source, card.Project.ProjectId);
             card.MarkAsRead();
             UnreadCount = Projects.Count(static p => p.IsUnread);
-            _store.ApplyOptimisticRead(card.Project.Source, card.Project.ProjectId);
 
             var identity = new SourceProjectId(card.Project.Source, card.Project.ProjectId);
             DeferredPreferences.Enqueue($"read:{identity.Source.Value}:{identity.ProjectId}", async () =>
