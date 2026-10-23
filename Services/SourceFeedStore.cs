@@ -129,13 +129,13 @@ public sealed record FeedSnapshot
 /// </summary>
 public interface ISourceFeedDataProvider
 {
-    Task<Result<IReadOnlyList<ProjectSummary>>> GetRecentAsync(SourceId source, int limit, CancellationToken cancellationToken);
+    public Task<Result<IReadOnlyList<ProjectSummary>>> GetRecentAsync(SourceId source, int limit, CancellationToken cancellationToken);
 
-    Task<Result<IReadOnlyList<ProjectSummary>>> SearchAsync(SourceId source, string query, int limit, CancellationToken cancellationToken);
+    public Task<Result<IReadOnlyList<ProjectSummary>>> SearchAsync(SourceId source, string query, int limit, CancellationToken cancellationToken);
 
-    Task<Result<(int Tracked, int Unread)>> CountTrackedAsync(SourceId source, CancellationToken cancellationToken);
+    public Task<Result<(int Tracked, int Unread)>> CountTrackedAsync(SourceId source, CancellationToken cancellationToken);
 
-    Task<Result<int>> CountAddedTodayAsync(SourceId source, CancellationToken cancellationToken);
+    public Task<Result<int>> CountAddedTodayAsync(SourceId source, CancellationToken cancellationToken);
 }
 
 /// <summary>

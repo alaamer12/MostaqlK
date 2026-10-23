@@ -14,23 +14,23 @@ namespace MostaqlK.Core.Sources;
 public interface ISourceSettingsSectionViewModel
 {
     /// <summary>Section header in Arabic (mirrors <see cref="ISourceSettingsSectionContribution.HeaderAr"/>).</summary>
-    string HeaderAr { get; }
+    public string HeaderAr { get; }
 
     /// <summary>Whether this section carries the enrichment-retry toggle row.</summary>
-    bool HasRetryToggle { get; }
+    public bool HasRetryToggle { get; }
 
     /// <summary>Label beside the retry toggle when present.</summary>
-    string RetryToggleLabelAr { get; }
+    public string RetryToggleLabelAr { get; }
 
     /// <summary>Retry toggle state; the setter persists it (per-source, through <c>ISettingsRepository</c>).</summary>
-    bool EnrichmentRetryEnabled { get; set; }
+    public bool EnrichmentRetryEnabled { get; set; }
 
     /// <summary>Whether this section carries the session-state read-out row.</summary>
-    bool HasSessionRow { get; }
+    public bool HasSessionRow { get; }
 
     /// <summary>Label of the session-state row when present.</summary>
-    string SessionRowLabelAr { get; }
+    public string SessionRowLabelAr { get; }
 
     /// <summary>Descriptor-derived session-state sentence shown on the session row.</summary>
-    string SessionStateText { get; }
+    public string SessionStateText { get; }
 }

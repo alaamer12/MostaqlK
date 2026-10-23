@@ -77,9 +77,9 @@ public sealed class WinAppSdkVariation : IToastVariation
                     // details page, palette, feed and live pipeline consumers all agree with
                     // what the user clicked. No-op when already on that source.
                     MostaqlK.Services.SourceMorph.Apply(
-                        services.GetService<MostaqlK.Core.Sources.ISettingsRepository>(),
-                        services.GetService<Services.GlobalAppStatusService>(),
-                        services.GetService<MostaqlK.UI.DesignSystem.BrandTokens.IBrandTokenProvider>(),
+                        services?.GetService<MostaqlK.Core.Sources.ISettingsRepository>(),
+                        services?.GetService<Services.GlobalAppStatusService>(),
+                        services?.GetService<MostaqlK.UI.DesignSystem.BrandTokens.IBrandTokenProvider>(),
                         source);
 
                     await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(source, projectId));
@@ -108,7 +108,7 @@ public sealed class WinAppSdkVariation : IToastVariation
                 ? BuildIndividualToast(projects[0])
                 : BuildGroupedToast(projects);
 
-            // AppNotificationBuilder doesn't have a direct Lang property in the builder, 
+            // AppNotificationBuilder doesn't have a direct Lang property in the builder,
             // but we can ensure the XML carries it for proper RTL layout.
             var notification = builder.BuildNotification();
             var xml = notification.Payload;
@@ -165,7 +165,6 @@ public sealed class WinAppSdkVariation : IToastVariation
 
         return builder;
     }
-
 
     private static AppNotificationBuilder BuildGroupedToast(IReadOnlyList<ProjectSummary> projects)
     {
