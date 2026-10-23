@@ -199,6 +199,13 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Single-letter rail glyph for the header caption's tile.</summary>
     public string ActiveSourceGlyph => ActiveDescriptor?.RailGlyph ?? "•";
 
+    /// <summary>Baked tile icon for the header caption's tile (descriptor data; null → letter fallback).</summary>
+    public Microsoft.Maui.Controls.ImageSource? ActiveSourceGlyphImage =>
+        MostaqlK.UI.PlatformComponents.SourceRail.SourceGlyphImage.TryLoad(ActiveDescriptor);
+
+    /// <summary>The letter tile shows only when the source's baked icon is absent.</summary>
+    public bool ShowsSourceGlyphLetter => ActiveSourceGlyphImage is null;
+
     /// <summary>
     /// "جلسة الإثراء" row shows only when the source's descriptor marks session-gated enrichment.
     /// A source that enriches fully without a session renders no row (the module's own contributed
@@ -363,6 +370,8 @@ public sealed partial class SettingsViewModel : ObservableObject
                  {
                      nameof(ActiveSourceName),
                      nameof(ActiveSourceGlyph),
+                     nameof(ActiveSourceGlyphImage),
+                     nameof(ShowsSourceGlyphLetter),
                      nameof(ShowSessionEnrichmentRow),
                      nameof(ShowSupervisedTypesRow),
                      nameof(ShowBudgetCurrencyRow),

@@ -126,6 +126,14 @@ public sealed class SourceSwitchTiles : ContentView
             HeightRequest = 44,
         };
 
+        // Baked tile icon when the source ships one (descriptor data, never a source-id branch);
+        // the art is background-free, so the brand fill painted below stays the live backdrop and
+        // keeps following theme/morph repaints. No icon file → the letter glyph as before.
+        var glyphIcon = SourceGlyphImage.TryLoad(descriptor);
+        View glyphContent = glyphIcon is null
+            ? glyphLabel
+            : new Image { Source = glyphIcon, Aspect = Aspect.AspectFit };
+
         var glyphSquare = new Border
         {
             WidthRequest = 44,
@@ -133,7 +141,7 @@ public sealed class SourceSwitchTiles : ContentView
             StrokeThickness = 0,
             BackgroundColor = ResolveOwnBrandFill(descriptor),
             StrokeShape = new RoundRectangle { CornerRadius = 12 },
-            Content = glyphLabel,
+            Content = glyphContent,
             HorizontalOptions = IconOnly ? LayoutOptions.Center : LayoutOptions.Start,
             VerticalOptions = LayoutOptions.Center,
         };

@@ -28,6 +28,8 @@ public sealed class NafezlySource : ISourceDescriptor
 
     public string RailGlyph => "ن";
 
+    public string? RailIconImageName => "icon_nafezly";
+
     // Seeded to the locked nafezly pair-set (mockups README): light #FFA200/#9A6100/#FFF4DE/#3a2a00
     // + links, and the four dark counterparts #FFB84D/#FFB84D/#24FFB84D/#2a1d00 (B1-core, contract §3).
     public BrandTokenSet Brands { get; } = new("#FFA200", "#9A6100", "#FFF4DE", "#3a2a00", "#9A6100", "#FFB84D", "#FFB84D", "#FFB84D", "#24FFB84D", "#2a1d00");

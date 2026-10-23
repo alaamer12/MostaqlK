@@ -151,12 +151,23 @@
                             HeightRequest="20"
                             VerticalOptions="Center">
                         <Border.StrokeShape><RoundRectangle CornerRadius="6" /></Border.StrokeShape>
-                        <Label Text="{Binding ActiveSourceGlyph}"
-                               FontFamily="TajawalBold"
-                               FontSize="10"
-                               TextColor="{DynamicResource OnBrand}"
-                               HorizontalOptions="Center"
-                               VerticalOptions="Center" />
+                        <!-- Baked source icon when the active descriptor ships one (background-free
+                             art over the live Brand fill); the letter glyph is the no-icon fallback. -->
+                        <Grid>
+                            <Image Source="{Binding ActiveSourceGlyphImage}"
+                                   Aspect="AspectFit"
+                                   WidthRequest="16"
+                                   HeightRequest="16"
+                                   HorizontalOptions="Center"
+                                   VerticalOptions="Center" />
+                            <Label Text="{Binding ActiveSourceGlyph}"
+                                   IsVisible="{Binding ShowsSourceGlyphLetter}"
+                                   FontFamily="TajawalBold"
+                                   FontSize="10"
+                                   TextColor="{DynamicResource OnBrand}"
+                                   HorizontalOptions="Center"
+                                   VerticalOptions="Center" />
+                        </Grid>
                     </Border>
                     <Label Text="{Binding ActiveSourceName}"
                            FontFamily="TajawalBold"

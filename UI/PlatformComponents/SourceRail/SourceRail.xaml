@@ -56,17 +56,16 @@
         <!-- TOP: brand mark · separator · source tiles · separator · section nav · contributions -->
         <VerticalStackLayout Grid.Column="0" Grid.Row="0" Spacing="8" Padding="0,16,0,0">
 
-            <!-- App mark: 40px rounded tile filled with the ACTIVE brand (mockup: background = brand);
-                 in the mockup — the mark re-tints on every morph). -->
+            <!-- App mark: 40px tile showing the MostaqlK logo (the circular blue/cream "ک" mark,
+                 Resources/Images/logo.png, loaded by path in code-behind). Transparent tile — the
+                 logo carries its own colors, so it does not ride the brand fill. -->
             <Border WidthRequest="40" HeightRequest="40" Margin="0,0,0,4"
                     HorizontalOptions="Center" StrokeThickness="0"
-                    BackgroundColor="{DynamicResource Brand}">
+                    BackgroundColor="Transparent">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="12" />
                 </Border.StrokeShape>
-                <Label Text="M" FontFamily="TajawalBold" FontSize="18"
-                       TextColor="{DynamicResource OnBrand}"
-                       HorizontalOptions="Center" VerticalOptions="Center" />
+                <Image x:Name="BrandMarkImage" Aspect="AspectFit" Margin="2" />
             </Border>
 
             <BoxView WidthRequest="32" HeightRequest="1" Margin="0,0,0,4" HorizontalOptions="Center"

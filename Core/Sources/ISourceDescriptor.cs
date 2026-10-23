@@ -28,6 +28,16 @@ public interface ISourceDescriptor
     /// <summary>Single-letter rail tile glyph ("م").</summary>
     public string RailGlyph { get; }
 
+    /// <summary>
+    /// Base name of the source's baked tile icon (e.g. <c>"icon_mostaql"</c>, loaded as
+    /// <c>{name}.scale-200.png</c> from the app directory — the same Resizetizer output the
+    /// <c>AppIcon</c> unit reads). Tiles show the icon when the file exists and fall back to
+    /// <see cref="RailGlyph"/> otherwise, so a source without art is never blank. The art
+    /// carries NO square background: tiles keep painting their own brand fill underneath.
+    /// Default <c>null</c> — a module opts in by overriding.
+    /// </summary>
+    public string? RailIconImageName => null;
+
     public BrandTokenSet Brands { get; }
 
     public int DefaultPollIntervalSeconds { get; }

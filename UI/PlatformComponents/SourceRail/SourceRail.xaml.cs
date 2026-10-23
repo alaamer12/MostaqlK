@@ -83,6 +83,8 @@ public partial class SourceRail : ContentView
     {
         InitializeComponent();
 
+        LoadBrandMark();
+
         // Hover tooltips + accessibility names, straight from the mockup `.tip` strings — the
         // icon-only rail must stay as scannable as the labelled sidebar it replaces (contract §11.11).
         AttachLabels(ProjectsHit, "المشاريع");
@@ -114,6 +116,22 @@ public partial class SourceRail : ContentView
     {
         ToolTipProperties.SetText(target, labelAr);
         SemanticProperties.SetDescription(target, labelAr);
+    }
+
+    /// <summary>
+    /// Paints the app's circular logo into the rail's top brand mark. <c>logo.png</c> is deployed as
+    /// a raw file under <c>Resources/Images/</c> (it is deliberately excluded from the MauiImage
+    /// resizetizer so the toast sender can reference it by path), so — like the toasts and the
+    /// <c>AppIcon</c> rasters — it is loaded by absolute path with a file-existence guard rather
+    /// than by resource name (which silently fails on this unpackaged Windows build).
+    /// </summary>
+    private void LoadBrandMark()
+    {
+        var logoPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Resources", "Images", "logo.png");
+        if (File.Exists(logoPath))
+        {
+            BrandMarkImage.Source = ImageSource.FromFile(logoPath);
+        }
     }
 
     /// <summary>Wire the mockup's 44px hover box onto one rail cell (see the constructor call).</summary>

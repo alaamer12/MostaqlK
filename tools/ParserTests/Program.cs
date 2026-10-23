@@ -500,6 +500,7 @@ public static class Program
         Check("DisplayNameAr تنفيذلي", d.DisplayNameAr == "نفذلي", d.DisplayNameAr);
         Check("DisplayNameLatin Nafezly", d.DisplayNameLatin == "Nafezly", d.DisplayNameLatin);
         Check("RailGlyph ن", d.RailGlyph == "ن", d.RailGlyph);
+        Check("RailIconImageName icon_nafezly", d.RailIconImageName == "icon_nafezly", d.RailIconImageName ?? "null");
         Check("Domain nafezly.com", d.Domain == "nafezly.com", d.Domain);
         Check("currency suffix $", d.CurrencySuffix == "$", d.CurrencySuffix);
         Check("cadence 60s", d.DefaultPollIntervalSeconds == 60, $"{d.DefaultPollIntervalSeconds}");
@@ -708,6 +709,8 @@ public static class Program
 
         Check("nafezly capability HasExecutorInfo true", nafezly.Capabilities.HasExecutorInfo);
         Check("mostaql capability HasExecutorInfo false", !MostaqlSource.Instance.Capabilities.HasExecutorInfo);
+        Check("mostaql RailIconImageName icon_mostaql", MostaqlSource.Instance.RailIconImageName == "icon_mostaql",
+            MostaqlSource.Instance.RailIconImageName ?? "null");
     }
 
     /// <summary>
