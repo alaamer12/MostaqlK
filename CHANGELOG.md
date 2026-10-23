@@ -51,6 +51,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+### Fixed (dev42 — tall rail glyphs un-clipped + ribbon chrome surface)
+- **Theme-toggle moon was "half eaten" at the bottom.** `TintableIcon.ApplyGeometry` scaled every glyph by its viewBox WIDTH and forced a square `Size×HeightRequest`, but the FontAwesome marks are not all square — moon is 384×512, bell 448×512 — so a tall glyph rendered ~22 px inside an 18 px box and its bottom was clipped. Now each glyph fits the `Size` box preserving its true aspect (scale by the longer edge; the record gained a `ViewBoxHeight` defaulting to 512), so square icons are pixel-unchanged and the moon/bell show whole.
+- The "جديد" ribbon now carries the today-counter's brushed-metal **chrome on its background surface** (one reused WinUI `LinearGradientBrush` painted into the native `BoxView`→`Border`, endpoints swept by the existing shared gated 33 ms ticker, `ChromeValueLabel` contract; parks on reduced-motion/hidden/inactive, zero per-frame allocation), replacing the retired light-band opacity pulse. Windows-only via a `NewRibbonBadge.Windows.cs` partial; other platforms keep the flat brand fill.
+- Gates: Windows build 0 warnings / 0 errors; live-verified the un-clipped moon on the running app. 1.0.4.dev42.
+
 ### Added (dev41 — real source icons on the tiles)
 - Mostaql and Nafezly now ship real brand marks instead of the single-letter tiles. New assets `Resources/Images/icon_mostaql.svg` (white ring) + `icon_nafezly.svg` (white dot + open ring), converted from the owner-supplied art to **fill-only geometry** (stroked arcs → annulus/annular-sector paths) so the MAUI Resizetizer bakes them faithfully; the baked PNGs were pixel-verified (mostaql center-row alpha transitions 4 + 21.2% coverage = true transparent-hole donut; nafezly dot+arc present; both corners transparent).
 - Per the owner note the **decorative square background was stripped** from the shipped SVGs: the brand square stays painted live from `descriptor.Brands` (`ResolveOwnBrandFill` / settings `DynamicResource Brand`), so the icons keep following theme flips and source morphs. The c2pa provenance blob in the source files was dropped too.

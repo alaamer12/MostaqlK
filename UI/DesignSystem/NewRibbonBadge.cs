@@ -7,15 +7,17 @@ namespace MostaqlK.UI.DesignSystem;
 /// (the app runs <c>FlowDirection="RightToLeft"</c>, so "physical left" is the layout's <c>End</c>
 /// edge). A fresh, unread project visibly stands out from the rest of the feed at a glance, and the
 /// ribbon CROSS-FADES OUT (not cuts) when the row flips to read — single tap or "تحديد الكل كمقروء".
-/// Carries a soft light-band pulse: one shared, gated 33 ms ticker (the ChromeValueLabel contract,
-/// see animation-safety.md) drives ONLY the sweep's Opacity — no per-frame TranslateTo*/Storyboard/
-/// RenderTransform churn, zero allocations on the hot path. The ticker path additionally parks on
-/// reduced motion (incl. tray-hidden ambient suspension), on any invisible ancestor, and whenever
-/// the badge is inactive or unloaded, so backgrounded/hidden windows do no render work.
+/// Its brand-colored surface carries the SAME brushed-metal "chrome" sheen as the today-counter
+/// (<see cref="ChromeValueLabel"/> / <c>projects.html .fx-chrome</c>): a specular band swept across
+/// the fill, painted into the native surface by one reused WinUI gradient brush and advanced by a
+/// single shared, gated 33 ms ticker (animation-safety.md — no per-frame TranslateTo*/Storyboard/
+/// RenderTransform churn, zero allocations on the hot path). The Windows half lives in
+/// <c>NewRibbonBadge.Windows.cs</c>; on platforms without that partial the ribbon is a plain flat
+/// brand fill (no sheen), so the shared file never branches on a platform.
 /// Re-colors itself for light/dark theme and follows the active source's brand palette, same
 /// pattern as <see cref="PlatformComponents.AppCard"/>.
 /// </summary>
-public class NewRibbonBadge : Grid
+public partial class NewRibbonBadge : Grid
 {
     public static readonly BindableProperty IsActiveProperty = BindableProperty.Create(
         nameof(IsActive),
@@ -24,34 +26,18 @@ public class NewRibbonBadge : Grid
         defaultValue: false,
         propertyChanged: OnIsActiveChanged);
 
-    /// <summary>Whether the owning card is unread — shows the ribbon and (re)starts its light pulse.</summary>
+    /// <summary>Whether the owning card is unread — shows the ribbon and (re)starts its chrome sweep.</summary>
     public bool IsActive
     {
         get => (bool)GetValue(IsActiveProperty);
         set => SetValue(IsActiveProperty, value);
     }
 
-    /// <summary>One pulse period — matches the retired sweep loop (1.5 s crossing + 0.9 s rest).</summary>
-    private const double CycleDurationMs = 2400;
-
-    /// <summary>The band breathes during the first 1.5 s of the cycle, then rests invisible.</summary>
-    private const double PulseDurationMs = 1500;
-
-    /// <summary>Peak opacity of the light band (the old sweep's 0.75 constant).</summary>
-    private const double PulsePeakOpacity = 0.75;
-
     /// <summary>Length of the deactivation cross-fade (reduced motion collapses it to 0).</summary>
     private const uint DeactivateFadeMs = 220;
 
-    /// <summary>All loaded badges, pulsed by the single <see cref="_sharedTicker"/>.</summary>
-    private static readonly List<NewRibbonBadge> ActiveBadges = [];
-    private static IDispatcherTimer? _sharedTicker;
-    private static long _startTicks;
-
-    private readonly BoxView _background;
-    private readonly BoxView _sweep;
+    private readonly RibbonSurface _background;
     private readonly Label _label;
-    private bool _registered;
     private int _deactivationGeneration;
 
     public NewRibbonBadge()
@@ -74,17 +60,10 @@ public class NewRibbonBadge : Grid
         TranslationX = 20;
         TranslationY = 12;
 
-        _background = new BoxView();
-
-        // Static light band at the ribbon's centre; the shared ticker pulses its Opacity only
-        // (no transform animation — the retired TranslateToAsync loop violated animation-safety).
-        _sweep = new BoxView
-        {
-            WidthRequest = 28,
-            Opacity = 0,
-            Color = Color.FromArgb("#66FFFFFF"),
-            HorizontalOptions = LayoutOptions.Center,
-        };
+        // The chrome surface: a BoxView the Windows half paints with the animated gradient brush.
+        // The shared file only ever sets its flat brand Color (the non-Windows fill and the
+        // source-of-truth the Windows brush samples its base ink from).
+        _background = new RibbonSurface(this);
 
         _label = new Label
         {
@@ -100,10 +79,10 @@ public class NewRibbonBadge : Grid
         };
 
         Children.Add(_background);
-        Children.Add(_sweep);
         Children.Add(_label);
 
         UpdateThemeColors();
+        InitializeChrome();
 
         Loaded += OnBadgeLoaded;
         Unloaded += OnBadgeUnloaded;
@@ -125,7 +104,7 @@ public class NewRibbonBadge : Grid
         BrandTokens.BrandPalette.PaletteChanged += UpdateThemeColors;
 
         UpdateThemeColors();
-        Register();
+        RegisterChrome();
     }
 
     private void OnBadgeUnloaded(object? sender, EventArgs e)
@@ -136,7 +115,7 @@ public class NewRibbonBadge : Grid
         }
 
         BrandTokens.BrandPalette.PaletteChanged -= UpdateThemeColors;
-        Unregister();
+        UnregisterChrome();
     }
 
     private void OnRequestedThemeChanged(object? sender, AppThemeChangedEventArgs e) => UpdateThemeColors();
@@ -177,116 +156,27 @@ public class NewRibbonBadge : Grid
     private void UpdateThemeColors()
     {
         // Brand fill for the active source + current theme (was the inline Mostaql light/dark pair).
+        // On Windows this Color write is what the chrome brush samples its base ink from — the
+        // appended BoxViewHandler mapping re-paints the (re-colored) gradient in the same pass.
         _background.Color = BrandTokens.BrandPalette.Brand;
     }
 
-    private void Register()
-    {
-        if (_registered)
-        {
-            return;
-        }
-
-        _registered = true;
-        lock (ActiveBadges)
-        {
-            ActiveBadges.Add(this);
-        }
-
-        EnsureSharedTickerRunning();
-    }
-
-    private void Unregister()
-    {
-        if (!_registered)
-        {
-            return;
-        }
-
-        _registered = false;
-        lock (ActiveBadges)
-        {
-            ActiveBadges.Remove(this);
-        }
-    }
-
     /// <summary>
-    /// Advances this badge by one shared-ticker frame. Never throws outward: the badge can be
-    /// detached/recycled between ticks, so a stale reference hitting a torn-down handler must be
-    /// tolerated (same contract as ChromeValueLabel.Tick / ShimmerBox.Tick).
+    /// The chrome surface. A dedicated <see cref="BoxView"/> subclass so the Windows half's
+    /// appended <c>BoxViewHandler</c> mapping can recognize exactly this element (and reach its
+    /// owning badge) without touching every other <c>BoxView</c> in the app — the same
+    /// "recognize the instance, re-apply the brush" seam <see cref="ChromeValueLabel"/> uses for
+    /// <c>Label.TextColor</c>. Cross-platform it behaves as a plain BoxView.
     /// </summary>
-    private void Tick(double nowMs)
+    private sealed class RibbonSurface : BoxView
     {
-        try
-        {
-            if (!IsActive || !IsLoaded || !IsEffectivelyVisible() || MotionPreferences.IsReducedMotionRequested)
-            {
-                _sweep.Opacity = 0;
-                return;
-            }
+        public RibbonSurface(NewRibbonBadge owner) => Owner = owner;
 
-            var elapsedInCycle = nowMs % CycleDurationMs;
-            if (elapsedInCycle < 0)
-            {
-                elapsedInCycle += CycleDurationMs;
-            }
-
-            // First 62.5%: a sine breath up and back (smooth in, smooth out); the rest: rest state.
-            _sweep.Opacity = elapsedInCycle >= PulseDurationMs
-                ? 0
-                : PulsePeakOpacity * Math.Sin(Math.PI * (elapsedInCycle / PulseDurationMs));
-        }
-        catch (Exception)
-        {
-            // Purely decorative — a stale/disposed badge must never surface as a crash.
-            Unregister();
-        }
+        public NewRibbonBadge Owner { get; }
     }
 
-    /// <summary>
-    /// True when this badge and every ancestor up to the page are visible. MAUI maps
-    /// <c>IsVisible=false</c> to a collapsed platform element that KEEPS its children attached,
-    /// so a per-instance gate on this badge's own flag alone would leave hidden ancestors ticking.
-    /// </summary>
-    private bool IsEffectivelyVisible()
-    {
-        for (Element? node = this; node is not null; node = node.Parent)
-        {
-            if (node is VisualElement visual && !visual.IsVisible)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private static void EnsureSharedTickerRunning()
-    {
-        if (_sharedTicker is not null || Application.Current?.Dispatcher is not { } dispatcher)
-        {
-            return;
-        }
-
-        _startTicks = Environment.TickCount64;
-        _sharedTicker = dispatcher.CreateTimer();
-        _sharedTicker.Interval = TimeSpan.FromMilliseconds(33); // ~30fps — smooth enough for a slow pulse.
-        _sharedTicker.Tick += OnSharedTickerTick;
-        _sharedTicker.Start();
-    }
-
-    private static void OnSharedTickerTick(object? sender, EventArgs e)
-    {
-        var nowMs = (double)(Environment.TickCount64 - _startTicks);
-
-        // Backwards so a badge that unregisters itself inside Tick (stale catch) never shifts an
-        // index out from under this loop; no ToArray() snapshot allocation per frame.
-        lock (ActiveBadges)
-        {
-            for (var i = ActiveBadges.Count - 1; i >= 0; i--)
-            {
-                ActiveBadges[i].Tick(nowMs);
-            }
-        }
-    }
+    // Chrome seams — implemented in NewRibbonBadge.Windows.cs; no-ops where no partial exists.
+    partial void InitializeChrome();
+    partial void RegisterChrome();
+    partial void UnregisterChrome();
 }

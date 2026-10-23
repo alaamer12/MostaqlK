@@ -65,16 +65,23 @@ public class TintableIcon : ContentView
             return;
         }
 
-        var scale = Size / glyph.ViewBox;
+        // Fit the glyph into a Size box PRESERVING its aspect ratio. FontAwesome solid icons are
+        // not all square (moon is 384 wide, bell 448 wide, both 512 tall): scaling by the width
+        // alone — the old single ViewBox used for both axes — made a tall glyph render taller than
+        // the Size-tall box and clipped its bottom (the moon looked "half eaten"). Scale by the
+        // LONGER edge so the whole glyph fits; square icons are unaffected (longer edge == width).
+        var scale = Size / Math.Max(glyph.ViewBoxWidth, glyph.ViewBoxHeight);
         var figures = new PathFigureCollection();
         PathFigureCollectionConverter.ParseStringToPathFigureCollection(figures, glyph.Path);
         _path.Data = new PathGeometry { Figures = figures };
         _path.RenderTransform = new ScaleTransform { ScaleX = scale, ScaleY = scale };
-        WidthRequest = Size;
-        HeightRequest = Size;
+        WidthRequest = glyph.ViewBoxWidth * scale;
+        HeightRequest = glyph.ViewBoxHeight * scale;
     }
 
-    private readonly record struct Glyph(string Path, double ViewBox);
+    // ViewBoxWidth is the glyph's native width; FA solid icons are 512 tall, so the height
+    // defaults to that and only the (narrower) non-square glyphs need no extra argument.
+    private readonly record struct Glyph(string Path, double ViewBoxWidth, double ViewBoxHeight = 512);
 
     // FA 6.7.2 Free solid path data, identical sources to the icon_*.svg rasters AppIcon bakes.
     private static readonly Dictionary<AppIconGlyph, Glyph> GlyphData = new()
