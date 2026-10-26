@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- White ring (outer r=60, inner r=30 around the 100,100 center) as one fill-only path:
+       the inner circle is wound opposite to the outer so the hole survives any fill rule.
+       The square brand background is intentionally NOT baked here — the source tiles paint
+       it live from descriptor.Brands, so the icon follows theme/morph repaints. -->
+  <path fill="#FFFFFF" d="M 40 100 A 60 60 0 1 0 160 100 A 60 60 0 1 0 40 100 Z M 70 100 A 30 30 0 1 1 130 100 A 30 30 0 1 1 70 100 Z"/>
+</svg>

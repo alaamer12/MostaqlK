@@ -1,23 +1,23 @@
 # Migrations
 
-V1 ships with a single bootstrap ("version 1") migration, embedded directly as a SQL string
-inside `SqliteConnectionFactory.InitialSchemaSql` and applied on first connection to a fresh
-database file. The applied version is tracked via `PRAGMA user_version` (no separate
-`schema_migrations` table is needed for a single migration).
+Numbered schema steps tracked via `PRAGMA user_version`, executed by the stepwise runner in
+`SqliteConnectionFactory.EnsureSchema`. Each `.sql` file here is the readable reference copy;
+the executable copy is the matching `MigrationNNNN_*Sql` constant in that class (keep the two
+byte-identical). A step runs only when the database sits exactly at its predecessor version,
+inside its own transaction, and `user_version` is written after the last step — so re-runs are
+no-ops, a failed step leaves the version untouched, and a file newer than this build still
+throws `DatabaseSchemaException` (no silent best-effort drift).
 
-The bootstrap migration creates:
-- `projects` — write-once project rows (`project_id` primary key; `INSERT OR IGNORE` /
-  `INSERT ... ON CONFLICT DO UPDATE` only fills in previously-unset enrichment fields)
-- `owners` — client/employer profiles with selective-update semantics (`last_seen_at` + stats
-  only)
-- `project_skills` — many-to-many project/skill rows
-- `assets` — attachment metadata only (no binary content)
-- `projects_fts` — standalone FTS5 virtual table for bilingual (Arabic/English) search,
-  kept in sync explicitly by `ProjectRepository` (delete + re-insert) rather than via triggers
+| Version | File | What it does |
+|---------|------|--------------|
+| 1 (bootstrap) | `0001_initial_schema.sql` (historical reference) | V1 tables: `projects` (write-once rows), `owners` (selective-update stats), `project_skills`, `assets` (metadata only), `discovery_backlog`, `projects_fts` (standalone FTS5 kept in sync explicitly by `ProjectRepository`). |
+| 2 | `0002_add_source_identity.sql` | Source identity: `source_id` + `site_project_id` on `projects`, `source_id` on `owners`/`discovery_backlog`, unique `(source_id, site_project_id)`. Mostaql's internal-id band is 0, so existing rowids (and every child/FTS reference to them) stay valid untouched. |
+| 3 | `0003_add_source_unique_keys.sql` | Enforces composite identity in storage: unique `(source_id, owner_id)` on owners; backlog rebuilt keyed `(source_id, project_id)` — band disjointness alone must not be the only guard against cross-source overwrite. |
+| 4 | `0004_add_executor.sql` | Adds the nafezly-only `executor_name` column on `projects` (منفذ المشروع). Additive nullable `TEXT`; no rebuild/drop, FTS untouched (the UI never searches executors). Existing rows keep NULL; enrichment fills it going forward. |
 
-If a future version needs a real schema change, add a new numbered `.sql` file here
-(e.g. `0002_add_x.sql`) as a readable reference, bump `SqliteConnectionFactory
-.CurrentSchemaVersion`, and extend `EnsureSchema` with an actual migration step instead of
-throwing `DatabaseSchemaException` for that version transition. Until then, any unexpected
-`PRAGMA user_version` value causes `DatabaseSchemaException` at startup (no silent
-best-effort schema drift).
+Fresh installs never replay steps: `InitialSchemaSql` (version 0) already lands at the current
+`CurrentSchemaVersion`, and the numbered steps only run for databases that predate it.
+
+Adding a step: create `NNNN_name.sql` here, add the matching constant + `else if
+(currentVersion == N-1)` branch in `EnsureSchema`, bump `CurrentSchemaVersion`, extend
+`tools/DbMigrationTests` with an upgrade assertion, and update the table above.

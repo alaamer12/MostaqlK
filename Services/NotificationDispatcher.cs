@@ -66,9 +66,24 @@ public sealed class NotificationDispatcher : INotificationDispatcher
         // jumps by the entire stale batch instead of by just the new item. A project becomes
         // unread the instant it's enriched, so the badge must count it right here, immediately,
         // independent of whenever its toast happens to be batched/shown.
+        //
+        // The flyout's history is written in the SAME place, for the same reason: it used to be
+        // appended only on the grouper's flush, so opening the bell during the EndOfMinute window
+        // showed a non-zero badge over an EMPTY recent list (the exact reported "empty dropdown").
         if (projects.Count > 0)
         {
+            lock (_historyGate)
+            {
+                // Newest first, capped at MaxHistory (same ordering the flush used to provide).
+                _history.InsertRange(0, projects);
+                if (_history.Count > MaxHistory)
+                {
+                    _history.RemoveRange(MaxHistory, _history.Count - MaxHistory);
+                }
+            }
+
             _globalStatus.IncrementUnreadNotificationCount(projects.Count);
+            HistoryChanged?.Invoke();
         }
 
         return Task.FromResult(Result<bool>.Ok(true));
@@ -78,23 +93,9 @@ public sealed class NotificationDispatcher : INotificationDispatcher
     {
         InteractionLogger.Mark("NotificationDispatcher.HandleFlush", "A", new { Count = batch.Count });
 
-        lock (_historyGate)
-        {
-            // Newest first, capped at MaxHistory.
-            _history.InsertRange(0, batch);
-            if (_history.Count > MaxHistory)
-            {
-                _history.RemoveRange(MaxHistory, _history.Count - MaxHistory);
-            }
-        }
-
-        // NOTE: the unread badge is now incremented from `NotifyNewProjectsAsync`, the instant a
-        // project is queued for notification, not from here - `HandleFlush` only fires whenever
-        // the toast grouper decides a batch is ready, which for the default EndOfMinute mode can
-        // be up to a minute after the project actually became unread (see the FIX comment in
-        // `NotifyNewProjectsAsync` for the full story on the "mark all as read -> 0 -> jumps to 9"
-        // bug this decoupling caused). Incrementing here too would double-count every project.
-        HistoryChanged?.Invoke();
+        // History + unread badge are written by NotifyNewProjectsAsync the instant a project
+        // becomes unread (see the FIX comment there); this handler owns toast delivery only.
+        // Writing them here as well would double-count every flushed project.
 
         // Fire-and-forget: the flush originates from either a background timer callback or the
         // synchronous Add() call above, neither of which can usefully await the toast delivery.

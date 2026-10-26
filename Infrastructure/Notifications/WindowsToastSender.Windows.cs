@@ -1,8 +1,8 @@
+using Microsoft.Windows.AppNotifications;
 using MostaqlK.Core;
 using MostaqlK.Models;
 using MostaqlK.Services;
 using MostaqlK.Services.Diagnostics;
-using Microsoft.Windows.AppNotifications;
 
 namespace MostaqlK.Infrastructure.Notifications;
 
@@ -46,12 +46,12 @@ public sealed class WindowsToastSender : INotificationSender
 
         if (!isReady || !isInBackground)
         {
-            InteractionLogger.Mark("WindowsToastSender.SendAsync", "C", new 
-            { 
-                Reason = "skip-not-in-background-or-not-ready", 
-                IsReady = isReady, 
+            InteractionLogger.Mark("WindowsToastSender.SendAsync", "C", new
+            {
+                Reason = "skip-not-in-background-or-not-ready",
+                IsReady = isReady,
                 IsInBackground = isInBackground,
-                Count = projects.Count 
+                Count = projects.Count
             });
             return Task.FromResult(Result<bool>.Ok(true));
         }

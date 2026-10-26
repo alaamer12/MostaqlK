@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar" data-source="nafezly"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mostaqlk — تفاصيل المشروع (v3 source-morph · نفذلي)</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+        darkMode: 'class',
+        theme: { extend: { colors: {
+            primary: '#3b82f6', secondary: '#64748b', background: '#f8fafc', surface: '#ffffff',
+        } } }
+    };
+</script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<style data-purpose="custom-styles">
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
+    body { font-family: 'Tajawal', sans-serif; }
+
+    /* Same identity system as projects.html — this page is shown in Nafezly mode:
+       the ENTIRE app, chrome included, wears the source's brand. */
+    :root {
+        --accent-positive: #2E9E6B;
+        --bg-app: #f1f5f9; --surface: #ffffff; --surface-2: #f8fafc;
+        --ink-1: #0f172a; --ink-2: #475569; --ink-3: #64748b; --line: #e2e8f0;
+    }
+    html[data-source="mostaql"] { --brand: #2386C8; --brand-ink: #1A6DA6; --brand-soft: #EFF6FB; --brand-on: #ffffff; }
+    html[data-source="nafezly"] { --brand: #FFA200; --brand-ink: #9A6100; --brand-soft: #FFF4DE; --brand-on: #3a2a00; }
+    html.dark {
+        --accent-positive: #4FBF8C;
+        --bg-app: #0f172a; --surface: #1e293b; --surface-2: #172032;
+        --ink-1: #f1f5f9; --ink-2: #cbd5e1; --ink-3: #94a3b8; --line: #334155;
+    }
+    html.dark[data-source="mostaql"] { --brand: #5CA8DE; --brand-ink: #5CA8DE; --brand-soft: rgba(92,168,222,.14); --brand-on: #0b1c2a; }
+    html.dark[data-source="nafezly"] { --brand: #FFB84D; --brand-ink: #FFB84D; --brand-soft: rgba(255,184,77,.14); --brand-on: #2a1d00; }
+
+    body { background-color: var(--bg-app); color: var(--ink-2); }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-app); }
+    ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+    ::selection { background: var(--brand); color: var(--brand-on); }
+
+    ::view-transition-group(root) { animation-duration: var(--morph-dur, 400ms); }
+    ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+    ::view-transition-old(root) { z-index: 0; }
+    ::view-transition-new(root) { z-index: 1; clip-path: var(--morph-clip-from, none); }
+
+    /* The orbit: brand-colored ring riding the wavefront of the reveal */
+    .morph-ring {
+        position: fixed; border-radius: 50%; pointer-events: none; z-index: 9999;
+        border: 3px solid var(--brand);
+        box-shadow: 0 0 22px color-mix(in srgb, var(--brand) 45%, transparent),
+                    inset 0 0 22px color-mix(in srgb, var(--brand) 25%, transparent);
+    }
+    ::view-transition-group(ring) { animation: none; z-index: 3; }
+    ::view-transition-old(ring) { display: none; }
+    ::view-transition-new(ring) {
+        animation: ring-grow var(--morph-dur, 400ms) ease-in-out forwards;
+        transform-origin: center;
+    }
+    @keyframes ring-grow {
+        0%   { transform: scale(0.02); opacity: 1; }
+        75%  { opacity: 0.9; }
+        100% { transform: scale(1); opacity: 0; }
+    }
+
+    .rail { width: 64px; background: var(--surface); border-inline-end: 1px solid var(--line); }
+    .rail-btn { position: relative; width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--ink-3); transition: background-color .15s ease, color .15s ease; cursor: pointer; border: 0; }
+    .rail-btn:hover { background: var(--surface-2); color: var(--ink-1); }
+    .rail-btn.active { background: var(--brand-soft); color: var(--brand-ink); }
+    .rail-btn.active::before { content: ''; position: absolute; inset-inline-start: -10px; top: 50%; translate: 0 -50%; width: 3px; height: 22px; border-radius: 3px; background: var(--brand); }
+    .rail-btn .tip { position: absolute; inset-inline-start: 56px; white-space: nowrap; background: var(--ink-1); color: var(--bg-app); font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 7px; opacity: 0; pointer-events: none; transition: opacity .12s ease .25s; z-index: 50; }
+    .rail-btn:hover .tip { opacity: 1; }
+    .src-tile { font-weight: 800; font-size: 17px; }
+    .src-tile[data-src="mostaql"] { background: #2386C8; color: #fff; }
+    .src-tile[data-src="nafezly"] { background: #FFA200; color: #3a2a00; }
+    html.dark .src-tile[data-src="mostaql"] { background: #5CA8DE; color: #0b1c2a; }
+    html.dark .src-tile[data-src="nafezly"] { background: #FFB84D; color: #2a1d00; }
+    .rail .src-tile { opacity: .45; filter: saturate(.4); }
+    .rail .src-tile.active { opacity: 1; filter: none; }
+
+    .card-surface { background: var(--surface); border: 1px solid var(--line); }
+    .chip { background: var(--brand-soft); color: var(--brand-ink); }
+    .divider { border-color: var(--line); }
+    .btn-ghost { border: 1px solid var(--line); color: var(--ink-2); background: var(--surface); }
+    .btn-ghost:hover { background: var(--surface-2); color: var(--ink-1); }
+    .btn-brand { background: var(--brand); color: var(--brand-on); }
+    .btn-brand:hover { filter: brightness(1.06); }
+    .stat-box { background: var(--surface-2); border: 1px solid var(--line); }
+
+    /* Continuous page pattern (shared with settings): sticky section headers,
+       divider-separated blocks on one full-width surface — no floating cards. */
+    .section-head { position: sticky; top: 0; z-index: 10; background: var(--surface); border-bottom: 1px solid var(--line); padding: 1rem 2rem; }
+    .section-block { padding: 1.5rem 2rem; border-bottom: 1px solid var(--line); }
+
+    /* Decision strip: the 2-second go/no-go scan. Big value, tiny label. */
+    .fact-label { display: block; font-size: 11px; color: var(--ink-3); margin-bottom: 4px; }
+    .fact-value { font-size: 22px; font-weight: 800; line-height: 1.2; color: var(--ink-1); }
+    .fact-sub { font-size: 11px; color: var(--ink-3); }
+</style>
+<script data-purpose="theme-init">
+    (function () {
+        try {
+            var stored = localStorage.getItem('mostaqlk-theme');
+            var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (stored ? stored === 'dark' : systemDark) document.documentElement.classList.add('dark');
+        } catch (e) {}
+    })();
+</script>
+</head>
+<body class="h-screen overflow-hidden">
+<div class="flex h-full" style="direction: ltr;">
+
+<!-- BEGIN: Icon rail — same rail; the source tiles morph the whole app -->
+<aside class="rail flex flex-col items-center py-4 gap-2 shrink-0" data-purpose="icon-rail">
+    <div class="w-10 h-10 rounded-xl flex items-center justify-center font-extrabold text-lg mb-1" style="background: var(--brand); color: var(--brand-on);">M</div>
+    <div class="w-8 h-px rounded-full mb-1" style="background: var(--line);"></div>
+    <a class="rail-btn src-tile" data-src="mostaql" href="projects.html" aria-label="تحويل التطبيق إلى مستقل">م<span class="tip">مستقل — mostaql.com</span></a>
+    <a class="rail-btn src-tile active" data-src="nafezly" href="#" aria-label="المصدر النشط: نفذلي">ن<span class="tip">نفذلي — nafezly.com</span></a>
+    <div class="w-8 h-px rounded-full my-1" style="background: var(--line);"></div>
+    <a class="rail-btn active" href="projects.html" aria-current="page"><i class="fa-solid fa-list-check"></i><span class="tip">المشاريع</span></a>
+    <a class="rail-btn" href="#"><i class="fa-solid fa-magnifying-glass"></i><span class="tip">البحث المتقدم</span></a>
+    <a class="rail-btn" href="settings.html"><i class="fa-solid fa-gear"></i><span class="tip">الإعدادات</span></a>
+    <a class="rail-btn" href="#"><i class="fa-solid fa-circle-info"></i><span class="tip">حول التطبيق</span></a>
+    <div class="flex-1"></div>
+    <button id="theme-toggle" class="rail-btn" aria-label="تبديل الوضع الداكن" onclick="toggleTheme(this)">
+        <i id="theme-icon" class="fa-regular fa-moon"></i><span class="tip">الوضع الداكن</span>
+    </button>
+</aside>
+<!-- END: Icon rail -->
+
+<!-- BEGIN: Main content -->
+<main class="flex-1 min-w-0 flex flex-col overflow-hidden" style="direction: rtl;" data-purpose="main-content">
+    <header class="px-6 pt-5 pb-4 shrink-0" style="background: var(--surface); border-bottom: 1px solid var(--line);">
+        <!-- v3: the page title IS the scraped project title (bound to project.Title),
+             not a static "تفاصيل المشروع". -->
+        <h1 class="text-center text-3xl font-extrabold leading-snug mb-2.5" style="color: var(--ink-1);">أتمتة تحسين السير الذاتية (CV) لمرشحين التوظيف</h1>
+        <!-- Status caption row — replaces the removed source banner card -->
+        <div class="flex items-center justify-center flex-wrap gap-2 mb-4 text-[11px]">
+            <span class="px-2.5 py-0.5 font-bold rounded-md chip">نفذلي</span>
+            <span class="flex items-center gap-1 px-2.5 py-0.5 font-bold rounded-md stat-box" style="color: var(--ink-2);">
+                <i class="fa-solid fa-shield-halved text-[10px]"></i> مشرف عليه
+            </span>
+            <span class="flex items-center gap-1.5 px-2.5 py-0.5 font-medium rounded-md" style="background: rgba(46,158,107,.1); color: var(--accent-positive);">
+                <i class="fa-regular fa-circle-check"></i> تم الإثراء
+            </span>
+            <span style="color: var(--ink-3);">· اكتُشف 21 أكتوبر 2026 14:32</span>
+        </div>
+        <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center gap-4 min-w-0">
+            <a class="w-9 h-9 flex items-center justify-center rounded-lg shrink-0" style="color: var(--ink-3);" href="projects.html" aria-label="رجوع">
+                <i class="fa-solid fa-arrow-right-long"></i>
+            </a>
+            <nav class="text-sm shrink-0 flex items-center gap-2" style="color: var(--ink-3);" aria-label="مسار التنقل">
+                <a class="hover:underline" href="projects.html">المشاريع</a>
+                <span style="color: var(--line);">/</span>
+                <span class="font-bold" style="color: var(--brand-ink);">نفذلي</span>
+            </nav>
+        </div>
+        <button class="btn-brand flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold shrink-0">
+            <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i> عرض في نفذلي
+        </button>
+        </div>
+    </header>
+
+    <div class="flex-1 overflow-y-auto" style="background: var(--bg-app);">
+        <!-- Continuous full-page surface (settings pattern): sticky section
+             headers + divider blocks, no floating cards, no side gutters.
+             Reading order = decision order: facts -> description -> executor ->
+             owner -> actions. The pipeline-provenance card was removed. -->
+        <div class="min-h-full" style="background: var(--surface);">
+
+            <!-- BEGIN: Decision strip — the 2-second go/no-go scan.
+                 Schema-driven: Nafezly = Mostaql's fields + its own (الحالة);
+                 Mostaql mode swaps in (ر.س · مدة التنفيذ · النوع). -->
+            <section class="section-block" data-purpose="decision-strip" style="border-top: 0;">
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
+                    <div>
+                        <span class="fact-label">الميزانية</span>
+                        <span class="fact-value" dir="ltr" style="color: var(--accent-positive);">10 - 25 $</span>
+                    </div>
+                    <div>
+                        <span class="fact-label">مدة التسليم</span>
+                        <span class="fact-value">5 أيام</span>
+                    </div>
+                    <div>
+                        <span class="fact-label">العروض المقدمة</span>
+                        <span class="fact-value">4</span>
+                    </div>
+                    <div>
+                        <span class="fact-label">الحالة</span>
+                        <span class="fact-value" style="color: var(--accent-positive);">مفتوح</span>
+                    </div>
+                    <div>
+                        <span class="fact-label">نُشر</span>
+                        <span class="fact-value">منذ ساعة</span>
+                    </div>
+                </div>
+            </section>
+            <!-- END: Decision strip -->
+
+            <!-- BEGIN: Section الوصف -->
+            <section>
+                <div class="section-head">
+                    <h2 class="font-extrabold" style="color: var(--ink-1);">الوصف</h2>
+                </div>
+                <div class="section-block">
+                    <p class="text-sm leading-loose" style="color: var(--ink-2);">
+                        أحتاج إلى مسوّق إلكتروني أو جهة تسويق متخصصة لزيادة مبيعات مشروعي "لبسك علينا" الذي يضم:
+                        ملابس بيتي، ملابس خروج، ملابس أطفال كاجوال، وأدوات منزلية متنوعة.
+                        يرجى توضيح خطة التسويق، القنوات التي سيُعمل عليها، والمؤشرات التي سيتم الإبلاغ بها أسبوعيًا.
+                    </p>
+                    <button class="mt-2 text-xs font-bold hover:underline" style="color: var(--brand-ink);">عرض المزيد</button>
+                    <h3 class="font-bold mt-5 mb-3 text-sm" style="color: var(--ink-1);">المهارات المطلوبة</h3>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="chip px-3 py-1 text-xs rounded-md font-medium">تسويق إلكتروني</span>
+                        <span class="chip px-3 py-1 text-xs rounded-md font-medium">أتمتة</span>
+                        <span class="chip px-3 py-1 text-xs rounded-md font-medium">Python</span>
+                        <span class="chip px-3 py-1 text-xs rounded-md font-medium">Excel</span>
+                    </div>
+                </div>
+            </section>
+            <!-- END: Section الوصف -->
+
+            <!-- BEGIN: Section معلومات المنفذ — exists in Nafezly only.
+                 Mostaql's detail schema has no executor block, so in Mostaql
+                 mode this whole section is omitted (data-src-only). -->
+            <section data-src-only="nafezly" data-purpose="executor-info">
+                <div class="section-head">
+                    <h2 class="font-extrabold" style="color: var(--ink-1);">معلومات المنفذ</h2>
+                </div>
+                <div class="section-block flex flex-wrap items-center gap-6">
+                    <div class="flex items-center gap-3 min-w-52">
+                        <div class="w-11 h-11 rounded-full flex items-center justify-center font-bold shrink-0" style="background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2);">م.أ</div>
+                        <div>
+                            <h3 class="font-bold flex items-center gap-1.5" style="color: var(--ink-1);">
+                                محمد. أ
+                                <i class="fa-solid fa-circle-check text-sm" style="color: var(--accent-positive);"></i>
+                            </h3>
+                            <p class="text-xs" style="color: var(--ink-3);">منفّذ معتمد · على نفذلي منذ 2021</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-center flex-1 min-w-60">
+                        <div class="stat-box rounded-lg py-2.5">
+                            <span class="block font-bold text-sm" style="color: var(--ink-1);">4.9 <span class="text-[10px] font-medium" style="color: var(--ink-3);">(127)</span></span>
+                            <span class="text-[11px]" style="color: var(--ink-3);">التقييم</span>
+                        </div>
+                        <div class="stat-box rounded-lg py-2.5">
+                            <span class="block font-bold text-sm" style="color: var(--ink-1);">210</span>
+                            <span class="text-[11px]" style="color: var(--ink-3);">مشاريع ناجحة</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <!-- END: Section معلومات المنفذ -->
+
+            <!-- BEGIN: Section صاحب المشروع -->
+            <section>
+                <div class="section-head">
+                    <h2 class="font-extrabold" style="color: var(--ink-1);">صاحب المشروع</h2>
+                </div>
+                <div class="section-block flex flex-wrap items-center gap-6">
+                    <div class="flex items-center gap-3 min-w-52">
+                        <div class="w-12 h-12 rounded-full flex items-center justify-center font-bold shrink-0" style="background: var(--brand); color: var(--brand-on);">دح</div>
+                        <div>
+                            <h3 class="font-bold" style="color: var(--ink-1);">دوحة</h3>
+                            <p class="text-xs mt-0.5" style="color: var(--ink-3);">مصر · على نفذلي منذ 2023</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-center flex-1 min-w-60">
+                        <div class="stat-box rounded-lg py-2.5">
+                            <span class="block font-bold text-sm" style="color: var(--ink-1);">7</span>
+                            <span class="text-[11px]" style="color: var(--ink-3);">مشاريع</span>
+                        </div>
+                        <div class="stat-box rounded-lg py-2.5">
+                            <span class="block font-bold text-sm" style="color: var(--ink-1);">61٪</span>
+                            <span class="text-[11px]" style="color: var(--ink-3);">تم تشغيلها</span>
+                        </div>
+                        <div class="stat-box rounded-lg py-2.5">
+                            <span class="block font-bold text-sm" style="color: var(--ink-1);">4.6</span>
+                            <span class="text-[11px]" style="color: var(--ink-3);">تقييم</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <!-- END: Section صاحب المشروع -->
+
+            <!-- Actions: page footer row, right-aligned -->
+            <div class="px-8 py-6 flex items-center justify-end gap-3">
+                <button class="btn-ghost flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold">
+                    <i class="fa-regular fa-copy"></i> نسخ رابط المشروع
+                </button>
+                <a class="btn-brand flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold" href="projects.html">
+                    <i class="fa-regular fa-eye-slash"></i> تحديد كمقروء والعودة
+                </a>
+            </div>
+            <div class="h-8"></div>
+        </div>
+    </div>
+</main>
+<!-- END: Main content -->
+</div>
+
+<script data-purpose="theme-toggle">
+    function geometryFrom(originEl) {
+        var vw = window.innerWidth, vh = window.innerHeight, cx, cy;
+        if (originEl) { var r = originEl.getBoundingClientRect(); cx = r.left + r.width / 2; cy = r.top + r.height / 2; }
+        else { cx = vw / 2; cy = vh / 2; }
+        var maxRadius = Math.hypot(Math.max(cx, vw - cx), Math.max(cy, vh - cy));
+        return { cx: cx, cy: cy, maxRadius: maxRadius, vw: vw, vh: vh };
+    }
+    function clipFrom(g) {
+        var px = (g.cx / g.vw) * 100 + '%', py = (g.cy / g.vh) * 100 + '%';
+        var radiusPct = (g.maxRadius / (Math.hypot(g.vw, g.vh) / Math.SQRT2)) * 100;
+        return ['circle(0% at ' + px + ' ' + py + ')', 'circle(' + radiusPct + '% at ' + px + ' ' + py + ')'];
+    }
+    function spawnRing(g) {
+        var d = document.createElement('div');
+        d.className = 'morph-ring';
+        d.style.left = (g.cx - g.maxRadius) + 'px';
+        d.style.top = (g.cy - g.maxRadius) + 'px';
+        d.style.width = d.style.height = (g.maxRadius * 2) + 'px';
+        d.style.viewTransitionName = 'ring';
+        document.body.appendChild(d);
+        return d;
+    }
+    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var transitioning = false;
+    function toggleTheme(originEl) {
+        var g = geometryFrom(originEl);
+        function apply() {
+            var dark = document.documentElement.classList.toggle('dark');
+            var icon = document.getElementById('theme-icon');
+            if (icon) icon.className = dark ? 'fa-solid fa-sun' : 'fa-regular fa-moon';
+            try { localStorage.setItem('mostaqlk-theme', dark ? 'dark' : 'light'); } catch (e) {}
+        }
+        if (typeof document.startViewTransition !== 'function' || reduceMotion) { apply(); return; }
+        if (transitioning) return;
+        transitioning = true;
+        var clip = clipFrom(g);
+        var ring = null;
+        var root = document.documentElement;
+        root.style.setProperty('--morph-dur', '400ms');
+        root.style.setProperty('--morph-clip-from', clip[0]);
+        var t = document.startViewTransition(function () { apply(); ring = spawnRing(g); });
+        if (t && t.finished && t.finished.finally) t.finished.finally(function () {
+            transitioning = false;
+            if (ring) ring.remove();
+            root.style.removeProperty('--morph-dur');
+            root.style.removeProperty('--morph-clip-from');
+        });
+        if (t && t.ready) t.ready.then(function () {
+            root.animate({ clipPath: clip }, { duration: 400, easing: 'ease-in-out', fill: 'forwards', pseudoElement: '::view-transition-new(root)' });
+        }).catch(function () {});
+    }
+    (function () {
+        if (document.documentElement.classList.contains('dark')) {
+            var icon = document.getElementById('theme-icon');
+            if (icon) icon.className = 'fa-solid fa-sun';
+        }
+    })();
+</script>
+</body></html>

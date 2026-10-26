@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Nafezly mark: white dot + open ring (gap toward the upper-left), converted from the
+       source's stroked arc to fill-only annular-sector geometry (r=10.75 stroke 5.5 about
+       the 24/23.5 center) for the MAUI Resizetizer SVG pipeline. The square brand
+       background is intentionally NOT baked here — tiles paint it live from
+       descriptor.Brands so the icon follows theme/morph repaints. -->
+  <circle cx="24" cy="23.5" r="4.8" fill="#FFFFFF"/>
+  <path fill="#FFFFFF" d="M 10.5 23.5 A 13.5 13.5 0 1 0 30.779 11.825 L 28.017 16.582 A 8 8 0 1 1 16 23.5 Z"/>
+</svg>

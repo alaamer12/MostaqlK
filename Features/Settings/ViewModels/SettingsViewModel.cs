@@ -1,37 +1,39 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Maui.ApplicationModel;
+using Microsoft.Maui.Storage;
+using MostaqlK.Core.Platform;
+using MostaqlK.Core.Sources;
 using MostaqlK.Infrastructure.Database;
-using MostaqlK.Infrastructure.Http;
 using MostaqlK.Services;
 using MostaqlK.Services.Diagnostics;
 using MostaqlK.Services.Pipeline;
 using MostaqlK.Services.Pipeline.WorkerPool;
 using MostaqlK.UI.DesignSystem;
-using Microsoft.Maui.Storage;
-using Microsoft.Maui.ApplicationModel;
 
 namespace MostaqlK.Features.Settings.ViewModels;
 
 /// <summary>
 /// View-model for the settings panel (settings.html): poll interval/rate, notification
 /// grouping mode/threshold, dark mode, and the "مشاريع مضافة اليوم" stat card.
-/// Values are persisted via <see cref="Preferences"/> and, on every valid change, pushed
-/// live into the running <see cref="IPollService"/>/<see cref="TokenBucketRateLimiter"/>/
-/// <see cref="NotificationGrouper"/> instances so changes apply without an app restart.
+/// Values are persisted through <see cref="ISettingsRepository"/> (per-source for the pipeline
+/// knobs, global for dark mode/startup) and, on every valid change, pushed live into the running
+/// <see cref="IPollService"/>/<see cref="TokenBucketRateLimiter"/>/<see cref="NotificationGrouper"/>
+/// instances so changes apply without an app restart. The persistence WRITE is deferred through
+/// <see cref="MostaqlK.Core.Platform.DeferredPreferences"/> (ordered last-wins queue): a keystroke
+/// never blocks on the settings-file round-trip; the flush lands on Save or app teardown.
 /// </summary>
 public sealed partial class SettingsViewModel : ObservableObject
 {
-    private const string KeyPollIntervalSeconds = "settings_poll_interval_seconds";
-    private const string KeyMaxRequestsPerMinute = "settings_max_requests_per_minute";
-    private const string KeyMaxConcurrentDetailFetches = "settings_max_concurrent_detail_fetches";
-    private const string KeyQueryParams = "settings_query_params";
-    private const string KeyIncludeAssets = "settings_include_assets";
-    private const string KeyNotificationGroupingEnabled = "settings_notification_grouping_enabled";
-    private const string KeyGroupingMode = "settings_grouping_mode";
-    private const string KeyGroupingThreshold = "settings_grouping_threshold";
-    private const string KeyIsDarkMode = "settings_is_dark_mode";
-    private const string KeySafeRequests = "settings_safe_requests";
-    private const string KeyStartupEnabled = "settings_startup_enabled";
+    // The per-source values are stored in this source's namespaced settings container, read back
+    // through the repository's legacy flat-key fallback (see ISettingsRepository). Dark mode,
+    // startup, and polling-active stay deliberately global (app behavior, not per-source).
+    /// <summary>
+    /// The source whose namespaced preferences this transient VM edits — the live ACTIVE source
+    /// (v3 morph), not a startup snapshot: the page is reconstructed per opening, so it always
+    /// edits what the rail currently projects (contract §4).
+    /// </summary>
+    private SourceId _source => _globalStatus?.ActiveSource ?? SourceId.Default;
 
     // configuration-reference.md: `poll_interval_seconds` default 30, `max_requests_per_minute`
     // default 2. This screen used to advertise a 60s default while PollService itself defaulted to
@@ -51,9 +53,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly IEnrichmentService _enrichmentService;
     private readonly IProjectRepository _projectRepository;
     private readonly GlobalAppStatusService _globalStatus;
-    private readonly CookieStore _cookieStore;
+    private readonly ICookieStoreProvider _cookieStores;
     private readonly CloseBehaviorService _closeBehaviorService;
     private readonly IStartupService _startupService;
+    private readonly ISettingsRepository _settings;
+    private readonly SourceContributionRegistry _contributions;
+    private readonly IServiceProvider _services;
     private bool _isLoading;
 
     [ObservableProperty]
@@ -87,7 +92,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// tokens, refills at <c>rpm / 60</c> per second and spaces consecutive requests by one second.
     /// When off, the limiter allows the same <see cref="RequestsPerMinute"/> burst but refills
     /// <see cref="TokenBucketRateLimiter.FastModeRefillMultiplier"/> times faster with no spacing,
-    /// which drains a large backlog much faster but sends far more traffic to mostaql.com in a
+    /// which drains a large backlog much faster but sends far more traffic to the monitored site in a
     /// short window.
     /// </summary>
     [ObservableProperty]
@@ -99,6 +104,41 @@ public sealed partial class SettingsViewModel : ObservableObject
         ? $"مُفعّل: يتم توزيع الطلبات على مدار الدقيقة بحد {RequestsPerMinute} طلب/دقيقة مع فاصل ثانية واحدة بين كل طلبين، وهو السلوك الموصى به لتجنّب الحجب من الموقع."
         : $"مُعطّل: يُسمح بإرسال حتى {RequestsPerMinute} طلبات دفعة واحدة ثم تعبئتها من جديد بمعدل أسرع ({TokenBucketRateLimiter.FastModeRefillMultiplier:0}×)، فتُعالج القائمة أسرع بكثير لكن مع خطر أعلى للحجب.";
 
+    /// <summary>Helper copy under the query-params input; the source name comes from its descriptor.</summary>
+    public string QueryParamsHelperText =>
+        $"معاملات URL إضافية تُمرَّر لصفحة المشاريع في {SourceName} (مثل: category=software-dev)";
+
+    /// <summary>Session-cookie section header; Arabic + Latin source names both come from the descriptor.</summary>
+    public string CookieSectionTitle =>
+        $"كوكي جلسة {SourceName} ({SourceNameLatin} Session Cookie)";
+
+    /// <summary>
+    /// Cosmetic sentence-case of the descriptor's session cookie name for placeholder copy
+    /// (the storage/parsing fact stays the exact lowercase value).
+    /// </summary>
+    private string SessionCookieNameDisplay
+    {
+        get
+        {
+            var name = MostaqlK.Core.Sources.SourceRegistryProvider.DescriptorFor(_source)?.SessionCookieName;
+            if (string.IsNullOrEmpty(name))
+            {
+                return "Cookie";
+            }
+
+            return char.ToUpperInvariant(name[0]) + name[1..];
+        }
+    }
+
+    /// <summary>Input hint naming just the session cookie key ("Mostaql_session...").</summary>
+    public string SessionKeyPlaceholder => $"{SessionCookieNameDisplay}...";
+
+    /// <summary>Full paste instruction for the cookie field.</summary>
+    public string CookiePastePlaceholder => $"الصق قيمة {SessionCookieNameDisplay} هنا...";
+
+    private string SourceName => MostaqlK.Core.Sources.SourceRegistryProvider.DescriptorFor(_source)?.DisplayNameAr ?? "المصدر";
+    private string SourceNameLatin => MostaqlK.Core.Sources.SourceRegistryProvider.DescriptorFor(_source)?.DisplayNameLatin ?? SourceName;
+
     [ObservableProperty]
     public partial NotificationGroupingMode GroupingMode { get; set; }
 
@@ -108,7 +148,152 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsDarkMode { get; set; }
 
+    /// <summary>
+    /// "تذكر آخر منصة مفتوحة" — a deliberately-GLOBAL bool (default on). Persisting the flag is the
+    /// settings page's whole job here; the startup-restore that honours it (re-projecting the
+    /// remembered <see cref="SettingsKeys.ActiveSource"/>) lives outside this VM and is wired by the
+    /// parent, so this file must never touch App startup. Read/written through the single
+    /// <see cref="ISettingsRepository"/> global path exactly like dark mode / startup.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool RememberLastSource { get; set; } = true;
+
+    /// <summary>
+    /// "تنبيهات هذه المنصة" — the per-source notifications on/off switch (v3 mockup). Persisted in
+    /// the active source's namespaced container. NOTE: the toast dispatcher does not yet read this
+    /// flag; it is exposed cleanly (key + property) so the parent can wire dispatch-side gating.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool SourceNotificationsEnabled { get; set; } = true;
+
+    /// <summary>Number of projects stored for the active source ("الأرشيف" row count).</summary>
+    [ObservableProperty]
+    public partial int ArchiveCount { get; set; }
+
+    /// <summary>Reveals the inline session-cookie editor behind the "جلسة الإثراء" row's "ربط" link.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCookieEditorClosed))]
+    public partial bool IsCookieEditorOpen { get; set; }
+
+    /// <summary>True while the cookie editor is hidden (drives the row's compact value+link display).</summary>
+    public bool IsCookieEditorClosed => !IsCookieEditorOpen;
+
+    /// <summary>Total stored projects for the active source, for the "الأرشيف" row's "{n} مشروعًا".</summary>
+    public string ArchiveCountText => $"{ArchiveCount} مشروعًا";
+
+    partial void OnArchiveCountChanged(int value) => OnPropertyChanged(nameof(ArchiveCountText));
+
+    // -----------------------------------------------------------------
+    // Descriptor-driven row visibility (v3 §9: platform-scoped settings).
+    // Every flag reads the ACTIVE source's ISourceDescriptor (capabilities / currency), so a
+    // source that lacks a capability never renders its row (absent = never rendered, never empty)
+    // — zero source-id branches (contract §10 hard rule).
+    // -----------------------------------------------------------------
+
+    private MostaqlK.Core.Sources.ISourceDescriptor? ActiveDescriptor =>
+        MostaqlK.Core.Sources.SourceRegistryProvider.DescriptorFor(_source);
+
+    /// <summary>Arabic platform name for the header caption "إعدادات المنصة الحالية: …".</summary>
+    public string ActiveSourceName => ActiveDescriptor?.DisplayNameAr ?? "المنصة";
+
+    /// <summary>Single-letter rail glyph for the header caption's tile.</summary>
+    public string ActiveSourceGlyph => ActiveDescriptor?.RailGlyph ?? "•";
+
+    /// <summary>Baked tile icon for the header caption's tile (descriptor data; null → letter fallback).</summary>
+    public Microsoft.Maui.Controls.ImageSource? ActiveSourceGlyphImage =>
+        MostaqlK.UI.PlatformComponents.SourceRail.SourceGlyphImage.TryLoad(ActiveDescriptor);
+
+    /// <summary>The letter tile shows only when the source's baked icon is absent.</summary>
+    public bool ShowsSourceGlyphLetter => ActiveSourceGlyphImage is null;
+
+    /// <summary>
+    /// "جلسة الإثراء" row shows only when the source's descriptor marks session-gated enrichment.
+    /// A source that enriches fully without a session renders no row (the module's own contributed
+    /// session read-out, if any, comes through <see cref="ContributedSections"/> instead).
+    /// </summary>
+    public bool ShowSessionEnrichmentRow => ActiveDescriptor?.Capabilities.NeedsSessionForFullEnrichment ?? false;
+
+    /// <summary>
+    /// "أنواع المشاريع المتابَعة" row shows only when the source declares a supervised-projects
+    /// capability. No registered source sets it true today, so the row is honestly absent until one
+    /// does — the same presence-by-data rule as the details schema (contract §1).
+    /// </summary>
+    public bool ShowSupervisedTypesRow => ActiveDescriptor?.Capabilities.HasSupervisedFlag ?? false;
+
+    /// <summary>
+    /// "عملة الميزانية" display row shows only when the source's currency differs from the default
+    /// source's (i.e. a non-ر.س platform) — the mockup renders it for the $-priced source only.
+    /// </summary>
+    public bool ShowBudgetCurrencyRow
+    {
+        get
+        {
+            var active = ActiveDescriptor?.CurrencySuffix;
+            if (string.IsNullOrEmpty(active))
+            {
+                return false;
+            }
+
+            var defaultSuffix = MostaqlK.Core.Sources.SourceRegistryProvider
+                .DescriptorFor(MostaqlK.Core.Sources.SourceId.Default)?.CurrencySuffix;
+            return !string.Equals(active, defaultSuffix, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>The budget-currency value text, e.g. "كما في الموقع ($)" — suffix straight from the descriptor.</summary>
+    public string BudgetCurrencyDisplayText => $"كما في الموقع ({ActiveDescriptor?.CurrencySuffix ?? string.Empty})";
+
+    /// <summary>Hint under the session row; the platform name is the descriptor's, never a literal.</summary>
+    public string SessionEnrichmentHint =>
+        $"بعض صفحات {ActiveSourceName} تتطلب جلسة للدخول — بدونها يُضاف المشروع من الملخص فقط";
+
+    /// <summary>Session row's state word: "مرتبطة" when a cookie is stored, else "غير مرتبطة".</summary>
+    public string SessionValueText => HasSessionCookie ? "مرتبطة" : "غير مرتبطة";
+
+    partial void OnHasSessionCookieChanged(bool value) => OnPropertyChanged(nameof(SessionValueText));
+
+    // Grouping-mode Picker bridge: the UI tests drive a SelectedIndex on `Settings_GroupingModePicker`,
+    // so the enum is exposed as an index over the three Arabic labels in <see cref="GroupingModeOptions"/>.
+    /// <summary>Arabic grouping-mode labels in enum order (EndOfMinute / AfterMinutes / AfterCount).</summary>
+    public IReadOnlyList<string> GroupingModeOptions { get; } =
+        ["نهاية الدقيقة", "بعد دقائق", "بعد عدد"];
+
+    /// <summary>Two-way Picker index mapped onto <see cref="GroupingMode"/>.</summary>
+    public int GroupingModeIndex
+    {
+        get => (int)GroupingMode;
+        set
+        {
+            if (value >= 0 && value < GroupingModeOptions.Count && (NotificationGroupingMode)value != GroupingMode)
+            {
+                GroupingMode = (NotificationGroupingMode)value;
+            }
+        }
+    }
+
     public GlobalAppStatusService GlobalStatus => _globalStatus;
+
+    /// <summary>
+    /// Sections the ACTIVE source's module contributes beyond the shared descriptor rows (contract
+    /// §4/§10). Built from <see cref="SourceContributionRegistry.SettingsSectionsFor"/> — never an
+    /// <c>if (source == X)</c>. A source with no contribution (mostaql today) yields an empty list, so
+    /// <see cref="HasContributedSections"/> is false and the host renders nothing for it (absent =
+    /// never rendered, not empty). Each entry is the module's own bindable view-model.
+    /// </summary>
+    public IReadOnlyList<ISourceSettingsSectionViewModel> ContributedSections { get; private set; } = [];
+
+    /// <summary>Drives the host's section-group visibility.</summary>
+    public bool HasContributedSections => ContributedSections.Count > 0;
+
+    private void LoadContributedSections()
+    {
+        ContributedSections = _contributions.SettingsSectionsFor(_source)
+            .Select(contribution => contribution.CreateViewModel(_services))
+            .OfType<ISourceSettingsSectionViewModel>()
+            .ToList();
+        OnPropertyChanged(nameof(ContributedSections));
+        OnPropertyChanged(nameof(HasContributedSections));
+    }
 
     /// <summary>
     /// Validation feedback surfaced to the UI (reusing <c>LabelWithSubText</c>'s
@@ -128,11 +313,14 @@ public sealed partial class SettingsViewModel : ObservableObject
         IEnrichmentService enrichmentService,
         IProjectRepository projectRepository,
         GlobalAppStatusService globalStatus,
-        CookieStore cookieStore,
+        ICookieStoreProvider cookieStoreProvider,
         CloseBehaviorService closeBehaviorService,
-        IStartupService startupService)
+        IStartupService startupService,
+        ISettingsRepository settings,
+        SourceContributionRegistry contributions,
+        IServiceProvider services)
     {
-        _cookieStore = cookieStore;
+        _cookieStores = cookieStoreProvider;
         _pollService = pollService;
         _rateLimiter = rateLimiter;
         _workerPool = workerPool;
@@ -142,8 +330,12 @@ public sealed partial class SettingsViewModel : ObservableObject
         _globalStatus = globalStatus;
         _closeBehaviorService = closeBehaviorService;
         _startupService = startupService;
+        _settings = settings;
+        _contributions = contributions;
+        _services = services;
 
         LoadFromPreferences();
+        LoadContributedSections();
         RefreshCookieStatus();
 
         // Guarded the same way LoadFromPreferences guards its own initial reads: setting
@@ -155,11 +347,58 @@ public sealed partial class SettingsViewModel : ObservableObject
         _isLoading = false;
 
         _ = LoadProjectsAddedTodayAsync();
+        _ = LoadArchiveCountAsync();
+    }
+
+    /// <summary>
+    /// Re-points the settings surface after a source morph (the rail tiles or the header
+    /// <see cref="MostaqlK.UI.PlatformComponents.SourceRail.SourceSwitchTiles"/> switched the active
+    /// platform). The global projection is already applied inside the tiles unit
+    /// (<see cref="MostaqlK.Services.SourceMorph.ApplyOptimistic"/>); this only repaints what reads
+    /// <see cref="_source"/>: the per-source preference rows, the contributed sections, the session
+    /// cookie read-out, and the descriptor-driven visibility/name/currency display properties (plain
+    /// getters over <c>ActiveDescriptor</c>, so they must be re-raised explicitly). Reuses the exact
+    /// private loads the constructor runs — no new mutation paths, no source-id branch.
+    /// </summary>
+    public void RefreshForActiveSource()
+    {
+        LoadFromPreferences();
+        LoadContributedSections();
+        RefreshCookieStatus();
+
+        foreach (var name in new[]
+                 {
+                     nameof(ActiveSourceName),
+                     nameof(ActiveSourceGlyph),
+                     nameof(ActiveSourceGlyphImage),
+                     nameof(ShowsSourceGlyphLetter),
+                     nameof(ShowSessionEnrichmentRow),
+                     nameof(ShowSupervisedTypesRow),
+                     nameof(ShowBudgetCurrencyRow),
+                     nameof(BudgetCurrencyDisplayText),
+                     nameof(SessionEnrichmentHint),
+                     nameof(SessionValueText),
+                     nameof(CookiePastePlaceholder),
+                 })
+        {
+            OnPropertyChanged(name);
+        }
+
+        _ = LoadProjectsAddedTodayAsync();
+        _ = LoadArchiveCountAsync();
     }
 
     // -----------------------------------------------------------------
     // Session cookie ("ملف الجلسة")
     // -----------------------------------------------------------------
+
+    /// <summary>
+    /// The session store for the LIVE active source (v3 morph). The cookie card's copy already
+    /// follows <see cref="_source"/>; the operations now do too, so switching the rail makes the
+    /// card manage the other source's session while each store stays bound to its own descriptor's
+    /// keys/jar (Mostaql keeps <c>cookie_mostaql</c> and its legacy migration untouched).
+    /// </summary>
+    private CookieStore ActiveCookieStore => _cookieStores.For(_source);
 
     /// <summary>True once a session cookie is stored, which switches the row to its "active" copy.</summary>
     [ObservableProperty]
@@ -201,17 +440,17 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnIsCookieBusyChanged(bool value) => OnPropertyChanged(nameof(IsCookieIdle));
 
     /// <summary>
-    /// Only true in development builds, where <see cref="CookieJar"/> still accepts a plaintext
+    /// Only true in development builds, where this source's cookie jar still accepts a plaintext
     /// <c>cookies.txt</c> next to the repo / an env var. A shipped build reads the cookie solely
     /// from the encrypted store, so this note must not appear there.
     /// </summary>
-    public bool ShowDevelopmentCookieNote => CookieJar.DevelopmentFallbacksEnabled;
+    public bool ShowDevelopmentCookieNote => ActiveCookieStore.DevelopmentFallbacksEnabled;
 
     private void RefreshCookieStatus()
     {
-        HasSessionCookie = _cookieStore.HasCookie;
-        SessionCookieStatusText = _cookieStore.HasCookie
-            ? $"جلسة محفوظة ({_cookieStore.CookieCount} كوكيز) - آخر تحديث {_cookieStore.UpdatedAtUtc?.ToLocalTime():yyyy/MM/dd HH:mm}"
+        HasSessionCookie = ActiveCookieStore.HasCookie;
+        SessionCookieStatusText = ActiveCookieStore.HasCookie
+            ? $"جلسة محفوظة ({ActiveCookieStore.CookieCount} كوكيز) - آخر تحديث {ActiveCookieStore.UpdatedAtUtc?.ToLocalTime():yyyy/MM/dd HH:mm}"
             : "لا توجد جلسة محفوظة. بدون ملف الجلسة لن يتمكن التطبيق من تنزيل مرفقات المشاريع.";
     }
 
@@ -247,7 +486,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             // Parsing + DPAPI encryption + the SQLite write take a few hundred milliseconds; keep
             // the spinner on screen for at least that long so the state change reads as a
             // deliberate step rather than a flicker.
-            var save = _cookieStore.SaveFromFileContentAsync(content);
+            var save = ActiveCookieStore.SaveFromFileContentAsync(content);
             await Task.WhenAll(save, Task.Delay(SpinnerMinimumVisibleMilliseconds));
             var count = save.Result;
 
@@ -301,7 +540,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             }
         }
 
-        await _cookieStore.ClearAsync();
+        await ActiveCookieStore.ClearAsync();
         IsCookieSuccess = false;
         IsCookieError = false;
         CookieFeedbackText = string.Empty;
@@ -326,13 +565,15 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             IsCookieBusy = true;
             var content = SessionCookieInput.Trim();
-            // If just a raw value or header was entered, format appropriately for saving
-            if (!content.Contains("mostaql_session") && !content.Contains("Cookie:"))
+            // If just a raw value or header was entered, format appropriately for saving — the
+            // session cookie NAME is the source's own fact, taken from its descriptor.
+            var sessionName = MostaqlK.Core.Sources.SourceRegistryProvider.DescriptorFor(_source)?.SessionCookieName;
+            if (sessionName is not null && !content.Contains(sessionName) && !content.Contains("Cookie:"))
             {
-                content = $"mostaql_session={content}";
+                content = $"{sessionName}={content}";
             }
 
-            var save = _cookieStore.SaveFromFileContentAsync(content);
+            var save = ActiveCookieStore.SaveFromFileContentAsync(content);
             await Task.WhenAll(save, Task.Delay(SpinnerMinimumVisibleMilliseconds));
             var count = save.Result;
 
@@ -356,6 +597,22 @@ public sealed partial class SettingsViewModel : ObservableObject
             IsCookieError = true;
             SetValidationError("تعذّر حفظ الكوكي.");
         }
+    }
+
+    // -----------------------------------------------------------------
+    // "جلسة الإثراء" inline editor (v3 settings row)
+    // -----------------------------------------------------------------
+
+    /// <summary>Opens the compact cookie editor behind the session row's "ربط كوكيز" link.</summary>
+    [RelayCommand]
+    private void OpenCookieEditor() => IsCookieEditorOpen = true;
+
+    /// <summary>Closes the editor back to the row's compact value + "ربط/إلغاء الربط" link.</summary>
+    [RelayCommand]
+    private void CloseCookieEditor()
+    {
+        IsCookieEditorOpen = false;
+        SessionCookieInput = string.Empty;
     }
 
     // -----------------------------------------------------------------
@@ -446,15 +703,17 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         _isLoading = true;
 
-        PollIntervalSeconds = Preferences.Get(KeyPollIntervalSeconds, DefaultPollIntervalSeconds);
-        RequestsPerMinute = Preferences.Get(KeyMaxRequestsPerMinute, DefaultMaxRequestsPerMinute);
-        MaxConcurrentDetailFetches = Preferences.Get(KeyMaxConcurrentDetailFetches, 2);
-        QueryParams = Preferences.Get(KeyQueryParams, string.Empty);
-        IncludeAssets = Preferences.Get(KeyIncludeAssets, false);
-        NotificationGroupingEnabled = Preferences.Get(KeyNotificationGroupingEnabled, false);
-        SafeRequests = Preferences.Get(KeySafeRequests, true);
-        StartupEnabled = Preferences.Get(KeyStartupEnabled, false);
-        GroupingThreshold = Preferences.Get(KeyGroupingThreshold, 5);
+        PollIntervalSeconds = _settings.Get(_source, SettingsKeys.PollIntervalSeconds, DefaultPollIntervalSeconds);
+        RequestsPerMinute = _settings.Get(_source, SettingsKeys.MaxRequestsPerMinute, DefaultMaxRequestsPerMinute);
+        MaxConcurrentDetailFetches = _settings.Get(_source, SettingsKeys.MaxConcurrentDetailFetches, 2);
+        QueryParams = _settings.Get(_source, SettingsKeys.QueryParams, string.Empty);
+        IncludeAssets = _settings.Get(_source, SettingsKeys.IncludeAssets, false);
+        NotificationGroupingEnabled = _settings.Get(_source, SettingsKeys.NotificationGroupingEnabled, false);
+        SourceNotificationsEnabled = _settings.Get(_source, SettingsKeys.EnableSourceNotifications, true);
+        SafeRequests = _settings.Get(_source, SettingsKeys.SafeRequests, true);
+        StartupEnabled = _settings.GetGlobal(SettingsKeys.StartupEnabled, false);
+        RememberLastSource = _settings.GetGlobal(SettingsKeys.RememberLastSource, true);
+        GroupingThreshold = _settings.Get(_source, SettingsKeys.GroupingThreshold, 5);
         // Seed from the theme the app already resolved at startup (App.xaml.cs, which honours a
         // `--theme=light|dark` argument over the stored preference) and only fall back to the
         // preference / effective theme when no explicit theme was applied. Reading the preference unconditionally
@@ -463,17 +722,21 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             AppTheme.Dark => true,
             AppTheme.Light => false,
-            _ => Preferences.ContainsKey(KeyIsDarkMode)
-                ? Preferences.Get(KeyIsDarkMode, false)
+            _ => _settings.ContainsGlobal(SettingsKeys.IsDarkMode)
+                ? _settings.GetGlobal(SettingsKeys.IsDarkMode, false)
                 : Application.Current?.RequestedTheme == AppTheme.Dark,
         };
 
-        var storedMode = Preferences.Get(KeyGroupingMode, nameof(NotificationGroupingMode.EndOfMinute));
+        var storedMode = _settings.Get(_source, SettingsKeys.GroupingMode, nameof(NotificationGroupingMode.EndOfMinute));
         GroupingMode = Enum.TryParse<NotificationGroupingMode>(storedMode, out var parsedMode)
             ? parsedMode
             : NotificationGroupingMode.EndOfMinute;
 
         _isLoading = false;
+
+        // The Picker bridges the enum as an index; refresh it once the mode is seeded so the
+        // control shows the stored row on first paint (same guarded pattern as every other load).
+        OnPropertyChanged(nameof(GroupingModeIndex));
 
         // Apply the loaded values to the live pipeline services right away, so the running
         // instances always reflect whatever was last persisted (e.g. after an app restart).
@@ -485,10 +748,20 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private async Task LoadProjectsAddedTodayAsync()
     {
-        var result = await _projectRepository.CountAddedTodayAsync();
+        var result = await _projectRepository.CountAddedTodayAsync(_source);
         if (!result.IsError)
         {
             _globalStatus.SetProjectsAddedToday(result.Value);
+        }
+    }
+
+    /// <summary>Loads the active source's total stored-project count for the "الأرشيف" row.</summary>
+    private async Task LoadArchiveCountAsync()
+    {
+        var result = await _projectRepository.CountTrackedAsync(_source);
+        if (!result.IsError)
+        {
+            ArchiveCount = result.Value.Tracked;
         }
     }
 
@@ -508,7 +781,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        Preferences.Set(KeyPollIntervalSeconds, value);
+        DeferredPreferences.Set(_settings, _source, SettingsKeys.PollIntervalSeconds, value);
         ApplyPollSettings();
     }
 
@@ -524,7 +797,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        Preferences.Set(KeyMaxRequestsPerMinute, value);
+        DeferredPreferences.Set(_settings, _source, SettingsKeys.MaxRequestsPerMinute, value);
         ApplyPollSettings();
     }
 
@@ -536,28 +809,28 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        Preferences.Set(KeyMaxConcurrentDetailFetches, value);
+        DeferredPreferences.Set(_settings, _source, SettingsKeys.MaxConcurrentDetailFetches, value);
         ApplyWorkerSettings();
     }
 
     partial void OnQueryParamsChanged(string value)
     {
         if (_isLoading) return;
-        Preferences.Set(KeyQueryParams, value ?? string.Empty);
+        DeferredPreferences.Set(_settings, _source, SettingsKeys.QueryParams, value ?? string.Empty);
         ApplyPollSettings();
     }
 
     partial void OnIncludeAssetsChanged(bool value)
     {
         if (_isLoading) return;
-        Preferences.Set(KeyIncludeAssets, value);
+        DeferredPreferences.Set(_settings, _source, SettingsKeys.IncludeAssets, value);
         ApplyAssetSettings();
     }
 
     partial void OnNotificationGroupingEnabledChanged(bool value)
     {
         if (_isLoading) return;
-        Preferences.Set(KeyNotificationGroupingEnabled, value);
+        DeferredPreferences.Set(_settings, _source, SettingsKeys.NotificationGroupingEnabled, value);
         ApplyGroupingSettings();
     }
 
@@ -568,7 +841,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        Preferences.Set(KeySafeRequests, value);
+        DeferredPreferences.Set(_settings, _source, SettingsKeys.SafeRequests, value);
         ApplyPollSettings();
     }
 
@@ -579,18 +852,20 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        Preferences.Set(KeyStartupEnabled, value);
+        DeferredPreferences.SetGlobal(_settings, SettingsKeys.StartupEnabled, value);
         _startupService.SetStartupEnabled(value);
     }
 
     partial void OnGroupingModeChanged(NotificationGroupingMode value)
     {
+        OnPropertyChanged(nameof(GroupingModeIndex));
+
         if (_isLoading)
         {
             return;
         }
 
-        Preferences.Set(KeyGroupingMode, value.ToString());
+        DeferredPreferences.Set(_settings, _source, SettingsKeys.GroupingMode, value.ToString());
         ApplyGroupingSettings();
     }
 
@@ -610,7 +885,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
 
         ClearValidationError();
-        Preferences.Set(KeyGroupingThreshold, value);
+        DeferredPreferences.Set(_settings, _source, SettingsKeys.GroupingThreshold, value);
         ApplyGroupingSettings();
     }
 
@@ -621,8 +896,31 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        Preferences.Set(KeyIsDarkMode, value);
+        DeferredPreferences.SetGlobal(_settings, SettingsKeys.IsDarkMode, value);
         ApplyTheme();
+    }
+
+    partial void OnRememberLastSourceChanged(bool value)
+    {
+        if (_isLoading)
+        {
+            return;
+        }
+
+        // Global (not per-source) like dark mode / startup — the same single mutation path. The
+        // restore consumer lives outside this VM (parent-wired at startup); here we only persist.
+        DeferredPreferences.SetGlobal(_settings, SettingsKeys.RememberLastSource, value);
+    }
+
+    partial void OnSourceNotificationsEnabledChanged(bool value)
+    {
+        if (_isLoading)
+        {
+            return;
+        }
+
+        // Per-source, namespaced container — every other pipeline knob uses the same path.
+        DeferredPreferences.Set(_settings, _source, SettingsKeys.EnableSourceNotifications, value);
     }
 
     private void ApplyPollSettings()
@@ -711,9 +1009,11 @@ public sealed partial class SettingsViewModel : ObservableObject
         using var _ = TraceScope.Begin("SaveCommand");
         try
         {
-            // Every field already persists+applies live on change (see the OnXChanged partials
-            // above), so Save is a convenience no-op that simply confirms nothing is pending.
-            return Task.CompletedTask;
+            // Every field already applies live on change and persists through the DEFERRED
+            // last-wins queue (v3 frame decoupling: keystroke-rate edits never block-write the
+            // settings store on the UI thread). Save = confirm nothing is pending: drain the
+            // queue so the click guarantees durability before any teardown.
+            return DeferredPreferences.FlushAsync();
         }
         catch (Exception ex)
         {

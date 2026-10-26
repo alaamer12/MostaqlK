@@ -20,6 +20,7 @@
 
 	<ItemGroup>
 		<Compile Include="..\Core\Platform\AppPaths.cs" Link="Core\Platform\AppPaths.cs" />
+		<Compile Include="..\Core\Platform\LogDirectoryPurger.cs" Link="Core\Platform\LogDirectoryPurger.cs" />
 		<Compile Include="..\Core\Platform\ChannelIdentity.cs" Link="Core\Platform\ChannelIdentity.cs" />
 	</ItemGroup>
 

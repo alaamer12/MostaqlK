@@ -58,8 +58,8 @@ public partial class AppCard : Border
 
     private void OnCardLoaded(object? sender, EventArgs e)
     {
-        // Read/unread accent colors differ per theme (ReadBorderLight/Dark, AccentPrimary/Dark in
-        // Colors.xaml) - re-apply whenever the OS/app theme flips, same pattern as
+        // Read/unread accent colors differ per theme (ReadBorderLight/Dark; the unread accent comes
+        // from the live brand palette) - re-apply whenever the OS/app theme flips, same pattern as
         // AppSidebar/SplitterHandle/PipelineRadar. Scoped to the on-screen lifetime because
         // Application is an app-lifetime publisher: subscribing here from the constructor would
         // root every card this process ever realizes, native peer included.
@@ -68,6 +68,11 @@ public partial class AppCard : Border
             app.RequestedThemeChanged -= OnRequestedThemeChanged;
             app.RequestedThemeChanged += OnRequestedThemeChanged;
         }
+
+        // The unread stroke is the brand accent, so a source morph must repaint it too — same
+        // on-screen lifetime as the theme subscription above.
+        MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.PaletteChanged -= OnPaletteChanged;
+        MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.PaletteChanged += OnPaletteChanged;
 
         UpdateThemeColors();
     }
@@ -78,9 +83,13 @@ public partial class AppCard : Border
         {
             app.RequestedThemeChanged -= OnRequestedThemeChanged;
         }
+
+        MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.PaletteChanged -= OnPaletteChanged;
     }
 
     private void OnRequestedThemeChanged(object? sender, AppThemeChangedEventArgs e) => UpdateThemeColors();
+
+    private void OnPaletteChanged() => UpdateThemeColors();
 
     private static void OnIsUnreadChanged(BindableObject bindable, object oldValue, object newValue)
     {
@@ -94,13 +103,14 @@ public partial class AppCard : Border
         // Surface background — mirrors AppSurfaceLight/AppSurfaceDark from Colors.xaml.
         BackgroundColor = isDark ? Color.FromArgb("#0F172A") : Colors.White;
 
-        // Unread cards use the mockup's blue edge treatment (border-inline-start accent, using
-        // AccentPrimary/AccentPrimaryDark). MAUI Border can't do per-edge strokes, so a stronger
-        // full outline stands in for the accent bar. Read cards use the muted
-        // ReadBorderLight/ReadBorderDark slate outline instead.
+        // Unread cards use the mockup's brand edge treatment (border-inline-start accent, painted
+        // from the live brand palette for the active source + theme). MAUI Border can't do per-edge
+        // strokes, so a stronger full outline stands in for the accent bar. Read cards use the
+        // muted ReadBorderLight/ReadBorderDark slate outline instead — neutral state chrome, never
+        // brand-retinted.
         StrokeThickness = IsUnread ? 2 : 1;
         Stroke = IsUnread
-            ? new SolidColorBrush(isDark ? Color.FromArgb("#5CA8DE") : Color.FromArgb("#2386C8"))
+            ? new SolidColorBrush(MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.Brand)
             : new SolidColorBrush(isDark ? Color.FromArgb("#475569") : Color.FromArgb("#CBD5E1"));
     }
 }

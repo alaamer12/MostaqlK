@@ -13,5 +13,5 @@ public interface INotificationSender
     /// <summary>
     /// Delivers a toast (or platform-equivalent) for the given batch of projects.
     /// </summary>
-    Task<Result<bool>> SendAsync(IReadOnlyList<ProjectSummary> projects, CancellationToken cancellationToken = default);
+    public Task<Result<bool>> SendAsync(IReadOnlyList<ProjectSummary> projects, CancellationToken cancellationToken = default);
 }

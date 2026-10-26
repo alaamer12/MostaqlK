@@ -19,6 +19,7 @@ This document details the failure lifecycle and the multi-layer architecture imp
 ### 1. Problem Statement & Crash Anatomy
 
 #### The Incident
+
 * **Runtime Duration:** The application operated in background tray mode successfully for ~10 hours, polling endpoints and dispatching Windows notifications.
 * **Trigger Event:** At `08:02:25.904`, the user clicked the system tray icon to restore the application window (`AppLifecycle.IsInBackgroundChanged -> IsInBackground: false`).
 * **Failure Sequence:**
@@ -29,6 +30,7 @@ This document details the failure lifecycle and the multi-layer architecture imp
   5. Sentry recorded zero crash events, and `crash.log` showed no managed exception entry for that timestamp.
 
 #### Windows Application Event Log Record
+
 ```text
 Log Name:      Application
 Source:        Application Error
@@ -49,7 +51,7 @@ Faulting module path:      C:\Users\<user>\AppData\Local\Temp\.net\MostaqlK\9fUI
 
 ### 2. Deep-Dive Root Cause Analysis
 
-```
+```text
 [Background Tray Operation (~10+ Hours)]
    │
    ├── 1. Memory Management: Windows pages out inactive DLL code pages from physical RAM
@@ -65,15 +67,18 @@ Faulting module path:      C:\Users\<user>\AppData\Local\Temp\.net\MostaqlK\9fUI
 ```
 
 #### A. .NET Single-File Extraction Mechanism
+
 In .NET single-file publish mode (`PublishSingleFile=true`), managed assemblies execute directly from memory, but native C/C++ binaries (`Microsoft.UI.Xaml.dll`, `Microsoft.WindowsAppRuntime.dll`, `resources.pri`, DirectX/D3D dependencies) cannot be loaded directly from memory by the Win32 OS loader. The .NET single-file host extracts them to disk on startup.
 
 By default, the extraction destination is:
+
 ```text
 %TEMP%\.net\<AppName>\<bundle-hash>\
 (e.g., C:\Users\<user>\AppData\Local\Temp\.net\MostaqlK\9fUI4XvOp5uG\)
 ```
 
 #### B. OS Temp Invalidation & Virtual Memory Page Eviction
+
 1. **Windows Storage Sense & Disk Cleanup:** Windows runs automated background disk maintenance tasks targeting `%TEMP%` when files have not had active read/write file handle operations for several hours.
 2. **Virtual Memory Paging:** While MostaqlK was running minimized to the tray, Windows reduced its working set by paging out inactive code and resource pages from physical RAM.
 3. **Hard Page Fault on Wakeup:** When the tray icon was clicked, the UI thread resumed execution in `Microsoft.UI.Xaml.dll`. When the CPU attempted to access code/resource pages that were evicted from RAM, the OS attempted to read them back from the disk location. Because the `%TEMP%` bundle files had been purged or locked by OS maintenance, the file read failed (`FileNotFoundException`), leading immediately to an invalid memory pointer dereference (`0xC0000005` Access Violation).
@@ -102,6 +107,7 @@ Net effect: before this correction, every session still extracted into `%TEMP%`,
 The instrument that settles which directory a given machine actually used is the `Module file path:` line written to `%LocalAppData%\MostaqlK\log\startup-debug.log` by `Platforms/Windows/Program.cs`; the guard logs `BundleExtractionGuard pinned N file(s)` immediately beside it.
 
 #### C. Why Sentry & CLR Handlers Did Not Capture It
+
 * **CLR vs. Native SEH Pipeline:** .NET exception handlers (`AppDomain.UnhandledException`, `TaskScheduler.UnobservedTaskException`, Sentry .NET SDK) only intercept managed exceptions that traverse the CLR execution engine.
 * **Unmanaged Kernel Termination:** Native C++ faults occurring inside unmanaged DLLs (`Microsoft.UI.Xaml.dll`) trigger Windows Structured Exception Handling (SEH). If native SEH handlers are not registered, the Windows kernel aborts the process immediately, killing all threads without running managed CLR finalizers, Sentry dispatch queues, or managed `catch` blocks.
 
@@ -111,7 +117,7 @@ The instrument that settles which directory a given machine actually used is the
 
 To solve both the bundle eviction and the crash visibility issues, a 4-layer resilient architecture was implemented:
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                              MostaqlK Architecture                          │
 ├──────────────────────────────────────────────────────────────────────────────┤
@@ -142,6 +148,7 @@ To solve both the bundle eviction and the crash visibility issues, a 4-layer res
 ### 4. Implementation Details
 
 #### Layer 1: Persistent Extraction Directory + Live Handle Pinning
+
 **Files:** `Core/Platform/AppPaths.cs`, `Platforms/Windows/Program.cs`, `Platforms/Windows/BundleExtractionGuard.cs`
 
 **(a) Redirecting later launches.** `Program.Main` still records the persistent directory in the **User** environment:
@@ -189,6 +196,7 @@ Cost: one handle per extracted file (capped at `MaxPinnedFiles = 8192`), read-on
 ---
 
 #### Layer 2: Native Win32 SEH & MiniDump Generation
+
 **File:** `Services/Diagnostics/CrashReporter.cs`
 
 `CrashReporter` registers a top-level Win32 unhandled exception filter using P/Invoke:
@@ -211,6 +219,7 @@ private static extern bool MiniDumpWriteDump(
 ```
 
 When a native crash occurs:
+
 1. `NativeUnhandledExceptionCallback` extracts the exception code (e.g., `0xC0000005 STATUS_ACCESS_VIOLATION`), faulting memory address, thread ID, and memory statistics.
 2. Synchronously writes a structured entry to `crash.log`.
 3. Calls `MiniDumpWriteDump` to write `crash.dmp` to `%LocalAppData%\MostaqlK\log\crash.dmp`.
@@ -219,6 +228,7 @@ When a native crash occurs:
 ---
 
 #### Layer 3: Startup Post-Mortem Telemetry to Sentry
+
 **Files:** `Services/Diagnostics/CrashReporter.cs`, `Platforms/Windows/Program.cs`
 
 Because native crashes prevent in-flight network dispatch during termination, crash telemetry is reported on next launch:
@@ -263,6 +273,7 @@ public static void CheckAndReportPreviousCrashes()
 ---
 
 #### Layer 4: Hardened Window & Tray Restoration
+
 **File:** `Platforms/Windows/PlatformServiceRegistration.cs`
 
 Tray window restore events (`RestoreRequested`) are wrapped in defensive try-catch handlers to catch and report transient COM/WinUI visual tree exceptions without bringing down the application:
@@ -298,6 +309,7 @@ To avoid re-introducing single-file eviction or silent native crash regressions 
 
 3. **Maintain Required MSBuild Properties in `MostaqlK.csproj`:**
    For Windows single-file packaging, the following properties are mandatory:
+
    ```xml
    <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows' and '$(PublishSingleFile)' == 'true'">
        <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>

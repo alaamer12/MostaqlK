@@ -227,33 +227,33 @@ public static class ToastAumidRegistrar
     [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("000214F9-0000-0000-C000-000000000046")]
     private interface IShellLinkW
     {
-        void GetPath(StringBuilder pszFile, int cchMaxPath, IntPtr pfd, uint fFlags);
-        void GetIDList(out IntPtr ppidl);
-        void SetIDList(IntPtr pidl);
-        void GetDescription(StringBuilder pszName, int cchMaxName);
-        void SetDescription(string pszName);
-        void GetWorkingDirectory(StringBuilder pszDir, int cchMaxPath);
-        void SetWorkingDirectory(string pszDir);
-        void SetArguments(string pszArgs);
-        void GetArguments(StringBuilder pszArgs, int cchMaxPath);
-        void GetHotkey(out short pwHotkey);
-        void SetHotkey(short wHotkey);
-        void GetShowCmd(out int piShowCmd);
-        void SetShowCmd(int iShowCmd);
-        void GetIconLocation(StringBuilder pszIconPath, int cchIconPath, out int piIcon);
-        void SetIconLocation(string pszIconPath, int iIcon);
-        void SetRelativePath(string pszPathRel, uint dwReserved);
-        void Resolve(IntPtr hwnd, uint fFlags);
-        void SetPath(string pszFile);
+        public void GetPath(StringBuilder pszFile, int cchMaxPath, IntPtr pfd, uint fFlags);
+        public void GetIDList(out IntPtr ppidl);
+        public void SetIDList(IntPtr pidl);
+        public void GetDescription(StringBuilder pszName, int cchMaxName);
+        public void SetDescription(string pszName);
+        public void GetWorkingDirectory(StringBuilder pszDir, int cchMaxPath);
+        public void SetWorkingDirectory(string pszDir);
+        public void SetArguments(string pszArgs);
+        public void GetArguments(StringBuilder pszArgs, int cchMaxPath);
+        public void GetHotkey(out short pwHotkey);
+        public void SetHotkey(short wHotkey);
+        public void GetShowCmd(out int piShowCmd);
+        public void SetShowCmd(int iShowCmd);
+        public void GetIconLocation(StringBuilder pszIconPath, int cchIconPath, out int piIcon);
+        public void SetIconLocation(string pszIconPath, int iIcon);
+        public void SetRelativePath(string pszPathRel, uint dwReserved);
+        public void Resolve(IntPtr hwnd, uint fFlags);
+        public void SetPath(string pszFile);
     }
 
     [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("886d8eeb-8cf2-4446-8d02-cdba1dbdcf99")]
     private interface IPropertyStore
     {
-        void GetCount(out uint cProps);
-        void GetAt(uint iProp, out PropertyKey pkey);
-        void GetValue(ref PropertyKey key, out PropVariant pv);
-        void SetValue(ref PropertyKey key, ref PropVariant pv);
-        void Commit();
+        public void GetCount(out uint cProps);
+        public void GetAt(uint iProp, out PropertyKey pkey);
+        public void GetValue(ref PropertyKey key, out PropVariant pv);
+        public void SetValue(ref PropertyKey key, ref PropVariant pv);
+        public void Commit();
     }
 }

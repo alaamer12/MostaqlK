@@ -79,9 +79,9 @@ public static class ArabicProposalParser
         // But Mostaql is usually explicit. 
         if (text.Contains("عرض"))
         {
-             // If we didn't match digits, and it's not "واحد" or dual, it might just be "عرض" (1)
-             // or some other form. Let's be conservative.
-             return (0, text);
+            // If we didn't match digits, and it's not "واحد" or dual, it might just be "عرض" (1)
+            // or some other form. Let's be conservative.
+            return (0, text);
         }
 
         return (0, text);

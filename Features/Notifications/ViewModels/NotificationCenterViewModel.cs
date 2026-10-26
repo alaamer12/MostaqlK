@@ -18,8 +18,19 @@ public sealed partial class NotificationCenterViewModel : ObservableObject, IDis
 {
     private readonly INotificationDispatcher _notificationDispatcher;
     private readonly GlobalAppStatusService _globalStatus;
+    private bool _isInboxOpen;
 
     public ObservableCollection<NotificationItemViewModel> RecentNotifications { get; } = [];
+
+    /// <summary>
+    /// Unread rows in the ACTIVE source's inbox — the number the rail's bell must show. The
+    /// service-level <c>GlobalAppStatusService.UnreadNotificationCount</c> is app-wide, so binding
+    /// the bell to it made the badge promise items the source-scoped flyout could never list
+    /// (badge &gt; 0 over an empty dropdown). Counting the same rows the flyout renders keeps
+    /// badge and list in lockstep.
+    /// </summary>
+    [ObservableProperty]
+    public partial int UnreadBadgeCount { get; set; }
 
     public GlobalAppStatusService GlobalStatus => _globalStatus;
 
@@ -28,7 +39,45 @@ public sealed partial class NotificationCenterViewModel : ObservableObject, IDis
         _notificationDispatcher = notificationDispatcher;
         _globalStatus = globalStatus;
         _notificationDispatcher.HistoryChanged += OnHistoryChanged;
-        RefreshFromHistory();
+        _globalStatus.PropertyChanged += (_, e) =>
+        {
+            // The flyout is live UI: re-scope rows when the morph changes the projected source.
+            if (e.PropertyName is null or nameof(GlobalAppStatusService.ActiveSource))
+            {
+                MainThread.BeginInvokeOnMainThread(RefreshForCurrentVisibility);
+            }
+        };
+        RefreshBadge();
+    }
+
+    /// <summary>
+    /// Host hook: while the flyout is closed only the badge is kept current; the row collection is
+    /// rebuilt when it is actually opened (the CollectionView is still in the visual tree when
+    /// hidden, so repopulating it on every background notification churned native row objects).
+    /// </summary>
+    public void SetInboxOpen(bool isOpen)
+    {
+        _isInboxOpen = isOpen;
+        if (isOpen)
+        {
+            RefreshFromHistory();
+        }
+        else
+        {
+            RefreshBadge();
+        }
+    }
+
+    private void RefreshForCurrentVisibility()
+    {
+        if (_isInboxOpen)
+        {
+            RefreshFromHistory();
+        }
+        else
+        {
+            RefreshBadge();
+        }
     }
 
     private void OnHistoryChanged()
@@ -40,16 +89,33 @@ public sealed partial class NotificationCenterViewModel : ObservableObject, IDis
         // new instance (and a new subscription to `HistoryChanged`) is created every time the
         // flyout/window is recreated; incrementing a shared counter from here meant every leaked
         // instance counted the same flush again, inflating the badge far past +1 per new project.
-        MainThread.BeginInvokeOnMainThread(RefreshFromHistory);
+        MainThread.BeginInvokeOnMainThread(RefreshForCurrentVisibility);
+    }
+
+    /// <summary>Badge only — no row collection churn while the flyout is closed.</summary>
+    private void RefreshBadge()
+    {
+        var active = _globalStatus.ActiveSource;
+        UnreadBadgeCount = _notificationDispatcher.RecentHistory
+            .Count(project => project.Source == active && project.IsUnread);
     }
 
     private void RefreshFromHistory()
     {
+        // v3 §6: the inbox is scoped to the ACTIVE source (the same live projection the rail
+        // morph drives) — a mostaql inbox never mixes in nafezly discoveries. History itself
+        // keeps every source's rows, so switching back shows them again untouched.
+        var active = _globalStatus.ActiveSource;
         RecentNotifications.Clear();
         foreach (var project in _notificationDispatcher.RecentHistory)
         {
-            RecentNotifications.Add(new NotificationItemViewModel(project));
+            if (project.Source == active)
+            {
+                RecentNotifications.Add(new NotificationItemViewModel(project));
+            }
         }
+
+        UnreadBadgeCount = RecentNotifications.Count(item => item.IsUnread);
     }
 
     public void MarkAllAsSeen()
@@ -79,6 +145,6 @@ public sealed partial class NotificationCenterViewModel : ObservableObject, IDis
             return;
         }
 
-        await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(item.ProjectId));
+        await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(item.Source, item.ProjectId));
     }
 }

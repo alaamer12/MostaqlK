@@ -53,9 +53,9 @@ public partial class SplitterHandle : ContentView
         ? Color.FromArgb("#1E293B")
         : Color.FromArgb("#E2E8F0");
 
-    private static Color ActiveColor => Application.Current?.RequestedTheme == AppTheme.Dark
-        ? Color.FromArgb("#5CA8DE")
-        : Color.FromArgb("#2386C8");
+    // Hover/drag active color is the live brand accent (was the inline Mostaql light/dark pair).
+    // Read lazily per hover, so a source morph lands on the next interaction without subscribing.
+    private static Color ActiveColor => MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.Brand;
 
     // ------------------------------------------------------------------ bindable resize contract
 

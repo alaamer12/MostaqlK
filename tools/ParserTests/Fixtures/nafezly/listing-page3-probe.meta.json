@@ -1,0 +1,10 @@
+{
+  "url": "https://nafezly.com/projects?page=3",
+  "url_effective": "https://nafezly.com/projects?page=3",
+  "method": "curl HTTPS GET, browser UA + Accept/Accept-Language, --compressed, forced UTF-8 decoding",
+  "captured_utc": "2026-10-22T02:04:04+00:00",
+  "http_status": 200,
+  "byte_size": 320891,
+  "sha256": "81fc7ed5dd4d2375a1aa4f1b31e4de273b1f87be67b2088da41c7fa227bbc09c",
+  "note": "auxiliary probe: locate id 56515 real URL (not part of the 6-file capture set; keep or delete)"
+}

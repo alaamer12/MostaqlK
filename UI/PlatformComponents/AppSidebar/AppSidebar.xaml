@@ -3,6 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:components="clr-namespace:MostaqlK.UI.PlatformComponents"
              xmlns:platform="clr-namespace:MostaqlK.UI.PlatformComponents"
+             xmlns:self="clr-namespace:MostaqlK.UI.PlatformComponents.AppSidebar"
+             xmlns:rail="clr-namespace:MostaqlK.UI.PlatformComponents.SourceRail"
              xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem"
              x:Class="MostaqlK.UI.PlatformComponents.AppSidebar.AppSidebar"
              x:Name="Root">
@@ -71,6 +73,12 @@
 
         <!-- Navigation: px-4 py-4 space-y-2 -->
         <VerticalStackLayout Grid.Row="1" Spacing="8" Padding="16">
+            <!-- v3 source-morph tiles (contract §3/§4): one tile per registered source, both live
+                 immediately, tap = pure projection switch. Sits above the section nav exactly like
+                 the mockups' rail (source tiles · separator · section buttons). -->
+            <rail:SourceSwitchTiles x:Name="SourceTiles" />
+            <BoxView HeightRequest="1" Margin="0,4"
+                     Color="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" />
             <!-- The Border itself keeps the mockup's visuals only; a transparent Button
                  overlay carries the AutomationId/click, because plain Border+TapGestureRecognizer
                  rows never surface an AutomationId to the Windows UI Automation tree
@@ -78,7 +86,7 @@
             <Grid>
                 <Border x:Name="ProjectsButton" Style="{StaticResource SidebarNavRowStyle}">
                     <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
-                        <BoxView x:Name="ProjectsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
+                        <BoxView x:Name="ProjectsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="{DynamicResource BrandLink}" />
                         <components:AppIcon Grid.Column="1" x:Name="ProjectsIcon" Icon="ProjectsList" FontSize="16" WidthRequest="20" />
                         <Label Grid.Column="2" x:Name="ProjectsLabel" Text="المشاريع" FontSize="14" FontFamily="TajawalBold" VerticalOptions="Center" />
                     </Grid>
@@ -91,7 +99,7 @@
             <Grid>
                 <Border x:Name="AdvancedSearchButton" Style="{StaticResource SidebarNavRowStyle}">
                     <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
-                        <BoxView x:Name="AdvancedSearchActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
+                        <BoxView x:Name="AdvancedSearchActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="{DynamicResource BrandLink}" />
                         <components:AppIcon Grid.Column="1" x:Name="AdvancedSearchIcon" Icon="Search" FontSize="16" WidthRequest="20" />
                         <Label Grid.Column="2" x:Name="AdvancedSearchLabel" Text="البحث المتقدم" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
                     </Grid>
@@ -104,7 +112,7 @@
             <Grid>
                 <Border x:Name="SettingsButton" Style="{StaticResource SidebarNavRowStyle}">
                     <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
-                        <BoxView x:Name="SettingsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
+                        <BoxView x:Name="SettingsActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="{DynamicResource BrandLink}" />
                         <components:AppIcon Grid.Column="1" x:Name="SettingsIcon" Icon="Gear" FontSize="16" WidthRequest="20" />
                         <Label Grid.Column="2" x:Name="SettingsLabel" Text="الإعدادات" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
                     </Grid>
@@ -117,7 +125,7 @@
             <Grid>
                 <Border x:Name="AboutButton" Style="{StaticResource SidebarNavRowStyle}">
                     <Grid ColumnDefinitions="4,Auto,*" ColumnSpacing="12">
-                        <BoxView x:Name="AboutActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="#2563EB" />
+                        <BoxView x:Name="AboutActiveBar" Grid.Column="0" WidthRequest="4" HeightRequest="32" IsVisible="False" Color="{DynamicResource BrandLink}" />
                         <components:AppIcon Grid.Column="1" x:Name="AboutIcon" Icon="Info" FontSize="16" WidthRequest="20" />
                         <Label Grid.Column="2" x:Name="AboutLabel" Text="حول التطبيق" FontSize="14" VerticalOptions="Center" FontFamily="Tajawal" />
                     </Grid>
@@ -127,6 +135,12 @@
                     <ds:PressableEffect ApplyHoverHighlight="True" />
                 </Grid.Behaviors>
             </Grid>
+
+            <!-- Per-source contributed pages (contract §10): the ACTIVE source's own rail entries,
+                 rendered after the standard nav items, in descriptor/registry order. Populated in
+                 code from SourceContributionRegistry.PagesFor(active) — shared UI never branches on
+                 a source id; a source that contributes none leaves this host empty (nafezly today). -->
+            <VerticalStackLayout x:Name="ContributionNavHost" Spacing="8" IsVisible="False" />
         </VerticalStackLayout>
 
         <!-- Bottom stats & theme: `<div class="p-4 border-t border-slate-200 space-y-4">` -->
@@ -145,7 +159,7 @@
                     <Label Text="{Binding StatValue, Source={x:Reference Root}}" FontSize="30" FontFamily="TajawalBold"
                            AutomationId="Sidebar_StatValueLabel"
                            HorizontalTextAlignment="Center"
-                           TextColor="{AppThemeBinding Light=#2563EB, Dark=#60A5FA}" />
+                           TextColor="{DynamicResource BrandLink}" />
                 </VerticalStackLayout>
             </Border>
             <Grid ColumnDefinitions="Auto,*,Auto" Padding="8,0">

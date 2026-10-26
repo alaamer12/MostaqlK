@@ -281,7 +281,7 @@ public class DataSyncTests
         UiDebugger.WaitAndFind(Driver, "Projects_SearchInput");
         Thread.Sleep(NavigationSettleDelay);
 
-        var pollIntervalLabel = Driver.FindElementByXPath("//*[contains(@Name, 'يتم الفحص كل')]");
+        var pollIntervalLabel = Driver.FindElementByXPath("//*[contains(@Name, 'المسح كل')]");
         Assert.That(pollIntervalLabel.Text, Does.Contain("77"),
             "The Projects page header's poll-interval text should reflect the value just saved on the Settings page, " +
             "proving it reads the live configured value rather than a hardcoded string literal.");

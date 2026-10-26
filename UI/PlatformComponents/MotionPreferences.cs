@@ -14,6 +14,15 @@ public static partial class MotionPreferences
 {
     private static volatile bool _isAmbientMotionSuspended;
 
+    // The OS lookup constructs a Windows.UI.ViewManagement.UISettings COM object. Per-frame
+    // tickers (ShimmerBox, PipelineRadar, ChromeValueLabel) poll this property ~30x/s, so an
+    // uncached ResolveReducedMotion() created a COM object every frame - exactly the native
+    // garbage the long-idle crash postmortem is about. The OS setting changes rarely; refresh the
+    // cached answer at most once every two seconds, keeping the per-tick read allocation-free.
+    private const long ReducedMotionRefreshMs = 2000;
+    private static volatile bool _cachedReducedMotion;
+    private static long _nextReducedMotionRefreshTicks;
+
     /// <summary>
     /// True when the user asked the OS to minimise animations. Falls back to <c>false</c> (motion
     /// allowed) whenever the platform does not expose the setting, so the visualisation still works.
@@ -33,12 +42,19 @@ public static partial class MotionPreferences
                 return true;
             }
 
-            var isReduced = false;
-            // partial void: no-op on platforms without a .Windows/.Android/... partial, leaving
-            // isReduced = false (motion allowed) — same fallback the previous #if WINDOWS / #else
-            // branch used.
-            ResolveReducedMotion(ref isReduced);
-            return isReduced;
+            var now = Environment.TickCount64;
+            if (now >= Interlocked.Read(ref _nextReducedMotionRefreshTicks))
+            {
+                var isReduced = false;
+                // partial void: no-op on platforms without a .Windows/.Android/... partial, leaving
+                // isReduced = false (motion allowed) — same fallback the previous #if WINDOWS / #else
+                // branch used.
+                ResolveReducedMotion(ref isReduced);
+                _cachedReducedMotion = isReduced;
+                Interlocked.Exchange(ref _nextReducedMotionRefreshTicks, now + ReducedMotionRefreshMs);
+            }
+
+            return _cachedReducedMotion;
         }
     }
 

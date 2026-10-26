@@ -13,7 +13,7 @@ public class AppIconConverter : IValueConverter
             Color? color = null;
             if (parameter is Color c) color = c;
             else if (parameter is string s) color = Color.FromArgb(s);
-            
+
             return glyph.ToImageSource(color);
         }
         return null;

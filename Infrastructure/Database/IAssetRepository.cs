@@ -8,7 +8,7 @@ namespace MostaqlK.Infrastructure.Database;
 /// </summary>
 public interface IAssetRepository
 {
-    Task<Result<bool>> InsertAsync(Asset asset, CancellationToken cancellationToken = default);
+    public Task<Result<bool>> InsertAsync(Asset asset, CancellationToken cancellationToken = default);
 
-    Task<Result<IReadOnlyList<Asset>>> GetByProjectIdAsync(long projectId, CancellationToken cancellationToken = default);
+    public Task<Result<IReadOnlyList<Asset>>> GetByProjectIdAsync(long projectId, CancellationToken cancellationToken = default);
 }

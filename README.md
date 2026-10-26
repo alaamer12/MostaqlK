@@ -1,7 +1,7 @@
 # Mostaqlk
 
 > A lightweight, local-first Windows desktop app that monitors Mostaql's open projects feed, provides sub-minute alerts for new postings, and maintains a fully searchable offline archive.
-> 
+>
 
 ---
 
@@ -17,22 +17,15 @@ The application operates with zero cloud dependencies or external backends. All 
 
 * **Real-time Monitoring & Alerts:** Discovers new project listings and delivers native Windows desktop toasts.
 
-
 * **Offline Local Archive:** Stores project descriptions, owner details, budgets, delivery timelines, and skills locally in an embedded database.
-
 
 * **Store-and-Forget Policy:** Projects are scraped once upon discovery and stored permanently, avoiding unnecessary network traffic.
 
-
 * **Polite Request Budgeting:** Features a shared token-bucket rate limiter (~2 requests/minute by default) to keep requests lightweight and respectful.
-
 
 * **Arabic-First Design:** Full RTL layout support, Unicode bidi isolation for mixed text, and Arabic/English fuzzy search capabilities.
 
-
 * **Tray-Resident:** Lives unobtrusively in your system tray with clear visual status indicators (idle, polling, error).
-
-
 
 ---
 
@@ -40,7 +33,7 @@ The application operates with zero cloud dependencies or external backends. All 
 
 Mostaqlk operates through a two-tier request model driven by a shared rate budget:
 
-```
+```text
 [ Mostaql.com ] 
       │
       ▼
@@ -55,12 +48,13 @@ Mostaqlk operates through a two-tier request model driven by a shared rate budge
       ├──► [ Embedded Database ] (SQLite/Local FTS Index)
       └──► [ Native System Toast ] (Windows Notification)
 ```
+
 [cite: 1, 2, 4]
 
 ### Tech Stack
 
-* **Platform:** Windows Desktop (C# / .NET MAUI)[cite: 1]
-* **Database:** Single-file embedded database (SQLite or libSQL with FTS5 search)[cite: 1, 2]
+* **Platform:** Windows Desktop [C# / .NET MAUI](cite: 1)
+* **Database:** Single-file embedded database [SQLite or libSQL with FTS5 search](cite: 1, 2)
 * **UI Framework:** shadcn/ui primitives with Tailwind CSS, custom RTL layouting, and Tabler outline icons[cite: 3]
 * **Typography:** Lyra El-Mesry (Arabic content) paired with a clean grotesque font for Latin/numerals[cite: 3]
 
@@ -71,7 +65,7 @@ Mostaqlk operates through a two-tier request model driven by a shared rate budge
 | Feature / Capability | v1 (MVP) | v2 | v3 (Future) |
 |---|:---:|:---:|:---:|
 | Periodic listing polling & delta detection[cite: 4] |  |  |  |
-| Detail enrichment (Worker pool & rate limiter)[cite: 4] |  |  |  |
+| Detail enrichment [Worker pool & rate limiter](cite: 4) |  |  |  |
 | Local SQLite storage & system tray integration[cite: 4] |  |  |  |
 | Native toast notifications[cite: 4] |  |  |  |
 | `query_params` custom feed filters[cite: 4] | ❌ |  |  |
@@ -86,7 +80,7 @@ Mostaqlk operates through a two-tier request model driven by a shared rate budge
 
 Data is organized across four primary local structures[cite: 2]:
 
-* **`projects`**: Primary storage containing snapshot details (budget, timeframe, proposal count, timestamps, read state)[cite: 2].
+* **`projects`**: Primary storage containing snapshot details [budget, timeframe, proposal count, timestamps, read state](cite: 2).
 * **`owners`**: Shared profile references (display name, hire rate, project history) deduplicated across listings[cite: 2].
 * **`project_skills`**: Dynamic skill mappings per project[cite: 2].
 * **`assets`**: Optional local file references saved to disk when attachment fetching is active[cite: 2].
@@ -104,5 +98,3 @@ For detailed architecture decisions, design tokens, and technical specifications
 * [`data-model-schema.md`](data-model-schema.md) – Embedded database schema specifications[cite: 1].
 * [`DESIGN.md`](DESIGN.md) – Visual tokens, color palettes, RTL handling, and component base[cite: 1].
 * [`roadmap-future.md`](v2/product/roadmap-future.md) – v3 mobileCompanion and LAN sync goals[cite: 1].
-
-```

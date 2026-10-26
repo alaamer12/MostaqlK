@@ -28,6 +28,9 @@ public enum AppIconGlyph
     /// <summary>Dark-mode row moon icon. Regular <c>fa-moon</c> (f186).</summary>
     Moon,
 
+    /// <summary>Dark-mode row sun icon (shown while dark, mirroring the mockup's moon↔sun swap). Solid <c>fa-sun</c> (f185).</summary>
+    Sun,
+
     /// <summary>Poll-toggle "إيقاف" button icon. Solid <c>fa-pause</c> (f04c).</summary>
     Pause,
 
@@ -81,6 +84,12 @@ public enum AppIconGlyph
     /// <summary>Settings page "استعلام الفحص" section header icon, and the projects.html active-query bar icon. Solid <c>fa-filter</c> (f0b0).</summary>
     Filter,
 
+    /// <summary>Projects feed "الفلاتر" button icon (projects.html). Solid <c>fa-sliders</c> (f1de).</summary>
+    Sliders,
+
+    /// <summary>Settings page "المنصة" section header icon (settings.html). Solid <c>fa-plug</c> (f1e6).</summary>
+    Plug,
+
     /// <summary>Projects feed "عدد المقترحات" stat icon. Solid <c>fa-users</c> (f0c0).</summary>
     Users,
 
@@ -116,7 +125,7 @@ public enum AppIconGlyph
 
     /// <summary>About page "platform" fact-row icon. Brands <c>fa-windows</c> (f17a).</summary>
     Windows,
-    
+
     /// <summary>Onboarding badge lightning icon. Solid <c>fa-bolt</c> (f0e7).</summary>
     Bolt,
 

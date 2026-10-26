@@ -1,9 +1,9 @@
-using Windows.UI.Notifications;
-using Windows.Data.Xml.Dom;
 using MostaqlK.Core;
 using MostaqlK.Core.Formatting;
 using MostaqlK.Models;
 using MostaqlK.Services.Diagnostics;
+using Windows.Data.Xml.Dom;
+using Windows.UI.Notifications;
 
 namespace MostaqlK.Infrastructure.Notifications;
 
@@ -18,7 +18,7 @@ public sealed class WinRtVariation : IToastVariation
     public void EnsureRegistered()
     {
         if (_registered) return;
-        
+
         // Unpackaged apps MUST have a Start Menu shortcut with a matching AUMID for 
         // ToastNotificationManager to accept the notification.
         ToastAumidRegistrar.EnsureRegistered();
@@ -27,7 +27,7 @@ public sealed class WinRtVariation : IToastVariation
         // activator registered, clicking the toast body silently does nothing (see ToastActivator).
         ToastActivator.Register();
         _registered = true;
-        
+
         InteractionLogger.Mark("WinRtVariation.EnsureRegistered", "A", new { Aumid = ToastAumidRegistrar.Aumid });
     }
 
@@ -57,8 +57,8 @@ public sealed class WinRtVariation : IToastVariation
         var originalDescription = project.Description ?? string.Empty;
         var description = TextTruncator.Truncate(originalDescription, 200);
 
-        InteractionLogger.Mark("WinRtVariation.BuildIndividualToastXml", "A", new 
-        { 
+        InteractionLogger.Mark("WinRtVariation.BuildIndividualToastXml", "A", new
+        {
             TitleLength = project.Title?.Length ?? 0,
             DescriptionLength = originalDescription.Length,
             TruncatedLength = description.Length
@@ -67,14 +67,21 @@ public sealed class WinRtVariation : IToastVariation
         var actionsXml = string.IsNullOrWhiteSpace(project.Url)
             ? string.Empty
             : $@"<actions>
-        <action content='عرض على مستقل' 
+        <action content='{NotificationCopy.ViewOnSource(project.Source)}' 
                 arguments='openUrl={Uri.EscapeDataString(project.Url)}' />
     </actions>";
-        
+
         var logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Images", "logo.png");
 
+        // §6 (B5): every individual toast now stamps its source id (including the default source) so
+        // activation resolves the project's OWN source and a stale/garbled payload is ignored rather
+        // than silently routed to the default source's same-numbered project. Only the raw launch
+        // ARGUMENT grows; AppRoutes still omits `&sourceId=` on the mostaql ROUTE, so deep-link/route
+        // behavior is unchanged.
+        var sourceParam = $"&amp;sourceId={Uri.EscapeDataString(project.Source.Value)}";
+
         var toastXmlString = $@"
-<toast lang='ar-SA' launch='projectId={project.ProjectId}'>
+<toast lang='ar-SA' launch='projectId={project.ProjectId}{sourceParam}'>
     <visual lang='ar-SA'>
         <binding template='ToastGeneric'>
             <image placement='appLogoOverride' src='file:///{logoPath}' />
@@ -95,11 +102,12 @@ public sealed class WinRtVariation : IToastVariation
     {
         var header = $"يوجد {projects.Count} مشاريع جديدة — تفقدها هنا";
 
-        var firstUrl = projects.Select(p => p.Url).FirstOrDefault(u => !string.IsNullOrWhiteSpace(u));
+        var firstUrlProject = projects.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.Url));
+        var firstUrl = firstUrlProject?.Url;
         var actionsXml = string.IsNullOrWhiteSpace(firstUrl)
             ? string.Empty
             : $@"<actions>
-        <action content='عرض على مستقل' 
+        <action content='{NotificationCopy.ViewOnSource(firstUrlProject!.Source)}' 
                 arguments='openUrl={Uri.EscapeDataString(firstUrl!)}' />
     </actions>";
 

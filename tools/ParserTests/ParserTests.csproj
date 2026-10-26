@@ -26,13 +26,67 @@
 		<Compile Include="..\..\Core\Formatting\PipelineTelemetryFormatter.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Formatting\TextTruncator.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Utilities\StringNormalization.cs" LinkBase="Core" />
-		<Compile Include="..\..\Infrastructure\Http\Parsers\DetailParser.cs" LinkBase="Parsers" />
-		<Compile Include="..\..\Infrastructure\Http\Parsers\ListingParser.cs" LinkBase="Parsers" />
-		<Compile Include="..\..\Infrastructure\Http\Parsers\StructuralExtractor.cs" LinkBase="Parsers" />
-		<Compile Include="..\..\Infrastructure\Http\Parsers\InferenceEngine.cs" LinkBase="Parsers" />
-		<Compile Include="..\..\Infrastructure\Http\Parsers\ParseErrors.cs" LinkBase="Parsers" />
-		<Compile Include="..\..\Infrastructure\Http\Parsers\ParseException.cs" LinkBase="Parsers" />
-		<Compile Include="..\..\Infrastructure\Http\CookieJar.cs" LinkBase="Http" />
+		<!-- The generalized analysis engines + vocabulary data types (A1): the parsers are only
+		     usable together with these, so they are linked like the rest of the parser stack. -->
+		<Compile Include="..\..\Core\Parsing\ParseProfile.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Parsing\SelectorMap.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Parsing\HtmlStructureEngine.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Parsing\FieldInferenceEngine.cs" LinkBase="Core" />
+		<!-- Models gained a SourceId field in the composite-identity step; the value object is
+		     dependency-free, so it is linked here for the same reason the models are. -->
+		<Compile Include="..\..\Core\Sources\SourceId.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Sources\SourceProjectId.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Sources\BrandTokenSet.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Sources\SourceCapabilities.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Sources\ISourceDescriptor.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Sources\FieldSpec.cs" LinkBase="Core" />
+		<!-- B3: the descriptor now exposes the typed facet vocabulary, so the pure spec record links
+		     alongside it (the nafezly/mostaql facet tests below drive it). -->
+		<Compile Include="..\..\Core\Sources\FilterFacetSpec.cs" LinkBase="Core" />
+		<!-- B4: the schema-driven details renderer is MAUI-free (descriptor + models + Core/Formatting
+		     only), so it links here and its ordering / null-omission / capability gating / money flags
+		     are verified offline against the real descriptors. -->
+		<Compile Include="..\..\Features\Projects\ViewModels\DetailSchemaRenderer.cs" LinkBase="Features" />
+		<!-- ISourceDescriptor now exposes SchemaMap/Profile/Selectors, so the Mostaql data the
+		     descriptor returns must link alongside it. -->
+		<Compile Include="..\..\Sources\Mostaql\MostaqlParseProfile.cs" LinkBase="Sources" />
+		<Compile Include="..\..\Sources\Mostaql\MostaqlSelectors.cs" LinkBase="Sources" />
+		<Compile Include="..\..\Sources\Mostaql\MostaqlSource.cs" LinkBase="Sources" />
+		<Compile Include="..\..\Sources\Mostaql\Parsing\DetailParser.cs" LinkBase="Parsers" />
+		<Compile Include="..\..\Sources\Mostaql\Parsing\ListingParser.cs" LinkBase="Parsers" />
+		<Compile Include="..\..\Sources\Mostaql\Parsing\StructuralExtractor.cs" LinkBase="Parsers" />
+		<Compile Include="..\..\Sources\Mostaql\Parsing\ParseErrors.cs" LinkBase="Parsers" />
+		<Compile Include="..\..\Sources\Mostaql\Parsing\ParseException.cs" LinkBase="Parsers" />
+		<!-- Nafezly source module (A3): the descriptor + its parse-profile/selector data, the thin
+		     nafezly parsers (which drive the same shared Core/Parsing engines), and the JSON-LD + query/
+		     state vocabulary. Fetched/DI/MAUI-bound files (NafezlyFetcher, services, module) stay out —
+		     only the offline-parsable parts are linked, exactly like Mostaql's parser subset. -->
+		<Compile Include="..\..\Sources\Nafezly\NafezlySource.cs" LinkBase="Sources" />
+		<Compile Include="..\..\Sources\Nafezly\NafezlyParseProfile.cs" LinkBase="Sources" />
+		<Compile Include="..\..\Sources\Nafezly\NafezlySelectors.cs" LinkBase="Sources" />
+		<Compile Include="..\..\Sources\Nafezly\NafezlyQueryVocabulary.cs" LinkBase="Sources" />
+		<Compile Include="..\..\Sources\Nafezly\NafezlyStates.cs" LinkBase="Sources" />
+		<Compile Include="..\..\Sources\Nafezly\Parsing\NafezlyJsonLd.cs" LinkBase="Parsers" />
+		<Compile Include="..\..\Sources\Nafezly\Parsing\NafezlyListingParser.cs" LinkBase="Parsers" />
+		<Compile Include="..\..\Sources\Nafezly\Parsing\NafezlyDetailParser.cs" LinkBase="Parsers" />
+		<Compile Include="..\..\Sources\Nafezly\Parsing\NafezlyParseErrors.cs" LinkBase="Parsers" />
+		<Compile Include="..\..\Sources\Nafezly\Parsing\NafezlyParseException.cs" LinkBase="Parsers" />
+		<!-- Contribution seam (contract §10): the registry + the ONE real nafezly settings-section
+		     contribution are linkable with only SourceId/ISettingsRepository, proving per-source growth
+		     without pulling in DI or the MAUI stack. -->
+		<Compile Include="..\..\Core\Sources\ISettingsRepository.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Sources\SourceContributions.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Sources\ISourceSettingsSectionViewModel.cs" LinkBase="Core" />
+		<Compile Include="..\..\Sources\Nafezly\Contributions\NafezlySettingsSectionContribution.cs" LinkBase="Sources" />
+		<Compile Include="..\..\Infrastructure\Http\CookieParser.cs" LinkBase="Http" />
+		<!-- v3 Step 1 read model: SourceFeedStore is MAUI-free (its DB seam is the linkable
+		     IProjectRepository interface + delegates), so the pure coalescing / generation-cancel /
+		     state-machine / warm-peer-prefetch logic links and is verified headlessly, exactly like
+		     the DetailSchemaRenderer precedent. -->
+		<Compile Include="..\..\Core\Result.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\DomainError.cs" LinkBase="Core" />
+		<Compile Include="..\..\Infrastructure\Database\IProjectRepository.cs" LinkBase="Infrastructure" />
+		<Compile Include="..\..\Services\SourceFeedStore.cs" LinkBase="Services" />
 		<Compile Include="..\..\Models\ProjectDetails.cs" LinkBase="Models" />
 		<Compile Include="..\..\Models\ProjectSummary.cs" LinkBase="Models" />
 		<Compile Include="..\..\Models\Owner.cs" LinkBase="Models" />

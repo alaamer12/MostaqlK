@@ -62,9 +62,10 @@ public partial class AppIcon : ContentView
     /// <summary>
     /// Kept for XAML/API compatibility with the previous font-based unit. Since the icon is now
     /// a pre-rasterized PNG (not a live-tintable glyph), only the two design-system colors this
-    /// app actually needs — active blue (<c>#2563EB</c>) and inactive gray (<c>#475569</c>) —
-    /// are supported by swapping to a pre-baked colored variant of the source image; any other
-    /// color value is ignored (falls back to the default/inactive variant).
+    /// app actually needs — active brand-link blue and inactive slate gray — are supported by
+    /// swapping to a pre-baked colored variant of the source image (see
+    /// <see cref="AppIconGlyphExtensions.ToImageSource"/>); any other color value is ignored
+    /// (falls back to the default/inactive variant).
     /// </summary>
     public Color? TextColor
     {

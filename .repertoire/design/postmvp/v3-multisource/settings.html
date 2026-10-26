@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar" data-source="mostaql"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mostaqlk — الإعدادات (v3 source-morph)</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+        darkMode: 'class',
+        theme: { extend: { colors: {
+            primary: '#3b82f6', secondary: '#64748b', background: '#f8fafc', surface: '#ffffff',
+        } } }
+    };
+</script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<style data-purpose="custom-styles">
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
+    body { font-family: 'Tajawal', sans-serif; }
+
+    /* Identity system shared with projects.html: the whole app wears the
+       active source's brand; settings stays inside that identity too. */
+    :root {
+        --accent-positive: #2E9E6B;
+        --bg-app: #f1f5f9; --surface: #ffffff; --surface-2: #f8fafc;
+        --ink-1: #0f172a; --ink-2: #475569; --ink-3: #64748b; --line: #e2e8f0;
+    }
+    html[data-source="mostaql"] { --brand: #2386C8; --brand-ink: #1A6DA6; --brand-soft: #EFF6FB; --brand-on: #ffffff; }
+    html[data-source="nafezly"] { --brand: #FFA200; --brand-ink: #9A6100; --brand-soft: #FFF4DE; --brand-on: #3a2a00; }
+    html.dark {
+        --accent-positive: #4FBF8C;
+        --bg-app: #0f172a; --surface: #1e293b; --surface-2: #172032;
+        --ink-1: #f1f5f9; --ink-2: #cbd5e1; --ink-3: #94a3b8; --line: #334155;
+    }
+    html.dark[data-source="mostaql"] { --brand: #5CA8DE; --brand-ink: #5CA8DE; --brand-soft: rgba(92,168,222,.14); --brand-on: #0b1c2a; }
+    html.dark[data-source="nafezly"] { --brand: #FFB84D; --brand-ink: #FFB84D; --brand-soft: rgba(255,184,77,.14); --brand-on: #2a1d00; }
+
+    body { background-color: var(--bg-app); color: var(--ink-2); }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-app); }
+    ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+    ::selection { background: var(--brand); color: var(--brand-on); }
+
+    ::view-transition-group(root) { animation-duration: var(--morph-dur, 450ms); }
+    ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+    ::view-transition-old(root) { z-index: 0; }
+    ::view-transition-new(root) { z-index: 1; clip-path: var(--morph-clip-from, none); }
+
+    /* The orbit: brand-colored ring riding the wavefront of the reveal */
+    .morph-ring {
+        position: fixed; border-radius: 50%; pointer-events: none; z-index: 9999;
+        border: 3px solid var(--brand);
+        box-shadow: 0 0 22px color-mix(in srgb, var(--brand) 45%, transparent),
+                    inset 0 0 22px color-mix(in srgb, var(--brand) 25%, transparent);
+    }
+    ::view-transition-group(ring) { animation: none; z-index: 3; }
+    ::view-transition-old(ring) { display: none; }
+    ::view-transition-new(ring) {
+        animation: ring-grow var(--morph-dur, 500ms) ease-in-out forwards;
+        transform-origin: center;
+    }
+    @keyframes ring-grow {
+        0%   { transform: scale(0.02); opacity: 1; }
+        75%  { opacity: 0.9; }
+        100% { transform: scale(1); opacity: 0; }
+    }
+
+    .rail { width: 64px; background: var(--surface); border-inline-end: 1px solid var(--line); }
+    .rail-btn { position: relative; width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--ink-3); transition: background-color .15s ease, color .15s ease; cursor: pointer; border: 0; }
+    .rail-btn:hover { background: var(--surface-2); color: var(--ink-1); }
+    .rail-btn.active { background: var(--brand-soft); color: var(--brand-ink); }
+    .rail-btn.active::before { content: ''; position: absolute; inset-inline-start: -10px; top: 50%; translate: 0 -50%; width: 3px; height: 22px; border-radius: 3px; background: var(--brand); }
+    .rail-btn .tip { position: absolute; inset-inline-start: 56px; white-space: nowrap; background: var(--ink-1); color: var(--bg-app); font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 7px; opacity: 0; pointer-events: none; transition: opacity .12s ease .25s; z-index: 50; }
+    .rail-btn:hover .tip { opacity: 1; }
+    .src-tile { font-weight: 800; font-size: 17px; }
+    .src-tile[data-src="mostaql"] { background: #2386C8; color: #fff; }
+    .src-tile[data-src="nafezly"] { background: #FFA200; color: #3a2a00; }
+    html.dark .src-tile[data-src="mostaql"] { background: #5CA8DE; color: #0b1c2a; }
+    html.dark .src-tile[data-src="nafezly"] { background: #FFB84D; color: #2a1d00; }
+    .rail .src-tile { opacity: .45; filter: saturate(.4); }
+    .rail .src-tile.active { opacity: 1; filter: none; }
+    /* A disabled source in the rail: monochrome, cannot be clicked into */
+    .rail .src-tile.disabled { opacity: .25; filter: grayscale(1); cursor: not-allowed; }
+
+    .card-surface { background: var(--surface); border: 1px solid var(--line); }
+    .divider { border-color: var(--line); }
+    .btn-ghost { border: 1px solid var(--line); color: var(--ink-2); background: var(--surface); }
+    .btn-ghost:hover { background: var(--surface-2); color: var(--ink-1); }
+    .stat-box { background: var(--surface-2); border: 1px solid var(--line); }
+    .toggle { position: relative; width: 40px; height: 24px; border-radius: 999px; background: var(--line); cursor: pointer; transition: background-color .15s ease; border: 0; flex-shrink: 0; }
+    .toggle::after { content: ''; position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: translate .15s ease; }
+    .toggle[aria-checked="true"] { background: var(--brand); }
+    .toggle[aria-checked="true"]::after { translate: -16px 0; }
+
+    /* Full-page settings: continuous surface, sticky section headers,
+       divider-separated rows — no floating orphan cards. */
+    .set-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .7rem 0; border-top: 1px solid var(--line); font-size: 13px; }
+    .set-row:first-child { border-top: 0; }
+    .set-label { color: var(--ink-2); font-weight: 700; }
+    .set-sub { display: block; font-weight: 400; font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+    .set-value { color: var(--ink-1); font-weight: 700; display: flex; align-items: center; gap: .6rem; }
+    .set-edit { color: var(--brand-ink); font-weight: 700; font-size: 12px; cursor: pointer; background: none; border: 0; font-family: inherit; }
+    .set-edit:hover { text-decoration: underline; }
+    .section-head { position: sticky; top: 0; z-index: 10; background: var(--surface); border-bottom: 1px solid var(--line); padding: 1.15rem 2rem; }
+    .set-pad { padding: 1.25rem 2rem; border-bottom: 1px solid var(--line); }
+</style>
+<script data-purpose="theme-init">
+    (function () {
+        try {
+            var stored = localStorage.getItem('mostaqlk-theme');
+            var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (stored ? stored === 'dark' : systemDark) document.documentElement.classList.add('dark');
+            var src = localStorage.getItem('mostaqlk-source');
+            if (src === 'nafezly' || src === 'mostaql') document.documentElement.setAttribute('data-source', src);
+        } catch (e) {}
+    })();
+</script>
+</head>
+<body class="h-screen overflow-hidden">
+<div class="flex h-full" style="direction: ltr;">
+
+<!-- BEGIN: Icon rail -->
+<aside class="rail flex flex-col items-center py-4 gap-2 shrink-0" data-purpose="icon-rail">
+    <div class="w-10 h-10 rounded-xl flex items-center justify-center font-extrabold text-lg mb-1" style="background: var(--brand); color: var(--brand-on);">M</div>
+    <div class="w-8 h-px rounded-full mb-1" style="background: var(--line);"></div>
+    <button class="rail-btn src-tile active" data-src="mostaql" aria-label="تحويل التطبيق إلى مستقل" onclick="morphTo('mostaql', this)">م<span class="tip">مستقل — mostaql.com</span></button>
+    <button class="rail-btn src-tile" data-src="nafezly" aria-label="تحويل التطبيق إلى نفذلي" onclick="morphTo('nafezly', this)">ن<span class="tip">نفذلي — nafezly.com</span></button>
+    <div class="w-8 h-px rounded-full my-1" style="background: var(--line);"></div>
+    <a class="rail-btn" href="projects.html"><i class="fa-solid fa-list-check"></i><span class="tip">المشاريع</span></a>
+    <a class="rail-btn" href="#"><i class="fa-solid fa-magnifying-glass"></i><span class="tip">البحث المتقدم</span></a>
+    <button class="rail-btn active" aria-current="page"><i class="fa-solid fa-gear"></i><span class="tip">الإعدادات</span></button>
+    <a class="rail-btn" href="#"><i class="fa-solid fa-circle-info"></i><span class="tip">حول التطبيق</span></a>
+    <div class="flex-1"></div>
+    <button id="theme-toggle" class="rail-btn" aria-label="تبديل الوضع الداكن" onclick="toggleTheme(this)">
+        <i id="theme-icon" class="fa-regular fa-moon"></i><span class="tip">الوضع الداكن</span>
+    </button>
+</aside>
+<!-- END: Icon rail -->
+
+<!-- BEGIN: Main content -->
+<main class="flex-1 min-w-0 flex flex-col overflow-hidden" style="direction: rtl;" data-purpose="main-content">
+    <header class="px-6 py-5 shrink-0 text-center" style="background: var(--surface); border-bottom: 1px solid var(--line);">
+        <h1 class="text-4xl font-extrabold leading-tight" style="color: var(--ink-1);">الإعدادات</h1>
+        <p class="flex items-center justify-center gap-2 mt-2 text-xs" style="color: var(--ink-3);">
+            <span>إعدادات المنصة الحالية:</span>
+            <span class="w-5 h-5 rounded-md inline-flex items-center justify-center font-extrabold text-[10px] src-tile" id="set-src-tile" data-src="mostaql" style="opacity:1;filter:none;">م</span>
+            <span class="font-bold" style="color: var(--brand-ink);" id="set-src-name">مستقل</span>
+        </p>
+    </header>
+
+    <div class="flex-1 overflow-y-auto" style="background: var(--bg-app);">
+        <!-- One continuous settings page on a single surface: sticky section
+             headers, divider rows, no floating cards. The platform section is
+             SOURCE-SCOPED — sources are defined by the developer (no add/remove),
+             and each platform exposes its own settings, pages and card fields. -->
+        <div class="min-h-full" style="background: var(--surface);">
+
+            <!-- BEGIN: Section المنصة — swaps with the active source -->
+            <section data-purpose="settings-platform">
+                <div class="section-head">
+                    <h2 class="text-base font-extrabold flex items-center gap-2" style="color: var(--ink-1);">
+                        <i class="fa-solid fa-plug text-sm" style="color: var(--brand-ink);"></i> المنصة
+                    </h2>
+                    <p class="text-xs mt-1" style="color: var(--ink-3);">المصادر يحددها المطوّر — كل منصة تعرض إعداداتها الخاصة بها، وقد تختلف الإعدادات والصفحات وحقول البطاقات من منصة لأخرى.</p>
+                </div>
+
+                <div class="set-pad" data-src-panel="mostaql">
+                    <div class="set-row"><span class="set-label">فاصل الفحص<span class="set-sub">كل كم ثانية يُفحص البحث عن مشاريع جديدة</span></span><span class="set-value">30 ثانية <button class="set-edit">تغيير</button></span></div><div class="set-row"><span class="set-label">حد الطلبات<span class="set-sub">سقف لبق يحمي الحساب والموقع</span></span><span class="set-value">12 طلب/دقيقة <button class="set-edit">تغيير</button></span></div><div class="set-row"><span class="set-label">تنبيهات هذه المنصة</span><button class="toggle" role="switch" aria-checked="true" aria-label="تنبيهات هذه المنصة" onclick="this.setAttribute('aria-checked', this.getAttribute('aria-checked')==='true'?'false':'true')"></button></div><div class="set-row"><span class="set-label">أنواع المشاريع المتابَعة<span class="set-sub">مستقل يتميز بمشاريع مراقبة وعادية</span></span><span class="set-value">عادية + مراقبة <button class="set-edit">تغيير</button></span></div><div class="set-row"><span class="set-label">آخر فحص</span><span class="set-value">منذ 12 ثانية</span></div><div class="set-row"><span class="set-label">الأرشيف</span><span class="set-value">98 مشروعًا <button class="set-edit">عرض</button></span></div>
+                </div>
+                <div class="set-pad hidden" data-src-panel="nafezly">
+                    <div class="set-row"><span class="set-label">فاصل الفحص<span class="set-sub">كل كم ثانية يُفحص البحث عن مشاريع جديدة</span></span><span class="set-value">60 ثانية <button class="set-edit">تغيير</button></span></div><div class="set-row"><span class="set-label">حد الطلبات<span class="set-sub">سقف لبق يحمي الحساب والموقع</span></span><span class="set-value">8 طلب/دقيقة <button class="set-edit">تغيير</button></span></div><div class="set-row"><span class="set-label">تنبيهات هذه المنصة</span><button class="toggle" role="switch" aria-checked="true" aria-label="تنبيهات هذه المنصة" onclick="this.setAttribute('aria-checked', this.getAttribute('aria-checked')==='true'?'false':'true')"></button></div><div class="set-row"><span class="set-label">جلسة الإثراء<span class="set-sub">بعض صفحات نفذلي تتطلب جلسة للدخول — بدونها يُضاف المشروع من الملخص فقط</span></span><span class="set-value"><span style="font-weight: 400; color: var(--accent-positive);">مرتبطة <button class="set-edit" style="color: var(--ink-3);">إلغاء الربط</button></span></span></div><div class="set-row"><span class="set-label">تخطي المشاريع المغلقة<span class="set-sub">لا تُنبَّه للمشاريع التي أُغلق استقبال العروض فيها</span></span><button class="toggle" role="switch" aria-checked="true" aria-label="تخطي المشاريع المغلقة" onclick="this.setAttribute('aria-checked', this.getAttribute('aria-checked')==='true'?'false':'true')"></button></div><div class="set-row"><span class="set-label">عملة الميزانية<span class="set-sub">تنفيذ يعرض الميزانيات بالدولار</span></span><span class="set-value">كما في الموقع ($) <button class="set-edit">تغيير</button></span></div><div class="set-row"><span class="set-label">آخر فحص</span><span class="set-value">منذ 41 ثانية</span></div><div class="set-row"><span class="set-label">الأرشيف</span><span class="set-value">49 مشروعًا <button class="set-edit">عرض</button></span></div>
+                </div>
+            </section>
+            <!-- END: Section المنصة -->
+
+            <!-- BEGIN: Section عام — global, identical in both platforms -->
+            <section>
+                <div class="section-head">
+                    <h2 class="text-base font-extrabold flex items-center gap-2" style="color: var(--ink-1);">
+                        <i class="fa-solid fa-sliders text-sm" style="color: var(--brand-ink);"></i> عام
+                    </h2>
+                </div>
+                <div class="set-pad">
+                    <div class="set-row"><span class="set-label">تشغيل مع النظام<span class="set-sub">يبدأ التطبيق في الدرج دون نافذة</span></span><button class="toggle" role="switch" aria-checked="false" aria-label="تشغيل مع النظام" onclick="this.setAttribute('aria-checked', this.getAttribute('aria-checked')==='true'?'false':'true')"></button></div>
+                    <div class="set-row"><span class="set-label">تجميع التنبيهات<span class="set-sub">تنبيه واحد لكل دفعة بدل تنبيه لكل مشروع — على كل المنصات</span></span><button class="toggle" role="switch" aria-checked="true" aria-label="تجميع التنبيهات" onclick="this.setAttribute('aria-checked', this.getAttribute('aria-checked')==='true'?'false':'true')"></button></div>
+                    <div class="set-row"><span class="set-label">تذكر آخر منصة مفتوحة<span class="set-sub">عند إعادة تشغيل التطبيق يعود لنفس المنصة التي كنت عليها</span></span><button class="toggle" role="switch" aria-checked="true" aria-label="تذكر آخر منصة مفتوحة" onclick="this.setAttribute('aria-checked', this.getAttribute('aria-checked')==='true'?'false':'true')"></button></div>
+                </div>
+            </section>
+            <!-- END: Section عام -->
+            <div class="h-10"></div>
+        </div>
+    </div>
+</main>
+<!-- END: Main content -->
+</div>
+
+<script data-purpose="morph">
+    // Same mechanics as projects.html; the active source persists across pages
+    // via localStorage, so every page opens wearing the remembered identity.
+    function geometryFrom(originEl) {
+        var vw = window.innerWidth, vh = window.innerHeight, cx, cy;
+        if (originEl) { var r = originEl.getBoundingClientRect(); cx = r.left + r.width / 2; cy = r.top + r.height / 2; }
+        else { cx = vw / 2; cy = vh / 2; }
+        var maxRadius = Math.hypot(Math.max(cx, vw - cx), Math.max(cy, vh - cy));
+        return { cx: cx, cy: cy, maxRadius: maxRadius, vw: vw, vh: vh };
+    }
+    function clipFrom(g) {
+        var px = (g.cx / g.vw) * 100 + '%', py = (g.cy / g.vh) * 100 + '%';
+        var radiusPct = (g.maxRadius / (Math.hypot(g.vw, g.vh) / Math.SQRT2)) * 100;
+        return ['circle(0% at ' + px + ' ' + py + ')', 'circle(' + radiusPct + '% at ' + px + ' ' + py + ')'];
+    }
+    function spawnRing(g) {
+        var d = document.createElement('div');
+        d.className = 'morph-ring';
+        d.style.left = (g.cx - g.maxRadius) + 'px';
+        d.style.top = (g.cy - g.maxRadius) + 'px';
+        d.style.width = d.style.height = (g.maxRadius * 2) + 'px';
+        d.style.viewTransitionName = 'ring';
+        document.body.appendChild(d);
+        return d;
+    }
+    // Per-source settings surfaces: each platform shows ONLY its own rows.
+    var SRC_NAMES = { mostaql: 'مستقل', nafezly: 'نفذلي' };
+    function applyChrome(source) {
+        document.querySelectorAll('[data-src-panel]').forEach(function (pnl) {
+            pnl.classList.toggle('hidden', pnl.getAttribute('data-src-panel') !== source);
+        });
+        var n = document.getElementById('set-src-name');
+        var t = document.getElementById('set-src-tile');
+        if (n) n.textContent = SRC_NAMES[source];
+        if (t) { t.setAttribute('data-src', source); t.textContent = source === 'mostaql' ? 'م' : 'ن'; }
+    }
+
+    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var transitioning = false;
+    function runMorph(originEl, apply, duration) {
+        if (transitioning) return;
+        var g = geometryFrom(originEl);
+        if (typeof document.startViewTransition !== 'function' || reduceMotion) { apply(); return; }
+        var clip = clipFrom(g);
+        var ring = null;
+        var root = document.documentElement;
+        transitioning = true;
+        root.style.setProperty('--morph-dur', (duration || 450) + 'ms');
+        root.style.setProperty('--morph-clip-from', clip[0]);
+        var t = document.startViewTransition(function () { apply(); ring = spawnRing(g); });
+        if (t && t.finished && t.finished.finally) t.finished.finally(function () {
+            transitioning = false;
+            if (ring) ring.remove();
+            root.style.removeProperty('--morph-dur');
+            root.style.removeProperty('--morph-clip-from');
+        });
+        if (t && t.ready) t.ready.then(function () {
+            root.animate({ clipPath: clip }, { duration: duration || 450, easing: 'ease-in-out', fill: 'forwards', pseudoElement: '::view-transition-new(root)' });
+        }).catch(function () {});
+    }
+    function morphTo(source, originEl) {
+        var root = document.documentElement;
+        if (root.getAttribute('data-source') === source) return;
+        runMorph(originEl, function () {
+            root.setAttribute('data-source', source);
+            document.querySelectorAll('.rail .src-tile').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-src') === source); });
+            applyChrome(source);
+            try { localStorage.setItem('mostaqlk-source', source); } catch (e) {}
+        }, 500);
+    }
+    function toggleTheme(originEl) {
+        runMorph(originEl, function () {
+            var dark = document.documentElement.classList.toggle('dark');
+            var icon = document.getElementById('theme-icon');
+            if (icon) icon.className = dark ? 'fa-solid fa-sun' : 'fa-regular fa-moon';
+            try { localStorage.setItem('mostaqlk-theme', dark ? 'dark' : 'light'); } catch (e) {}
+        }, 400);
+    }
+    (function () {
+        document.querySelectorAll('.rail .src-tile').forEach(function (b) {
+            b.classList.toggle('active', b.getAttribute('data-src') === document.documentElement.getAttribute('data-source'));
+        });
+        applyChrome(document.documentElement.getAttribute('data-source') || 'mostaql');
+        if (document.documentElement.classList.contains('dark')) {
+            var icon = document.getElementById('theme-icon');
+            if (icon) icon.className = 'fa-solid fa-sun';
+        }
+    })();
+</script>
+</body></html>

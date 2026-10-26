@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<RootNamespace>DbMigrationTests</RootNamespace>
+		<AssemblyName>DbMigrationTests</AssemblyName>
+		<InvariantGlobalization>true</InvariantGlobalization>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
+		<PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
+	</ItemGroup>
+
+	<!-- Links the real production units under test (same pattern as CrashPathTests).
+	     ISourceModule/ISourceDiscovery/ISourceStrategies are excluded: they drag in
+	     DI and Models dependencies this schema-level harness never exercises. -->
+	<ItemGroup>
+		<Compile Include="..\..\Core\Result.cs" Link="Core\Result.cs" />
+		<Compile Include="..\..\Core\DomainError.cs" Link="Core\DomainError.cs" />
+		<Compile Include="..\..\Core\ErrorOutcomeAttribute.cs" Link="Core\ErrorOutcomeAttribute.cs" />
+		<Compile Include="..\..\Core\ErrorAttributes.cs" Link="Core\ErrorAttributes.cs" />
+		<Compile Include="..\..\Core\ErrorCodeRegistry.cs" Link="Core\ErrorCodeRegistry.cs" />
+		<Compile Include="..\..\Core\Sources\SourceId.cs" Link="Core\Sources\SourceId.cs" />
+		<Compile Include="..\..\Core\Sources\SourceProjectId.cs" Link="Core\Sources\SourceProjectId.cs" />
+		<Compile Include="..\..\Core\Sources\SourceCapabilities.cs" Link="Core\Sources\SourceCapabilities.cs" />
+		<Compile Include="..\..\Core\Sources\BrandTokenSet.cs" Link="Core\Sources\BrandTokenSet.cs" />
+		<Compile Include="..\..\Core\Sources\ISourceDescriptor.cs" Link="Core\Sources\ISourceDescriptor.cs" />
+		<!-- ISourceDescriptor now exposes Profile/Selectors/SchemaMap (A1), so the shared data
+		     types it references are linked; the migration tests themselves are unchanged. -->
+		<Compile Include="..\..\Core\Sources\FieldSpec.cs" Link="Core\Sources\FieldSpec.cs" />
+		<!-- B3: ISourceDescriptor now exposes the typed facet vocabulary, so the pure spec record
+		     links alongside it (empty/passthrough implementations live in the stub above). -->
+		<Compile Include="..\..\Core\Sources\FilterFacetSpec.cs" Link="Core\Sources\FilterFacetSpec.cs" />
+		<Compile Include="..\..\Core\Parsing\ParseProfile.cs" Link="Core\Parsing\ParseProfile.cs" />
+		<Compile Include="..\..\Core\Parsing\SelectorMap.cs" Link="Core\Parsing\SelectorMap.cs" />
+		<Compile Include="..\..\Core\Sources\ISettingsRepository.cs" Link="Core\Sources\ISettingsRepository.cs" />
+		<Compile Include="..\..\Core\Sources\SourceRegistry.cs" Link="Core\Sources\SourceRegistry.cs" />
+		<Compile Include="..\..\Infrastructure\Database\SqliteConnectionFactory.cs" Link="Infrastructure\SqliteConnectionFactory.cs" />
+		<Compile Include="..\..\Infrastructure\Database\DatabaseErrors.cs" Link="Infrastructure\DatabaseErrors.cs" />
+		<Compile Include="..\..\Infrastructure\Database\DatabaseSchemaException.cs" Link="Infrastructure\DatabaseSchemaException.cs" />
+	</ItemGroup>
+
+</Project>

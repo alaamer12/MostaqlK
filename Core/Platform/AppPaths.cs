@@ -20,67 +20,67 @@ public interface IAppDirectoryProvider
     /// <item>iOS: <c>Library/Application Support</c></item>
     /// </list>
     /// </summary>
-    string AppDirectory { get; }
+    public string AppDirectory { get; }
 
     /// <summary>
     /// Persistent data directory for application databases and durable state.
     /// </summary>
-    string DataDirectory { get; }
+    public string DataDirectory { get; }
 
     /// <summary>
     /// Persistent settings directory (<c>Settings/</c>) for preferences and configuration files.
     /// </summary>
-    string SettingsDirectory { get; }
+    public string SettingsDirectory { get; }
 
     /// <summary>
     /// Path to the preferences file (<c>preferences.dat</c>).
     /// </summary>
-    string PreferencesFilePath { get; }
+    public string PreferencesFilePath { get; }
 
     /// <summary>
     /// Diagnostics log directory (<c>log/yyyy-MM-dd/</c>) inside the application directory for today's date.
     /// </summary>
-    string LogsDirectory { get; }
+    public string LogsDirectory { get; }
 
     /// <summary>
     /// Cache directory for downloaded temporary assets and scratch files.
     /// </summary>
-    string CacheDirectory { get; }
+    public string CacheDirectory { get; }
 
     /// <summary>
     /// Path to the SQLite database file (<c>mostaqlk.db</c>).
     /// </summary>
-    string DatabasePath { get; }
+    public string DatabasePath { get; }
 
     /// <summary>
     /// Path to the primary interaction log file (<c>interaction-log.txt</c>).
     /// </summary>
-    string LogFilePath { get; }
+    public string LogFilePath { get; }
 
     /// <summary>
     /// Path to the dedicated crash log file (<c>crash.log</c>).
     /// </summary>
-    string CrashLogFilePath { get; }
+    public string CrashLogFilePath { get; }
 
     /// <summary>
     /// Path to the attachments cache directory.
     /// </summary>
-    string AttachmentsDirectory { get; }
+    public string AttachmentsDirectory { get; }
 
     /// <summary>
     /// Directory for single-file runtime bundle extraction cache (<c>bundle-cache/</c>).
     /// </summary>
-    string BundleCacheDirectory { get; }
+    public string BundleCacheDirectory { get; }
 
     /// <summary>
     /// Path to the native crash dump file (<c>crash.dmp</c>).
     /// </summary>
-    string CrashDumpFilePath { get; }
+    public string CrashDumpFilePath { get; }
 
     /// <summary>
     /// Ensures standard directories exist and purges legacy unidiomatic paths if they exist.
     /// </summary>
-    void EnsureDirectories();
+    public void EnsureDirectories();
 }
 
 /// <summary>

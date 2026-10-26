@@ -1,3 +1,9 @@
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
@@ -7,12 +13,6 @@ using MostaqlK.Core.Platform;
 using MostaqlK.Infrastructure.Notifications;
 using MostaqlK.Platforms.Windows;
 using MostaqlK.Services.Diagnostics;
-using System;
-using System.Diagnostics;
-using System.IO;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading;
 
 namespace MostaqlK.WinUI;
 
@@ -39,7 +39,7 @@ public static class Program
     private static extern int WindowsAppRuntime_EnsureIsLoaded();
 
     [STAThread]
-    static void Main(string[] args)
+    private static void Main(string[] args)
     {
         // Supervisor mode (`--watchdog <pid>`): a tiny sibling process that only waits for the tray app
         // to die and relaunches it after a native fail-fast. Must run before *anything* else - it never
@@ -369,7 +369,7 @@ public static class Program
     private static bool DecideRedirection()
     {
         bool isRedirect = false;
-        
+
         // Get the arguments with which the current instance was activated.
         var args = AppInstance.GetCurrent().GetActivatedEventArgs();
 
@@ -386,7 +386,7 @@ public static class Program
         else
         {
             isRedirect = true;
-            
+
             // Redirect the activation to the existing instance and wait for it to complete.
             // Using .AsTask().Wait() because we are in a synchronous Main method.
             keyInstance.RedirectActivationToAsync(args).AsTask().Wait();

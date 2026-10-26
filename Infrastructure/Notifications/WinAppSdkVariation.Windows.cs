@@ -1,3 +1,4 @@
+using Microsoft.Maui;
 using Microsoft.Windows.AppNotifications;
 using Microsoft.Windows.AppNotifications.Builder;
 using MostaqlK.Core;
@@ -5,7 +6,6 @@ using MostaqlK.Core.Formatting;
 using MostaqlK.Core.Navigation;
 using MostaqlK.Models;
 using MostaqlK.Services.Diagnostics;
-using Microsoft.Maui;
 
 namespace MostaqlK.Infrastructure.Notifications;
 
@@ -23,7 +23,7 @@ public sealed class WinAppSdkVariation : IToastVariation
 
         // Unpackaged apps still need the AUMID and shortcut for identity.
         ToastAumidRegistrar.EnsureRegistered();
-        
+
         // Subscription MUST happen before Register() per documentation.
         AppNotificationManager.Default.NotificationInvoked += OnNotificationInvoked;
         AppNotificationManager.Default.Register();
@@ -44,6 +44,19 @@ public sealed class WinAppSdkVariation : IToastVariation
 
         if (args.Arguments.TryGetValue("projectId", out var projectIdStr) && long.TryParse(projectIdStr, out var projectId))
         {
+            // §6 (B5 hardening): mirror ToastActivator — resolve the project's OWN source from the
+            // sourceId argument and IGNORE the click when it is missing/unparsable rather than
+            // silently defaulting (a cross-source numeric-id collision would open the wrong project).
+            // Validate before marshalling to the main thread so the window is never disturbed by a
+            // malformed payload. Route-level defaults for external deep links are intentionally
+            // unchanged (AppRoutes / ProjectDetailsPage).
+            if (!args.Arguments.TryGetValue("sourceId", out var sourceStr)
+                || !MostaqlK.Core.Sources.SourceId.TryFrom(sourceStr, out var source))
+            {
+                InteractionLogger.Mark("WinAppSdkVariation.OnNotificationInvoked", "Ignored-MissingSourceId", new { ProjectId = projectId });
+                return;
+            }
+
             MainThread.BeginInvokeOnMainThread(async () =>
             {
                 try
@@ -59,7 +72,17 @@ public sealed class WinAppSdkVariation : IToastVariation
                         trayService?.OnOpen();
                     }
 
-                    await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(projectId));
+                    // §6 morph-first (owner decision): a notification from another source
+                    // PERMANENTLY switches the app to that source before navigating, so the
+                    // details page, palette, feed and live pipeline consumers all agree with
+                    // what the user clicked. No-op when already on that source.
+                    MostaqlK.Services.SourceMorph.Apply(
+                        services?.GetService<MostaqlK.Core.Sources.ISettingsRepository>(),
+                        services?.GetService<Services.GlobalAppStatusService>(),
+                        services?.GetService<MostaqlK.UI.DesignSystem.BrandTokens.IBrandTokenProvider>(),
+                        source);
+
+                    await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(source, projectId));
                 }
                 catch (Exception ex)
                 {
@@ -85,7 +108,7 @@ public sealed class WinAppSdkVariation : IToastVariation
                 ? BuildIndividualToast(projects[0])
                 : BuildGroupedToast(projects);
 
-            // AppNotificationBuilder doesn't have a direct Lang property in the builder, 
+            // AppNotificationBuilder doesn't have a direct Lang property in the builder,
             // but we can ensure the XML carries it for proper RTL layout.
             var notification = builder.BuildNotification();
             var xml = notification.Payload;
@@ -114,8 +137,8 @@ public sealed class WinAppSdkVariation : IToastVariation
         var originalDescription = project.Description ?? string.Empty;
         var description = TextTruncator.Truncate(originalDescription, 200);
 
-        InteractionLogger.Mark("WinAppSdkVariation.BuildIndividualToast", "A", new 
-        { 
+        InteractionLogger.Mark("WinAppSdkVariation.BuildIndividualToast", "A", new
+        {
             TitleLength = project.Title?.Length ?? 0,
             DescriptionLength = originalDescription.Length,
             TruncatedLength = description.Length
@@ -127,15 +150,21 @@ public sealed class WinAppSdkVariation : IToastVariation
             .AddText(description)
             .AddArgument("projectId", project.ProjectId.ToString());
 
+        // §6 (B5): every individual toast now carries its source id explicitly, including the default
+        // source. Toast activation resolves the project's OWN source from this argument and no longer
+        // falls back to the default, so a stale/garbled payload is ignored rather than mis-routed. Only
+        // the raw toast ARGUMENT gained its source; the navigated ROUTE is unchanged for mostaql (its
+        // AppRoutes.ProjectDetails still omits `&sourceId=`, see contract §6 first row).
+        builder.AddArgument("sourceId", project.Source.Value);
+
         if (!string.IsNullOrWhiteSpace(project.Url))
         {
-            builder.AddButton(new AppNotificationButton("عرض على مستقل")
+            builder.AddButton(new AppNotificationButton(NotificationCopy.ViewOnSource(project.Source))
                 .AddArgument("openUrl", project.Url));
         }
 
         return builder;
     }
-
 
     private static AppNotificationBuilder BuildGroupedToast(IReadOnlyList<ProjectSummary> projects)
     {
@@ -148,7 +177,7 @@ public sealed class WinAppSdkVariation : IToastVariation
         var firstUrl = projects.Select(p => p.Url).FirstOrDefault(u => !string.IsNullOrWhiteSpace(u));
         if (!string.IsNullOrWhiteSpace(firstUrl))
         {
-            builder.AddButton(new AppNotificationButton("عرض على مستقل")
+            builder.AddButton(new AppNotificationButton(NotificationCopy.ViewOnSource(projects.First(p => !string.IsNullOrWhiteSpace(p.Url)).Source))
                 .AddArgument("openUrl", firstUrl));
         }
 

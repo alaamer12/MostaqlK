@@ -11,26 +11,26 @@ public interface IStartupService
     /// <summary>
     /// Returns <c>true</c> if startup registration is supported on the current platform.
     /// </summary>
-    bool IsSupported { get; }
+    public bool IsSupported { get; }
 
     /// <summary>
     /// Returns <c>true</c> when the startup entry is currently registered in the OS.
     /// Reads from the OS state directly (not a cached preference) so it reflects any
     /// external edits (e.g. manual registry changes or an uninstaller).
     /// </summary>
-    bool IsStartupEnabled { get; }
+    public bool IsStartupEnabled { get; }
 
     /// <summary>
     /// Registers or unregisters the startup entry. Returns <c>true</c> on success and
     /// <c>false</c> if the OS operation failed (e.g. registry access denied), so the
     /// caller can revert the UI toggle rather than lying to the user.
     /// </summary>
-    bool SetStartup(bool enable);
+    public bool SetStartup(bool enable);
 
     /// <summary>
     /// Alias for <see cref="SetStartup"/>.
     /// </summary>
-    bool SetStartupEnabled(bool enable);
+    public bool SetStartupEnabled(bool enable);
 }
 
 /// <summary>

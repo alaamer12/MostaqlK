@@ -1,6 +1,7 @@
 using System.Globalization;
 using MostaqlK.Core.Diagnostics;
 using MostaqlK.Core.Formatting;
+using MostaqlK.Core.Platform;
 using MostaqlK.Services;
 
 namespace MostaqlK.UI.PlatformComponents.PipelineRadar;
@@ -9,12 +10,23 @@ namespace MostaqlK.UI.PlatformComponents.PipelineRadar;
 /// The Lighthouse Radar: a single state-driven visualisation of the
 /// Discovery -> Queue -> Enrichment -> Completion pipeline.
 /// <para>
-/// There is exactly one animation mechanism here: a single frame ticker that advances
-/// <see cref="RadarPipelineState"/> and invalidates the canvas once per frame. Pipeline events only
-/// change *targets* on that state, which is what makes every transition interruptible and
-/// re-targetable - an update arriving mid-animation redirects the motion instead of resetting the
-/// radar. The ticker parks itself as soon as the state is fully settled, so an idle pipeline costs
-/// nothing, and it honours the platform's reduced-motion preference.
+/// There are exactly two animation mechanisms here (dev30 de-managed ticker, plan step 4):
+/// <list type="number">
+/// <item><b>Pure rotation</b> (scanner head, snapshot sweep) is a looping compositor
+/// <c>RotationAngleInDegrees</c> key-frame on the Windows render thread
+/// (<c>PipelineRadar.Windows.cs</c>) over statically-painted overlay canvases — zero managed
+/// per-frame work while a scan runs, and the overlay is torn down (animation stopped + removed)
+/// when the scan/snapshot ends or motion is suspended (animation-safety rule 1).</item>
+/// <item><b>Data tweens</b> (queue/worker interpolation, tokens, pulses, tooltip numbers) still
+/// ride the one frame ticker, which advances <see cref="RadarPipelineState"/> and invalidates the
+/// canvas — but it now PARKS even while a scan is active, because spinning the head is no longer
+/// a reason to repaint the whole dial 60x a second. On non-Windows targets the ticker keeps the
+/// legacy in-canvas rotation (no compositor seam exists there).</item>
+/// </list>
+/// Pipeline events only change *targets* on that state, which is what makes every transition
+/// interruptible and re-targetable - an update arriving mid-animation redirects the motion instead
+/// of resetting the radar. The ticker parks itself as soon as the state is fully settled, so an
+/// idle pipeline costs nothing, and it honours the platform's reduced-motion preference.
 /// </para>
 /// </summary>
 public partial class PipelineRadar : ContentView
@@ -25,6 +37,8 @@ public partial class PipelineRadar : ContentView
 
     private readonly RadarPipelineState _state = new();
     private readonly PipelineRadarDrawable _drawable;
+    private readonly ScannerSweepDrawable _scannerDrawable;
+    private readonly SnapshotSweepDrawable _sweepDrawable;
     private readonly System.Diagnostics.Stopwatch _clock = new();
 
     private GlobalAppStatusService? _status;
@@ -32,6 +46,11 @@ public partial class PipelineRadar : ContentView
     private bool _isFrozen;
     private double _lastTickSeconds;
     private double _idleGrace;
+
+    // Compositor-rotation bookkeeping (lifecycle in SyncRotations; the Windows partial owns the
+    // actual Composition objects). False everywhere off Windows, where the ticker still spins.
+    private bool _scannerRotating;
+    private bool _sweepRotating;
 
     private RadarRegion _pointerRegion = RadarRegion.None;
     private int _pointerWorker = -1;
@@ -50,6 +69,11 @@ public partial class PipelineRadar : ContentView
         InitializeComponent();
         _drawable = new PipelineRadarDrawable(_state);
         RadarCanvas.Drawable = _drawable;
+        _scannerDrawable = new ScannerSweepDrawable(_state);
+        ScannerCanvas.Drawable = _scannerDrawable;
+        _sweepDrawable = new SnapshotSweepDrawable(_state);
+        SweepCanvas.Drawable = _sweepDrawable;
+        _state.RotationDelegatedToCompositor = CurrentPlatform.IsWindows;
         _state.ReducedMotion = MotionPreferences.IsReducedMotionRequested;
         ApplyTheme();
         ApplyDiameter(Diameter);
@@ -59,10 +83,17 @@ public partial class PipelineRadar : ContentView
     {
         ApplyTheme();
         RadarCanvas.Invalidate();
+        ScannerCanvas.Invalidate();
+        SweepCanvas.Invalidate();
     }
 
-    private void ApplyTheme() =>
-        _drawable.IsDarkTheme = (Application.Current?.RequestedTheme ?? AppTheme.Dark) == AppTheme.Dark;
+    private void ApplyTheme()
+    {
+        var isDark = (Application.Current?.RequestedTheme ?? AppTheme.Dark) == AppTheme.Dark;
+        _drawable.IsDarkTheme = isDark;
+        _scannerDrawable.IsDarkTheme = isDark;
+        _sweepDrawable.IsDarkTheme = isDark;
+    }
 
     /// <summary>
     /// Stops the ticker and all canvas invalidation without losing any state. Hosts call this while
@@ -75,6 +106,7 @@ public partial class PipelineRadar : ContentView
         _isFrozen = true;
         _isTicking = false;
         this.AbortAnimation(TickerName);
+        SyncRotations(); // stops + removes the compositor loops while the host animates layout
     }
 
     /// <summary>Resumes rendering after <see cref="FreezeRendering"/> and catches the dial up.</summary>
@@ -87,6 +119,7 @@ public partial class PipelineRadar : ContentView
 
         _isFrozen = false;
         RadarCanvas.Invalidate();
+        SyncRotations();
         Wake();
     }
 
@@ -306,6 +339,7 @@ public partial class PipelineRadar : ContentView
         if (Handler is null)
         {
             Detach();
+            SyncRotations(); // canAnimate now false (no handler) ⇒ any live compositor loop is stopped
             return;
         }
 
@@ -329,9 +363,42 @@ public partial class PipelineRadar : ContentView
             app.RequestedThemeChanged -= OnRequestedThemeChanged;
             app.RequestedThemeChanged += OnRequestedThemeChanged;
         }
+
+        // A source morph retints the discovery ring (drawn from the live brand palette); an idle
+        // radar paints no frames, so it needs the invalidation nudge. Paired with the -= in Detach().
+        MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.PaletteChanged -= OnPaletteChanged;
+        MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.PaletteChanged += OnPaletteChanged;
+
+        // Rotation pivots live in raw-pixel space, so a dial resize (the dashboard Diameter drag /
+        // collapse) must re-center them. Paired with the -= in Detach() (handler lifetime).
+        RadarBox.SizeChanged -= OnRadarBoxSizeChanged;
+        RadarBox.SizeChanged += OnRadarBoxSizeChanged;
+
         ApplyTheme();
 
         Wake();
+    }
+
+    private void OnPaletteChanged()
+    {
+        RadarCanvas.Invalidate();
+        ScannerCanvas.Invalidate(); // the head rides the live brand color
+    }
+
+    private void OnRadarBoxSizeChanged(object? sender, EventArgs e)
+    {
+        RadarCanvas.Invalidate();
+        if (ScannerCanvas.IsVisible)
+        {
+            ScannerCanvas.Invalidate();
+        }
+
+        if (SweepCanvas.IsVisible)
+        {
+            SweepCanvas.Invalidate();
+        }
+
+        UpdateRotationCenters();
     }
 
     private void Attach(GlobalAppStatusService? status)
@@ -358,6 +425,9 @@ public partial class PipelineRadar : ContentView
             app.RequestedThemeChanged -= OnRequestedThemeChanged;
         }
 
+        MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.PaletteChanged -= OnPaletteChanged;
+        RadarBox.SizeChanged -= OnRadarBoxSizeChanged;
+
         if (IPlatformApplication.Current?.Services.GetService<AppLifecycleService>() is { } lifecycle)
         {
             lifecycle.IsInBackgroundChanged -= OnIsInBackgroundChanged;
@@ -381,6 +451,10 @@ public partial class PipelineRadar : ContentView
         if (isInBackground)
         {
             _isTicking = false;
+            // Rule 1: a looping compositor rotation is exactly a perpetual animation — it must
+            // not keep spinning while the window is hidden-to-tray. Stop + remove; Wake on
+            // foreground restarts it (re-based) only if the scan is genuinely still running.
+            SyncRotations();
         }
         else
         {
@@ -467,15 +541,124 @@ public partial class PipelineRadar : ContentView
 
     private int QueueCapacityOrDefault => _status?.QueueCapacity > 0 ? _status.QueueCapacity : QueueCapacity;
 
+    // ------------------------------------------------------------------ compositor rotation lifecycle
+
+    /// <summary>
+    /// The single decision point for the two looping compositor rotations (Windows only — the
+    /// partials are no-ops elsewhere, where the ticker model still spins the head in-canvas).
+    /// Started when a scan / snapshot becomes active while motion is allowed, and STOPPED + removed
+    /// (see the Windows partial) when it ends, when the ticker parks with the effect over, when
+    /// the app hides to tray, when the host freezes the dial, or under reduced motion — i.e. the
+    /// loop is never "perpetual while ambient-suspended" (animation-safety rule 1). Each fresh
+    /// start re-bases the managed wall-clock epoch so the head-angle read-out and the animation
+    /// agree from 12 o'clock.
+    /// </summary>
+    private void SyncRotations()
+    {
+        var canSpin = _state.RotationDelegatedToCompositor
+                      && Handler is not null
+                      && !_isFrozen
+                      && !IsInBackgroundNow()
+                      && !MotionPreferences.IsReducedMotionRequested;
+
+        // The scanner keeps spinning through its fade-out ramp (intensity > 0) so a stopping scan
+        // never snaps the head back to the top mid-fade.
+        var wantScanner = canSpin && (_state.IsScanning || _state.ScannerIntensity > 0.01);
+        if (wantScanner && !_scannerRotating)
+        {
+            _state.ResyncScannerEpoch();
+            StartScannerRotation();
+            _scannerRotating = true;
+        }
+        else if (!wantScanner && _scannerRotating)
+        {
+            StopScannerRotation();
+            _scannerRotating = false;
+        }
+
+        var wantSweep = canSpin && _state.IsSnapshotActive;
+        if (wantSweep && !_sweepRotating)
+        {
+            StartSweepRotation();
+            _sweepRotating = true;
+        }
+        else if (!wantSweep && _sweepRotating)
+        {
+            StopSweepRotation();
+            _sweepRotating = false;
+        }
+
+        UpdateSweepLayerVisibility();
+    }
+
+    /// <summary>
+    /// Shows the static-paint overlay canvases exactly while their content matters: the scanner
+    /// while scanning/fading, the sweep while a snapshot is held. Visibility change is the only
+    /// layout-affecting write here, and it is change-guarded. Under reduced motion there is no
+    /// rotation — what remains is the honest static sweep/head, matching the dial's old quiet state.
+    /// </summary>
+    private void UpdateSweepLayerVisibility()
+    {
+        var scannerVisible = _state.IsScanning || _state.ScannerIntensity > 0.01;
+        if (ScannerCanvas.IsVisible != scannerVisible)
+        {
+            ScannerCanvas.IsVisible = scannerVisible;
+        }
+
+        if (SweepCanvas.IsVisible != _state.IsSnapshotActive)
+        {
+            SweepCanvas.IsVisible = _state.IsSnapshotActive;
+        }
+
+        if (scannerVisible)
+        {
+            ScannerCanvas.Invalidate();
+        }
+
+        if (_state.IsSnapshotActive)
+        {
+            SweepCanvas.Invalidate();
+        }
+    }
+
+    private bool IsInBackgroundNow()
+    {
+        try
+        {
+            return IPlatformApplication.Current?.Services.GetService<AppLifecycleService>()?.IsInBackground == true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // Platform seams: implemented by PipelineRadar.Windows.cs (compositor
+    // RotationAngleInDegrees key-frame, infinite iteration while active, StopAnimation + Dispose on
+    // stop — zero per-frame managed objects). Elided to nothing on Android/iOS/MacCatalyst, where
+    // RadarPipelineState.RotationDelegatedToCompositor stays false and the ticker keeps the
+    // legacy in-canvas rotation.
+    partial void StartScannerRotation();
+    partial void StopScannerRotation();
+    partial void StartSweepRotation();
+    partial void StopSweepRotation();
+    partial void UpdateRotationCenters();
+
     // ------------------------------------------------------------------ the single ticker
 
     /// <summary>
-    /// Starts (or keeps) the one animation loop that advances the whole radar. Called by every
-    /// state change - no other timers exist, and the loop stops on its own once nothing moves.
+    /// Starts (or keeps) the one DATA-tween loop. Called by every state change. Pure rotation is
+    /// no longer a reason to tick on Windows (<see cref="SyncRotations"/> hands it to the
+    /// compositor), so this loop can park while a scan is still spinning.
     /// </summary>
     private void Wake()
     {
         _idleGrace = IdleGraceSeconds;
+
+        // Rotation lifecycle FIRST, regardless of whether the managed loop starts/keeps running:
+        // scan/snapshot transitions land here (via the bindable property-change handlers), and
+        // this is the one place that decides start/stop for the compositor loops.
+        SyncRotations();
 
         var isInBackground = false;
         try
@@ -517,6 +700,7 @@ public partial class PipelineRadar : ContentView
         if (!BackgroundCanvasPolicy.AllowFrame(isInBackground))
         {
             _isTicking = false;
+            SyncRotations(); // hidden/background ⇒ compositor loops stop too (rule 1)
             return;
         }
 
@@ -527,6 +711,15 @@ public partial class PipelineRadar : ContentView
         var busy = _state.Advance(dt);
         UpdateTooltipValues(dt);
         RadarCanvas.Invalidate();
+        if (ScannerCanvas.IsVisible)
+        {
+            ScannerCanvas.Invalidate(); // head alpha rides the intensity ramp while it moves
+        }
+
+        if (SweepCanvas.IsVisible)
+        {
+            SweepCanvas.Invalidate();
+        }
 
         if (busy || _pointerRegion != RadarRegion.None)
         {
@@ -539,6 +732,12 @@ public partial class PipelineRadar : ContentView
         {
             // Fully settled: park the loop instead of burning frames on a static picture.
             _isTicking = false;
+
+            // Park-on-settle rotation gate: with the scan/snapshot genuinely over (intensity
+            // ramp settled at 0 / snapshot inactive), SyncRotations stops + removes the looping
+            // compositor animation. If a scan is STILL running on Windows it deliberately keeps
+            // spinning — the whole point is that spinning no longer requires these frames.
+            SyncRotations();
         }
     }
 

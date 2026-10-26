@@ -16,7 +16,7 @@ public sealed class WorkerPool
     private readonly InFlightTracker _inFlightTracker;
     private readonly IProjectRepository _projectRepository;
     private readonly IOwnerRepository _ownerRepository;
-    private readonly GlobalAppStatusService _globalStatus;
+    private readonly SourcePipelineStatus _status;
     private readonly INotificationDispatcher _notificationDispatcher;
     private readonly List<Task> _runningWorkers = [];
     private CancellationTokenSource? _poolCts;
@@ -32,7 +32,7 @@ public sealed class WorkerPool
         InFlightTracker inFlightTracker,
         IProjectRepository projectRepository,
         IOwnerRepository ownerRepository,
-        GlobalAppStatusService globalStatus,
+        SourcePipelineStatus status,
         INotificationDispatcher notificationDispatcher)
     {
         _discoveryQueue = discoveryQueue;
@@ -40,7 +40,7 @@ public sealed class WorkerPool
         _inFlightTracker = inFlightTracker;
         _projectRepository = projectRepository;
         _ownerRepository = ownerRepository;
-        _globalStatus = globalStatus;
+        _status = status;
         _notificationDispatcher = notificationDispatcher;
     }
 
@@ -56,15 +56,22 @@ public sealed class WorkerPool
             {
                 foreach (var projectId in backlogResult.Value)
                 {
+                    // The backlog table holds every source's pending rows; this pool drains
+                    // only its own source's entries.
+                    if (projectId.Source != _status.Source)
+                    {
+                        continue;
+                    }
+
                     if (_inFlightTracker.TryMarkInFlight(projectId))
                     {
                         await _discoveryQueue.EnqueueAsync(projectId, cancellationToken);
                         // Re-hydrated items are real backlog too, so the radar shows them as discovered.
-                        _globalStatus.NotifyProjectDiscovered(projectId);
+                        _status.NotifyProjectDiscovered(projectId);
                     }
                 }
 
-                _globalStatus.UpdateQueueCount(_discoveryQueue.Count);
+                _status.UpdateQueueCount(_discoveryQueue.Count);
             }
 
             // Cleanup: Prune very old backlog entries (e.g. > 30 days) and expired logs (> 7 days).
@@ -103,7 +110,7 @@ public sealed class WorkerPool
         catch (Exception ex)
         {
             CrashReporter.Report("WorkerPool.StartAsync", ex);
-            return Result<bool>.Err(EnrichErrors.Unexpected(0, ex));
+            return Result<bool>.Err(EnrichErrors.Unexpected(new MostaqlK.Core.Sources.SourceProjectId(_status.Source, 0), ex));
         }
     }
 
@@ -133,7 +140,7 @@ public sealed class WorkerPool
     private void SpawnWorker(int id, CancellationToken token)
     {
         var worker = new EnrichmentWorker(
-            id, _discoveryQueue, _enrichmentService, _inFlightTracker, _projectRepository, _ownerRepository, _globalStatus, _notificationDispatcher);
+            id, _discoveryQueue, _enrichmentService, _inFlightTracker, _projectRepository, _ownerRepository, _status, _notificationDispatcher);
         _runningWorkers.Add(Task.Run(async () =>
         {
             try
