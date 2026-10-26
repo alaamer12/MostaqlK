@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
 using Microsoft.Windows.AppNotifications;
 using MostaqlK.Core.Diagnostics;
+using MostaqlK.Core.Platform;
 using MostaqlK.Infrastructure.Notifications;
 using MostaqlK.Platforms.Windows;
 using MostaqlK.Services.Diagnostics;
@@ -21,9 +22,9 @@ namespace MostaqlK.WinUI;
 /// </summary>
 public static class Program
 {
-    private const string SingletonMutexName = @"Local\MostaqlK.App.Singleton";
-    private const string WakeEventName = @"Local\MostaqlK.App.Wake";
-    private const string AppInstanceKey = "MostaqlK.App.Singleton.Instance";
+    private static readonly string SingletonMutexName = ChannelIdentity.SingletonMutexName;
+    private static readonly string WakeEventName = ChannelIdentity.WakeEventName;
+    private static readonly string AppInstanceKey = ChannelIdentity.AppInstanceKey;
 
     private static Mutex? _singletonMutex;
     private static EventWaitHandle? _wakeEvent;
@@ -246,7 +247,13 @@ public static class Program
             var extractDir = AppContext.BaseDirectory;
             var persistent = MostaqlK.Core.Platform.AppPaths.BundleCacheDirectory;
             var already = BundleExtractPolicy.HasRelocateArg(args);
-            if (!BundleExtractPolicy.ShouldRelaunch(extractDir, Path.GetTempPath(), persistent, already))
+            var fromVolatileTemp = BundleExtractPolicy.ShouldRelaunch(extractDir, Path.GetTempPath(), persistent, already);
+            var fromForeignChannel = BundleExtractPolicy.ShouldRelaunchFromForeignChannelRoot(
+                extractDir,
+                persistent,
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                already);
+            if (!fromVolatileTemp && !fromForeignChannel)
             {
                 LogDebug($"Bundle extract dir is durable (or relocate already attempted): {extractDir}");
                 return false;
@@ -273,7 +280,7 @@ public static class Program
                 psi.ArgumentList.Add(arg);
             }
 
-            LogDebug($"Relaunching portable exe out of volatile extract into {persistent}");
+            LogDebug($"Relaunching portable exe out of volatile/foreign extract into {persistent}");
             Process.Start(psi);
             return true;
         }

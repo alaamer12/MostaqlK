@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using MostaqlK.Core.Platform;
 
 namespace MostaqlK.Infrastructure.Security;
 
@@ -16,7 +17,7 @@ namespace MostaqlK.Infrastructure.Security;
 public static partial class SecretProtector
 {
     /// <summary>App-specific secondary entropy - changing it invalidates every stored secret.</summary>
-    internal static readonly byte[] Entropy = Encoding.UTF8.GetBytes("MostaqlK.v1.secret-store");
+    internal static readonly byte[] Entropy = Encoding.UTF8.GetBytes(ChannelIdentity.AppName + ".v1.secret-store");
 
     /// <summary>True when hardware/OS-keystore backed protection is in effect for the current platform.</summary>
     public static partial bool IsHardwareBacked { get; }

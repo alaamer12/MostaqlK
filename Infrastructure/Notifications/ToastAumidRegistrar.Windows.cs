@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
+using MostaqlK.Core.Platform;
 using MostaqlK.Services.Diagnostics;
 
 namespace MostaqlK.Infrastructure.Notifications;
@@ -19,7 +20,7 @@ namespace MostaqlK.Infrastructure.Notifications;
 public static class ToastAumidRegistrar
 {
     /// <summary>Stable AUMID for this app; must match the shortcut's AppUserModel.ID property.</summary>
-    public const string Aumid = "MostaqlK.App";
+    public static readonly string Aumid = ChannelIdentity.Aumid;
 
     private static readonly object Gate = new();
     private static bool _done;
@@ -94,7 +95,7 @@ public static class ToastAumidRegistrar
     {
         var shortcutPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Microsoft", "Windows", "Start Menu", "Programs", "MostaqlK.lnk");
+            "Microsoft", "Windows", "Start Menu", "Programs", ChannelIdentity.AppName + ".lnk");
 
         var exePath = Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName;
         if (string.IsNullOrWhiteSpace(exePath))

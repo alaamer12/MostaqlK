@@ -1,3 +1,4 @@
+using MostaqlK.Core.Platform;
 using MostaqlK.Core.Sources;
 using MostaqlK.Services.Diagnostics;
 using MostaqlK.UI.DesignSystem.BrandTokens;
@@ -71,12 +72,12 @@ public partial class AppSidebar : ContentView
         InitializeComponent();
         try
         {
-            VersionLabel.Text = $"v{AppInfo.Current.VersionString}";
+            VersionLabel.Text = $"v{AppInfo.Current.VersionString}{ChannelIdentity.Suffix}";
         }
         catch
         {
             // Fallback in case AppInfo is unavailable during design-time/isolated testing
-            VersionLabel.Text = "v1.0.4";
+            VersionLabel.Text = $"v1.0.4{ChannelIdentity.Suffix}";
         }
         ApplyActiveState();
         SyncDarkModeToggleFromCurrentTheme();

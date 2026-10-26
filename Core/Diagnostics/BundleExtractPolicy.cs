@@ -62,6 +62,53 @@ public static class BundleExtractPolicy
         return !extract.StartsWith(persistent, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// True when this process landed in another channel's bundle cache. The single-file apphost
+    /// extracts before managed code runs, using the inherited user-scope
+    /// <c>DOTNET_BUNDLE_EXTRACT_BASE_DIR</c> that both channels share, so switching channels once
+    /// leaves the current launch running out of the other channel's folder. Relaunching with this
+    /// channel's persistent directory is the only way to move the process out.
+    /// </summary>
+    public static bool ShouldRelaunchFromForeignChannelRoot(
+        string? extractDirectory,
+        string persistentExtractBase,
+        string localAppDataDirectory,
+        bool alreadyRelocated)
+    {
+        if (alreadyRelocated)
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(extractDirectory) ||
+            string.IsNullOrWhiteSpace(persistentExtractBase) ||
+            string.IsNullOrWhiteSpace(localAppDataDirectory))
+        {
+            return false;
+        }
+
+        var extract = Path.GetFullPath(extractDirectory);
+        var persistent = Path.GetFullPath(persistentExtractBase);
+        if (extract.StartsWith(persistent, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var localAppData = Path.GetFullPath(localAppDataDirectory);
+        if (!extract.StartsWith(localAppData, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var relative = extract[localAppData.Length..]
+            .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var firstSegment = relative.Split(
+            new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, 2)[0];
+
+        return firstSegment.StartsWith("MostaqlK", StringComparison.OrdinalIgnoreCase)
+               && relative.Contains("bundle-cache", StringComparison.OrdinalIgnoreCase);
+    }
+
     public static bool HasRelocateArg(IReadOnlyList<string> args)
     {
         for (var i = 0; i < args.Count; i++)

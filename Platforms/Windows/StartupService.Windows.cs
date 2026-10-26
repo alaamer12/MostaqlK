@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Microsoft.Win32;
+using MostaqlK.Core.Platform;
 using MostaqlK.Services;
 
 namespace MostaqlK.Platforms.Windows;
@@ -22,7 +23,6 @@ namespace MostaqlK.Platforms.Windows;
 internal sealed class WindowsStartupService : IStartupService
 {
     private const string RunKeyPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
-    private const string AppName = "MostaqlK";
 
     /// <inheritdoc />
     public bool IsSupported => true;
@@ -35,7 +35,7 @@ internal sealed class WindowsStartupService : IStartupService
             try
             {
                 using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: false);
-                return key?.GetValue(AppName) is not null;
+                return key?.GetValue(ChannelIdentity.StartupRunValueName) is not null;
             }
             catch
             {
@@ -66,12 +66,12 @@ internal sealed class WindowsStartupService : IStartupService
 
                 // --silent-start tells the process to skip the splash screen and start
                 // hidden in the tray (see Program.cs and PlatformServiceRegistration.cs).
-                key.SetValue(AppName, $"\"{exePath}\" --silent-start");
+                key.SetValue(ChannelIdentity.StartupRunValueName, $"\"{exePath}\" --silent-start");
             }
             else
             {
                 // throwOnMissingValue: false — idempotent delete is safe.
-                key.DeleteValue(AppName, throwOnMissingValue: false);
+                key.DeleteValue(ChannelIdentity.StartupRunValueName, throwOnMissingValue: false);
             }
 
             return true;

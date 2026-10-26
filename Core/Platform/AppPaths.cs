@@ -97,7 +97,11 @@ public static class AppPaths
     private static readonly object InitLock = new();
     private static bool _initialized;
 
-    public static string AppName => "MostaqlK";
+    /// <summary>
+    /// Root identity and app-data folder name: <c>MostaqlK</c> on the stable channel,
+    /// <c>MostaqlK.Canary</c> on the canary channel (see <see cref="ChannelIdentity"/>).
+    /// </summary>
+    public static string AppName => ChannelIdentity.AppName;
 
     /// <summary>
     /// Build tag in <c>MAJOR.MINOR.PATCH.TAG{n}</c> form (e.g. <c>0.1.0.dev1</c>), read from the <c>InformationalVersion</c> set in <c>MostaqlK.csproj</c>.
@@ -377,7 +381,7 @@ public static class AppPaths
                 var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
                 xdgData = Path.Combine(home, ".local", "share");
             }
-            return Path.Combine(xdgData, "mostaqlk");
+            return Path.Combine(xdgData, ChannelIdentity.AppName.ToLowerInvariant());
         }
 
 #if ANDROID || IOS || MACCATALYST
@@ -446,7 +450,7 @@ public static class AppPaths
                 var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
                 xdgCache = Path.Combine(home, ".cache");
             }
-            return Path.Combine(xdgCache, "mostaqlk");
+            return Path.Combine(xdgCache, ChannelIdentity.AppName.ToLowerInvariant());
         }
 
 #if ANDROID || IOS || MACCATALYST
@@ -466,6 +470,10 @@ public static class AppPaths
     public static void CleanupLegacyDirectories()
     {
         if (!OperatingSystem.IsWindows()) return;
+
+        // The legacy folders below only ever belonged to the stable channel; a canary build must
+        // never delete anything outside its own root.
+        if (ChannelIdentity.IsCanary) return;
 
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         if (string.IsNullOrWhiteSpace(localAppData)) return;

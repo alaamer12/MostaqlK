@@ -1,4 +1,5 @@
 using MostaqlK.Core.Navigation;
+using MostaqlK.Core.Platform;
 
 namespace MostaqlK.Features.Projects.Views.Layouts;
 
@@ -9,11 +10,11 @@ public partial class AboutPageWindowsLayout : ContentView
         InitializeComponent();
         try
         {
-            VersionLabel.Text = $"v{AppInfo.Current.VersionString}";
+            VersionLabel.Text = $"v{AppInfo.Current.VersionString}{ChannelIdentity.Suffix}";
         }
         catch
         {
-            VersionLabel.Text = "v1.0.4";
+            VersionLabel.Text = $"v1.0.4{ChannelIdentity.Suffix}";
         }
     }
 

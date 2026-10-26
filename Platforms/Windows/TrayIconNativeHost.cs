@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using MostaqlK.Core.Platform;
 using MostaqlK.UI.TrayIcon;
 
 namespace MostaqlK.Platforms.Windows;
@@ -89,7 +90,7 @@ public sealed class TrayIconNativeHost : IDisposable
             uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP,
             uCallbackMessage = WM_TRAYICON,
             hIcon = LoadIconHandleFor(trayIconService.State),
-            szTip = "MostaqlK",
+            szTip = ChannelIdentity.AppName,
         };
 
         // Defensively clear any stale icon for this hwnd + uID
@@ -281,7 +282,7 @@ public sealed class TrayIconNativeHost : IDisposable
                 using var stream = assembly.GetManifestResourceStream(resourceName);
                 if (stream != null)
                 {
-                    var tempDir = Path.Combine(Path.GetTempPath(), "MostaqlK_TrayIcons");
+                    var tempDir = Path.Combine(Path.GetTempPath(), ChannelIdentity.TrayIconTempDirectoryName);
                     Directory.CreateDirectory(tempDir);
                     var tempFile = Path.Combine(tempDir, iconFileName);
 

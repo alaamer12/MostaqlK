@@ -106,6 +106,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Web-parsing logic generalized into shared source-blind engines (`Core/Parsing/`: `HtmlStructureEngine`, `FieldInferenceEngine`, `ParseProfile`, `SelectorMap`); the Mostaql parsers are thinned to per-source data plus call order so a second site reuses the same engines with its own profile instead of duplicated code (135 golden-parser tests unchanged). Added source-contribution seam contracts (`ISourcePageContribution`, `ISourceSettingsSectionContribution`, `SourceContributionRegistry`) so a source can grow its own pages/settings without the shared UI branching on it.
 - FTS search is source-scoped: `FtsQueryService.SearchAsync(source, query)` filters by `source_id` and resolves full composite identity (`Source` + site id) like every other reader, replacing the historical raw-internal-id/no-source row shape.
 - Shared code de-coupled from mostaql.com: error texts take the site name from the descriptor; link chip renamed `MostaqlLinkButton` → `SourceLinkButton` (descriptor-driven label + brand palette); toast button copy resolves the source display name; `BudgetFormatter` takes the source's currency suffix; card/details view-models build fallback URLs via `descriptor.BuildProjectUrl`; owner fallback meta comes from the descriptor; settings namespaced per source with legacy flat-key read-through (lazy migration, no data-loss step); per-source cookie store/jar with real Netscape domain-column filtering and seamless rewrite of the legacy secret row; `HttpClient` headers built from descriptor-supplied policy values; the site's session-cookie name is a descriptor fact (`SessionCookieName`).
+### Added (dev43 — canary channel)
+- Two-channel build support: `main` ships stable (`v1.0.4`) and `canary` ships prerelease builds (`v1.0.4.devN-canary`). CI derives the channel from the branch and passes `-p:Channel=canary`, which stamps `CHANNEL_CANARY` and appends `.Canary` to every persistent identity.
+- `ChannelIdentity` (`Core/Platform/ChannelIdentity.cs`) as the single source for the app-data root (`%LocalAppData%\MostaqlK.Canary`), named kernel objects (singleton/wake/watchdog mutexes, AppInstance key), AUMID, toast COM CLSID, HKCU Run value and tray temp directory, so stable and canary binaries can run side by side with total isolation.
+- Canary-only toast activation CLSID and Start Menu shortcut (`MostaqlK.Canary.lnk`), and a `.Canary` badge on the splash, tray tooltip, sidebar and About version labels.
+
+### Changed (dev43 — canary channel)
+- Stable release tags and artifacts now use clean SemVer (`v1.0.4`) instead of exposing the internal `devN` counter; the dev counter and `-canary` suffix are canary-channel only.
+- Release scripts accept `-Channel`; the canary channel skips the `tools/reset*.ps1` scripts because they target the stable data root.
+- Bundle-extraction guard relaunches a process that landed in the other channel's `bundle-cache` (the single-file apphost extracts before managed code runs, using a user-scoped env var both channels share).
 
 ## [1.0.4] - 2026-09-02
 

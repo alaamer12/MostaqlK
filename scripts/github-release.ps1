@@ -2,7 +2,9 @@ param(
     [string]$Arch = "x64",
     [switch]$Force,
     [switch]$CheckOnly,
-    [switch]$ResetDatabase
+    [switch]$ResetDatabase,
+    [ValidateSet("stable", "canary")]
+    [string]$Channel = "stable"
 )
 
 $ErrorActionPreference = "Stop"
@@ -20,6 +22,7 @@ if (-not (Test-Path $csprojPath)) {
 [xml]$csproj = Get-Content $csprojPath
 $displayVersion = $csproj.Project.PropertyGroup.ApplicationDisplayVersion | Where-Object { $_ } | Select-Object -First 1
 $appVersion = $csproj.Project.PropertyGroup.ApplicationVersion | Where-Object { $_ } | Select-Object -First 1
+$baseVersion = $csproj.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
 
 if (-not $displayVersion) {
     $displayVersion = "1.0.0"
@@ -27,14 +30,26 @@ if (-not $displayVersion) {
 if (-not $appVersion) {
     $appVersion = "1"
 }
+if (-not $baseVersion) {
+    $baseVersion = $displayVersion
+}
 
-$tag = "v$displayVersion"
+# Stable releases use clean SemVer (v1.0.4); the dev counter and the -canary suffix belong to the
+# canary channel (v1.0.4.dev43-canary), which is published as a GitHub prerelease.
+if ($Channel -eq "canary") {
+    $tag = "v$displayVersion-canary"
+} else {
+    $tag = "v$baseVersion"
+}
+$isPrerelease = ($Channel -eq "canary").ToString().ToLowerInvariant()
 $releaseTitle = "MostaqlK $tag"
 
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host " MostaqlK Release Automation" -ForegroundColor Cyan
+Write-Host " Channel:       $Channel" -ForegroundColor Yellow
 Write-Host " Version:       $displayVersion (Build $appVersion)" -ForegroundColor Yellow
 Write-Host " Target Tag:    $tag" -ForegroundColor Yellow
+Write-Host " Prerelease:    $isPrerelease" -ForegroundColor Yellow
 Write-Host " Architecture:  $Arch" -ForegroundColor Yellow
 Write-Host "==========================================" -ForegroundColor Cyan
 
@@ -67,6 +82,7 @@ if ($env:GITHUB_OUTPUT) {
     "app_version=$appVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
     "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
     "release_title=$releaseTitle" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+    "is_prerelease=$isPrerelease" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
     "should_release=$($shouldRelease.ToString().ToLower())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 }
 
@@ -82,7 +98,7 @@ if (-not $shouldRelease) {
 
 # 3. Build Windows Portable Single-File Executable
 $releaseScript = Join-Path $scriptDir "release-windows.ps1"
-$releaseScriptArgs = @("-Type", "Portable", "-Arch", $Arch)
+$releaseScriptArgs = @("-Type", "Portable", "-Arch", $Arch, "-Channel", $Channel)
 if ($ResetDatabase) {
     $releaseScriptArgs += "-ResetDatabase"
 }

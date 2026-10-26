@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using MostaqlK.Core.Navigation;
+using MostaqlK.Core.Platform;
 using MostaqlK.Services.Diagnostics;
 
 namespace MostaqlK.Infrastructure.Notifications;
@@ -24,7 +25,7 @@ public static class ToastActivator
 {
     /// <summary>Fixed CLSID for this app's toast activation COM server. Must match the value
     /// written to the registry and stamped on the Start Menu shortcut by <see cref="ToastAumidRegistrar"/>.</summary>
-    public const string ClsidString = "6A6D9142-4F91-4C6A-9C7B-6B6A6E5D9A11";
+    public const string ClsidString = ChannelIdentity.ToastActivatorClsid;
 
     private static readonly Guid Clsid = new(ClsidString);
     private static readonly object Gate = new();
