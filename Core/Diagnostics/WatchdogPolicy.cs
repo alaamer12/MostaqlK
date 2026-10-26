@@ -1,3 +1,5 @@
+using MostaqlK.Core.Platform;
+
 namespace MostaqlK.Core.Diagnostics;
 
 /// <summary>
@@ -33,7 +35,7 @@ public static class WatchdogPolicy
     public static readonly TimeSpan RelaunchDelay = TimeSpan.FromSeconds(4);
 
     /// <summary>Name of the per-process manual-reset event the app signals when it is exiting on purpose.</summary>
-    public static string CleanExitEventName(int processId) => $@"Local\MostaqlK.App.CleanExit.{processId}";
+    public static string CleanExitEventName(int processId) => $@"Local\{ChannelIdentity.AppName}.App.CleanExit.{processId}";
 
     /// <summary>
     /// Parses <c>--watchdog &lt;pid&gt;</c>. Returns <c>false</c> when this process is not a supervisor.

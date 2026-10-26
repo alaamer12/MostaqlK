@@ -3,6 +3,7 @@ using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
+using MostaqlK.Core.Platform;
 
 namespace MostaqlK.Platforms.Windows;
 
@@ -279,7 +280,7 @@ public static class NativeSplashScreen
         _hwnd = CreateWindowEx(
             WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
             className,
-            "MostaqlK",
+            ChannelIdentity.AppName,
             WS_POPUP,
             x, y, width, height,
             IntPtr.Zero,
@@ -375,7 +376,7 @@ public static class NativeSplashScreen
         SetTextColor(memDC, 0x00FFFFFF); // White
 
         var titleRect = new RECT { Left = 20, Top = 50, Right = width - 20, Bottom = 100 };
-        DrawText(memDC, "MostaqlK", -1, ref titleRect, DT_CENTER | DT_SINGLELINE | DT_NOPREFIX);
+        DrawText(memDC, ChannelIdentity.AppName, -1, ref titleRect, DT_CENTER | DT_SINGLELINE | DT_NOPREFIX);
 
         // 2. Arabic Subtitle: "مستقل ك"
         IntPtr arFont = CreateFont(

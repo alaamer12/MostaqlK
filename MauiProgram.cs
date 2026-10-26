@@ -61,7 +61,7 @@ public static class MauiProgram
 			{
 				options.Dsn = "https://90ccacc6ea89ac1af8c0f8cd27a97722@o4507036129361920.ingest.us.sentry.io/4512017976131584";
 				options.Debug = false;
-				options.Release = $"mostaqlk@{typeof(MauiProgram).Assembly.GetName().Version}";
+				options.Release = $"mostaqlk{ChannelIdentity.Suffix.ToLowerInvariant()}@{typeof(MauiProgram).Assembly.GetName().Version}";
 #if DEBUG
 				options.Environment = "debug";
 #else

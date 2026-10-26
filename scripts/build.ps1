@@ -6,13 +6,17 @@ param (
 
     [Parameter(Mandatory=$false)]
     [ValidateSet("Debug", "Release")]
-    [string]$Configuration = "Debug"
+    [string]$Configuration = "Debug",
+
+    [Parameter(Mandatory=$false)]
+    [ValidateSet("stable", "canary")]
+    [string]$Channel = "stable"
 )
 
 switch ($Platform) {
     "Windows" {
-        Write-Host "Building MostaqlK for Windows ($Configuration)..." -ForegroundColor Cyan
-        dotnet build MostaqlK.csproj -f net10.0-windows10.0.19041.0 -c $Configuration -p:TargetFrameworks=net10.0-windows10.0.19041.0
+        Write-Host "Building MostaqlK for Windows ($Configuration, channel: $Channel)..." -ForegroundColor Cyan
+        dotnet build MostaqlK.csproj -f net10.0-windows10.0.19041.0 -c $Configuration -p:TargetFrameworks=net10.0-windows10.0.19041.0 -p:Channel=$Channel
     }
     "macOS" {
         & "$PSScriptRoot\build-macos.ps1" -Configuration $Configuration

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using MostaqlK.Core.Diagnostics;
+using MostaqlK.Core.Platform;
 
 namespace MostaqlK.Platforms.Windows;
 
@@ -25,8 +26,8 @@ namespace MostaqlK.Platforms.Windows;
 /// </summary>
 internal static class AppWatchdog
 {
-    private const string WatchdogMutexName = @"Local\MostaqlK.App.Watchdog";
-    private const string SingletonMutexName = @"Local\MostaqlK.App.Singleton";
+    private static readonly string WatchdogMutexName = ChannelIdentity.WatchdogMutexName;
+    private static readonly string SingletonMutexName = ChannelIdentity.SingletonMutexName;
     private const int SmShuttingDown = 0x2000;
 
     private static EventWaitHandle? _cleanExitEvent;

@@ -8,7 +8,11 @@ param (
     [string]$Arch = "x64",
 
     [Parameter(Mandatory=$false)]
-    [switch]$ResetDatabase
+    [switch]$ResetDatabase,
+
+    [Parameter(Mandatory=$false)]
+    [ValidateSet("stable", "canary")]
+    [string]$Channel = "stable"
 )
 
 $target = "net10.0-windows10.0.19041.0"
@@ -17,7 +21,7 @@ $rid = "win-$Arch"
 $outputBase = "bin\Release\$target\$rid\publish"
 $exePath = "$outputBase\$projectName.exe"
 
-Write-Host "Releasing MostaqlK for Windows ($Type mode, Arch: $Arch, RID: $rid)..." -ForegroundColor Cyan
+Write-Host "Releasing MostaqlK for Windows ($Type mode, Arch: $Arch, RID: $rid, channel: $Channel)..." -ForegroundColor Cyan
 
 # Stop any running MostaqlK processes to avoid file locks on the database and output executable
 $runningProcesses = Get-Process -Name $projectName -ErrorAction SilentlyContinue
@@ -27,9 +31,10 @@ if ($runningProcesses) {
     Start-Sleep -Milliseconds 500
 }
 
-# Reset state for clean release startup (skips database reset by default unless -ResetDatabase is specified)
+# Reset state for clean release startup (skips database reset by default unless -ResetDatabase is specified).
+# The reset scripts target the STABLE data root (%LocalAppData%\MostaqlK), so a canary release must never run them.
 $toolsDir = Join-Path $PSScriptRoot "..\tools"
-if (Test-Path $toolsDir) {
+if ($Channel -eq "stable" -and (Test-Path $toolsDir)) {
     Write-Host "Running reset scripts for clean startup state..." -ForegroundColor Cyan
     $resetScripts = Get-ChildItem -Path $toolsDir -File | Where-Object { 
         ($_.Name -like "reset*.ps1" -or $_.Name -like "reset_*.ps1" -or $_.Name -like "reset-*.ps1") -and
@@ -51,6 +56,8 @@ if (Test-Path $toolsDir) {
     if (-not $ResetDatabase) {
         Write-Host "  Preserving local database (use -ResetDatabase to wipe database)." -ForegroundColor DarkGray
     }
+} elseif ($Channel -eq "canary") {
+    Write-Host "Skipping reset scripts for the canary channel (they target the stable data root)." -ForegroundColor DarkGray
 }
 
 $publishArgs = @(
@@ -59,6 +66,7 @@ $publishArgs = @(
     "-c", "Release",
     "-r", $rid,
     "-p:TargetFrameworks=$target",
+    "-p:Channel=$Channel",
     "-p:PublishReadyToRun=true",
     "-p:SatelliteResourceLanguages=ar"
 )
