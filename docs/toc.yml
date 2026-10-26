@@ -1,3 +1,9 @@
+- name: Product
+  items:
+    - name: Product Overview
+      href: PRODUCT.md
+    - name: Units Catalog
+      href: UNITS.md
 - name: Architecture
   items:
     - name: MostaqlK Evolution and Architecture Journey

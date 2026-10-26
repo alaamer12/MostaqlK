@@ -26,21 +26,32 @@ These are the source of truth for project context. Do not contradict them withou
 
 - **Format:** `MAJOR.MINOR.PATCH.TAG{n}` (e.g. `1.0.4.dev1`). The base comes from `MostaqlK.csproj`; `ApplicationDisplayVersion` and `InformationalVersion` carry the full tag.
 - **Every change that needs a rebuild increments the tag** (`dev1` → `dev2` → …) and `ApplicationVersion` (build code). Do not change the base version unless asked.
-- **Per-version logs, shared app data:** on desktop, app data (Data, Settings, Cache, bundle-cache, pending-crashes) stays in the shared `%LocalAppData%\MostaqlK\` root so every build sees the same database and settings. Logs and crash files (`log\`, `crash.dmp`, `crash.log`) live under `%LocalAppData%\MostaqlK\<version-tag>\` (`AppPaths.VersionDirectory`), so each build keeps its own evidence. Windows crash dumps stay in WER's `%LocalAppData%\CrashDumps`.
+- **Per-version logs, channel-scoped app data:** on desktop, app data (Data, Settings, Cache, bundle-cache, pending-crashes) lives in the channel root — `%LocalAppData%\MostaqlK\` for stable, `%LocalAppData%\MostaqlK.Canary\` for canary — so every build of the same channel sees the same database and settings while the two channels stay isolated. Logs and crash files (`log\`, `crash.dmp`, `crash.log`) live under `<channel-root>\<version-tag>\` (`AppPaths.VersionDirectory`), so each build keeps its own evidence. Windows crash dumps stay in WER's `%LocalAppData%\CrashDumps`.
 - **Retention:** `AppPaths.PurgeOldLogs` applies the 7-day retention to the current build's `log\` folder and to previous version folders (`LogDirectoryPurger.PruneSiblingVersions`), and never touches the shared root data.
 - **Migration:** on the first launch of a new tag, `AppPaths` copies missing Data and Settings files from the newest older version folder, leaving the old folder untouched.
 
 ---
 
+## Branching & release channels
+
+- **`canary` is the integration branch.** All new work — features, fixes, refactors, docs — lands on `canary` first. Do not commit directly to `main`.
+- **`main` is the stable branch.** It advances only by merging `canary` (owner-approved promotion). After promotion both branches share the same code baseline; the difference is release-channel behavior, not divergent code.
+- **CI per branch:** push to `canary` publishes a GitHub prerelease tagged `v{ApplicationDisplayVersion}-canary` (e.g. `v1.0.4.dev43-canary`); push to `main` publishes a stable release tagged `v{Version}` (clean SemVer, e.g. `v1.0.4`). The release script derives both from `MostaqlK.csproj`.
+- **Channel isolation:** the canary build appends `.Canary` to every persistent OS identity (data root, named mutexes, AppInstance key, AUMID, toast COM CLSID, HKCU Run value, tray temp dir), so stable and canary binaries run side by side. Single source: `Core/Platform/ChannelIdentity.cs`; CI passes `-p:Channel=canary`, which stamps `CHANNEL_CANARY`.
+- **Versioning by branch:** on `canary` keep incrementing `dev{N}` and `ApplicationVersion`; stable tags never carry the `dev` counter (the release script uses `<Version>` on `main`).
+- **Database:** canary carries the newest schema. An older `main` build cannot open a canary DB; promote `canary` → `main` before expecting schema parity.
+
+---
+
 ## Units — read before any implementation or planning
 
-**[`UNITS.md`](UNITS.md)** catalogs every existing UI builder block (`AppButton`, `AppCard`, `NavigationControl`, `ShimmerBox`, `TrayIconService`, etc.) grouped by mechanism (Platform Components, Platform Concepts, Design System, Tray Icon).
+**[`UNITS.md`](docs/UNITS.md)** catalogs every existing UI builder block (`AppButton`, `AppCard`, `NavigationControl`, `ShimmerBox`, `TrayIconService`, etc.) grouped by mechanism (Platform Components, Platform Concepts, Design System, Tray Icon).
 
 **BEFORE any implementation or planning work**, you MUST:
 
-1. **Read `UNITS.md` in full** and check whether an existing unit already covers (or partially covers) what the task needs.
+1. **Read `docs/UNITS.md` in full** and check whether an existing unit already covers (or partially covers) what the task needs.
 2. **Make the best use of existing units** — reuse/extend them instead of creating parallel/duplicate components, unless there's a clear, stated reason not to.
-3. **If the feature introduces a new unit** (a new reusable Platform Component, Platform Concept, Design System primitive, etc.), you MUST **update `UNITS.md`** with a new row/entry for it (mechanism, base type, purpose, status) as part of that same task — not as a separate follow-up.
+3. **If the feature introduces a new unit** (a new reusable Platform Component, Platform Concept, Design System primitive, etc.), you MUST **update `docs/UNITS.md`** with a new row/entry for it (mechanism, base type, purpose, status) as part of that same task — not as a separate follow-up.
 
 This applies to the main agent and to every subagent doing implementation/planning work.
 
@@ -182,7 +193,7 @@ When spawning a subagent (Task tool or any delegated work), the **parent (master
 1. **Naming.** The master agent assigns every subagent a name based on its role/responsibility (e.g. `pipeline-diff-reviewer`, `ui-navigation-implementer`), not a generic label. This name is used consistently for the handle, the report file, and any status updates about that subagent.
 2. **Full context up front.** Subagents cannot ask follow-up questions and cannot see the master's conversation. The master MUST give the subagent complete, self-contained details in the task prompt: the exact goal, the relevant files/paths already identified, any decisions already made (e.g. naming conventions, chosen approach), and the exact output expected back. Do not assume the subagent will infer missing context.
 3. **Mandatory doc list.** The master MUST explicitly list, inside the subagent's prompt, every steering doc the subagent needs for its specific task (not just the general list below) — e.g. if the task touches the pipeline, name `worker-pool-and-rate-limiter.md` and `diff-engine.md` explicitly; if it touches UI, name `cross-platform-ui-conventions.md` and the relevant `design/mvp/` mockup. The subagent must read and adhere to these docs perfectly, not just the mandatory-context block below.
-4. **Units check.** The master MUST instruct the subagent to read [`UNITS.md`](UNITS.md) before any implementation/planning and to reuse existing units where possible; if the subagent's task introduces a new unit, the master must require the subagent (or do it itself) to add an entry for it in `UNITS.md`.
+4. **Units check.** The master MUST instruct the subagent to read [`UNITS.md`](docs/UNITS.md) before any implementation/planning and to reuse existing units where possible; if the subagent's task introduces a new unit, the master must require the subagent (or do it itself) to add an entry for it in `docs/UNITS.md`.
 5. **Report file on completion.** When a subagent finishes its work, it MUST create (or the master must create on its behalf, if the subagent's tools don't allow it) a markdown report at `.repertoire/agents/<agent-name>.md`, summarizing: what it was asked to do, what it did, files touched, decisions made, and verification performed. This is in addition to (not instead of) the normal final result returned to the master.
 
 **Paste the block below as the first thing in every subagent prompt** so the subagent inherits the baseline rules:
@@ -209,7 +220,7 @@ When spawning a subagent (Task tool or any delegated work), the **parent (master
 
 7. REPORT — When you finish, write a summary report to .repertoire/agents/<your-agent-name>.md (goal, actions taken, files touched, decisions made, verification), in addition to your normal final result.
 
-8. UNITS — Before any implementation or planning, read UNITS.md in full and make the best use of existing units (reuse/extend instead of duplicating). If this task introduces a new reusable unit, update UNITS.md with a new entry for it as part of this task.
+8. UNITS — Before any implementation or planning, read docs/UNITS.md in full and make the best use of existing units (reuse/extend instead of duplicating). If this task introduces a new reusable unit, update docs/UNITS.md with a new entry for it as part of this task.
 
 TASK-SPECIFIC DOCS: <master agent fills in the exact doc paths relevant to this subagent's task here>
 

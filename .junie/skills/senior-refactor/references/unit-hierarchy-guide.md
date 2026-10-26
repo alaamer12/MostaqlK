@@ -11,7 +11,7 @@ graph TD
     B -->|Domain Context / Localized Text| C[Tier 3: Domain Specialization Unit]
 ```
 
-Every reusable unit must be cataloged in a repository root `UNITS.md` with:
+Every reusable unit must be cataloged in the repository's unit catalog (`docs/UNITS.md` in this repo) with:
 - **Unit Name**
 - **Mechanism / Category** (Platform Components, Platform Concepts, Design System Primitives, Block Layout Barrels)
 - **Base Type / Superclass**

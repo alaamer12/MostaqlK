@@ -45,7 +45,7 @@ Refactor repeated micro-behaviors into the 3-tier hierarchy:
 - **Asset Resolvers**: `PlatformSelect` ➔ `PlatformImage` ➔ `OnboardingStepImage`
 - **Formatters**: Centralized domain formatters (e.g. `SkillsFormatter`)
 
-Register every newly extracted or specialized unit in `UNITS.md`.
+Register every newly extracted or specialized unit in the repository's unit catalog (`docs/UNITS.md` in this repo).
 
 👉 *See `references/unit-hierarchy-guide.md`.*
 

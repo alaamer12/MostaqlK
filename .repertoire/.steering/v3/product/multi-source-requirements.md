@@ -14,7 +14,7 @@
 2. `.repertoire/design/postmvp/v3-multisource/README.md` (decision log) and open
    all three mockups in a browser: `projects.html`, `project-details.html`,
    `settings.html`.
-3. `UNITS.md` — you MUST reuse existing units and add rows for new ones (repo rule).
+3. `docs/UNITS.md` — you MUST reuse existing units and add rows for new ones (repo rule).
 4. `.repertoire/.steering/base/product/DESIGN.md` (tokens, RTL, typography) and
    `.repertoire/.steering/base/structure.md`.
 5. `.repertoire/.steering/v1/tech/cross-platform-ui-conventions.md` before touching UI.
@@ -122,7 +122,7 @@ Neutral palette (slate scale) is theme-driven only, never brand-driven.
 >   an overlay ellipse stroke scaling 0→1. This is acceptable; the radial clip is not.
 > - Theme (light/dark) toggle uses the same mechanism at 400ms from the toggle button.
 > - **`MotionPreferences.IsReducedMotionRequested` → instant swap, no reveal, no
->   ring, no settle.** This is mandatory, not optional (see UNITS.md radar precedent).
+>   ring, no settle.** This is mandatory, not optional (see docs/UNITS.md radar precedent).
 > - Re-entrancy: ignore morph requests while one is running (mockup's
 >   `transitioning` guard).
 > - Card mount settle: transform-only rise (8px, ~340ms, 50ms stagger).
@@ -291,7 +291,7 @@ instances** (same worker-pool mechanics, one budget per source).
 
 ---
 
-## 10. Units: new, renamed, updated (UNITS.md is part of the task)
+## 10. Units: new, renamed, updated (docs/UNITS.md is part of the task)
 
 | Unit | Kind | Notes |
 |------|------|-------|
@@ -304,7 +304,7 @@ instances** (same worker-pool mechanics, one budget per source).
 | `PipelineDashboardPanel` | update | source-scoped content + chip; mechanism unchanged |
 | `ProjectCard` | update | continuous-row variant (no rounded card), brand edge/wash, schema-driven stat slots |
 
-**Repo rule:** every new/renamed unit above gets its `UNITS.md` row in the same
+**Repo rule:** every new/renamed unit above gets its `docs/UNITS.md` row in the same
 task that implements it. Renames must update the old row, not duplicate it.
 
 ---
@@ -338,7 +338,7 @@ task that implements it. Renames must update the old row, not duplicate it.
     established `AppIcon` pipeline: pre-baked PNG artwork via the existing
     generation scripts + `AppIconGlyph` enum entries. **Never swap
     `ImageSource`/`Button.ImageSource` at runtime** — that exact pattern caused
-    the onboarding first-paint crash and the invisible-spinner bug (see UNITS.md
+    the onboarding first-paint crash and the invisible-spinner bug (see docs/UNITS.md
     `AppIcon` history). State changes (e.g. moon↔sun) = toggle visibility of two
     pre-baked icons, not re-resolution.
 13. **Tray + toasts:** tray states remain aggregate (any source scanning →
@@ -365,7 +365,7 @@ task that implements it. Renames must update the old row, not duplicate it.
 - [ ] Disabling the active source auto-morphs to the enabled one; no dead feed state.
 - [ ] Toast deep-link morphs the app to the toast's source before scrolling to the project.
 - [ ] Pipeline panel scopes to source; collapse state persists; 44px rail shows dots + backlog.
-- [ ] UNITS.md updated for all new/renamed units; no dead references to AppSidebar/
+- [ ] docs/UNITS.md updated for all new/renamed units; no dead references to AppSidebar/
       MostaqlLinkButton remain.
 - [ ] Light + dark parity for every new surface; AA contrast on all small brand text.
 
@@ -381,7 +381,7 @@ task that implements it. Renames must update the old row, not duplicate it.
 5. **Details page:** schema-driven sections + executor info.
 6. **Settings:** platform-scoped section + general.
 7. **Hardening:** reduced-motion pass, contrast pass, AutomationId migration,
-   UNITS.md, upgrade test from a real v1 database.
+   docs/UNITS.md, upgrade test from a real v1 database.
 
 Each phase ends runnable; do not defer the morph (phase 2) past phase 3 — the
 shell and identity are the product.
