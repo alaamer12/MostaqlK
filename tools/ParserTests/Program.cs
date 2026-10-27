@@ -138,6 +138,7 @@ public static class Program
         Console.WriteLine("\n--- SettingsScope routing (System/Platform split) ---\n");
         Run(nameof(TestScopedSettingsRoutesByScope), TestScopedSettingsRoutesByScope);
         Run(nameof(TestSettingsCallSiteScopesMatchCatalog), TestSettingsCallSiteScopesMatchCatalog);
+        Run(nameof(TestSettingsScopeHarvestPrecedence), TestSettingsScopeHarvestPrecedence);
 
         Console.WriteLine();
         Console.WriteLine(new string('=', 60));
@@ -2033,6 +2034,61 @@ public static class Program
         }
 
         return checkedCount;
+    }
+
+    /// <summary>
+    /// Step 1 of the System/Platform split: <c>GetGlobal</c> has no fall-through into a platform
+    /// container, so the values that move to system scope must be copied once, with the precedence the
+    /// owner chose (explicit global wins → active platform → any platform that has a value), and the
+    /// loser stays on disk untouched.
+    /// </summary>
+    private static void TestSettingsScopeHarvestPrecedence()
+    {
+        var mostaql = SourceId.From("mostaql");
+        var nafezly = SourceId.From("nafezly");
+        var all = new[] { mostaql, nafezly };
+
+        var repo = new FakeSettingsRepository();
+        repo.Namespaced("mostaql")[SettingsKeys.PollIntervalSeconds] = 30;
+        repo.Namespaced("nafezly")[SettingsKeys.PollIntervalSeconds] = 60;
+        var moved = SettingsScopeHarvest.Run(repo, mostaql, all);
+
+        Check("harvest: the active platform's value becomes the system value",
+            repo.GetGlobal(SettingsKeys.PollIntervalSeconds, 0) == 30 && moved.Count == 1,
+            $"flat={repo.GetGlobal(SettingsKeys.PollIntervalSeconds, 0)} moved={string.Join(",", moved)}");
+        Check("harvest: types survive the copy (an int does not arrive as a string)",
+            repo.Flat[SettingsKeys.PollIntervalSeconds] is int);
+        Check("harvest: the losing platform keeps its stored value on disk",
+            repo.Namespaced("nafezly").ContainsKey(SettingsKeys.PollIntervalSeconds));
+
+        repo = new FakeSettingsRepository();
+        repo.Flat[SettingsKeys.GroupingThreshold] = 9;
+        repo.Namespaced("nafezly")[SettingsKeys.GroupingThreshold] = 4;
+        SettingsScopeHarvest.Run(repo, mostaql, all);
+        Check("harvest: an explicit global value is never overwritten by a container",
+            repo.GetGlobal(SettingsKeys.GroupingThreshold, 0) == 9);
+
+        repo = new FakeSettingsRepository();
+        repo.Namespaced("nafezly")[SettingsKeys.SafeRequests] = false;
+        SettingsScopeHarvest.Run(repo, mostaql, all);
+        Check("harvest: a value tuned on one platform survives when the user was on another",
+            repo.GetGlobal(SettingsKeys.SafeRequests, true) == false);
+
+        repo = new FakeSettingsRepository();
+        Check("harvest: a fresh store has not run yet", SettingsScopeHarvest.ShouldRun(repo));
+        repo.Namespaced("mostaql")[SettingsKeys.PollIntervalSeconds] = 30;
+        SettingsScopeHarvest.Run(repo, mostaql, all);
+        Check("harvest: the marker makes the move one-way", !SettingsScopeHarvest.ShouldRun(repo));
+
+        repo = new FakeSettingsRepository();
+        repo.Namespaced("mostaql")[SettingsKeys.MaxRequestsPerMinute] = 12;
+        repo.Namespaced("mostaql")[SettingsKeys.QueryParams] = "category=development";
+        repo.Namespaced("mostaql")[SettingsKeys.GroupingMode] = "AfterCount";
+        SettingsScopeHarvest.Run(repo, mostaql, all);
+        Check("harvest: a row that stays per-platform is never copied to the flat container",
+            !repo.Flat.ContainsKey(SettingsKeys.MaxRequestsPerMinute) && !repo.Flat.ContainsKey(SettingsKeys.QueryParams));
+        Check("harvest: a moved enum row copies as the stored name, not an index",
+            repo.GetGlobal(SettingsKeys.GroupingMode, string.Empty) == "AfterCount");
     }
 
     /// <summary>

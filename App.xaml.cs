@@ -94,6 +94,29 @@ public partial class App : Application
                 .SwapTo(activeSource);
         }
 
+        // System/Platform split: the values that moved out of a platform's container into the system's
+        // are copied across exactly once, HERE — before the pipeline starts, before the notification
+        // grouper is seeded, and before any settings page reads them. A global read has no fall-through
+        // into a container, so without this an upgraded install would answer every moved row with its
+        // default and leave what the user actually set sitting unread in a platform container.
+        if (MostaqlK.Features.Settings.SettingsScopeHarvest.ShouldRun(settings))
+        {
+            var harvestActive = MostaqlK.Core.Sources.SourceId.TryFrom(requestedSource, out var harvestSource)
+                ? harvestSource
+                : MostaqlK.Core.Sources.SourceId.Default;
+            var moved = MostaqlK.Features.Settings.SettingsScopeHarvest.Run(
+                settings,
+                harvestActive,
+                services.GetRequiredService<MostaqlK.Core.Sources.SourceRegistry>()
+                    .All.Select(descriptor => descriptor.Id).ToList());
+
+            if (moved.Count > 0)
+            {
+                MostaqlK.Services.Diagnostics.InteractionLogger.Mark(
+                    "App.Startup.SettingsScopeHarvest", "A", new { moved = string.Join(",", moved) });
+            }
+        }
+
         // B1b brand palette: seed the app-level DynamicResource keys (Brand/BrandInk/BrandSoft/
         // OnBrand/BrandLink) from the provider projection of the theme + source restored just
         // above, and keep them mutated in place on every later TokensSwapped / theme flip. This

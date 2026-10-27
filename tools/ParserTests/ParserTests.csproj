@@ -62,6 +62,9 @@
 		<!-- Step 4: the centralized validator is pure descriptor-over-data logic, so the bounds
 		     and Arabic message templates the settings screen enforces are checked offline. -->
 		<Compile Include="..\..\Features\Settings\SettingsValidator.cs" LinkBase="Features" />
+		<!-- System/Platform split step 1: the harvest is repository-over-repository logic with no MAUI
+		     dependency, so the "which platform's value survives the move" precedence is proven offline. -->
+		<Compile Include="..\..\Features\Settings\SettingsScopeHarvest.cs" LinkBase="Features" />
 		<!-- B4: the schema-driven details renderer is MAUI-free (descriptor + models + Core/Formatting
 		     only), so it links here and its ordering / null-omission / capability gating / money flags
 		     are verified offline against the real descriptors. -->
