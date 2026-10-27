@@ -20,7 +20,15 @@ from playwright.sync_api import sync_playwright
 
 
 def capture(url: str, output: str, width: int, height: int, full_page: bool, wait_ms: int,
-            theme: str = "light"):
+            theme: str = "light", device_scale_factor: float = 1.0, reduced_motion: bool = False):
+    """One deterministic mockup frame.
+
+    `device_scale_factor` pins the capture density: the parity harness compares against a
+    Windows client area captured at 100% scaling, so a DPR of anything but 1.0 would resize
+    every downstream crop and inflate the noise floor before a pixel of content is compared.
+    `reduced_motion` emulates `prefers-reduced-motion`, which the v3 mockups honor by turning
+    their decorative animations off — the only frame-varying pixels in an otherwise static page.
+    """
     out_dir = os.path.dirname(os.path.abspath(output))
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
@@ -29,8 +37,11 @@ def capture(url: str, output: str, width: int, height: int, full_page: bool, wai
         browser = p.chromium.launch()
         page = browser.new_page(
             viewport={"width": width, "height": height},
+            device_scale_factor=device_scale_factor,
             color_scheme="dark" if theme == "dark" else "light",
         )
+        if reduced_motion:
+            page.emulate_media(reduced_motion="reduce")
         # The mockups read `localStorage['mostaqlk-theme']` before paint (see the inline head
         # script in each page), so seeding it here is what makes the capture deterministic.
         page.add_init_script(

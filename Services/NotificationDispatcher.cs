@@ -102,17 +102,30 @@ public sealed class NotificationDispatcher : INotificationDispatcher
         // WindowsToastSender already logs both success and (crucially) failure via
         // InteractionLogger, but the outcome is checked here too so a failed send is never
         // silently invisible even if that internal logging were ever bypassed.
-        _ = _toastSender.SendAsync(batch).ContinueWith(task =>
+        //
+        // The call itself is guarded because `SendAsync` is synchronous up to the point it
+        // returns a Task: a WinRT failure (0x80004002 from the toast interop on some desktop
+        // layouts) throws on THIS thread, before any continuation can observe it, and an
+        // unobserved throw on the UI thread is a process death. Notifications are a nice-to-have;
+        // they must never be able to take the app down.
+        try
         {
-            if (task.IsCompletedSuccessfully && task.Result.IsError)
+            _ = _toastSender.SendAsync(batch).ContinueWith(task =>
             {
-                InteractionLogger.Mark("NotificationDispatcher.HandleFlush", "B", new { Reason = "toast-send-failed", Error = task.Result.Error?.ToString() });
-            }
-            else if (task.IsFaulted)
-            {
-                InteractionLogger.Fault("NotificationDispatcher.HandleFlush", task.Exception ?? new Exception("Unknown toast send failure"));
-            }
-        }, TaskScheduler.Default);
+                if (task.IsCompletedSuccessfully && task.Result.IsError)
+                {
+                    InteractionLogger.Mark("NotificationDispatcher.HandleFlush", "B", new { Reason = "toast-send-failed", Error = task.Result.Error?.ToString() });
+                }
+                else if (task.IsFaulted)
+                {
+                    InteractionLogger.Fault("NotificationDispatcher.HandleFlush", task.Exception ?? new Exception("Unknown toast send failure"));
+                }
+            }, TaskScheduler.Default);
+        }
+        catch (Exception ex)
+        {
+            InteractionLogger.Fault("NotificationDispatcher.HandleFlush", ex);
+        }
     }
 
     public void MarkHistoryAsRead()

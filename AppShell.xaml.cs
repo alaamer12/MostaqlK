@@ -22,6 +22,7 @@ public partial class AppShell : Shell
         // Detail-only route (not a ShellContent tab): reached via Shell.Current.GoToAsync
         // from ProjectFeedViewModel.SelectProjectCommand.
         Routing.RegisterRoute(AppRoutes.ProjectDetailsPageName, typeof(ProjectDetailsPage));
+        Routing.RegisterRoute(AppRoutes.SettingsShapesPageName, typeof(MostaqlK.Features.Settings.Views.SettingsShapesPage));
         Loaded += OnLoaded;
     }
 
@@ -34,6 +35,7 @@ public partial class AppShell : Shell
         var route = _startup.DefaultPage switch
         {
             StartupPage.Settings => AppRoutes.Settings,
+            StartupPage.Shapes => AppRoutes.SettingsShapes,
             StartupPage.About => AppRoutes.About,
             StartupPage.ProjectDetails => _startup.ProjectId.HasValue
                 ? AppRoutes.ProjectDetails(detailsSource, _startup.ProjectId.Value)
@@ -44,7 +46,7 @@ public partial class AppShell : Shell
     }
 }
 
-public enum StartupPage { Projects, ProjectDetails, Settings, About }
+public enum StartupPage { Projects, ProjectDetails, Settings, About, Shapes }
 
 public sealed record StartupNavigation(StartupPage DefaultPage, long? ProjectId, string? SourceId = null)
 {
@@ -62,6 +64,9 @@ public sealed record StartupNavigation(StartupPage DefaultPage, long? ProjectId,
                     "project-details" => StartupPage.ProjectDetails,
                     "settings" => StartupPage.Settings,
                     "about" => StartupPage.About,
+                    // Parity-harness-only entry: tools/v3_parity.py launches the CRAFT gallery
+                    // with --default-page=settings-shapes. No UI affordance leads here.
+                    "settings-shapes" => StartupPage.Shapes,
                     _ => StartupPage.Projects
                 };
             }

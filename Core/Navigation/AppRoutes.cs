@@ -35,6 +35,12 @@ public static class AppRoutes
     public const string SettingsPanelName = "SettingsPanel";
     public const string AboutPageName = "AboutPage";
     public const string ProjectDetailsPageName = "ProjectDetailsPage";
+    /// <summary>
+    /// Dev-only settings-shapes gallery (the CRAFT harness of the settings plugin system).
+    /// Registered as a plain route and reachable only through <c>--default-page=settings-shapes</c>
+    /// — never from the rail or any user-facing navigation.
+    /// </summary>
+    public const string SettingsShapesPageName = "SettingsShapesPage";
 
     // Query Parameter Keys
     public const string ProjectIdQueryParam = "projectId";
@@ -46,6 +52,11 @@ public static class AppRoutes
     public static readonly AppRoute Settings = new("//" + SettingsPanelName);
     public static readonly AppRoute About = new("//" + AboutPageName);
     public static readonly AppRoute Main = new("//" + MainPageName);
+    /// <summary>
+    /// Registered via <c>Routing.RegisterRoute</c> (a detail route like ProjectDetails), so it
+    /// navigates RELATIVE — absolute <c>//</c> routing to a non-ShellContent route throws.
+    /// </summary>
+    public static readonly AppRoute SettingsShapes = new(SettingsShapesPageName);
 
     // Parameterized Route Builders
     /// <summary>

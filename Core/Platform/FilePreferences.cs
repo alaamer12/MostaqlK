@@ -46,7 +46,14 @@ public sealed class FilePreferences : IPreferences
     /// <summary>
     /// Installs <see cref="FilePreferences"/> as the default backing provider for <see cref="Preferences.Default"/>.
     /// </summary>
-    public static void Install(string? customFilePath = null)
+    /// <returns>
+    /// <c>true</c> only when <see cref="Preferences.Default"/> provably resolves to this file-backed instance.
+    /// A <c>false</c> return is not cosmetic: MAUI's own fallback store is keyed off the package family name,
+    /// not <see cref="AppPaths"/>, so preferences written through it would land outside the channel root and be
+    /// shared between the stable and canary binaries. Callers log it and keep running (the DI-registered
+    /// <see cref="IPreferences"/> is still this instance, so the repository path stays isolated).
+    /// </returns>
+    public static bool Install(string? customFilePath = null)
     {
         var instance = customFilePath != null ? new FilePreferences(customFilePath) : Default;
 
@@ -59,18 +66,65 @@ public sealed class FilePreferences : IPreferences
             if (setDefaultMethod != null)
             {
                 setDefaultMethod.Invoke(null, new object?[] { instance });
-                return;
             }
+            else
+            {
+                var field = typeof(Preferences).GetField("defaultImplementation", BindingFlags.NonPublic | BindingFlags.Static)
+                         ?? typeof(Preferences).GetField("s_defaultImplementation", BindingFlags.NonPublic | BindingFlags.Static)
+                         ?? typeof(Preferences).GetField("_defaultImplementation", BindingFlags.NonPublic | BindingFlags.Static);
 
+                field?.SetValue(null, instance);
+            }
+        }
+        catch
+        {
+            // Verified below; a hard failure here degrades to the fallback store, which must be reported.
+        }
+
+        if (ReferenceEquals(InstalledDefault(), instance)) return true;
+
+        TryReportFallback(InstalledDefault()?.GetType().Name ?? "unknown");
+        return false;
+    }
+
+    /// <summary>
+    /// Reads the instance MAUI's static <see cref="Preferences"/> actually holds — by reflecting
+    /// its backing field, NEVER by calling the <c>Preferences.Default</c> getter. That getter is
+    /// lazy: if the install above did not take, reading it CONSTRUCTS MAUI's own Windows
+    /// implementation, whose first WinRT touch fails in an unpackaged desktop process
+    /// (0x80004002) — a verification step that crashed the app a few seconds after startup during
+    /// the coexistence smoke. An unverifiable install is reported as such; it is never repaired by
+    /// touching the very fallback that must not be constructed.
+    /// </summary>
+    private static IPreferences? InstalledDefault()
+    {
+        try
+        {
             var field = typeof(Preferences).GetField("defaultImplementation", BindingFlags.NonPublic | BindingFlags.Static)
                      ?? typeof(Preferences).GetField("s_defaultImplementation", BindingFlags.NonPublic | BindingFlags.Static)
                      ?? typeof(Preferences).GetField("_defaultImplementation", BindingFlags.NonPublic | BindingFlags.Static);
 
-            field?.SetValue(null, instance);
+            return field?.GetValue(null) as IPreferences;
         }
         catch
         {
-            // Best effort fallback
+            return null;
+        }
+    }
+
+    private static void TryReportFallback(string actualTypeName)
+    {
+        try
+        {
+            Directory.CreateDirectory(AppPaths.LogsDirectory);
+            File.AppendAllText(AppPaths.CrashLogFilePath,
+                $"{DateTime.UtcNow:O} preferences-backend-fallback: Preferences.Default resolved to {actualTypeName} " +
+                $"instead of FilePreferences ({AppPaths.PreferencesFilePath}); the fallback store is not channel-isolated." +
+                Environment.NewLine);
+        }
+        catch
+        {
+            // Diagnostics must never take down startup.
         }
     }
 

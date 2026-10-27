@@ -14,10 +14,24 @@ public static class ParityLaunchFlags
 {
     public const string SkipOnboardingArgument = "--skip-onboarding";
     public const string ParityStateArgument = "--parity-state=";
+    public const string ParityShapeArgument = "--parity-shape=";
 
     public const string StateDefault = "default";
     public const string StatePanelCollapsed = "panel-collapsed";
     public const string StateFiltersOpen = "filters-open";
+
+    /// <summary>The <c>--parity-shape=&lt;value&gt;</c> argument (settings-gallery only), or null when absent.</summary>
+    public static string? ParityShape(string[] args) => ValueAfter(args, ParityShapeArgument);
+
+    /// <summary>
+    /// <see cref="ParityState"/> normalized for the gallery: <c>default</c> means "no filter", so a
+    /// full-gallery capture shows every variant cell (the mockup's <c>?state=</c> script treats it the
+    /// same way). Every other value isolates one cell.
+    /// </summary>
+    public static string? ParityStateFilter(string[] args) =>
+        ParityState(args) is { Length: > 0 } state && !state.Equals(StateDefault, StringComparison.OrdinalIgnoreCase)
+            ? state
+            : null;
 
     /// <summary>
     /// Preference the shipped <c>PipelineDashboardPanel</c> reads at construction for its
@@ -32,13 +46,15 @@ public static class ParityLaunchFlags
         args.Any(arg => arg.Equals(SkipOnboardingArgument, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>The <c>--parity-state=&lt;value&gt;</c> argument, or null when absent.</summary>
-    public static string? ParityState(string[] args)
+    public static string? ParityState(string[] args) => ValueAfter(args, ParityStateArgument);
+
+    private static string? ValueAfter(string[] args, string prefix)
     {
         foreach (var arg in args)
         {
-            if (arg.StartsWith(ParityStateArgument, StringComparison.OrdinalIgnoreCase))
+            if (arg.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             {
-                return arg[ParityStateArgument.Length..].ToLowerInvariant();
+                return arg[prefix.Length..].ToLowerInvariant();
             }
         }
 

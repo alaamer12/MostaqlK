@@ -1702,6 +1702,21 @@ public static class Program
             && cookie.Validation == SettingsValidationKind.CookieParse
             && cookie.AutomationId == "Settings_OpenCookieEditorButton"
             && cookie.AutomationIdMobile == "Settings_Mobile_SessionCookieEntry");
+
+        // Control copy is overridable the same way the label is — a source may rename the button
+        // it shares with everyone else without restating the row's behavior.
+        var buttonOnly = SettingsCatalog.Compose(nafezly, [new FakeSettingsContribution(nafezly.Id, [],
+            [new SettingsDescriptorPatch("session-cookie")
+            {
+                ActionLabelAr = "ارفع ملف تنفيذلي",
+                HintTone = SettingsHintTone.Success,
+            }])]).Descriptors.First(d => d.Key == "session-cookie");
+
+        Check("override: action copy + hint tone patch independently, label stays global",
+            buttonOnly.ActionLabelAr == "ارفع ملف تنفيذلي"
+            && buttonOnly.HintTone == SettingsHintTone.Success
+            && buttonOnly.LabelAr == SettingsCatalog.Compose(nafezly, []).Descriptors
+                .First(d => d.Key == "session-cookie").LabelAr);
     }
 
     private static void TestSettingsCatalogFullReplace()
@@ -1746,8 +1761,8 @@ public static class Program
             mostaql.Descriptors.Any(d => d.Key == "session-cookie")
             && nafezly.Descriptors.Any(d => d.Key == "session-cookie")
             && mostaql.Descriptors.Any(d => d.Key == SettingsKeys.PollIntervalSeconds));
-        Check("catalog: rows ordered by section then order",
-            mostaql.Descriptors.Select(d => d.Section).SequenceEqual(mostaql.Descriptors.Select(d => d.Section).OrderBy(s => s, StringComparer.Ordinal)));
+        Check("catalog: sections keep base-layer declaration order (platform before general before actions)",
+            mostaql.Descriptors.Select(d => d.Section).Distinct().SequenceEqual(["platform", "general", "actions"]));
     }
 
     // -----------------------------------------------------------------

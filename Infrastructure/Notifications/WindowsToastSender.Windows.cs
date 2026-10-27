@@ -90,7 +90,22 @@ public sealed class WindowsToastSender : INotificationSender
                 _activeVariation = new WinRtVariation();
             }
 
-            _activeVariation.EnsureRegistered();
+            // Registration is best-effort: `AppNotificationManager.Register()` throws
+            // 0x80004002 ("no such interface supported") from unpackaged desktop processes on some
+            // machines, and that exception escaped here as a fatal startup crash in tray mode
+            // (both channels, ~4s after launch — reproduced by tools/coexistence-smoke.ps1).
+            // A desktop that cannot register toasts must keep working with no toasts; the senders
+            // already report per-message failure as Result.Err.
+            try
+            {
+                _activeVariation.EnsureRegistered();
+            }
+            catch (Exception ex)
+            {
+                InteractionLogger.Fault("WindowsToastSender.EnsureRegistered", ex,
+                    new { Backend = _activeVariation.GetType().Name, Toasts = "disabled-this-session" });
+            }
+
             _initialized = true;
         }
     }

@@ -341,15 +341,30 @@ public partial class App : Application
         return CreateMainWindow();
     }
 
+    /// <summary>
+    /// Invisible Win32 resize border per side, in device pixels (0 where there is no window frame).
+    /// <c>Window.Width</c> addresses the whole frame, so a design viewport of exactly 1280 client
+    /// pixels has to be requested as 1280 + 2× this inset.
+    /// </summary>
+#if WINDOWS
+    private const int WindowFrameInsetX = MostaqlK.Platforms.Windows.AppWindowMetrics.FrameInset;
+#else
+    private const int WindowFrameInsetX = 0;
+#endif
+
     private Window CreateMainWindow()
     {
         var window = new Window(new AppShell(StartupNavigation.FromArguments(Environment.GetCommandLineArgs())));
 
         // The mockups are authored against a fixed 1280x800 desktop viewport, so the window opens
-        // sized so its *client* area is exactly that: `Window.Height` on Windows covers the whole
-        // frame, so the 32px caption band is added on top. This keeps design-parity captures
-        // deterministic instead of depending on whatever size the OS last remembered.
-        var mainWidth = 1280;
+        // sized so its *client* area is exactly that: `Window.Width`/`Height` on Windows cover the
+        // whole frame, so the 32px caption band AND the 8px invisible resize border on each side
+        // are added on top. (Measured: requesting 1280 produced a 1264px client, which the parity
+        // harness then stretched back to 1280 — a 1.3% horizontal error that grew to 16px at the
+        // right edge, i.e. exactly where the RTL text column lives.)
+        // This keeps design-parity captures deterministic instead of depending on whatever size
+        // the OS last remembered.
+        var mainWidth = 1280 + (2 * WindowFrameInsetX);
         double mainHeight = 800;
 #if WINDOWS
 		mainHeight += MostaqlK.Platforms.Windows.AppWindowMetrics.ChromeHeight;
@@ -386,7 +401,7 @@ public partial class App : Application
                 var shell = new AppShell(StartupNavigation.FromArguments(Environment.GetCommandLineArgs()));
 
                 // Pre-size the window to the main shell's expected dimensions before swapping content
-                var mainWidth = 1280;
+                var mainWidth = 1280 + (2 * WindowFrameInsetX);
                 double swapHeight = 800;
 #if WINDOWS
 				swapHeight += MostaqlK.Platforms.Windows.AppWindowMetrics.ChromeHeight;

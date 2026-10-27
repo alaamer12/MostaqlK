@@ -147,11 +147,11 @@
             <p class="text-xs mt-1" style="color: var(--ink-3);">قيمة منطقية واحدة: تشغيل/إيقاف. يُكتب فورًا عبر الطابور المؤجَّل.</p>
         </div>
         <div class="set-pad"><div class="shape-grid">
-            <div class="variant"><div class="variant-cap" data-state="valid">صحيح — مفعّل</div>
+            <div class="variant" data-state="valid"><div class="variant-cap">صحيح — مفعّل</div>
                 <div class="set-row"><span class="set-label">تنبيهات هذه المنصة<span class="set-sub">لن تصلك تنبيهات من هذه المنصة أثناء الإيقاف</span></span><button class="toggle" role="switch" aria-checked="true" onclick="flip(this)"></button></div></div>
-            <div class="variant"><div class="variant-cap" data-state="off">صحيح — متوقف</div>
+            <div class="variant" data-state="off"><div class="variant-cap">صحيح — متوقف</div>
                 <div class="set-row"><span class="set-label">تخطي المشاريع المغلقة</span><button class="toggle" role="switch" aria-checked="false" onclick="flip(this)"></button></div></div>
-            <div class="variant"><div class="variant-cap" data-state="disabled">معطّل (لا تملكه هذه المنصة)</div>
+            <div class="variant" data-state="disabled"><div class="variant-cap">معطّل (لا تملكه هذه المنصة)</div>
                 <div class="set-row"><span class="set-label">تجميع التنبيهات<span class="set-sub">متاح على مستوى النظام فقط</span></span><button class="toggle" role="switch" aria-checked="true" disabled></button></div></div>
         </div></div>
     </section>
@@ -166,13 +166,13 @@
             <p class="text-xs mt-1" style="color: var(--ink-3);">min/max/step + وحدة + رسالة خطأ من الـ descriptor نفسه (Template {0}={min} {1}={max}).</p>
         </div>
         <div class="set-pad"><div class="shape-grid">
-            <div class="variant"><div class="variant-cap" data-state="valid">صحيح</div>
+            <div class="variant" data-state="valid"><div class="variant-cap">صحيح</div>
                 <div class="set-row"><span class="set-label">فاصل الفحص</span><span class="set-value"><input class="num-input ltr" value="30" aria-label="فاصل الفحص"> ثانية</span></div></div>
-            <div class="variant"><div class="variant-cap" data-state="clamped">مقصوص عند الحد</div>
+            <div class="variant" data-state="clamped"><div class="variant-cap">مقصوص عند الحد</div>
                 <div class="set-row"><span class="set-label">حد الطلبات<span class="clamp-note">ضُبط تلقائيًا على الحد الأقصى (60)</span></span><span class="set-value"><input class="num-input ltr" value="60" aria-label="حد الطلبات"> طلب/دقيقة</span></div></div>
-            <div class="variant"><div class="variant-cap" data-state="error">خطأ — خارج المدى</div>
+            <div class="variant" data-state="error"><div class="variant-cap">خطأ — خارج المدى</div>
                 <div class="set-row"><span class="set-label">فاصل الفحص<span class="set-error">القيمة يجب أن تكون بين 10 و3600 ثانية — المدخل 5000.</span></span><span class="set-value"><input class="num-input ltr invalid" value="5000" aria-invalid="true" aria-label="فاصل الفحص"> ثانية</span></div></div>
-            <div class="variant"><div class="variant-cap" data-state="disabled">معطّل</div>
+            <div class="variant" data-state="disabled"><div class="variant-cap">معطّل</div>
                 <div class="set-row"><span class="set-label">طلبات متزامنة</span><span class="set-value"><input class="num-input ltr" value="4" disabled> بالتوازي</span></div></div>
         </div></div>
     </section>
@@ -187,9 +187,9 @@
             <p class="text-xs mt-1" style="color: var(--ink-3);">عزل LTR إلزامي للقيم التقنية داخل واجهة عربية.</p>
         </div>
         <div class="set-pad"><div class="shape-grid">
-            <div class="variant"><div class="variant-cap" data-state="valid">صحيح — معزول LTR</div>
+            <div class="variant" data-state="valid"><div class="variant-cap">صحيح — معزول LTR</div>
                 <div class="set-row"><span class="set-label">معاملات البحث<span class="set-sub">تُضاف كما هي إلى رابط بحث المنصة</span></span><input class="num-input ltr" style="width: 220px; text-align: start;" value="category=development&sort=latest" aria-label="معاملات البحث"></div></div>
-            <div class="variant"><div class="variant-cap" data-state="error">خطأ — ترميز غير مقبول</div>
+            <div class="variant" data-state="error"><div class="variant-cap">خطأ — ترميز غير مقبول</div>
                 <div class="set-row"><span class="set-label">معاملات البحث<span class="set-error">الحرف "&lt;" غير مسموح في روابط المنصات.</span></span><input class="num-input ltr invalid" style="width: 220px; text-align: start;" value="q=<script>" aria-invalid="true"></div></div>
         </div></div>
     </section>
@@ -204,9 +204,9 @@
             <p class="text-xs mt-1" style="color: var(--ink-3);">خياراتها من Options في الـ descriptor — لا مصفوفات عربية في الكود.</p>
         </div>
         <div class="set-pad"><div class="shape-grid">
-            <div class="variant"><div class="variant-cap" data-state="valid">صحيح</div>
+            <div class="variant" data-state="valid"><div class="variant-cap">صحيح</div>
                 <div class="set-row"><span class="set-label">نمط التجميع</span><select class="pick" aria-label="نمط التجميع"><option>حسب المنصة</option><option selected>دفعة واحدة</option><option>فردي</option></select></div></div>
-            <div class="variant"><div class="variant-cap" data-state="disabled">معطّل</div>
+            <div class="variant" data-state="disabled"><div class="variant-cap">معطّل</div>
                 <div class="set-row"><span class="set-label">نمط التجميع</span><select class="pick" disabled><option>دفعة واحدة</option></select></div></div>
         </div></div>
     </section>
@@ -221,13 +221,13 @@
             <p class="text-xs mt-1" style="color: var(--ink-3);">مركّب: حالة + رفع + حفظ + مسح، بحالات انشغال/نجاح/فشل. النص قابل للتجاوز الجزئي من كل منصة.</p>
         </div>
         <div class="set-pad"><div class="shape-grid">
-            <div class="variant"><div class="variant-cap" data-state="valid">مرتبط</div>
+            <div class="variant" data-state="valid"><div class="variant-cap">مرتبط</div>
                 <div class="set-row" style="flex-wrap: wrap;"><span class="set-label">ارفع ملف ال cookies الخاص بك<span class="set-sub cookie-ok">جلسة محفوظة (24 كوكيز) — آخر تحديث 2026-10-27 09:14</span></span><span class="set-value"><button class="btn-ghost">رفع ملف</button><button class="set-edit">إلغاء الربط</button></span></div></div>
-            <div class="variant"><div class="variant-cap" data-state="busy">قيد التحقق</div>
+            <div class="variant" data-state="busy"><div class="variant-cap">قيد التحقق</div>
                 <div class="set-row"><span class="set-label">ارفع ملف ال cookies الخاص بك<span class="set-sub cookie-busy"><i class="fa-solid fa-spinner fa-spin"></i> جارٍ التحقق من الملف وتشفيره…</span></span><span class="set-value"><button class="btn-primary" disabled>رفع ملف</button></span></div></div>
-            <div class="variant"><div class="variant-cap" data-state="error">فشل التحليل</div>
+            <div class="variant" data-state="error"><div class="variant-cap">فشل التحليل</div>
                 <div class="set-row"><span class="set-label">ارفع ملف ال cookies الخاص بك<span class="set-error">لم يُعثر على أي كوكيز صالحة في الملف. صدّر الملف بصيغة Netscape من متصفحك.</span></span><span class="set-value"><button class="btn-ghost">أعد المحاولة</button></span></div></div>
-            <div class="variant"><div class="variant-cap" data-state="overridden">نص متجاوز جزئيًا (نفذلي)</div>
+            <div class="variant" data-state="overridden"><div class="variant-cap">نص متجاوز جزئيًا (نفذلي)</div>
                 <div class="set-row"><span class="set-label">ارفع ملف ال cookies الخاص بك لموقع نفذلي<span class="set-sub">نفس الشكل والقيم — النص فقط تجاوزته المنصة</span></span><span class="set-value"><button class="btn-ghost">رفع ملف</button></span></div></div>
         </div></div>
     </section>
@@ -254,9 +254,9 @@
             </h2>
         </div>
         <div class="set-pad"><div class="shape-grid">
-            <div class="variant"><div class="variant-cap" data-state="valid">أساسي / شبحي</div>
+            <div class="variant" data-state="valid"><div class="variant-cap">أساسي / شبحي</div>
                 <div class="set-row"><span class="set-label">حفظ التغييرات</span><span class="set-value"><button class="btn-primary">حفظ</button><button class="btn-ghost">إعادة تعيين</button></span></div></div>
-            <div class="variant"><div class="variant-cap" data-state="disabled">معطّل (لا تغييرات)</div>
+            <div class="variant" data-state="disabled"><div class="variant-cap">معطّل (لا تغييرات)</div>
                 <div class="set-row"><span class="set-label">حفظ التغييرات</span><span class="set-value"><button class="btn-primary" disabled>حفظ</button></span></div></div>
         </div></div>
     </section>
@@ -308,9 +308,9 @@
             <p class="text-xs mt-1" style="color: var(--ink-3);">مدى + قيمة حية بجانب المقبض.</p>
         </div>
         <div class="set-pad"><div class="shape-grid">
-            <div class="variant"><div class="variant-cap" data-state="valid">صحيح</div>
+            <div class="variant" data-state="valid"><div class="variant-cap">صحيح</div>
                 <div class="set-row"><span class="set-label">سقف الطلبات في الدقيقة</span><span class="set-value"><input type="range" min="1" max="60" value="12" oninput="this.closest('.set-value').querySelector('.range-val').textContent=this.value"><span class="range-val">12</span></span></div></div>
-            <div class="variant"><div class="variant-cap" data-state="disabled">معطّل</div>
+            <div class="variant" data-state="disabled"><div class="variant-cap">معطّل</div>
                 <div class="set-row"><span class="set-label">سقف الطلبات</span><span class="set-value"><input type="range" min="1" max="60" value="30" disabled><span class="range-val">30</span></span></div></div>
         </div></div>
     </section>
@@ -325,9 +325,9 @@
             <p class="text-xs mt-1" style="color: var(--ink-3);">نفس شكل رقائق الفلاتر — مجموعة قيم مقبولة من Options.</p>
         </div>
         <div class="set-pad"><div class="shape-grid">
-            <div class="variant"><div class="variant-cap" data-state="valid">محدد/غير محدد</div>
+            <div class="variant" data-state="valid"><div class="variant-cap">محدد/غير محدد</div>
                 <div class="set-row" style="flex-wrap: wrap; gap: .4rem;"><span class="set-label">المهارات المتابَعة</span><span class="set-value" style="flex-wrap: wrap;"><button class="chip" aria-pressed="true" onclick="flipChip(this)">تطوير الويب</button><button class="chip" aria-pressed="true" onclick="flipChip(this)">تصميم جرافيك</button><button class="chip" aria-pressed="false" onclick="flipChip(this)">كتابة محتوى</button></span></div></div>
-            <div class="variant"><div class="variant-cap" data-state="error">لا اختيار</div>
+            <div class="variant" data-state="error"><div class="variant-cap">لا اختيار</div>
                 <div class="set-row" style="flex-wrap: wrap;"><span class="set-label">المهارات المتابَعة<span class="set-error">اختر مهارة واحدة على الأقل.</span></span><span class="set-value"><button class="chip" aria-pressed="false">…</button></span></div></div>
         </div></div>
     </section>
@@ -341,9 +341,9 @@
             </h2>
         </div>
         <div class="set-pad"><div class="shape-grid">
-            <div class="variant"><div class="variant-cap" data-state="valid">ثلاث حالات</div>
+            <div class="variant" data-state="valid"><div class="variant-cap">ثلاث حالات</div>
                 <div class="set-row"><span class="set-label">المظهر</span><span class="seg" role="tablist"><button role="tab" aria-selected="false">فاتح</button><button role="tab" aria-selected="true">داكن</button><button role="tab" aria-selected="false">تلقائي</button></span></div></div>
-            <div class="variant"><div class="variant-cap" data-state="disabled">معطّل</div>
+            <div class="variant" data-state="disabled"><div class="variant-cap">معطّل</div>
                 <div class="set-row"><span class="set-label">المظهر</span><span class="seg" style="opacity:.45;"><button aria-selected="true">فاتح</button></span></div></div>
         </div></div>
     </section>
@@ -358,9 +358,9 @@
             <p class="text-xs mt-1" style="color: var(--ink-3);">اسم الملف فقط يظهر؛ المحتوى لا يُنسخ لأي مكان.</p>
         </div>
         <div class="set-pad"><div class="shape-grid">
-            <div class="variant"><div class="variant-cap" data-state="valid">ملف مختار</div>
+            <div class="variant" data-state="valid"><div class="variant-cap">ملف مختار</div>
                 <div class="set-row"><span class="set-label">ملف الجلسة</span><span class="set-value"><span class="ltr" style="font-weight:400; direction: ltr; unicode-bidi: isolate;">cookies.txt</span> <button class="set-edit">تغيير</button></span></div></div>
-            <div class="variant"><div class="variant-cap" data-state="empty">فارغ</div>
+            <div class="variant" data-state="empty"><div class="variant-cap">فارغ</div>
                 <div class="set-row"><span class="set-label">ملف الجلسة<span class="set-sub">لم يُختر ملف بعد</span></span><button class="btn-ghost">اختيار ملف…</button></div></div>
         </div></div>
     </section>
@@ -405,7 +405,7 @@
         var q;
         try { q = new URLSearchParams(window.location.search); } catch (e) { return; }
         var theme = q.get('theme'), source = q.get('source'), shape = q.get('shape'), state = q.get('state');
-        if (!theme && !source && !shape && !state) return;
+        if (!theme && !source && !shape && !state) return;  // 'default' means 'no filter' for shape/state
         if (theme === 'dark' || theme === 'light') {
             document.documentElement.classList.toggle('dark', theme === 'dark');
             var icon = document.getElementById('theme-icon');
@@ -413,10 +413,10 @@
             try { localStorage.setItem('mostaqlk-theme', theme); } catch (e) {}
         }
         if (source === 'nafezly' || source === 'mostaql') setSource(source);
-        if (shape) document.querySelectorAll('[data-shape]').forEach(function (s) {
+        if (shape && shape !== 'default') document.querySelectorAll('[data-shape]').forEach(function (s) {
             s.style.display = s.getAttribute('data-shape') === shape ? '' : 'none';
         });
-        if (state) document.querySelectorAll('[data-state]').forEach(function (v) {
+        if (state && state !== 'default') document.querySelectorAll('[data-state]').forEach(function (v) {
             v.style.display = v.getAttribute('data-state') === state ? '' : 'none';
         });
     })();

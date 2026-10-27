@@ -40,6 +40,13 @@ public enum SettingsValidationKind { None, IntRange, IntMin, EnumIndex, CookiePa
 public enum DefaultFact { None, PollIntervalSeconds, RequestsPerMinute }
 
 /// <summary>
+/// How the row's secondary line is painted. The mockup gives the same slot three meanings
+/// (<c>.set-sub</c> neutral, <c>.clamp-note</c> brand, <c>.cookie-ok</c> positive), and which one
+/// applies is data the descriptor knows, not something the renderer may infer from the text.
+/// </summary>
+public enum SettingsHintTone { Muted, Brand, Success }
+
+/// <summary>
 /// One settings row, fully self-describing: shape, storage, constraints, Arabic copy,
 /// validation message, defaults, AutomationIds for both platforms, and visibility.
 /// Descriptors are data — sources add or override them (see <see cref="SettingsDescriptorPatch"/>)
@@ -55,6 +62,18 @@ public sealed record SettingsDescriptor(
 {
     public string? HintAr { get; init; }
     public string? PlaceholderAr { get; init; }
+
+    /// <summary>Paint of <see cref="HintAr"/> — neutral note, auto-clamp notice, or saved-session success.</summary>
+    public SettingsHintTone HintTone { get; init; } = SettingsHintTone.Muted;
+
+    /// <summary>
+    /// Text of the row's primary control when it is not the row label: the ActionButton's button,
+    /// the LinkOut's link, the FilePicker's browse button, the CookieEditor's upload button.
+    /// </summary>
+    public string? ActionLabelAr { get; init; }
+
+    /// <summary>Text of the secondary, link-styled control next to the primary one (إلغاء الربط، تغيير…).</summary>
+    public string? SecondaryLabelAr { get; init; }
 
     /// <summary>Unit rendered after a numeric/text value (ثانية، طلب/دقيقة…).</summary>
     public string? UnitAr { get; init; }
@@ -112,6 +131,9 @@ public sealed record SettingsDescriptorPatch(string Key)
     public string? LabelAr { get; init; }
     public string? HintAr { get; init; }
     public string? PlaceholderAr { get; init; }
+    public SettingsHintTone? HintTone { get; init; }
+    public string? ActionLabelAr { get; init; }
+    public string? SecondaryLabelAr { get; init; }
     public string? UnitAr { get; init; }
     public int? Min { get; init; }
     public int? Max { get; init; }
@@ -141,6 +163,9 @@ public sealed record SettingsDescriptorPatch(string Key)
         if (LabelAr is not null) yield return nameof(LabelAr);
         if (HintAr is not null) yield return nameof(HintAr);
         if (PlaceholderAr is not null) yield return nameof(PlaceholderAr);
+        if (HintTone is not null) yield return nameof(HintTone);
+        if (ActionLabelAr is not null) yield return nameof(ActionLabelAr);
+        if (SecondaryLabelAr is not null) yield return nameof(SecondaryLabelAr);
         if (UnitAr is not null) yield return nameof(UnitAr);
         if (Min is not null) yield return nameof(Min);
         if (Max is not null) yield return nameof(Max);
@@ -169,6 +194,9 @@ public sealed record SettingsDescriptorPatch(string Key)
         LabelAr = LabelAr ?? baseDescriptor.LabelAr,
         HintAr = HintAr ?? baseDescriptor.HintAr,
         PlaceholderAr = PlaceholderAr ?? baseDescriptor.PlaceholderAr,
+        HintTone = HintTone ?? baseDescriptor.HintTone,
+        ActionLabelAr = ActionLabelAr ?? baseDescriptor.ActionLabelAr,
+        SecondaryLabelAr = SecondaryLabelAr ?? baseDescriptor.SecondaryLabelAr,
         UnitAr = UnitAr ?? baseDescriptor.UnitAr,
         Min = Min ?? baseDescriptor.Min,
         Max = Max ?? baseDescriptor.Max,

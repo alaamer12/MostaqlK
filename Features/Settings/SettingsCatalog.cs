@@ -62,6 +62,14 @@ public static partial class SettingsCatalog
         var ignored = patches.Where(p => !rows.ContainsKey(p.Value.Key)).Select(p => p.Value.Key).Distinct().ToList();
 
         var result = new List<SettingsDescriptor>();
+        // Section order follows first appearance in the base layer (platform → general →
+        // actions), never alphabetical order of the section keys.
+        var sectionOrder = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var d in baseLayer ?? Builtin)
+        {
+            sectionOrder.TryAdd(d.Section, sectionOrder.Count);
+        }
+
         foreach (var (key, registrations) in rows)
         {
             var seam = $"settings:{key}";
@@ -93,11 +101,15 @@ public static partial class SettingsCatalog
             if (descriptor.Visible && EvaluateFlag(descriptor.VisibilityFlag, source))
             {
                 result.Add(descriptor);
+                sectionOrder.TryAdd(descriptor.Section, sectionOrder.Count);
             }
         }
 
         return new ComposedSettings(
-            result.OrderBy(d => d.Section, StringComparer.Ordinal).ThenBy(d => d.Order).ToList(),
+            result
+                .OrderBy(d => sectionOrder.TryGetValue(d.Section, out var s) ? s : int.MaxValue)
+                .ThenBy(d => d.Order)
+                .ToList(),
             ignored);
     }
 

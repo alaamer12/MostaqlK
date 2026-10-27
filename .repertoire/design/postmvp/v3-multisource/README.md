@@ -84,12 +84,15 @@ drag handle is decorative; the real unit resizes.
 3. **Source management stays folded into Settings**; the rail only switches.
 4. Light/dark toggle uses the same circular reveal from its own rail button.
 5. `$` budgets render `dir="ltr"` so RTL doesn't mirror them.
-6. **`settings-shapes.html` joins the parity matrix only when its MAUI twin
-   exists.** `v3_parity.py` launches the app with `--default-page=<page>`, so
-   adding the gallery to `PAGES` before the CRAFT step ships `SettingsShapesPage`
-   would fail every harness run. The page is capture-able today via
-   `design_screenshot.py --url .../settings-shapes.html?shape=&state=&theme=&source=`;
-   the `PAGES` entry lands with step 3.
+6. **`settings-shapes.html` joined the parity matrix with its MAUI twin.**
+   `Features/Settings/Views/SettingsShapesPage` (`--default-page=settings-shapes`)
+   renders the same fixture through `SettingsRow` alone, and
+   `v3_parity.py --shapes` runs the gallery matrix: 4 full frames (source ×
+   theme) plus one isolated frame per shape, driven by `?shape=`/`?state=` on
+   this side and `--parity-shape=`/`--parity-state=` on the app side. Measured
+   structure similarity 94.7–95.2% (SSIM ~92%, palette ~99.5%); the raw 1:1
+   blend sits at ~75% because its MSE term cannot cross text rasterizers —
+   the shipping `settings` page scores 69% by that same number.
 
 ## Unit impact (for implementation; UNITS.md gets rows then)
 

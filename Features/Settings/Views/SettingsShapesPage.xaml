@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="MostaqlK.Features.Settings.Views.SettingsShapesPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    FlowDirection="RightToLeft"
+    Shell.NavBarIsVisible="False"
+    Title="SettingsShapesPage">
+
+    <!-- Dev-only CRAFT harness, reached with the `default-page` startup argument set to
+         `settings-shapes`: the MAUI twin of
+         .repertoire/design/postmvp/v3-multisource/settings-shapes.html. Every row on this page is
+         produced by the SettingsRow renderer from a SettingsDescriptor alone; no row markup
+         exists in this file, which is the whole point of the plugin system.
+         Padding is zero because the gallery's own toolbar / section heads / pads carry the
+         mockup's 32px gutters — a page-level padding would double-count them.
+         The page paints the mockup's `bg-app` token and the content stack paints `surface`,
+         exactly like the mockup's body vs its `main > div`: when a parity capture isolates one
+         section (its `parity-shape` startup argument), the empty area below it must be the app
+         background, not white. -->
+    <ScrollView BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#0F172A}">
+        <VerticalStackLayout x:Name="Host" Padding="0" Spacing="0" />
+    </ScrollView>
+</ContentPage>
