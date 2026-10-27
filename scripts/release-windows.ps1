@@ -98,6 +98,31 @@ if ($LASTEXITCODE -eq 0) {
         Get-ChildItem -Path $outputBase -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne "$projectName.exe" } | Remove-Item -Force -ErrorAction SilentlyContinue
     }
 
+    # WinUI's Microsoft.ui.xaml.dll loads its own strings from <its own folder>\<lang>\
+    # Microsoft.ui.xaml.dll.mui and hard-fails ~4s into the first layout pass (WinUI.
+    # UnhandledException 0x80004002 -> XAML fail-fast 0xc000027b) when the en-US fallback is missing.
+    # A layout without it is not runnable, so that must be a build error here, not a crash on the
+    # user's machine — and the two release shapes carry the folders in two different places:
+    #   Directory: loose next to the exe (verified: deleting them via a locale-prune target killed
+    #              every published build ~4s after launch while `dotnet build` outputs survived).
+    #   Portable:  inside the single-file bundle, which the apphost extracts whole (verified:
+    #              %LocalAppData%\MostaqlK.Canary\bundle-cache\... got all 89 locale MUI folders,
+    #              so the cleanup above removing loose dirs is harmless for this shape).
+    $muiName = "Microsoft.ui.xaml.dll.mui"
+    if ($Type -eq "Portable") {
+        & findstr /M /C:"$muiName" "$exePath" > $null 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Release failed: the single-file bundle does not carry the WinUI MUI fallback ($muiName)." -ForegroundColor Red
+            exit 1
+        }
+    } else {
+        $winUiMui = Join-Path $outputBase "en-US\$muiName"
+        if (-not (Test-Path $winUiMui)) {
+            Write-Host "Release failed: publish layout is missing the WinUI MUI fallback: $winUiMui" -ForegroundColor Red
+            exit 1
+        }
+    }
+
     Write-Host "Release successful!" -ForegroundColor Green
     Write-Host "Output located at: $outputBase" -ForegroundColor Gray
     if (Test-Path $exePath) {

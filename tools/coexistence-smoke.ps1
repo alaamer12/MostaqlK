@@ -12,6 +12,10 @@ param (
 
 $ErrorActionPreference = "Stop"
 $env:MOSTAQLK_NO_WATCHDOG = "1"
+# Ask both instances to log the first chance of every WinRT interop failure. The fatal one arrives
+# at the UI thread's unhandled handler as a bare InvalidCastException with an EMPTY stack, which is
+# useless for diagnosis; first-chance sees it where it was thrown.
+$env:MOSTAQLK_DIAG_COM = "1"
 
 $repo = Split-Path $PSScriptRoot -Parent
 $target = "net10.0-windows10.0.19041.0"
@@ -73,9 +77,26 @@ try {
     foreach ($ch in @("stable", "canary")) {
         $out = Join-Path $smokeDir $ch
         Write-Host "Publishing $ch -> $out" -ForegroundColor Cyan
-        dotnet publish (Join-Path $repo "MostaqlK.csproj") -f $target -c $Configuration -r win-x64 --self-contained false `
-            "-p:TargetFrameworks=$target" "-p:Channel=$ch" -o $out --nologo -v q
+        # Same shape as scripts/release-windows.ps1's directory export: self-contained, single-file
+        # OFF, Arabic .NET satellites only. NOTE: this script used to blame its own 0xc000027b
+        # failures on the publish SHAPE (framework-dependent vs self-contained). That was wrong:
+        # every published layout died because the build's locale-pruning target deleted WinUI's
+        # `en-US\Microsoft.ui.xaml.dll.mui`; the target is gone and the check below keeps it gone.
+        dotnet publish (Join-Path $repo "MostaqlK.csproj") -f $target -c $Configuration -r win-x64 `
+            "-p:TargetFrameworks=$target" "-p:Channel=$ch" `
+            "-p:PublishSingleFile=false" "-p:SelfContained=true" "-p:SatelliteResourceLanguages=ar" `
+            -o $out --nologo -v q
         if ($LASTEXITCODE -ne 0) { throw "publish $ch failed" }
+
+        # WinUI's Microsoft.ui.xaml.dll resolves its own strings from
+        # <layout>\<lang>\Microsoft.ui.xaml.dll.mui and hard-fails ~4s into the first layout pass
+        # (WinUI.UnhandledException 0x80004002 -> XAML fail-fast 0xc000027b) if the en-US fallback is
+        # absent. A published layout without it is not a layout any user can run, so the smoke test
+        # refuses to measure it.
+        $mui = Join-Path $out "en-US\Microsoft.ui.xaml.dll.mui"
+        if (-not (Test-Path $mui)) {
+            throw "publish layout for $ch is missing the WinUI MUI fallback: $mui"
+        }
     }
 
     $startedAt = (Get-Date).ToUniversalTime()

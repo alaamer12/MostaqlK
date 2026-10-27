@@ -105,6 +105,29 @@ public static class CrashReporter
             args.SetObserved();
         };
 
+        // Opt-in COM-interop probe (MOSTAQLK_DIAG_COM=1). A WinRT failure that reaches the UI
+        // thread's unhandled handler arrives as a bare InvalidCastException with an EMPTY stack —
+        // the one piece of evidence missing when diagnosing a 0x80004002 fast-fail. First-chance
+        // sees the exception where it was thrown, so the stack is still intact. Gated by an
+        // environment variable because it fires for every caught interop exception in a chatty
+        // app, and it is never set by a normal launch.
+        if (Environment.GetEnvironmentVariable("MOSTAQLK_DIAG_COM") == "1")
+        {
+            AppDomain.CurrentDomain.FirstChanceException += (sender, args) =>
+            {
+                if (args.Exception is not (InvalidCastException or COMException or EntryPointNotFoundException))
+                {
+                    return;
+                }
+
+                InteractionLogger.Fault("FirstChanceCOM", args.Exception, new
+                {
+                    args.Exception.HResult,
+                    Stack = args.Exception.StackTrace ?? "(no stack)",
+                });
+            };
+        }
+
 #if WINDOWS || NET10_0_WINDOWS10_0_19041_0_OR_GREATER || WINDOWS10_0_17763_0_OR_GREATER
         RegisterNativeExceptionFilter();
 #endif

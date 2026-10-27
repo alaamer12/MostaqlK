@@ -41,12 +41,12 @@
 		<ApplicationId>com.mostaqlk</ApplicationId>
 
 		<!-- Versions -->
-		<ApplicationDisplayVersion>1.0.4.dev50</ApplicationDisplayVersion>
-		<ApplicationVersion>55</ApplicationVersion>
+		<ApplicationDisplayVersion>1.0.4.dev51</ApplicationDisplayVersion>
+		<ApplicationVersion>56</ApplicationVersion>
 		<Version>1.0.4</Version>
-		<InformationalVersion>1.0.4.dev50</InformationalVersion>
-		<FileVersion>1.0.4.29</FileVersion>
-		<AssemblyVersion>1.0.4.29</AssemblyVersion>
+		<InformationalVersion>1.0.4.dev51</InformationalVersion>
+		<FileVersion>1.0.4.30</FileVersion>
+		<AssemblyVersion>1.0.4.30</AssemblyVersion>
 		<Description>MostaqlK Desktop</Description>
 		<Product>MostaqlK</Product>
 		<Company>MostaqlK</Company>
@@ -102,15 +102,15 @@
 		<Content Include="Assets\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 	</ItemGroup>
 
-	<!-- Target to clean up unwanted localization folders in Windows publish -->
-	<Target Name="CleanupUnwantedLocales" AfterTargets="Publish" Condition="'$(RuntimeIdentifier.StartsWith(&quot;win&quot;))' == 'true'">
-		<ItemGroup>
-			<_UnwantedLocaleFolders Include="$([System.IO.Directory]::GetDirectories('$(PublishDir)'))" />
-			<UnwantedLocaleFolders Include="@(_UnwantedLocaleFolders)" Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('$([System.IO.Path]::GetFileName(&quot;%(Identity)&quot;))', '^[a-z]{2,3}(-[a-zA-Z0-9-]+)?$')) and '$([System.IO.Path]::GetFileName(&quot;%(Identity)&quot;))' != 'ar' and !$([System.String]::new('$([System.IO.Path]::GetFileName(&quot;%(Identity)&quot;))').StartsWith('ar-'))" />
-		</ItemGroup>
-		<Message Text="Removing unwanted locale folder: %(UnwantedLocaleFolders.Identity)" Importance="high" />
-		<RemoveDir Directories="@(UnwantedLocaleFolders)" />
-	</Target>
+	<!-- Locale pruning lives in SatelliteResourceLanguages (above), which trims the .NET
+	     *.resources.dll satellites to Arabic. Nothing here may touch the top-level locale
+	     FOLDERS: they hold WinUI's own `<lang>\Microsoft.ui.xaml.dll.mui` message files, and
+	     `Microsoft.ui.xaml.dll` hard-fails a few seconds into the first layout pass
+	     (WinUI.UnhandledException 0x80004002 -> XAML fail-fast 0xc000027b) when
+	     `en-US\Microsoft.ui.xaml.dll.mui` is not next to the exe. A `dotnet build` output always
+	     kept them and survived; a `dotnet publish` output with them deleted always died ~4s after
+	     launch - bisected per-locale: en-US alone is sufficient, all 88 others without en-US still
+	     die. Asserted as a build error by scripts/release-windows.ps1 and tools/coexistence-smoke.ps1. -->
 
 	<ItemGroup>
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />

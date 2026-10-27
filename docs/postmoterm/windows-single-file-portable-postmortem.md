@@ -322,7 +322,20 @@ Using the project's Python screen inspection tool, the standalone `MostaqlK.exe`
    powershell -ExecutionPolicy Bypass -File scripts\release-windows.ps1 -Type Directory
    ```
 
-   **Output**: Full unpacked directory distribution with satellite locale filtering.
+   **Output**: Full unpacked directory distribution, Arabic .NET satellites only.
+
+> **Correction (2026-10-27) — "satellite locale filtering" was never satellite-only.**
+> The publish step used to delete every top-level locale folder except `ar*`
+> (`CleanupUnwantedLocales` in `MostaqlK.csproj`), and those folders are where WinUI keeps its own
+> string tables (`<lang>\Microsoft.ui.xaml.dll.mui`). Without the `en-US` fallback,
+> `Microsoft.ui.xaml.dll` throws `E_NOINTERFACE` on the UI thread during the first layout pass and
+> fail-fasts (`0xc000027b`) roughly 4 seconds after launch — in *every* published Directory build,
+> while `dotnet build` outputs (which keep the folders) ran for hours. Bisected on a real published
+> layout: `en-US` alone survives, the other 88 locale folders without `en-US` still die. The target
+> is gone; `SatelliteResourceLanguages` remains as the only trimming mechanism, and both
+> `scripts/release-windows.ps1` and `tools/coexistence-smoke.ps1` now refuse to produce a layout
+> without that file. Portable builds were never affected: the bundle carries all 89 locale folders
+> and the apphost extracts them whole into `bundle-cache`, next to `Microsoft.ui.xaml.dll` itself.
 
 3. **Deployment Wrapper**:
 
