@@ -53,6 +53,12 @@
 		<Compile Include="..\..\Core\Layers\LayerContext.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Platform\ChannelIdentity.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Platform\ChannelIdentity.Stable.cs" LinkBase="Core" />
+		<!-- Step 2: the settings descriptor contract + catalog composition. Pure data + the
+		     resolver, so the merge/override/visibility rules are proven offline against the REAL
+		     source descriptors (DetailSchemaRenderer precedent). -->
+		<Compile Include="..\..\Core\Sources\SettingsDescriptor.cs" LinkBase="Core" />
+		<Compile Include="..\..\Features\Settings\SettingsCatalog.cs" LinkBase="Features" />
+		<Compile Include="..\..\Features\Settings\SettingsCatalog.Builtin.cs" LinkBase="Features" />
 		<!-- B4: the schema-driven details renderer is MAUI-free (descriptor + models + Core/Formatting
 		     only), so it links here and its ordering / null-omission / capability gating / money flags
 		     are verified offline against the real descriptors. -->

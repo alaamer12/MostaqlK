@@ -124,7 +124,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<SourceContributionRegistry>(sp =>
             new SourceContributionRegistry(
                 sp.GetServices<ISourcePageContribution>(),
-                sp.GetServices<ISourceSettingsSectionContribution>()));
+                sp.GetServices<ISourceSettingsSectionContribution>(),
+                sp.GetServices<ISourceSettingsContribution>()));
         // One isolated cookie jar + one namespaced settings store per registered source.
         builder.Services.AddSingleton<ICookieJarProvider, CookieJarProvider>();
         builder.Services.AddSingleton<ISettingsRepository, FilePreferencesSettingsRepository>();

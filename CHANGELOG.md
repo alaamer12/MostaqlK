@@ -125,6 +125,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The channel axis moved from `#if CHANNEL_CANARY` branches to per-variant files (`ChannelIdentity.Stable.cs` / `ChannelIdentity.Canary.cs`) selected by the `-p:Channel` build property — one axis per filename, and a channel's layer files never compile into the other channel's binary.
 - Window/onboarding shell titles are channel-derived, so a canary window no longer labels itself like a stable install.
 
+### Added (dev45 — settings plugin step 2: descriptor contract + catalog)
+- `Core/Sources/SettingsDescriptor.cs`: the self-describing settings row — shape (14-value closed enum matching the settings-shapes gallery), scope, Arabic label/hint/placeholder/unit, min/max/step, options, validation kind + error template, literal-or-descriptor-fact defaults, per-platform AutomationIds, visibility flag. Plus `SettingsDescriptorPatch` for field-level partial overrides.
+- `ISourceSettingsContribution` (Adds + Overrides) on the contribution registry, and `SettingsCatalog.Compose` folding base → source layers through `Core/Layers` with same-specificity field conflicts throwing and stale-key overrides dropped — deleting a descriptor can never crash the next run.
+- `SettingsCatalog.Builtin`: the entire current settings inventory as data, including the three formerly UI-less settings (safe-requests, parallel-enrichment, include-assets) now surfaced as rows, and every historical `Settings_*` / `Settings_Mobile_*` AutomationId reproduced exactly. 13 new ParserTests checks cover integrity, partial override, full replace, unknown-key tolerance and visibility flags (360/0 total).
+
 ## [1.0.4] - 2026-09-02
 
 ### Added

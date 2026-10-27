@@ -43,6 +43,25 @@ public interface ISourceSettingsSectionContribution
 }
 
 /// <summary>
+/// Settings rows a source contributes to the plugin catalog: <see cref="Adds"/> introduces new
+/// <see cref="SettingsDescriptor"/> rows (registered at <c>{source: X}</c>), and
+/// <see cref="Overrides"/> patches fields of existing rows — e.g. Nafezly overriding only the
+/// cookie row's Arabic label while shape, bounds, validation and AutomationIds stay global.
+/// Replaces the old opaque <see cref="ISourceSettingsSectionContribution"/> once the settings
+/// page renders from the composed catalog (migration step).
+/// </summary>
+public interface ISourceSettingsContribution
+{
+    public SourceId Source { get; }
+
+    /// <summary>New rows this source adds to the composed settings list.</summary>
+    public IReadOnlyList<SettingsDescriptor> Adds { get; }
+
+    /// <summary>Field-level overrides of existing (base-layer) rows, keyed by descriptor Key.</summary>
+    public IReadOnlyList<SettingsDescriptorPatch> Overrides { get; }
+}
+
+/// <summary>
 /// Index of all registered per-source contributions, keyed like <see cref="SourceRegistry"/>.
 /// Built from DI collections, so adding a contribution is only a module-side registration —
 /// zero shared-code edits (the independent-growth gate in the v3 contract §10).
@@ -51,13 +70,16 @@ public sealed class SourceContributionRegistry
 {
     private readonly IReadOnlyList<ISourcePageContribution> _pages;
     private readonly IReadOnlyList<ISourceSettingsSectionContribution> _settingsSections;
+    private readonly IReadOnlyList<ISourceSettingsContribution> _settings;
 
     public SourceContributionRegistry(
         IEnumerable<ISourcePageContribution> pages,
-        IEnumerable<ISourceSettingsSectionContribution> settingsSections)
+        IEnumerable<ISourceSettingsSectionContribution> settingsSections,
+        IEnumerable<ISourceSettingsContribution> settings)
     {
         _pages = pages.OrderBy(p => p.Order).ToList();
         _settingsSections = settingsSections.ToList();
+        _settings = settings.ToList();
     }
 
     public IReadOnlyList<ISourcePageContribution> PagesFor(SourceId source) =>
@@ -65,4 +87,7 @@ public sealed class SourceContributionRegistry
 
     public IReadOnlyList<ISourceSettingsSectionContribution> SettingsSectionsFor(SourceId source) =>
         _settingsSections.Where(s => s.Source == source).ToList();
+
+    public IReadOnlyList<ISourceSettingsContribution> SettingsContribsFor(SourceId source) =>
+        _settings.Where(s => s.Source == source).ToList();
 }

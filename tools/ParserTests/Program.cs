@@ -4,6 +4,7 @@ using MostaqlK.Core;
 using MostaqlK.Core.Formatting;
 using MostaqlK.Core.Layers;
 using MostaqlK.Core.Sources;
+using MostaqlK.Features.Settings;
 using MostaqlK.Infrastructure.Http;
 using MostaqlK.Features.Projects.ViewModels;
 using MostaqlK.Sources.Mostaql;
@@ -118,6 +119,16 @@ public static class Program
         Run(nameof(TestLayerResolverMissingBaseThrows), TestLayerResolverMissingBaseThrows);
         Run(nameof(TestLayerChainAscendingSpecificity), TestLayerChainAscendingSpecificity);
         Run(nameof(TestIdentityLiterals), TestIdentityLiterals);
+
+        // Step 2: the settings catalog — base-layer integrity, partial override merge,
+        // full replace, unknown-key tolerance, and visibility flags, all against the real
+        // mostaql/nafezly descriptors.
+        Console.WriteLine("\n--- SettingsCatalog (Step 2) ---\n");
+        Run(nameof(TestSettingsCatalogBuiltinIntegrity), TestSettingsCatalogBuiltinIntegrity);
+        Run(nameof(TestSettingsCatalogPartialOverride), TestSettingsCatalogPartialOverride);
+        Run(nameof(TestSettingsCatalogFullReplace), TestSettingsCatalogFullReplace);
+        Run(nameof(TestSettingsCatalogUnknownKeyTolerance), TestSettingsCatalogUnknownKeyTolerance);
+        Run(nameof(TestSettingsCatalogVisibilityFlags), TestSettingsCatalogVisibilityFlags);
 
         Console.WriteLine();
         Console.WriteLine(new string('=', 60));
@@ -671,7 +682,7 @@ public static class Program
     private static void TestNafezlyContributionRegistry()
     {
         ISourceSettingsSectionContribution[] sections = [new NafezlySettingsSectionContribution()];
-        var registry = new SourceContributionRegistry([], sections);
+        var registry = new SourceContributionRegistry([], sections, []);
 
         var nafezlySections = registry.SettingsSectionsFor(SourceId.From("nafezly"));
         var mostaqlSections = registry.SettingsSectionsFor(SourceId.Mostaql);
@@ -1636,6 +1647,107 @@ public static class Program
         }
 
         return dir?.FullName ?? throw new InvalidOperationException($"MostaqlK.csproj not found above {AppContext.BaseDirectory}");
+    }
+
+    // -----------------------------------------------------------------
+    // SettingsCatalog (Step 2): base integrity + layer merge rules
+    // -----------------------------------------------------------------
+
+    private sealed class FakeSettingsContribution(
+        SourceId source,
+        IReadOnlyList<SettingsDescriptor> adds,
+        IReadOnlyList<SettingsDescriptorPatch> overrides) : ISourceSettingsContribution
+    {
+        public SourceId Source { get; } = source;
+        public IReadOnlyList<SettingsDescriptor> Adds { get; } = adds;
+        public IReadOnlyList<SettingsDescriptorPatch> Overrides { get; } = overrides;
+    }
+
+    private static void TestSettingsCatalogBuiltinIntegrity()
+    {
+        var keys = SettingsCatalog.Builtin.Select(d => d.Key).ToList();
+        Check("catalog: builtin keys unique", keys.Distinct(StringComparer.Ordinal).Count() == keys.Count);
+
+        var ids = SettingsCatalog.Builtin.Where(d => d.AutomationId.Length > 0).Select(d => d.AutomationId).ToList();
+        Check("catalog: AutomationIds unique", ids.Distinct(StringComparer.Ordinal).Count() == ids.Count);
+
+        Check("catalog: surfaces the three formerly UI-less settings",
+            keys.Contains(SettingsKeys.SafeRequests) && keys.Contains(SettingsKeys.MaxConcurrentDetailFetches) && keys.Contains(SettingsKeys.IncludeAssets));
+
+        Check("catalog: reproduces every UI-test AutomationId",
+            ids.Contains("Settings_PollIntervalInput") && ids.Contains("Settings_RequestsPerMinuteInput")
+            && ids.Contains("Settings_GroupingModePicker") && ids.Contains("Settings_GroupingThresholdInput")
+            && ids.Contains("Settings_DarkModeToggle") && ids.Contains("Settings_SaveButton")
+            && ids.Contains("Settings_SourceNotificationsToggle") && ids.Contains("Settings_RememberSourceToggle")
+            && ids.Contains("Settings_OpenCookieEditorButton") && ids.Contains("Settings_ViewArchiveButton"));
+
+        Check("catalog: mobile AutomationIds preserved where they historically differ",
+            SettingsCatalog.Builtin.First(d => d.Key == SettingsKeys.PollIntervalSeconds).AutomationIdMobile == "Settings_Mobile_PollIntervalEntry"
+            && SettingsCatalog.Builtin.First(d => d.Key == SettingsKeys.MaxRequestsPerMinute).AutomationIdMobile == "Settings_Mobile_RateLimitEntry");
+    }
+
+    private static void TestSettingsCatalogPartialOverride()
+    {
+        var nafezly = NafezlySource.Instance;
+        var contrib = new FakeSettingsContribution(nafezly.Id, [],
+            [new SettingsDescriptorPatch("session-cookie") { LabelAr = "ارفع ملف ال cookies الخاص بك لموقع نفذلي" }]);
+
+        var composed = SettingsCatalog.Compose(nafezly, [contrib]);
+        var cookie = composed.Descriptors.First(d => d.Key == "session-cookie");
+
+        Check("override: only the label changed",
+            cookie.LabelAr == "ارفع ملف ال cookies الخاص بك لموقع نفذلي");
+        Check("override: shape, validation and ids stayed global",
+            cookie.Shape == SettingsShape.CookieEditor
+            && cookie.Validation == SettingsValidationKind.CookieParse
+            && cookie.AutomationId == "Settings_OpenCookieEditorButton"
+            && cookie.AutomationIdMobile == "Settings_Mobile_SessionCookieEntry");
+    }
+
+    private static void TestSettingsCatalogFullReplace()
+    {
+        var nafezly = NafezlySource.Instance;
+        var replacement = new SettingsDescriptor(
+            SettingsKeys.PollIntervalSeconds, SettingsShape.Slider, SettingsScope.PerSource,
+            "نبضة الفحص", "platform", 10)
+        { Min = 5, Max = 120, Value = SettingsValueKind.Int };
+        var contrib = new FakeSettingsContribution(nafezly.Id, [replacement], []);
+
+        var composed = SettingsCatalog.Compose(nafezly, [contrib]);
+        var poll = composed.Descriptors.First(d => d.Key == SettingsKeys.PollIntervalSeconds);
+
+        Check("replace: full descriptor overrides base entirely",
+            poll.Shape == SettingsShape.Slider && poll.LabelAr == "نبضة الفحص" && poll.Max == 120
+            && poll.AutomationId.Length == 0);
+    }
+
+    private static void TestSettingsCatalogUnknownKeyTolerance()
+    {
+        var nafezly = NafezlySource.Instance;
+        var contrib = new FakeSettingsContribution(nafezly.Id, [],
+            [new SettingsDescriptorPatch("a-row-someone-deleted") { LabelAr = "x" }]);
+
+        var composed = SettingsCatalog.Compose(nafezly, [contrib]);
+        Check("catalog: override for a removed key is dropped, not fatal",
+            composed.IgnoredOverrides.Contains("a-row-someone-deleted"));
+    }
+
+    private static void TestSettingsCatalogVisibilityFlags()
+    {
+        var mostaql = SettingsCatalog.Compose(MostaqlSource.Instance, []);
+        var nafezly = SettingsCatalog.Compose(NafezlySource.Instance, []);
+
+        Check("visibility: supervised-types absent for both sources (flag false)",
+            !mostaql.Descriptors.Any(d => d.Key == "supervised-types")
+            && !nafezly.Descriptors.Any(d => d.Key == "supervised-types"));
+        Check("visibility: hidden-by-design row never composes",
+            !mostaql.Descriptors.Any(d => d.Key == "close_behavior_remembered"));
+        Check("visibility: both sources keep the cookie editor + cadence rows",
+            mostaql.Descriptors.Any(d => d.Key == "session-cookie")
+            && nafezly.Descriptors.Any(d => d.Key == "session-cookie")
+            && mostaql.Descriptors.Any(d => d.Key == SettingsKeys.PollIntervalSeconds));
+        Check("catalog: rows ordered by section then order",
+            mostaql.Descriptors.Select(d => d.Section).SequenceEqual(mostaql.Descriptors.Select(d => d.Section).OrderBy(s => s, StringComparer.Ordinal)));
     }
 
     // -----------------------------------------------------------------
