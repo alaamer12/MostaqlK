@@ -81,6 +81,22 @@ public static class DeferredPreferences
     }
 
     /// <summary>
+    /// Defers one settings write THROUGH its scope, so a row that says "global" cannot be queued into
+    /// a platform container by whichever call site happened to write it. Queue keys keep the two
+    /// namespaces distinct, exactly as <see cref="Set{T}"/> and <see cref="SetGlobal{T}"/> already do.
+    /// </summary>
+    public static void SetScoped<T>(ISettingsRepository settings, SettingsScope scope, SourceId source, string key, T value)
+    {
+        if (scope == SettingsScope.Global)
+        {
+            SetGlobal(settings, key, value);
+            return;
+        }
+
+        Set(settings, source, key, value);
+    }
+
+    /// <summary>
     /// Drains everything queued and awaits the in-flight write. The app teardown (window closing)
     /// MUST await this so pending preferences land before exit; the explicit Settings "Save" also
     /// calls it to honour "confirm nothing is pending".

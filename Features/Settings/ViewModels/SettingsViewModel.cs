@@ -247,6 +247,25 @@ public sealed partial class SettingsViewModel : ObservableObject
     private SettingsDescriptor? DescriptorOf(string key) => _composed.Descriptors.FirstOrDefault(d => d.Key == key);
 
     /// <summary>
+    /// Which container a key's value lives in: the composed descriptor's <see cref="SettingsScope"/>
+    /// when the row is on the page, the base catalog's when it is hidden, and per-source for a key
+    /// neither knows (a module's own key). No call site in this file picks a container by hand any
+    /// more — the same answer decides the read, the write, and the "was it ever stored" test, so a row
+    /// that changes scope can never leave one of the three reading the old container. That last class
+    /// of drift (a row advertising "on all platforms" while its value sat in one platform's container)
+    /// is what this seam exists to make impossible.
+    /// </summary>
+    private SettingsScope ScopeOf(string key) =>
+        DescriptorOf(key)?.Scope
+        ?? (SettingsCatalog.TryGetBuiltin(key, out var builtin) ? builtin.Scope : SettingsScope.PerSource);
+
+    private T ReadSetting<T>(string key, T fallback) => _settings.ReadScoped(ScopeOf(key), _source, key, fallback);
+
+    private void WriteSetting<T>(string key, T value) => DeferredPreferences.SetScoped(_settings, ScopeOf(key), _source, key, value);
+
+    private bool HasStoredValue(string key) => _settings.HasValueScoped(ScopeOf(key), _source, key);
+
+    /// <summary>
     /// The default a setting falls back to when nothing is stored: the descriptor's literal, or the
     /// fact it points at on the source descriptor (cadence/rate), so the number exists once.
     /// </summary>
@@ -407,10 +426,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         // the descriptor declares — which is how a row the view-model has never heard of works.
         _ => d.Value switch
         {
-            SettingsValueKind.Bool => _settings.Get(_source, d.Key, BoolDefaultOf(d.Key, false)),
-            SettingsValueKind.Int => _settings.Get(_source, d.Key, IntDefaultOf(d.Key, 0)),
-            SettingsValueKind.Enum => _settings.Get(_source, d.Key, StringDefaultOf(d.Key, string.Empty)),
-            _ => _settings.Get(_source, d.Key, StringDefaultOf(d.Key, string.Empty)),
+            SettingsValueKind.Bool => ReadSetting(d.Key, BoolDefaultOf(d.Key, false)),
+            SettingsValueKind.Int => ReadSetting(d.Key, IntDefaultOf(d.Key, 0)),
+            SettingsValueKind.Enum => ReadSetting(d.Key, StringDefaultOf(d.Key, string.Empty)),
+            _ => ReadSetting(d.Key, StringDefaultOf(d.Key, string.Empty)),
         },
     };
 
@@ -458,14 +477,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
 
         ClearRowError(d.Key);
-        if (d.Scope == SettingsScope.Global)
-        {
-            DeferredPreferences.SetGlobal(_settings, d.Key, value);
-        }
-        else
-        {
-            DeferredPreferences.Set(_settings, _source, d.Key, value);
-        }
+        WriteSetting(d.Key, value);
     }
 
     private static int ToInt(object? value, int fallback) => value switch
@@ -928,17 +940,17 @@ public sealed partial class SettingsViewModel : ObservableObject
         // an untouched install agrees with the service that consumes the value — the disagreement
         // this replace removes was: screen said 60s, PollService said 30; screen said parallel max
         // 16, WorkerPool enforces none; screen said threshold 5, catalog said 3.
-        PollIntervalSeconds = _settings.Get(_source, SettingsKeys.PollIntervalSeconds, IntDefaultOf(SettingsKeys.PollIntervalSeconds, 30));
-        RequestsPerMinute = _settings.Get(_source, SettingsKeys.MaxRequestsPerMinute, IntDefaultOf(SettingsKeys.MaxRequestsPerMinute, 2));
-        MaxConcurrentDetailFetches = _settings.Get(_source, SettingsKeys.MaxConcurrentDetailFetches, IntDefaultOf(SettingsKeys.MaxConcurrentDetailFetches, 2));
-        QueryParams = _settings.Get(_source, SettingsKeys.QueryParams, StringDefaultOf(SettingsKeys.QueryParams, string.Empty));
-        IncludeAssets = _settings.Get(_source, SettingsKeys.IncludeAssets, BoolDefaultOf(SettingsKeys.IncludeAssets, false));
-        NotificationGroupingEnabled = _settings.Get(_source, SettingsKeys.NotificationGroupingEnabled, BoolDefaultOf(SettingsKeys.NotificationGroupingEnabled, false));
-        SourceNotificationsEnabled = _settings.Get(_source, SettingsKeys.EnableSourceNotifications, BoolDefaultOf(SettingsKeys.EnableSourceNotifications, true));
-        SafeRequests = _settings.Get(_source, SettingsKeys.SafeRequests, BoolDefaultOf(SettingsKeys.SafeRequests, true));
-        StartupEnabled = _settings.GetGlobal(SettingsKeys.StartupEnabled, false);
-        RememberLastSource = _settings.GetGlobal(SettingsKeys.RememberLastSource, true);
-        GroupingThreshold = _settings.Get(_source, SettingsKeys.GroupingThreshold, IntDefaultOf(SettingsKeys.GroupingThreshold, 5));
+        PollIntervalSeconds = ReadSetting(SettingsKeys.PollIntervalSeconds, IntDefaultOf(SettingsKeys.PollIntervalSeconds, 30));
+        RequestsPerMinute = ReadSetting(SettingsKeys.MaxRequestsPerMinute, IntDefaultOf(SettingsKeys.MaxRequestsPerMinute, 2));
+        MaxConcurrentDetailFetches = ReadSetting(SettingsKeys.MaxConcurrentDetailFetches, IntDefaultOf(SettingsKeys.MaxConcurrentDetailFetches, 2));
+        QueryParams = ReadSetting(SettingsKeys.QueryParams, StringDefaultOf(SettingsKeys.QueryParams, string.Empty));
+        IncludeAssets = ReadSetting(SettingsKeys.IncludeAssets, BoolDefaultOf(SettingsKeys.IncludeAssets, false));
+        NotificationGroupingEnabled = ReadSetting(SettingsKeys.NotificationGroupingEnabled, BoolDefaultOf(SettingsKeys.NotificationGroupingEnabled, false));
+        SourceNotificationsEnabled = ReadSetting(SettingsKeys.EnableSourceNotifications, BoolDefaultOf(SettingsKeys.EnableSourceNotifications, true));
+        SafeRequests = ReadSetting(SettingsKeys.SafeRequests, BoolDefaultOf(SettingsKeys.SafeRequests, true));
+        StartupEnabled = ReadSetting(SettingsKeys.StartupEnabled, false);
+        RememberLastSource = ReadSetting(SettingsKeys.RememberLastSource, true);
+        GroupingThreshold = ReadSetting(SettingsKeys.GroupingThreshold, IntDefaultOf(SettingsKeys.GroupingThreshold, 5));
         // Seed from the theme the app already resolved at startup (App.xaml.cs, which honours a
         // `--theme=light|dark` argument over the stored preference) and only fall back to the
         // preference / effective theme when no explicit theme was applied. Reading the preference unconditionally
@@ -947,12 +959,12 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             AppTheme.Dark => true,
             AppTheme.Light => false,
-            _ => _settings.ContainsGlobal(SettingsKeys.IsDarkMode)
-                ? _settings.GetGlobal(SettingsKeys.IsDarkMode, false)
+            _ => HasStoredValue(SettingsKeys.IsDarkMode)
+                ? ReadSetting(SettingsKeys.IsDarkMode, false)
                 : Application.Current?.RequestedTheme == AppTheme.Dark,
         };
 
-        var storedMode = _settings.Get(_source, SettingsKeys.GroupingMode, nameof(NotificationGroupingMode.EndOfMinute));
+        var storedMode = ReadSetting(SettingsKeys.GroupingMode, nameof(NotificationGroupingMode.EndOfMinute));
         GroupingMode = Enum.TryParse<NotificationGroupingMode>(storedMode, out var parsedMode)
             ? parsedMode
             : NotificationGroupingMode.EndOfMinute;
@@ -1001,7 +1013,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        DeferredPreferences.Set(_settings, _source, SettingsKeys.PollIntervalSeconds, value);
+        WriteSetting(SettingsKeys.PollIntervalSeconds, value);
         ApplyPollSettings();
     }
 
@@ -1017,7 +1029,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        DeferredPreferences.Set(_settings, _source, SettingsKeys.MaxRequestsPerMinute, value);
+        WriteSetting(SettingsKeys.MaxRequestsPerMinute, value);
         ApplyPollSettings();
     }
 
@@ -1029,28 +1041,28 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        DeferredPreferences.Set(_settings, _source, SettingsKeys.MaxConcurrentDetailFetches, value);
+        WriteSetting(SettingsKeys.MaxConcurrentDetailFetches, value);
         ApplyWorkerSettings();
     }
 
     partial void OnQueryParamsChanged(string value)
     {
         if (_isLoading) return;
-        DeferredPreferences.Set(_settings, _source, SettingsKeys.QueryParams, value ?? string.Empty);
+        WriteSetting(SettingsKeys.QueryParams, value ?? string.Empty);
         ApplyPollSettings();
     }
 
     partial void OnIncludeAssetsChanged(bool value)
     {
         if (_isLoading) return;
-        DeferredPreferences.Set(_settings, _source, SettingsKeys.IncludeAssets, value);
+        WriteSetting(SettingsKeys.IncludeAssets, value);
         ApplyAssetSettings();
     }
 
     partial void OnNotificationGroupingEnabledChanged(bool value)
     {
         if (_isLoading) return;
-        DeferredPreferences.Set(_settings, _source, SettingsKeys.NotificationGroupingEnabled, value);
+        WriteSetting(SettingsKeys.NotificationGroupingEnabled, value);
         ApplyGroupingSettings();
     }
 
@@ -1061,7 +1073,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        DeferredPreferences.Set(_settings, _source, SettingsKeys.SafeRequests, value);
+        WriteSetting(SettingsKeys.SafeRequests, value);
         ApplyPollSettings();
     }
 
@@ -1072,7 +1084,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        DeferredPreferences.SetGlobal(_settings, SettingsKeys.StartupEnabled, value);
+        WriteSetting(SettingsKeys.StartupEnabled, value);
         _startupService.SetStartupEnabled(value);
     }
 
@@ -1084,7 +1096,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        DeferredPreferences.Set(_settings, _source, SettingsKeys.GroupingMode, value.ToString());
+        WriteSetting(SettingsKeys.GroupingMode, value.ToString());
         ApplyGroupingSettings();
     }
 
@@ -1106,7 +1118,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
 
         ClearValidationError();
-        DeferredPreferences.Set(_settings, _source, SettingsKeys.GroupingThreshold, value);
+        WriteSetting(SettingsKeys.GroupingThreshold, value);
         ApplyGroupingSettings();
     }
 
@@ -1117,7 +1129,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        DeferredPreferences.SetGlobal(_settings, SettingsKeys.IsDarkMode, value);
+        WriteSetting(SettingsKeys.IsDarkMode, value);
         ApplyTheme();
     }
 
@@ -1130,7 +1142,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         // Global (not per-source) like dark mode / startup — the same single mutation path. The
         // restore consumer lives outside this VM (parent-wired at startup); here we only persist.
-        DeferredPreferences.SetGlobal(_settings, SettingsKeys.RememberLastSource, value);
+        WriteSetting(SettingsKeys.RememberLastSource, value);
     }
 
     partial void OnSourceNotificationsEnabledChanged(bool value)
@@ -1141,7 +1153,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
 
         // Per-source, namespaced container — every other pipeline knob uses the same path.
-        DeferredPreferences.Set(_settings, _source, SettingsKeys.EnableSourceNotifications, value);
+        WriteSetting(SettingsKeys.EnableSourceNotifications, value);
     }
 
     private void ApplyPollSettings()

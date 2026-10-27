@@ -133,6 +133,12 @@ public static class Program
         Run(nameof(TestSettingsDefaultsAgreeWithServices), TestSettingsDefaultsAgreeWithServices);
         Run(nameof(TestNafezlyDescriptorContribution), TestNafezlyDescriptorContribution);
 
+        // System/Platform split step 0: scope decides the container, in exactly one place, and every
+        // call site that names a settings key must agree with what the catalog says about it.
+        Console.WriteLine("\n--- SettingsScope routing (System/Platform split) ---\n");
+        Run(nameof(TestScopedSettingsRoutesByScope), TestScopedSettingsRoutesByScope);
+        Run(nameof(TestSettingsCallSiteScopesMatchCatalog), TestSettingsCallSiteScopesMatchCatalog);
+
         Console.WriteLine();
         Console.WriteLine(new string('=', 60));
         Console.WriteLine($"TOTAL: {Passed.Count} passed, {Failed.Count} failed");
@@ -1871,6 +1877,207 @@ public static class Program
         Check("contribution: the same contribution composes nothing for another source",
             !SettingsCatalog.Compose(MostaqlSource.Instance, [contribution]).Descriptors
                 .Any(d => d.Section == MostaqlK.Sources.Nafezly.Contributions.NafezlySettingsContribution.SectionKey));
+    }
+
+    /// <summary>
+    /// System/Platform split step 0: <see cref="ScopedSettings"/> is the only thing that turns a row's
+    /// scope into a storage container, so the routing rules are pinned here. The fake mirrors
+    /// <c>FilePreferencesSettingsRepository</c> exactly, including the legacy read-through (a
+    /// namespaced read that misses falls back to the flat key) — the direction that read-through does
+    /// NOT cover is flat→container, which is why moving a row to Global needs a harvest instead.
+    /// </summary>
+    private static void TestScopedSettingsRoutesByScope()
+    {
+        var repo = new FakeSettingsRepository();
+        var mostaql = SourceId.From("mostaql");
+        var nafezly = SourceId.From("nafezly");
+
+        var globalRow = new SettingsDescriptor("g_rate", SettingsShape.Toggle, SettingsScope.Global, "x", "system", 1);
+        var sourceRow = new SettingsDescriptor("p_rate", SettingsShape.Toggle, SettingsScope.PerSource, "x", "platform", 1);
+
+        repo.SaveScoped(globalRow, mostaql, true);
+        Check("scope routing: a Global row writes the flat container and nothing else",
+            repo.Flat.ContainsKey("g_rate") && repo.Namespaced("mostaql").Count == 0,
+            $"flat={repo.Flat.Count} mostaql={repo.Namespaced("mostaql").Count}");
+
+        repo.SaveScoped(sourceRow, mostaql, false);
+        Check("scope routing: a PerSource row writes its own container and never the flat key",
+            repo.Namespaced("mostaql").ContainsKey("p_rate") && !repo.Flat.ContainsKey("p_rate"));
+
+        // The class this seam exists to prevent: one key, two containers, and a reader that picks.
+        repo.Namespaced("nafezly")["p_rate"] = true;
+        Check("scope routing: the same key reads a different value per container",
+            repo.ReadScoped(sourceRow, mostaql, false) == false
+            && repo.ReadScoped(sourceRow, nafezly, false) == true);
+
+        Check("scope routing: a Global read never sees a namespaced value",
+            repo.ReadScoped(SettingsScope.Global, mostaql, "p_rate", false) == false);
+
+        Check("scope routing: a PerSource read still falls through to the legacy flat key",
+            repo.ReadScoped(SettingsScope.PerSource, nafezly, "g_rate", false) == true,
+            "the flat g_rate=true must answer for nafezly until its own container is written");
+
+        Check("scope routing: HasValueScoped asks only the container that scope actually reads",
+            repo.HasValueScoped(SettingsScope.Global, mostaql, "p_rate") == false
+            && repo.HasValueScoped(SettingsScope.PerSource, mostaql, "p_rate") == true);
+    }
+
+    /// <summary>
+    /// The drift this task cannot afford: the catalog says a row is Global while some reader still
+    /// asks the repository for the source's container (or the reverse). Scanned from source text
+    /// because no compile-time rule connects a call site to a descriptor — same "isolation is a build
+    /// error" mechanism as <see cref="TestIdentityLiterals"/>.
+    /// </summary>
+    private static void TestSettingsCallSiteScopesMatchCatalog()
+    {
+        var root = FindRepoRoot();
+        // The call sites name the constant (SettingsKeys.SafeRequests); the catalog keys its value
+        // ("settings_safe_requests"), so the lint translates identifier -> persisted key before asking.
+        var keyToName = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var field in typeof(SettingsKeys).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static))
+        {
+            if (field.IsLiteral && field.GetValue(null) is string value)
+            {
+                keyToName[field.Name] = value;
+            }
+        }
+
+        var violations = new List<string>();
+        var scanned = 0;
+        foreach (var dir in new[] { "Core", "Features", "Infrastructure", "Services", "Sources", "Platforms", "UI" })
+        {
+            foreach (var file in Directory.EnumerateFiles(Path.Combine(root, dir), "*.cs", SearchOption.AllDirectories))
+            {
+                var rel = Path.GetRelativePath(root, file);
+                // The catalog declares scopes; the key table defines them. Neither is a call site.
+                if (rel.Contains("SettingsCatalog", StringComparison.Ordinal)
+                    || rel.EndsWith("ISettingsRepository.cs", StringComparison.Ordinal)
+                    || rel.EndsWith("ScopedSettings.cs", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                scanned += ScanScopeCallSites(root, rel, file, keyToName, violations);
+            }
+        }
+
+        // A lint that silently matches nothing would pass forever, so it has to prove it looked.
+        Check("scope routing: the call-site lint actually found call sites",
+            scanned >= 12,
+            $"{scanned} SettingsKeys call sites scanned, {violations.Count} disagreeing");
+        Check("scope routing: every SettingsKeys call site matches the catalog's scope",
+            violations.Count == 0,
+            string.Join(" | ", violations));
+    }
+
+    private static int ScanScopeCallSites(
+        string root,
+        string rel,
+        string file,
+        Dictionary<string, string> keyToName,
+        List<string> violations)
+    {
+        var checkedCount = 0;
+        // Which container a call asks for is decided by the method name nearest before the key on the
+        // same line: Get/Set/Contains (+ReadScoped/WriteScoped with SettingsScope.PerSource) are the
+        // namespaced path, their *Global counterparts the flat one.
+        var rules = new (string Token, SettingsScope Scope)[]
+        {
+            ("GetGlobal", SettingsScope.Global),
+            ("SetGlobal", SettingsScope.Global),
+            ("ContainsGlobal", SettingsScope.Global),
+            ("SettingsScope.Global", SettingsScope.Global),
+            (".Get(", SettingsScope.PerSource),
+            (".Set(", SettingsScope.PerSource),
+            (".Contains(", SettingsScope.PerSource),
+            ("SettingsScope.PerSource", SettingsScope.PerSource),
+        };
+
+        var lines = File.ReadAllLines(file);
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i].TrimStart();
+            if (line.StartsWith("//", StringComparison.Ordinal) || line.StartsWith("///", StringComparison.Ordinal) || line.StartsWith("*", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            foreach (var match in System.Text.RegularExpressions.Regex.Matches(line, @"SettingsKeys\.(\w+)")
+                         .Cast<System.Text.RegularExpressions.Match>())
+            {
+                var name = match.Groups[1].Value;
+                if (!keyToName.TryGetValue(name, out var key) || !SettingsCatalog.TryGetBuiltin(key, out var descriptor))
+                {
+                    continue; // a key with no descriptor (active-source, polling-active) has no scope to match
+                }
+
+                var before = line[..match.Index];
+                checkedCount++;
+                SettingsScope? asked = null;
+                var best = -1;
+                foreach (var (token, scope) in rules)
+                {
+                    var at = before.LastIndexOf(token, StringComparison.Ordinal);
+                    if (at > best)
+                    {
+                        best = at;
+                        asked = scope;
+                    }
+                }
+
+                if (asked is not null && asked != descriptor.Scope)
+                {
+                    violations.Add($"{rel}:{i + 1} asks {asked} for {name} but the catalog says {descriptor.Scope} :: {line[..Math.Min(line.Length, 110)]}");
+                }
+            }
+        }
+
+        return checkedCount;
+    }
+
+    /// <summary>
+    /// In-memory <see cref="ISettingsRepository"/> mirroring the real container semantics: the flat
+    /// container is <c>""</c>, a source's container is named by its id (which is what
+    /// <c>ISourceDescriptor.SettingsContainerId</c> returns for both real sources), and a namespaced
+    /// read falls through to the legacy flat key exactly as <c>FilePreferencesSettingsRepository</c> does.
+    /// </summary>
+    private sealed class FakeSettingsRepository : ISettingsRepository
+    {
+        public Dictionary<string, object?> Flat { get; } = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, Dictionary<string, object?>> _containers = new(StringComparer.Ordinal);
+
+        public Dictionary<string, object?> Namespaced(string source)
+        {
+            if (!_containers.TryGetValue(source, out var container))
+            {
+                container = new Dictionary<string, object?>(StringComparer.Ordinal);
+                _containers[source] = container;
+            }
+
+            return container;
+        }
+
+        public T Get<T>(SourceId source, string key, T fallback)
+        {
+            if (Namespaced(source.Value).TryGetValue(key, out var namespaced))
+            {
+                return (T)namespaced!;
+            }
+
+            return Flat.TryGetValue(key, out var legacy) ? (T)legacy! : fallback;
+        }
+
+        public void Set<T>(SourceId source, string key, T value) => Namespaced(source.Value)[key] = value;
+
+        public bool Contains(SourceId source, string key) =>
+            Namespaced(source.Value).ContainsKey(key) || Flat.ContainsKey(key);
+
+        public T GetGlobal<T>(string key, T fallback) =>
+            Flat.TryGetValue(key, out var stored) ? (T)stored! : fallback;
+
+        public void SetGlobal<T>(string key, T value) => Flat[key] = value;
+
+        public bool ContainsGlobal(string key) => Flat.ContainsKey(key);
     }
 
     // -----------------------------------------------------------------

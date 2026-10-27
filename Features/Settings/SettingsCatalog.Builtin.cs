@@ -278,4 +278,26 @@ public static partial class SettingsCatalog
             AutomationId = "Settings_SaveButton",
         },
     ];
+
+    /// <summary>
+    /// The base inventory keyed by settings key, for a caller that holds a key and needs that row's
+    /// <see cref="SettingsDescriptor.Scope"/> — the scope is what decides which container the value
+    /// lives in (see <see cref="ScopedSettings"/>). Declared AFTER <see cref="Builtin"/> because static
+    /// initializers run in textual order, and built with <c>TryAdd</c> so a duplicated key can only
+    /// ever be reported by <c>TestSettingsCatalogBuiltinIntegrity</c>, never crash the settings page.
+    /// </summary>
+    public static IReadOnlyDictionary<string, SettingsDescriptor> BuiltinByKey { get; } = BuildIndex(Builtin);
+
+    public static bool TryGetBuiltin(string key, out SettingsDescriptor descriptor) => BuiltinByKey.TryGetValue(key, out descriptor!);
+
+    private static IReadOnlyDictionary<string, SettingsDescriptor> BuildIndex(IReadOnlyList<SettingsDescriptor> rows)
+    {
+        var index = new Dictionary<string, SettingsDescriptor>(StringComparer.Ordinal);
+        foreach (var row in rows)
+        {
+            index.TryAdd(row.Key, row);
+        }
+
+        return index;
+    }
 }

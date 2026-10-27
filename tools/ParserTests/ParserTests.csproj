@@ -94,6 +94,10 @@
 		     contribution are linkable with only SourceId/ISettingsRepository, proving per-source growth
 		     without pulling in DI or the MAUI stack. -->
 		<Compile Include="..\..\Core\Sources\ISettingsRepository.cs" LinkBase="Core" />
+		<!-- System/Platform split step 0: the scope→container seam is pure interface-over-interface
+		     logic, so routing a read/write through it is proven offline (FakeSettingsRepository) and
+		     the call-site lint can compare every SettingsKeys use against the catalog's scope. -->
+		<Compile Include="..\..\Core\Sources\ScopedSettings.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Sources\SourceContributions.cs" LinkBase="Core" />
 		<Compile Include="..\..\Sources\Nafezly\Contributions\NafezlySettingsContribution.cs" LinkBase="Sources" />
 		<Compile Include="..\..\Infrastructure\Http\CookieParser.cs" LinkBase="Http" />
