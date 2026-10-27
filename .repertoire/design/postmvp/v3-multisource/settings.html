@@ -86,6 +86,8 @@
     .divider { border-color: var(--line); }
     .btn-ghost { border: 1px solid var(--line); color: var(--ink-2); background: var(--surface); }
     .btn-ghost:hover { background: var(--surface-2); color: var(--ink-1); }
+    .btn-primary { background: var(--brand); color: var(--brand-on); font-weight: 800; font-size: 13px; border: 0; border-radius: 10px; padding: .5rem 1.2rem; cursor: pointer; font-family: inherit; }
+    .btn-primary:disabled, .btn-ghost:disabled { opacity: .45; cursor: not-allowed; }
     .stat-box { background: var(--surface-2); border: 1px solid var(--line); }
     .toggle { position: relative; width: 40px; height: 24px; border-radius: 999px; background: var(--line); cursor: pointer; transition: background-color .15s ease; border: 0; flex-shrink: 0; }
     .toggle::after { content: ''; position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: translate .15s ease; }
@@ -99,6 +101,11 @@
     .set-label { color: var(--ink-2); font-weight: 700; }
     .set-sub { display: block; font-weight: 400; font-size: 11px; color: var(--ink-3); margin-top: 2px; }
     .set-value { color: var(--ink-1); font-weight: 700; display: flex; align-items: center; gap: .6rem; }
+    /* «المنصات»: one line per platform, stacked at the row's end — the shape SettingsRow renders. */
+    .platform-switches { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .ps-item { display: flex; align-items: center; gap: 10px; }
+    .ps-name { font-family: 'Tajawal', sans-serif; font-weight: 700; font-size: 13px; color: var(--ink-1); }
+    .toggle:disabled, .toggle.disabled { opacity: .45; cursor: not-allowed; }
     .set-edit { color: var(--brand-ink); font-weight: 700; font-size: 12px; cursor: pointer; background: none; border: 0; font-family: inherit; }
     .set-edit:hover { text-decoration: underline; }
     .section-head { position: sticky; top: 0; z-index: 10; background: var(--surface); border-bottom: 1px solid var(--line); padding: 1.15rem 2rem; }
@@ -142,7 +149,7 @@
     <header class="px-6 py-5 shrink-0 text-center" style="background: var(--surface); border-bottom: 1px solid var(--line);">
         <h1 class="text-4xl font-extrabold leading-tight" style="color: var(--ink-1);">الإعدادات</h1>
         <p class="flex items-center justify-center gap-2 mt-2 text-xs" style="color: var(--ink-3);">
-            <span>إعدادات المنصة الحالية:</span>
+            <span>إعدادات النظام وإعدادات المنصة الحالية:</span>
             <span class="w-5 h-5 rounded-md inline-flex items-center justify-center font-extrabold text-[10px] src-tile" id="set-src-tile" data-src="mostaql" style="opacity:1;filter:none;">م</span>
             <span class="font-bold" style="color: var(--brand-ink);" id="set-src-name">مستقل</span>
         </p>
@@ -155,6 +162,31 @@
              and each platform exposes its own settings, pages and card fields. -->
         <div class="min-h-full" style="background: var(--surface);">
 
+            <!-- BEGIN: Section النظام — one value shared by every enabled platform (flat storage) -->
+            <section data-purpose="settings-system">
+                <div class="section-head">
+                    <h2 class="text-base font-extrabold flex items-center gap-2" style="color: var(--ink-1);">
+                        <i class="fa-solid fa-sliders text-sm" style="color: var(--brand-ink);"></i> النظام
+                    </h2>
+                    <p class="text-xs mt-1" style="color: var(--ink-3);">إعدادات تطبّق على كل المنصات — قيمة واحدة يشترك فيها كل ما هو مفعّل منها.</p>
+                </div>
+                <div class="set-pad">
+                    <div class="set-row"><span class="set-label">المنصات<span class="set-sub">منصة واحدة على الأقل يجب أن تبقى مفعّلة. الإيقاف يوقف الفحص والإثراء والتنبيهات فقط — المشاريع المحفوظة والتنقّل والروابط تبقى كما هي.</span></span><span class="set-value platform-switches"><span class="ps-item"><span class="ps-name">مستقل</span><button class="toggle" role="switch" aria-checked="true" aria-label="تفعيل مستقل" onclick="flipPlatform(this)"></button></span><span class="ps-item"><span class="ps-name">نفذلي</span><button class="toggle" role="switch" aria-checked="true" aria-label="تفعيل نفذلي" onclick="flipPlatform(this)"></button></span></span></div>
+                    <div class="set-row"><span class="set-label">فاصل الفحص<span class="set-sub">كل كم ثانية يُفحص البحث عن مشاريع جديدة — لكل منصة عاملة</span></span><span class="set-value">30 ثانية <button class="set-edit">تغيير</button></span></div>
+                    <div class="set-row"><span class="set-label">الطلبات الآمنة<span class="set-sub">يوزّع الطلبات على مدار الدقيقة مع فاصل ثانية بين كل طلبين — السلوك الموصى به لتجنّب الحجب</span></span><button class="toggle" role="switch" aria-checked="true" aria-label="الطلبات الآمنة" onclick="flip(this)"></button></div>
+                    <div class="set-row"><span class="set-label">تحميل التفاصيل المتوازي<span class="set-sub">عدد صفحات التفاصيل التي تُجلب في وقت واحد — لكل منصة من منصاتها العاملة</span></span><span class="set-value">2 <button class="set-edit">تغيير</button></span></div>
+                    <div class="set-row"><span class="set-label">تجميع التنبيهات<span class="set-sub">تنبيه واحد لكل دفعة بدل تنبيه لكل مشروع — على كل المنصات</span></span><button class="toggle" role="switch" aria-checked="true" aria-label="تجميع التنبيهات" onclick="flip(this)"></button></div>
+                    <div class="set-row"><span class="set-label">نمط التجميع</span><span class="set-value">نهاية الدقيقة</span></div>
+                    <div class="set-row"><span class="set-label">حد التجميع<span class="set-sub">عدد المشاريع الذي يُجمَّع عنده التنبيه</span></span><span class="set-value">5 <button class="set-edit">تغيير</button></span></div>
+                    <div class="set-row"><span class="set-label">تشغيل مع النظام<span class="set-sub">يبدأ التطبيق في الدرج دون نافذة</span></span><button class="toggle" role="switch" aria-checked="false" aria-label="تشغيل مع النظام" onclick="flip(this)"></button></div>
+                    <div class="set-row"><span class="set-label">تذكر آخر منصة مفتوحة<span class="set-sub">عند إعادة تشغيل التطبيق يعود لنفس المنصة التي كنت عليها</span></span><button class="toggle" role="switch" aria-checked="true" aria-label="تذكر آخر منصة مفتوحة" onclick="flip(this)"></button></div>
+                    <div class="set-row"><span class="set-label">الوضع الداكن<span class="set-sub">تبديل مظهر التطبيق بين الفاتح والداكن</span></span><button class="toggle" role="switch" aria-checked="false" aria-label="الوضع الداكن" onclick="flip(this)"></button></div>
+                    <div class="set-row"><span class="set-label">عند الضغط على X<span class="set-sub">سلوك التطبيق عند إغلاق النافذة</span></span><span class="set-value">سؤالني كل مرة</span></div>
+                    <div class="set-row"><span class="set-label">تذكر خياري<span class="set-sub">لا تسألني مرة أخرى بعد اختيار السلوك</span></span><button class="toggle" role="switch" aria-checked="false" aria-label="تذكر خياري" onclick="flip(this)"></button></div>
+                </div>
+            </section>
+            <!-- END: Section النظام -->
+
             <!-- BEGIN: Section المنصة — swaps with the active source -->
             <section data-purpose="settings-platform">
                 <div class="section-head">
@@ -165,28 +197,26 @@
                 </div>
 
                 <div class="set-pad" data-src-panel="mostaql">
-                    <div class="set-row"><span class="set-label">فاصل الفحص<span class="set-sub">كل كم ثانية يُفحص البحث عن مشاريع جديدة</span></span><span class="set-value">30 ثانية <button class="set-edit">تغيير</button></span></div><div class="set-row"><span class="set-label">حد الطلبات<span class="set-sub">سقف لبق يحمي الحساب والموقع</span></span><span class="set-value">12 طلب/دقيقة <button class="set-edit">تغيير</button></span></div><div class="set-row"><span class="set-label">تنبيهات هذه المنصة</span><button class="toggle" role="switch" aria-checked="true" aria-label="تنبيهات هذه المنصة" onclick="this.setAttribute('aria-checked', this.getAttribute('aria-checked')==='true'?'false':'true')"></button></div><div class="set-row"><span class="set-label">أنواع المشاريع المتابَعة<span class="set-sub">مستقل يتميز بمشاريع مراقبة وعادية</span></span><span class="set-value">عادية + مراقبة <button class="set-edit">تغيير</button></span></div><div class="set-row"><span class="set-label">آخر فحص</span><span class="set-value">منذ 12 ثانية</span></div><div class="set-row"><span class="set-label">الأرشيف</span><span class="set-value">98 مشروعًا <button class="set-edit">عرض</button></span></div>
+                    <div class="set-row"><span class="set-label">حد الطلبات<span class="set-sub">سقف لبق يحمي الحساب والموقع — لهذه المنصة وحدها</span></span><span class="set-value">12 طلب/دقيقة <button class="set-edit">تغيير</button></span></div><div class="set-row"><span class="set-label">تنبيهات هذه المنصة</span><button class="toggle" role="switch" aria-checked="true" aria-label="تنبيهات هذه المنصة" onclick="this.setAttribute('aria-checked', this.getAttribute('aria-checked')==='true'?'false':'true')"></button></div><div class="set-row"><span class="set-label">ارفع ملف ال cookies الخاص بك<span class="set-sub">بدون ملف الجلسة لن يتمكن التطبيق من تنزيل مرفقات المشاريع لبعض المنصات</span></span><span class="set-value"><button class="btn-ghost">رفع ملف</button></span></div><div class="set-row"><span class="set-label">عملة الميزانية<span class="set-sub">تُعرض ميزانيات هذه المنصة بالعملة الموضّحة في الموقع</span></span><span class="set-value">ر.س</span></div><div class="set-row"><span class="set-label">آخر فحص</span><span class="set-value">منذ 12 ثانية</span></div><div class="set-row"><span class="set-label">الأرشيف</span><span class="set-value">98 مشروعًا <button class="set-edit">عرض</button></span></div>
                 </div>
                 <div class="set-pad hidden" data-src-panel="nafezly">
-                    <div class="set-row"><span class="set-label">فاصل الفحص<span class="set-sub">كل كم ثانية يُفحص البحث عن مشاريع جديدة</span></span><span class="set-value">60 ثانية <button class="set-edit">تغيير</button></span></div><div class="set-row"><span class="set-label">حد الطلبات<span class="set-sub">سقف لبق يحمي الحساب والموقع</span></span><span class="set-value">8 طلب/دقيقة <button class="set-edit">تغيير</button></span></div><div class="set-row"><span class="set-label">تنبيهات هذه المنصة</span><button class="toggle" role="switch" aria-checked="true" aria-label="تنبيهات هذه المنصة" onclick="this.setAttribute('aria-checked', this.getAttribute('aria-checked')==='true'?'false':'true')"></button></div><div class="set-row"><span class="set-label">جلسة الإثراء<span class="set-sub">بعض صفحات نفذلي تتطلب جلسة للدخول — بدونها يُضاف المشروع من الملخص فقط</span></span><span class="set-value"><span style="font-weight: 400; color: var(--accent-positive);">مرتبطة <button class="set-edit" style="color: var(--ink-3);">إلغاء الربط</button></span></span></div><div class="set-row"><span class="set-label">تخطي المشاريع المغلقة<span class="set-sub">لا تُنبَّه للمشاريع التي أُغلق استقبال العروض فيها</span></span><button class="toggle" role="switch" aria-checked="true" aria-label="تخطي المشاريع المغلقة" onclick="this.setAttribute('aria-checked', this.getAttribute('aria-checked')==='true'?'false':'true')"></button></div><div class="set-row"><span class="set-label">عملة الميزانية<span class="set-sub">تنفيذ يعرض الميزانيات بالدولار</span></span><span class="set-value">كما في الموقع ($) <button class="set-edit">تغيير</button></span></div><div class="set-row"><span class="set-label">آخر فحص</span><span class="set-value">منذ 41 ثانية</span></div><div class="set-row"><span class="set-label">الأرشيف</span><span class="set-value">49 مشروعًا <button class="set-edit">عرض</button></span></div>
+                    <div class="set-row"><span class="set-label">حد الطلبات<span class="set-sub">سقف لبق يحمي الحساب والموقع — لهذه المنصة وحدها</span></span><span class="set-value">8 طلب/دقيقة <button class="set-edit">تغيير</button></span></div><div class="set-row"><span class="set-label">تنبيهات هذه المنصة</span><button class="toggle" role="switch" aria-checked="true" aria-label="تنبيهات هذه المنصة" onclick="this.setAttribute('aria-checked', this.getAttribute('aria-checked')==='true'?'false':'true')"></button></div><div class="set-row"><span class="set-label">جلسة الإثراء<span class="set-sub">يعمل بدون تسجيل دخول (بيانات أساسية مجهولة المصدر)</span></span><span class="set-value"><span style="font-weight: 400; color: var(--accent-positive);">غير مطلوبة</span></span></div><div class="set-row"><span class="set-label">إعادة محاولة الإثراء التلقائي<span class="set-sub">يعيد محاولة إثراء المشاريع التي فشلت بسبب حظر مؤقت (403/429)</span></span><button class="toggle" role="switch" aria-checked="true" aria-label="إعادة محاولة الإثراء التلقائي" onclick="this.setAttribute('aria-checked', this.getAttribute('aria-checked')==='true'?'false':'true')"></button></div><div class="set-row"><span class="set-label">عملة الميزانية<span class="set-sub">تنفيذ يعرض الميزانيات بالدولار</span></span><span class="set-value">كما في الموقع ($) <button class="set-edit">تغيير</button></span></div><div class="set-row"><span class="set-label">آخر فحص</span><span class="set-value">منذ 41 ثانية</span></div><div class="set-row"><span class="set-label">الأرشيف</span><span class="set-value">49 مشروعًا <button class="set-edit">عرض</button></span></div>
                 </div>
             </section>
             <!-- END: Section المنصة -->
 
-            <!-- BEGIN: Section عام — global, identical in both platforms -->
-            <section>
+            <!-- BEGIN: Section الإجراءات — the deferred write queue, flushed on demand -->
+            <section data-purpose="settings-actions">
                 <div class="section-head">
                     <h2 class="text-base font-extrabold flex items-center gap-2" style="color: var(--ink-1);">
-                        <i class="fa-solid fa-sliders text-sm" style="color: var(--brand-ink);"></i> عام
+                        <i class="fa-solid fa-floppy-disk text-sm" style="color: var(--brand-ink);"></i> الإجراءات
                     </h2>
                 </div>
                 <div class="set-pad">
-                    <div class="set-row"><span class="set-label">تشغيل مع النظام<span class="set-sub">يبدأ التطبيق في الدرج دون نافذة</span></span><button class="toggle" role="switch" aria-checked="false" aria-label="تشغيل مع النظام" onclick="this.setAttribute('aria-checked', this.getAttribute('aria-checked')==='true'?'false':'true')"></button></div>
-                    <div class="set-row"><span class="set-label">تجميع التنبيهات<span class="set-sub">تنبيه واحد لكل دفعة بدل تنبيه لكل مشروع — على كل المنصات</span></span><button class="toggle" role="switch" aria-checked="true" aria-label="تجميع التنبيهات" onclick="this.setAttribute('aria-checked', this.getAttribute('aria-checked')==='true'?'false':'true')"></button></div>
-                    <div class="set-row"><span class="set-label">تذكر آخر منصة مفتوحة<span class="set-sub">عند إعادة تشغيل التطبيق يعود لنفس المنصة التي كنت عليها</span></span><button class="toggle" role="switch" aria-checked="true" aria-label="تذكر آخر منصة مفتوحة" onclick="this.setAttribute('aria-checked', this.getAttribute('aria-checked')==='true'?'false':'true')"></button></div>
+                    <div class="set-row"><span class="set-label">حفظ التغييرات<span class="set-sub">يُفرَّغ طابور الكتابة المؤجَّل الآن</span></span><span class="set-value"><button class="btn-primary">حفظ</button></span></div>
                 </div>
             </section>
-            <!-- END: Section عام -->
+            <!-- END: Section الإجراءات -->
             <div class="h-10"></div>
         </div>
     </div>
@@ -282,5 +312,27 @@
             if (icon) icon.className = 'fa-solid fa-sun';
         }
     })();
+    // The settings rows flip in place; «المنصات» additionally enforces the app's rule — at least one
+    // platform stays enabled, and the switch that would break it is locked WITH its reason shown in
+    // the row's hint (mirrors PlatformEnablement.LockedSource). A mockup that could be clicked into an
+    // all-off state would be specifying a product the app cannot be.
+    function flip(el) { el.setAttribute('aria-checked', el.getAttribute('aria-checked') === 'true' ? 'false' : 'true'); }
+
+    function refreshPlatformGroup(group) {
+        if (!group) return;
+        var buttons = Array.prototype.slice.call(group.querySelectorAll('.toggle'));
+        var onCount = buttons.filter(function (b) { return b.getAttribute('aria-checked') === 'true'; }).length;
+        buttons.forEach(function (b) {
+            b.disabled = onCount === 1 && b.getAttribute('aria-checked') === 'true';
+        });
+    }
+
+    function flipPlatform(btn) {
+        if (btn.disabled) return;
+        flip(btn);
+        refreshPlatformGroup(btn.closest('.platform-switches'));
+    }
+
+    document.querySelectorAll('.platform-switches').forEach(refreshPlatformGroup);
 </script>
 </body></html>

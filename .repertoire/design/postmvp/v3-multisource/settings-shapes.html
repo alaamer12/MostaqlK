@@ -45,6 +45,10 @@
     .set-label { color: var(--ink-2); font-weight: 700; }
     .set-sub { display: block; font-weight: 400; font-size: 11px; color: var(--ink-3); margin-top: 2px; }
     .set-value { color: var(--ink-1); font-weight: 700; display: flex; align-items: center; gap: .6rem; }
+    /* «المنصات»: one line per platform, stacked at the row's end — the shape the app renders. */
+    .platform-switches { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .ps-item { display: flex; align-items: center; gap: 10px; }
+    .ps-name { font-family: 'Tajawal', sans-serif; font-weight: 700; font-size: 13px; color: var(--ink-1); }
     .set-edit { color: var(--brand-ink); font-weight: 700; font-size: 12px; cursor: pointer; background: none; border: 0; font-family: inherit; }
     .set-edit:hover { text-decoration: underline; }
     .section-head { position: sticky; top: 0; z-index: 10; background: var(--surface); border-bottom: 1px solid var(--line); padding: 1.15rem 2rem; }
@@ -233,6 +237,29 @@
     </section>
     <!-- END: Shape CookieEditor -->
 
+    <!-- BEGIN: Shape PlatformSwitches -->
+    <section data-shape="switches">
+        <div class="section-head">
+            <h2 class="text-base font-extrabold flex items-center gap-2" style="color: var(--ink-1);">
+                <span class="enum-eyebrow">PlatformSwitches</span> مفاتيح المنصات
+            </h2>
+            <p class="text-xs mt-1" style="color: var(--ink-3);">مركّب: مفتاح لكل منصة مسجّلة — تُسرَد المنصات من سجلّها، فلا يُسمّى أي منها في الشيفرة. الإيقاف صمتٌ شبكي لا حذف: يتوقف الفحص والإثراء والتنبيهات وتبقى المشاريع والتنقّل. آخر منصة مفعّلة تُرسم مقفلة مع سببها بدل أن يُرفض نقرها.</p>
+        </div>
+        <div class="set-pad"><div class="shape-grid">
+            <div class="variant" data-state="valid"><div class="variant-cap">كلها مفعّلة</div>
+                <div class="set-row"><span class="set-label">المنصات<span class="set-sub">منصة واحدة على الأقل يجب أن تبقى مفعّلة. الإيقاف يوقف الفحص والإثراء والتنبيهات فقط — المشاريع المحفوظة والتنقّل والروابط تبقى كما هي.</span></span><span class="set-value platform-switches">
+                    <span class="ps-item"><span class="ps-name">مستقل</span><button class="toggle" role="switch" aria-checked="true" onclick="flipPlatform(this)"></button></span>
+                    <span class="ps-item"><span class="ps-name">نفذلي</span><button class="toggle" role="switch" aria-checked="true" onclick="flipPlatform(this)"></button></span>
+                </span></div></div>
+            <div class="variant" data-state="locked"><div class="variant-cap">منصة معطّلة — الباقية مقفلة</div>
+                <div class="set-row"><span class="set-label">المنصات<span class="set-sub">منصة واحدة على الأقل يجب أن تبقى مفعّلة — لا يمكن إيقاف آخر منصة مفعّلة.</span></span><span class="set-value platform-switches">
+                    <span class="ps-item"><span class="ps-name">مستقل</span><button class="toggle" role="switch" aria-checked="true" onclick="flipPlatform(this)"></button></span>
+                    <span class="ps-item"><span class="ps-name">نفذلي</span><button class="toggle" role="switch" aria-checked="false" onclick="flipPlatform(this)"></button></span>
+                </span></div></div>
+        </div></div>
+    </section>
+    <!-- END: Shape PlatformSwitches -->
+
     <!-- BEGIN: Shape ReadOnlyStat -->
     <section data-shape="stat">
         <div class="section-head">
@@ -372,6 +399,27 @@
 
 <script data-purpose="gallery-state">
     function flip(el) { el.setAttribute('aria-checked', el.getAttribute('aria-checked') === 'true' ? 'false' : 'true'); }
+
+    // «المنصات» enforces the app's rule here in the mockup, instead of drawing it by hand: at least
+    // one platform stays enabled, so a group whose last enabled switch would go off locks that switch
+    // (and turning another one back on releases it). Mirrors PlatformEnablement.LockedSource — a
+    // demo that could be clicked into an all-off state would be documenting a different product.
+    function refreshPlatformGroup(group) {
+        if (!group) return;
+        var buttons = Array.prototype.slice.call(group.querySelectorAll('.toggle'));
+        var onCount = buttons.filter(function (b) { return b.getAttribute('aria-checked') === 'true'; }).length;
+        buttons.forEach(function (b) {
+            b.disabled = onCount === 1 && b.getAttribute('aria-checked') === 'true';
+        });
+    }
+
+    function flipPlatform(btn) {
+        if (btn.disabled) return;
+        flip(btn);
+        refreshPlatformGroup(btn.closest('.platform-switches'));
+    }
+
+    document.querySelectorAll('.platform-switches').forEach(refreshPlatformGroup);
     function flipChip(el) { el.setAttribute('aria-pressed', el.getAttribute('aria-pressed') === 'true' ? 'false' : 'true'); }
     function setSource(source) {
         document.documentElement.setAttribute('data-source', source);

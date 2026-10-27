@@ -21,8 +21,8 @@ riding the wavefront. Two 1-desktop apps in one frame.
 |------|-------------|
 | [`projects.html`](./projects.html) | Click **ن** (Nafezly tile) in the rail → whole app morphs blue→orange with the circular reveal from the tile; click the moon button → same reveal for light/dark. Feeds carry source-native fields (`ر.س · مدة التسليم` vs `$ · العروض المقدمة · مشرف عليه`). |
 | [`project-details.html`](./project-details.html) | Continuous full-page pattern (same as Settings): sticky section headers, no floating cards. Title = the scraped project title; decision strip (big-number facts) → الوصف → معلومات المنفذ (Nafezly-only section) → صاحب المشروع → actions. The pipeline-provenance card was removed as noise. |
-| [`settings.html`](./settings.html) | Rail morphing works here too; المصادر section manages per-source state (enable, cadence, rate budget, session) — switching lives in the rail, management lives in Settings. |
-| [`settings-shapes.html`](./settings-shapes.html) | **Shape catalog** for the settings plugin system: every `SettingsShape` the descriptor renderer can produce (Toggle, NumericBounded, TextEntry, EnumPicker, CookieEditor, ReadOnlyStat, ActionButton, LinkOut, InfoBanner, SectionHeader, Slider, MultiChoiceChips, SegmentedButtons, FilePicker), each in its states (valid / clamped / error / disabled / partial-override). The mono eyebrow above every Arabic title is the descriptor's enum name — one row ⇄ one descriptor. Force params: `?shape=cookie&state=error&theme=dark&source=nafezly` isolates any cell for 1280×800 capture. This page is the spec the CRAFT step (`SettingsShapesPage` in MAUI) must clone 1:1. |
+| [`settings.html`](./settings.html) | Two bands, matching the catalog: **النظام** (one value shared by every enabled platform — including the «المنصات» per-platform enable switches) and **المنصة** (a property of one site, swapped with the active source), then **الإجراءات**. Sources are defined by the developer (no add/remove); switching lives in the rail, management lives in Settings. |
+| [`settings-shapes.html`](./settings-shapes.html) | **Shape catalog** for the settings plugin system: every `SettingsShape` the descriptor renderer can produce (Toggle, NumericBounded, TextEntry, EnumPicker, CookieEditor, ReadOnlyStat, ActionButton, LinkOut, InfoBanner, SectionHeader, Slider, MultiChoiceChips, SegmentedButtons, FilePicker, PlatformSwitches), each in its states (valid / clamped / error / disabled / partial-override; PlatformSwitches additionally shows the at-least-one-enabled lock, which the demo computes in JS exactly as `PlatformEnablement` does rather than drawing it by hand). The mono eyebrow above every Arabic title is the descriptor's enum name — one row ⇄ one descriptor. Force params: `?shape=cookie&state=error&theme=dark&source=nafezly` isolates any cell for 1280×800 capture. This page is the spec the CRAFT step (`SettingsShapesPage` in MAUI) must clone 1:1. |
 
 ## The morph mechanics (ported from the magicui `AnimatedThemeToggler`)
 
@@ -93,6 +93,23 @@ drag handle is decorative; the real unit resizes.
    structure similarity 94.7–95.2% (SSIM ~92%, palette ~99.5%); the raw 1:1
    blend sits at ~75% because its MSE term cannot cross text rasterizers —
    the shipping `settings` page scores 69% by that same number.
+
+7. **The settings page split into two bands: النظام and المنصة.**
+   `settings.html` used to show one source-scoped section plus a `عام` section
+   whose rows were a mix of app behavior and per-site values, and the app had
+   grown past both of them. The bands now state the rule the code enforces: a
+   **system** row holds one value shared by every enabled platform (scan
+   interval, safe-request spacing, parallel detail fetches, notification
+   grouping enable/mode/threshold, startup, remember-last-platform, theme,
+   close behavior, and the new «المنصات» switch list), while a **platform** row
+   is a property of one site (its rate budget, query params, attachments, its
+   own notifications, session cookie, and the capability read-outs). `حد
+   الطلبات` staying per-platform is deliberate: each pipeline owns a private
+   rate limiter, so a budget spent on one site says nothing about another.
+   `الإجراءات` (the deferred-write save) is now drawn too, because the app
+   ships it. Measured after the redraw: structure similarity 91.1–92.2% and raw
+   70.1–71.4% across the four `settings` frames — both above the pre-split
+   baseline (90.8% / 69.9%).
 
 ## Unit impact (for implementation; UNITS.md gets rows then)
 

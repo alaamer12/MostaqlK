@@ -1,6 +1,7 @@
 using MostaqlK.Core.Sources;
 using MostaqlK.Features.Settings;
 using MostaqlK.Services;
+using MostaqlK.Sources.Mostaql;
 using MostaqlK.Sources.Nafezly;
 using MostaqlK.UI.PlatformComponents.SettingsRow;
 
@@ -48,7 +49,9 @@ public partial class SettingsShapesPage : ContentPage
         object? Value = null,
         string? ValueText = null,
         string? ErrorText = null,
-        bool Disabled = false);
+        bool Disabled = false,
+        // Only the PlatformSwitches cells carry these; every other shape leaves them empty.
+        IReadOnlyList<SettingsPlatformSwitchItem>? Platforms = null);
 
     /// <summary>One shape section: the mockup's sticky head plus its variant cells.</summary>
     private sealed record Section(
@@ -166,6 +169,17 @@ public partial class SettingsShapesPage : ContentPage
                         ValueText: null),
                 ]),
 
+            new("switches", "PlatformSwitches", "مفاتيح المنصات",
+                "مركّب: مفتاح لكل منصة مسجّلة — تُسرَد المنصات من سجلّها، فلا يُسمّى أي منها في الشيفرة. الإيقاف صمتٌ شبكي لا حذف: يتوقف الفحص والإثراء والتنبيهات وتبقى المشاريع والتنقّل. آخر منصة مفعّلة تُرسم مقفلة مع سببها بدل أن يُرفض نقرها.", true,
+                [
+                    new Cell("كلها مفعّلة", "valid", PlatformSwitches("gallery.switches.all"),
+                        Platforms: SwitchItems(secondOn: true)),
+                    new Cell("منصة معطّلة — الباقية مقفلة", "locked",
+                        PlatformSwitches("gallery.switches.locked") with
+                        { HintAr = "منصة واحدة على الأقل يجب أن تبقى مفعّلة — لا يمكن إيقاف آخر منصة مفعّلة." },
+                        Platforms: SwitchItems(secondOn: false)),
+                ]),
+
             new("stat", "ReadOnlyStat", "إحصاء + فعل", null, false,
                 [
                     new Cell("صحيح", "valid",
@@ -255,6 +269,33 @@ public partial class SettingsShapesPage : ContentPage
     private static SettingsDescriptor Cookie(string key, string label) =>
         new(key, SettingsShape.CookieEditor, SettingsScope.PerSource, label, "gallery", 0)
         { ActionLabelAr = "رفع ملف", AutomationId = key };
+
+    private static SettingsDescriptor PlatformSwitches(string key) =>
+        new(key, SettingsShape.PlatformSwitches, SettingsScope.Global, "المنصات", "gallery", 0)
+        {
+            HintAr = "منصة واحدة على الأقل يجب أن تبقى مفعّلة. الإيقاف يوقف الفحص والإثراء والتنبيهات فقط — المشاريع المحفوظة والتنقّل والروابط تبقى كما هي.",
+            AutomationId = key,
+        };
+
+    /// <summary>
+    /// The gallery's switch lines, enumerated from the registered source descriptors (so the fixture
+    /// names no platform either) with the lock derived exactly as <c>PlatformEnablement.LockedSource</c>
+    /// derives it — the only enabled platform is the locked one — instead of hand-drawing a state the
+    /// product cannot reach.
+    /// </summary>
+    private static IReadOnlyList<SettingsPlatformSwitchItem> SwitchItems(bool secondOn)
+    {
+        var sources = new SourceRegistry([MostaqlSource.Instance, NafezlySource.Instance]).All;
+        var flags = sources.Select((_, index) => index == 0 || secondOn).ToList();
+        var enabledCount = flags.Count(on => on);
+
+        return sources.Select((source, index) => new SettingsPlatformSwitchItem(
+            source.Id,
+            source.DisplayNameAr,
+            flags[index],
+            IsLocked: flags[index] && enabledCount == 1,
+            AutomationId: $"Settings_PlatformSwitch_{source.Id.Value}")).ToList();
+    }
 
     private static SettingsDescriptor GroupingMode(string key) =>
         new(key, SettingsShape.EnumPicker, SettingsScope.Global, "نمط التجميع", "gallery", 0)
@@ -605,6 +646,7 @@ public partial class SettingsShapesPage : ContentPage
             valueText: cell.ValueText)
         {
             ShowTopDivider = false,
+            PlatformItems = cell.Platforms ?? [],
         };
 
         // Inside a variant card the row never draws the page's inter-row hairline: the mockup's
