@@ -73,7 +73,14 @@ public static partial class SettingsCatalog
         foreach (var (key, registrations) in rows)
         {
             var seam = $"settings:{key}";
-            var chain = LayerResolver.ResolveChain(seam, registrations, ctx);
+            // Additive seam: a row a source contributed for coordinates this context does not
+            // satisfy is simply absent here (not a missing-base failure).
+            var chain = LayerResolver.ResolveChain(seam, registrations, ctx, requireBase: false);
+            if (chain.Count == 0)
+            {
+                continue;
+            }
+
             var descriptor = chain[0].Value;
             var fieldOwners = new Dictionary<string, (int Specificity, LayerKey Key)>();
 
@@ -118,6 +125,10 @@ public static partial class SettingsCatalog
     {
         "" => true,
         "NeedsSessionForFullEnrichment" => source.Capabilities.NeedsSessionForFullEnrichment,
+        // The negation exists as its own name so a module can contribute the "this source works
+        // without a session" read-out as data. Without it the module would have to ask the shared
+        // page to branch on a capability, which is the branch this seam exists to remove.
+        "WorksWithoutSession" => !source.Capabilities.NeedsSessionForFullEnrichment,
         "HasSupervisedFlag" => source.Capabilities.HasSupervisedFlag,
         "HasCurrencySuffix" => !string.IsNullOrEmpty(source.CurrencySuffix),
         "Never" => false,

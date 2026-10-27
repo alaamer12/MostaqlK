@@ -1,3 +1,5 @@
+using MostaqlK.Core.Sources;
+
 namespace MostaqlK.Services;
 
 /// <summary>
@@ -24,8 +26,16 @@ public enum CloseAction
 /// </summary>
 public class CloseBehaviorService
 {
-    private const string RememberedKey = "close_behavior_remembered";
-    private const string ActionKey = "close_behavior_action";
+    /// <summary>
+    /// The single settings path (per-source namespacing, legacy-flat fallback, the channel-rooted
+    /// store). Reading <c>Microsoft.Maui.Storage.Preferences</c> directly here worked — the static
+    /// default IS the file-backed store — but it put these two keys outside the one interface every
+    /// other setting goes through, so the settings page rendered a row whose value a different code
+    /// path owned.
+    /// </summary>
+    private readonly ISettingsRepository _settings;
+
+    public CloseBehaviorService(ISettingsRepository settings) => _settings = settings;
 
     /// <summary>
     /// Returns the remembered action, or <c>null</c> if the user never checked "remember my
@@ -33,26 +43,26 @@ public class CloseBehaviorService
     /// </summary>
     public virtual CloseAction? GetRememberedAction()
     {
-        if (!Microsoft.Maui.Storage.Preferences.Get(RememberedKey, false))
+        if (!_settings.GetGlobal(SettingsKeys.CloseBehaviorRemembered, false))
         {
             return null;
         }
 
-        var stored = Microsoft.Maui.Storage.Preferences.Get(ActionKey, nameof(CloseAction.MinimizeToTray));
+        var stored = _settings.GetGlobal(SettingsKeys.CloseBehaviorAction, nameof(CloseAction.MinimizeToTray));
         return Enum.TryParse<CloseAction>(stored, out var action) ? action : CloseAction.MinimizeToTray;
     }
 
-    /// <summary>Stores <paramref name="action"/> so future X-button clicks skip the dialog entirely.</summary>
+    /// <summary>
+    /// Stores <paramref name="action"/> so future X-button clicks skip the dialog entirely.
+    /// Written synchronously (not through the deferred queue the settings page uses): this runs from
+    /// the close dialog itself, milliseconds before the process is allowed to leave.
+    /// </summary>
     public virtual void RememberAction(CloseAction action)
     {
-        Microsoft.Maui.Storage.Preferences.Set(RememberedKey, true);
-        Microsoft.Maui.Storage.Preferences.Set(ActionKey, action.ToString());
+        _settings.SetGlobal(SettingsKeys.CloseBehaviorRemembered, true);
+        _settings.SetGlobal(SettingsKeys.CloseBehaviorAction, action.ToString());
     }
 
     /// <summary>Clears the remembered choice, so the confirmation dialog is shown again next time.</summary>
-    public virtual void ForgetRememberedAction()
-    {
-        Microsoft.Maui.Storage.Preferences.Remove(RememberedKey);
-        Microsoft.Maui.Storage.Preferences.Remove(ActionKey);
-    }
+    public virtual void ForgetRememberedAction() => _settings.SetGlobal(SettingsKeys.CloseBehaviorRemembered, false);
 }

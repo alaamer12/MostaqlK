@@ -131,6 +131,7 @@ public static class Program
         Run(nameof(TestSettingsCatalogVisibilityFlags), TestSettingsCatalogVisibilityFlags);
         Run(nameof(TestSettingsValidatorRules), TestSettingsValidatorRules);
         Run(nameof(TestSettingsDefaultsAgreeWithServices), TestSettingsDefaultsAgreeWithServices);
+        Run(nameof(TestNafezlyDescriptorContribution), TestNafezlyDescriptorContribution);
 
         Console.WriteLine();
         Console.WriteLine(new string('=', 60));
@@ -1820,6 +1821,36 @@ public static class Program
         Check("defaults: grouping options carry the enum names the repository already stores",
             mode.Options!.Select(o => o.Value).SequenceEqual(["EndOfMinute", "AfterMinutes", "AfterCount"])
             && mode.DefaultLiteral == "EndOfMinute");
+    }
+
+    /// <summary>
+    /// Step 5: a source's own settings rows are descriptors folded in at its layer. This is the
+    /// independent-growth proof — nafezly gains a section with zero shared-code edits, and the same
+    /// contribution object handed to another source composes NOTHING for it.
+    /// </summary>
+    private static void TestNafezlyDescriptorContribution()
+    {
+        var contribution = new MostaqlK.Sources.Nafezly.Contributions.NafezlySettingsContribution();
+        var nafezlyRows = SettingsCatalog.Compose(NafezlySource.Instance, [contribution]).Descriptors;
+        var section = nafezlyRows
+            .Where(d => d.Section == MostaqlK.Sources.Nafezly.Contributions.NafezlySettingsContribution.SectionKey)
+            .ToList();
+
+        Check("contribution: the section brings its own Arabic header row",
+            section.Any(d => d.Shape == SettingsShape.SectionHeader && d.LabelAr == "إعدادات نفذلي"));
+        Check("contribution: the retry toggle is a bool row defaulting on",
+            section.Any(d => d.Key == MostaqlK.Sources.Nafezly.Contributions.NafezlySettingsKeys.EnrichmentRetryEnabled
+                && d.Shape == SettingsShape.Toggle
+                && d.Value == SettingsValueKind.Bool
+                && d.DefaultLiteral == "true"));
+        Check("contribution: exactly one session read-out composes (capability flag gates the pair)",
+            section.Count(d => d.Shape == SettingsShape.ReadOnlyStat) == 1);
+        Check("contribution: the module key never enters the base layer",
+            !SettingsCatalog.Compose(MostaqlSource.Instance, []).Descriptors
+                .Any(d => d.Key == MostaqlK.Sources.Nafezly.Contributions.NafezlySettingsKeys.EnrichmentRetryEnabled));
+        Check("contribution: the same contribution composes nothing for another source",
+            !SettingsCatalog.Compose(MostaqlSource.Instance, [contribution]).Descriptors
+                .Any(d => d.Section == MostaqlK.Sources.Nafezly.Contributions.NafezlySettingsContribution.SectionKey));
     }
 
     // -----------------------------------------------------------------

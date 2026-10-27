@@ -379,9 +379,18 @@ public sealed partial class SettingsViewModel : ObservableObject
         _rowsByKey.Clear();
         Groups = _composed.Descriptors
             .GroupBy(d => d.Section)
-            .Select(group => new SettingsGroupViewModel(
-                group.Key,
-                group.Select(d => BuildRow(d)).ToList()))
+            .Select(group =>
+            {
+                // A section's Arabic caption is data too: the module that invents a section
+                // contributes a SectionHeader row for it, so the shared page holds no key→label map
+                // (and no source name). Without one, the key itself is what the host shows.
+                var header = group.FirstOrDefault(d => d.Shape == SettingsShape.SectionHeader);
+                return new SettingsGroupViewModel(
+                    header?.LabelAr ?? group.Key,
+                    group.Where(d => d.Shape != SettingsShape.SectionHeader)
+                        .Select(d => BuildRow(d))
+                        .ToList());
+            })
             .ToList();
 
         OnPropertyChanged(nameof(Groups));
@@ -391,7 +400,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         var row = new SettingsRowViewModel(
             d,
-            read: () => RowValueOf(d.Key),
+            read: () => RowValueOf(d),
             write: v => RowWrite(d, v),
             command: RowCommandOf(d),
             valueText: RowValueTextOf(d));
@@ -400,7 +409,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         return row;
     }
 
-    private object? RowValueOf(string key) => key switch
+    private object? RowValueOf(SettingsDescriptor d) => d.Key switch
     {
         SettingsKeys.PollIntervalSeconds => PollIntervalSeconds,
         SettingsKeys.MaxRequestsPerMinute => RequestsPerMinute,
@@ -415,7 +424,23 @@ public sealed partial class SettingsViewModel : ObservableObject
         SettingsKeys.IsDarkMode => IsDarkMode,
         SettingsKeys.StartupEnabled => StartupEnabled,
         SettingsKeys.RememberLastSource => RememberLastSource,
-        _ => _settings.Get(_source, key, StringDefaultOf(key, string.Empty)),
+        // The close-behavior row's authority is the service the window-closing path reads, not the
+        // repository: "ask every time" is a cleared flag rather than a stored action.
+        SettingsKeys.CloseBehaviorAction => SelectedCloseBehaviorIndex switch
+        {
+            1 => "MinimizeToTray",
+            2 => "Exit",
+            _ => "Ask",
+        },
+        // A contributed (module-local) key: read straight through the repository with the CLR type
+        // the descriptor declares — which is how a row the view-model has never heard of works.
+        _ => d.Value switch
+        {
+            SettingsValueKind.Bool => _settings.Get(_source, d.Key, BoolDefaultOf(d.Key, false)),
+            SettingsValueKind.Int => _settings.Get(_source, d.Key, IntDefaultOf(d.Key, 0)),
+            SettingsValueKind.Enum => _settings.Get(_source, d.Key, StringDefaultOf(d.Key, string.Empty)),
+            _ => _settings.Get(_source, d.Key, StringDefaultOf(d.Key, string.Empty)),
+        },
     };
 
     private void RowWrite(SettingsDescriptor d, object? value)
@@ -440,6 +465,14 @@ public sealed partial class SettingsViewModel : ObservableObject
             case SettingsKeys.StartupEnabled: StartupEnabled = ToBool(value); return;
             case SettingsKeys.RememberLastSource: RememberLastSource = ToBool(value); return;
             case SettingsKeys.QueryParams: QueryParams = value?.ToString() ?? string.Empty; return;
+            case SettingsKeys.CloseBehaviorAction:
+                SelectedCloseBehaviorIndex = value?.ToString() switch
+                {
+                    "MinimizeToTray" => 1,
+                    "Exit" => 2,
+                    _ => 0,
+                };
+                return;
         }
 
         // Anything the view-model has no property for (a source's own contributed row, a future

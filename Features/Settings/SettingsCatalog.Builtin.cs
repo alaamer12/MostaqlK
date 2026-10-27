@@ -200,23 +200,28 @@ public static partial class SettingsCatalog
             AutomationId = "Settings_DarkModeToggle",
             AutomationIdMobile = "Settings_Mobile_DarkModeToggle",
         },
-        new("close_behavior_action", SettingsShape.EnumPicker, SettingsScope.Global,
+        // The three choices the close dialog offers, as VALUES rather than indices: "Ask" is not a
+        // stored action — it clears the remembered flag — while the other two are the real
+        // `CloseAction` names the window-closing path reads. Same labels, same order, so the picker
+        // renders identically; what stops existing is a row whose "1" silently disagrees with the
+        // service that persists "Exit".
+        new(SettingsKeys.CloseBehaviorAction, SettingsShape.EnumPicker, SettingsScope.Global,
             "عند الضغط على X", "general", 50)
         {
             HintAr = "سلوك التطبيق عند إغلاق النافذة",
             Options =
             [
-                new("0", "سؤالني كل مرة"),
-                new("1", "إغلاق نهائي"),
-                new("2", "الإغلاق إلى الدرج"),
+                new("Ask", "سؤالني كل مرة"),
+                new("Exit", "إغلاق نهائي"),
+                new("MinimizeToTray", "الإغلاق إلى الدرج"),
             ],
             Value = SettingsValueKind.Enum,
             Validation = SettingsValidationKind.EnumIndex,
             ErrorAr = "اختر سلوكًا معروفًا للإغلاق.",
-            DefaultLiteral = "0",
+            DefaultLiteral = "Ask",
             AutomationId = "Settings_CloseBehaviorPicker",
         },
-        new("close_behavior_remembered", SettingsShape.Toggle, SettingsScope.Global,
+        new(SettingsKeys.CloseBehaviorRemembered, SettingsShape.Toggle, SettingsScope.Global,
             "تذكر خياري", "general", 60)
         {
             HintAr = "لا تسألني مرة أخرى بعد اختيار السلوك",

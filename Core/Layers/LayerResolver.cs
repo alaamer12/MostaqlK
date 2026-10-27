@@ -38,14 +38,23 @@ public static class LayerResolver
     /// specificity cross-axis collisions are detected by the caller's merge when two layers at the
     /// same level try to change the same field.
     /// </summary>
-    public static IReadOnlyList<LayerRegistration<T>> ResolveChain<T>(string seamId, IReadOnlyList<LayerRegistration<T>> layers, IReadOnlyDictionary<LayerAxis, string> context)
+    public static IReadOnlyList<LayerRegistration<T>> ResolveChain<T>(string seamId, IReadOnlyList<LayerRegistration<T>> layers, IReadOnlyDictionary<LayerAxis, string> context, bool requireBase = true)
     {
         EnsureNoDuplicateCells(seamId, layers);
 
         var hits = layers.Where(l => l.Key.Matches(context)).ToList();
         if (hits.Count == 0)
         {
-            throw new MissingBaseException(seamId);
+            // An implementation seam with nothing to fall back to is a configuration error. A
+            // COLLECTION seam (settings rows, nav items) is additive: a layer registered for
+            // coordinates the current context does not satisfy simply means "this entry is not
+            // present for you", which the caller resolves by skipping it.
+            if (requireBase)
+            {
+                throw new MissingBaseException(seamId);
+            }
+
+            return [];
         }
 
         return hits

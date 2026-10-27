@@ -59,4 +59,12 @@ public static class SettingsKeys
     /// remembered <see cref="ActiveSource"/> on next launch. The startup-restore consumer is wired
     /// outside the settings page; this VM only exposes the persisted flag cleanly.</summary>
     public const string RememberLastSource = "settings_remember_last_source";
+
+    /// <summary>Global: whether the user asked the close dialog's "remember my choice" box to stick.
+    /// Owned here (not as a private constant inside the service) because the settings catalog renders
+    /// and edits the SAME key the window-closing path reads.</summary>
+    public const string CloseBehaviorRemembered = "close_behavior_remembered";
+
+    /// <summary>Global: the remembered <c>CloseAction</c> name ("MinimizeToTray" / "Exit").</summary>
+    public const string CloseBehaviorAction = "close_behavior_action";
 }
