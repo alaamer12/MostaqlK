@@ -139,6 +139,8 @@ public static class Program
         Run(nameof(TestScopedSettingsRoutesByScope), TestScopedSettingsRoutesByScope);
         Run(nameof(TestSettingsCallSiteScopesMatchCatalog), TestSettingsCallSiteScopesMatchCatalog);
         Run(nameof(TestSettingsScopeHarvestPrecedence), TestSettingsScopeHarvestPrecedence);
+        Run(nameof(TestSettingsScopeClassification), TestSettingsScopeClassification);
+        Run(nameof(TestSettingsSectionRanking), TestSettingsSectionRanking);
 
         Console.WriteLine();
         Console.WriteLine(new string('=', 60));
@@ -537,7 +539,7 @@ public static class Program
         Check("RailIconImageName icon_nafezly", d.RailIconImageName == "icon_nafezly", d.RailIconImageName ?? "null");
         Check("Domain nafezly.com", d.Domain == "nafezly.com", d.Domain);
         Check("currency suffix $", d.CurrencySuffix == "$", d.CurrencySuffix);
-        Check("cadence 60s", d.DefaultPollIntervalSeconds == 60, $"{d.DefaultPollIntervalSeconds}");
+        Check("min safe poll 60s", d.MinSafePollIntervalSeconds == 60, $"{d.MinSafePollIntervalSeconds}");
         Check("rpm 8", d.DefaultRequestsPerMinute == 8, $"{d.DefaultRequestsPerMinute}");
         Check("internal id band 1_000_000_000_000", d.InternalIdBand == 1_000_000_000_000, $"{d.InternalIdBand}");
         Check("cookie key cookie_nafezly", d.CookieSecretKey == "cookie_nafezly", d.CookieSecretKey);
@@ -1791,8 +1793,100 @@ public static class Program
             mostaql.Descriptors.Any(d => d.Key == "session-cookie")
             && nafezly.Descriptors.Any(d => d.Key == "session-cookie")
             && mostaql.Descriptors.Any(d => d.Key == SettingsKeys.PollIntervalSeconds));
-        Check("catalog: sections keep base-layer declaration order (platform before general before actions)",
-            mostaql.Descriptors.Select(d => d.Section).Distinct().SequenceEqual(["platform", "general", "actions"]));
+        Check("catalog: band order follows each section header's rank (system, platform, actions)",
+            mostaql.Descriptors.Select(d => d.Section).Distinct().SequenceEqual(["system", "platform", "actions"]),
+            string.Join(",", mostaql.Descriptors.Select(d => d.Section).Distinct()));
+        Check("catalog: the system band opens with its header and the platform band follows",
+            mostaql.Descriptors[0].Shape == SettingsShape.SectionHeader && mostaql.Descriptors[0].Section == "system");
+    }
+
+    /// <summary>
+    /// The System/Platform classification, pinned as data. Band membership and storage scope are two
+    /// different descriptor fields (Section vs Scope), and the whole point of the split is that they
+    /// agree — so this is the check that stops the page quietly rotting back into "row says system,
+    /// value lives in one platform's container".
+    /// </summary>
+    private static void TestSettingsScopeClassification()
+    {
+        var systemRows = new[]
+        {
+            SettingsKeys.PollIntervalSeconds, SettingsKeys.SafeRequests, SettingsKeys.MaxConcurrentDetailFetches,
+            SettingsKeys.NotificationGroupingEnabled, SettingsKeys.GroupingMode, SettingsKeys.GroupingThreshold,
+            SettingsKeys.StartupEnabled, SettingsKeys.RememberLastSource, SettingsKeys.IsDarkMode,
+            SettingsKeys.CloseBehaviorAction, SettingsKeys.CloseBehaviorRemembered,
+        };
+        var platformRows = new[]
+        {
+            SettingsKeys.MaxRequestsPerMinute, SettingsKeys.QueryParams, SettingsKeys.IncludeAssets,
+            SettingsKeys.EnableSourceNotifications, "session-cookie", "budget-currency", "supervised-types",
+            "last-scan", "archive",
+        };
+
+        foreach (var key in systemRows)
+        {
+            var d = SettingsCatalog.BuiltinByKey[key];
+            Check($"classification: {key} is a system row stored flat",
+                d.Section == "system" && d.Scope == SettingsScope.Global,
+                $"section={d.Section} scope={d.Scope}");
+        }
+
+        foreach (var key in platformRows)
+        {
+            var d = SettingsCatalog.BuiltinByKey[key];
+            Check($"classification: {key} stays in the platform band",
+                d.Section == "platform" && d.Scope == SettingsScope.PerSource,
+                $"section={d.Section} scope={d.Scope}");
+        }
+
+        // The rate row is the split's deliberate exception, and it is the one a future reader is most
+        // likely to "complete" by moving it — so the reason is asserted, not just trusted to a comment.
+        Check("classification: the rate budget stays per-platform (each pipeline owns its limiter)",
+            SettingsCatalog.BuiltinByKey[SettingsKeys.MaxRequestsPerMinute].Scope == SettingsScope.PerSource);
+
+        Check("classification: every moved key is declared Global, so the harvest matches the catalog",
+            SettingsScopeHarvest.MovedToSystem.Keys.All(key =>
+                SettingsCatalog.BuiltinByKey[key].Scope == SettingsScope.Global),
+            string.Join(",", SettingsScopeHarvest.MovedToSystem.Keys.Where(key =>
+                SettingsCatalog.BuiltinByKey[key].Scope != SettingsScope.Global)));
+
+        Check("classification: no per-platform key is being harvested",
+            !SettingsScopeHarvest.MovedToSystem.Keys.Contains(SettingsKeys.MaxRequestsPerMinute));
+    }
+
+    /// <summary>
+    /// A contributed section ranks itself through its own header's Order instead of inheriting
+    /// "whatever section appeared last" — the nafezly-lands-after-the-save-button wart.
+    /// </summary>
+    private static void TestSettingsSectionRanking()
+    {
+        var nafezly = SettingsCatalog.Compose(
+            NafezlySource.Instance,
+            [new NafezlySettingsContribution()]);
+
+        var bands = nafezly.Descriptors.Select(d => d.Section).Distinct().ToList();
+        Check("ranking: nafezly's section sits between the platform band and the actions band",
+            bands.SequenceEqual(["system", "platform", "nafezly", "actions"]),
+            string.Join(",", bands));
+
+        Check("ranking: each band opens with its own header row",
+            bands.All(section => nafezly.Descriptors
+                .Where(d => d.Section == section)
+                .First().Shape == SettingsShape.SectionHeader),
+            string.Join(" ; ", bands.Select(section =>
+            {
+                var first = nafezly.Descriptors.First(d => d.Section == section);
+                return $"{section}:{first.Key}/{first.Shape}/{first.Order}";
+            })));
+
+        Check("ranking: rows inside a band follow their Order, not file position",
+            nafezly.Descriptors.Where(d => d.Section == "system")
+                .Select(d => d.Order).SequenceEqual(
+                    nafezly.Descriptors.Where(d => d.Section == "system").Select(d => d.Order).OrderBy(o => o)));
+
+        // Mostaql has no contribution of its own, so the same page composes three bands.
+        Check("ranking: a source that contributes nothing keeps the base bands",
+            SettingsCatalog.Compose(MostaqlSource.Instance, []).Descriptors
+                .Select(d => d.Section).Distinct().SequenceEqual(["system", "platform", "actions"]));
     }
 
     /// <summary>

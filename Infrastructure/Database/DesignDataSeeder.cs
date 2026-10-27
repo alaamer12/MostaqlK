@@ -318,15 +318,15 @@ public sealed class DesignDataSeeder
             return Result<int>.Err(cleared.Error);
         }
 
-        // Header caption "المسح كل 30 ثانية · 12 طلب/دقيقة" (mostaql) / "… 60 … · 8 …" (nafezly)
-        // and the settings rows فاصل الفحص / حد الطلبات read these stored settings.
-        _settings.Set(SourceId.Mostaql, SettingsKeys.PollIntervalSeconds, 30);
+        // System/Platform split: فاصل الفحص and تجميع التنبيهات are SYSTEM values now (one flat
+        // value every platform obeys), while حد الطلبات stays per platform — mostaql 12, nafezly 8 —
+        // because each pipeline owns its own limiter. Nafezly's header still reads "كل 60 ثانية":
+        // the site's MinSafePollIntervalSeconds floors the shared 30, and the header reports the
+        // cadence actually in force, not the raw setting.
+        _settings.SetGlobal(SettingsKeys.PollIntervalSeconds, 30);
         _settings.Set(SourceId.Mostaql, SettingsKeys.MaxRequestsPerMinute, 12);
-        _settings.Set(V3Nafezly, SettingsKeys.PollIntervalSeconds, 60);
         _settings.Set(V3Nafezly, SettingsKeys.MaxRequestsPerMinute, 8);
-        // Settings mockup: تجميع التنبيهات ON for both platforms, تشغيل مع النظام OFF.
-        _settings.Set(SourceId.Mostaql, SettingsKeys.NotificationGroupingEnabled, true);
-        _settings.Set(V3Nafezly, SettingsKeys.NotificationGroupingEnabled, true);
+        _settings.SetGlobal(SettingsKeys.NotificationGroupingEnabled, true);
         _settings.SetGlobal(SettingsKeys.StartupEnabled, false);
 
         var now = DateTimeOffset.UtcNow;

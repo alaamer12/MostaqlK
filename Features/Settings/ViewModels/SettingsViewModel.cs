@@ -279,7 +279,6 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         return d.DefaultFrom switch
         {
-            DefaultFact.PollIntervalSeconds => ActiveDescriptor?.DefaultPollIntervalSeconds ?? fallback,
             DefaultFact.RequestsPerMinute => ActiveDescriptor?.DefaultRequestsPerMinute ?? fallback,
             _ => int.TryParse(d.DefaultLiteral, out var parsed) ? parsed : fallback,
         };

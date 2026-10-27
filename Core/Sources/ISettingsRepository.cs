@@ -49,7 +49,13 @@ public static class SettingsKeys
     /// "تنبيهات هذه المنصة" row; persisted through the namespaced container (contract §4/§9).</summary>
     public const string EnableSourceNotifications = "settings_enable_source_notifications";
 
-    // Deliberately global (app behavior, not per-source):
+    /// <summary>
+    /// App-behavior keys. NOT the authority on which container a key uses — since the System/Platform
+    /// split that is <see cref="SettingsDescriptor.Scope"/>, declared per row in
+    /// <c>Features/Settings/SettingsCatalog.Builtin.cs</c> and enforced at every call site by
+    /// <c>Core/Sources/ScopedSettings.cs</c> (plus the ParserTests lint that compares call sites to the
+    /// catalog). This grouping is a reading aid and is allowed to go stale; the catalog cannot.
+    /// </summary>
     public const string IsDarkMode = "settings_is_dark_mode";
     public const string StartupEnabled = "settings_startup_enabled";
     /// <summary>Global: id of the source the UI projects (v3 morph); absent ⇒ default source.</summary>

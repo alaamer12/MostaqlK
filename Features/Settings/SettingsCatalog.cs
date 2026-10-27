@@ -62,13 +62,6 @@ public static partial class SettingsCatalog
         var ignored = patches.Where(p => !rows.ContainsKey(p.Value.Key)).Select(p => p.Value.Key).Distinct().ToList();
 
         var result = new List<SettingsDescriptor>();
-        // Section order follows first appearance in the base layer (platform → general →
-        // actions), never alphabetical order of the section keys.
-        var sectionOrder = new Dictionary<string, int>(StringComparer.Ordinal);
-        foreach (var d in baseLayer ?? Builtin)
-        {
-            sectionOrder.TryAdd(d.Section, sectionOrder.Count);
-        }
 
         foreach (var (key, registrations) in rows)
         {
@@ -108,13 +101,41 @@ public static partial class SettingsCatalog
             if (descriptor.Visible && EvaluateFlag(descriptor.VisibilityFlag, source))
             {
                 result.Add(descriptor);
-                sectionOrder.TryAdd(descriptor.Section, sectionOrder.Count);
             }
         }
 
+        // Band order is data, not arrival order: a section header's Order IS its band's rank (system 0,
+        // platform 10, a source's own section 12…, actions 90), so a contributed section places itself
+        // without the shared catalog knowing its name. A header always renders first inside its own band
+        // whatever that number is — otherwise the field would mean two things at once and a row with a
+        // small Order (the save button's 10) would jump above the band that ranks at 90. Every other
+        // row's Order is purely its position inside its band. A section with no header keeps appearance
+        // order, after every ranked one.
+        var headerRank = new Dictionary<string, int>(StringComparer.Ordinal);
+        var appearance = new List<string>();
+        foreach (var d in result)
+        {
+            if (d.Shape == SettingsShape.SectionHeader && !headerRank.ContainsKey(d.Section))
+            {
+                headerRank[d.Section] = d.Order;
+            }
+
+            if (!appearance.Contains(d.Section))
+            {
+                appearance.Add(d.Section);
+            }
+        }
+
+        var sectionRank = appearance
+            .OrderBy(s => headerRank.TryGetValue(s, out var rank) ? rank : int.MaxValue)
+            .ThenBy(appearance.IndexOf)
+            .Select((section, index) => (section, index))
+            .ToDictionary(x => x.section, x => x.index, StringComparer.Ordinal);
+
         return new ComposedSettings(
             result
-                .OrderBy(d => sectionOrder.TryGetValue(d.Section, out var s) ? s : int.MaxValue)
+                .OrderBy(d => sectionRank.TryGetValue(d.Section, out var s) ? s : int.MaxValue)
+                .ThenBy(d => d.Shape == SettingsShape.SectionHeader ? 0 : 1)
                 .ThenBy(d => d.Order)
                 .ToList(),
             ignored);

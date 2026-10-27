@@ -7,20 +7,35 @@ namespace MostaqlK.Features.Settings;
 /// are the exact Arabic the hardcoded layouts used, so the composed page reads identically;
 /// sources override fields (or add rows) through <see cref="ISourceSettingsContribution"/>.
 /// Adding a setting = one entry here; removing one = deleting it (stale overrides are dropped).
+/// <para>
+/// The list is grouped by band in the order the page shows them — النظام (one value shared by every
+/// platform, stored flat), then المنصة (a property of one site, stored in that platform's container),
+/// then الإجراءات — because band membership is the one thing a reader must be able to check by eye.
+/// Rendering order itself comes from the data (a header's <c>Order</c> ranks its band, every other
+/// row's <c>Order</c> positions it inside its band), so re-grouping the file changes no behavior.
+/// </para>
 /// </summary>
 public static partial class SettingsCatalog
 {
     public static IReadOnlyList<SettingsDescriptor> Builtin { get; } =
     [
-        // ── Section: platform (المنصة) — per-source storage ─────────────────────────────
-        new("section-platform", SettingsShape.SectionHeader, SettingsScope.Global,
-            "المنصة", "platform", 0)
+        // ── Band: system (النظام) — one value, shared by every platform, flat container ───
+        new("section-system", SettingsShape.SectionHeader, SettingsScope.Global,
+            "النظام", "system", 0)
         {
-            HintAr = "المصادر يحددها المطوّر — كل منصة تعرض إعداداتها الخاصة بها، وقد تختلف الإعدادات والصفحات وحقول البطاقات من منصة لأخرى.",
-            IconName = "Plug",
+            HintAr = "إعدادات تطبّق على كل المنصات — قيمة واحدة يشترك فيها كل ما هو مفعّل منها.",
+            IconName = "Sliders",
         },
-        new(SettingsKeys.PollIntervalSeconds, SettingsShape.NumericBounded, SettingsScope.PerSource,
-            "فاصل الفحص", "platform", 10)
+        // A system row cannot take a per-platform default: the value it falls back to has to be the
+        // same number whichever platform the user is on. `ISourceDescriptor.DefaultPollIntervalSeconds`
+        // (mostaql 30 / nafezly 60) went out with that line because its only consumers were this row
+        // and the pipeline seed that read it; PollService's own default is 30 and
+        // TestSettingsDefaultsAgreeWithServices pins the two together. What the per-platform number
+        // was really protecting survives as a FLOOR instead
+        // (ISourceDescriptor.MinSafePollIntervalSeconds), because a shared cadence must be able to
+        // make one site faster without making another site's rate limiter angry.
+        new(SettingsKeys.PollIntervalSeconds, SettingsShape.NumericBounded, SettingsScope.Global,
+            "فاصل الفحص", "system", 10)
         {
             HintAr = "كل كم ثانية يُفحص البحث عن مشاريع جديدة",
             UnitAr = "ثانية",
@@ -29,13 +44,157 @@ public static partial class SettingsCatalog
             Value = SettingsValueKind.Int,
             Validation = SettingsValidationKind.IntRange,
             ErrorAr = "فترة الفحص يجب أن تكون بين {0} و {1} ثانية.",
-            DefaultFrom = DefaultFact.PollIntervalSeconds,
+            DefaultLiteral = "30",
             BareEditor = true,
             SecondaryLabelAr = "تغيير",
             AutomationId = "Settings_PollIntervalInput",
             AutomationIdMobile = "Settings_Mobile_PollIntervalEntry",
             IsLtr = true,
         },
+        // A bool, not a count: `TokenBucketRateLimiter.Reconfigure(rpm, safeRequests)` takes a flag,
+        // and the view-model has always read this key as one. The rate ceiling is the platform row
+        // below; this switch only chooses how strictly it is spaced, everywhere.
+        new(SettingsKeys.SafeRequests, SettingsShape.Toggle, SettingsScope.Global,
+            "الطلبات الآمنة", "system", 20)
+        {
+            HintAr = "يوزّع الطلبات على مدار الدقيقة مع فاصل ثانية بين كل طلبين — السلوك الموصى به لتجنّب الحجب",
+            Value = SettingsValueKind.Bool,
+            DefaultLiteral = "true",
+            AutomationId = "Settings_SafeRequestsToggle",
+        },
+        new(SettingsKeys.MaxConcurrentDetailFetches, SettingsShape.NumericBounded, SettingsScope.Global,
+            "تحميل التفاصيل المتوازي", "system", 30)
+        {
+            HintAr = "عدد صفحات التفاصيل التي تُجلب في وقت واحد — لكل منصة من منصاتها العاملة",
+            // WorkerPool.Reconfigure has no upper bound (it only rejects <= 0), so the row must not
+            // invent one: a max here would silently disagree with what the pool accepts.
+            Min = 1,
+            Value = SettingsValueKind.Int,
+            Validation = SettingsValidationKind.IntMin,
+            ErrorAr = "عدد التوازي يجب أن يكون رقمًا أكبر من صفر.",
+            // The untouched-install value is what the view-model has always read (2); the pool starts
+            // at that same count, so an install that never opened Settings keeps the same behavior.
+            DefaultLiteral = "2",
+            BareEditor = true,
+            AutomationId = "Settings_ConcurrentFetchesInput",
+        },
+        new(SettingsKeys.NotificationGroupingEnabled, SettingsShape.Toggle, SettingsScope.Global,
+            "تجميع التنبيهات", "system", 40)
+        {
+            HintAr = "تنبيه واحد لكل دفعة بدل تنبيه لكل مشروع — على كل المنصات",
+            Value = SettingsValueKind.Bool,
+            DefaultLiteral = "true",
+            AutomationId = "Settings_GroupingToggle",
+            AutomationIdMobile = "Settings_Mobile_GroupingToggle",
+        },
+        new(SettingsKeys.GroupingMode, SettingsShape.EnumPicker, SettingsScope.Global,
+            "نمط التجميع", "system", 50)
+        {
+            // Option values are the enum NAMES as plain strings, because that is what the repository
+            // already holds on every existing install (`nameof(NotificationGroupingMode.…)`);
+            // indices would silently re-read a stored "AfterCount" as unknown the day this row drove
+            // the write. Strings (not `nameof`) also keep this file linkable into the offline test
+            // harness, which does not compile Services.
+            Options =
+            [
+                new("EndOfMinute", "نهاية الدقيقة"),
+                new("AfterMinutes", "بعد دقائق"),
+                new("AfterCount", "بعد عدد"),
+            ],
+            Value = SettingsValueKind.Enum,
+            Validation = SettingsValidationKind.EnumIndex,
+            ErrorAr = "اختر نمط تجميع معروفًا.",
+            DefaultLiteral = "EndOfMinute",
+            AutomationId = "Settings_GroupingModePicker",
+        },
+        new(SettingsKeys.GroupingThreshold, SettingsShape.NumericBounded, SettingsScope.Global,
+            "حد التجميع", "system", 60)
+        {
+            HintAr = "عدد المشاريع الذي يُجمَّع عنده التنبيه",
+            Min = 1,
+            Value = SettingsValueKind.Int,
+            Validation = SettingsValidationKind.IntMin,
+            ErrorAr = "حد التجميع يجب أن يكون رقمًا أكبر من صفر.",
+            BareEditor = true,
+            SecondaryLabelAr = "تغيير",
+            // NotificationGrouper's own AfterCountThreshold default is 5; a settings row advertising
+            // anything else would promise a number the grouper never uses.
+            DefaultLiteral = "5",
+            AutomationId = "Settings_GroupingThresholdInput",
+            AutomationIdMobile = "Settings_Mobile_GroupingThresholdEntry",
+            IsLtr = true,
+        },
+        new(SettingsKeys.StartupEnabled, SettingsShape.Toggle, SettingsScope.Global,
+            "تشغيل مع النظام", "system", 70)
+        {
+            HintAr = "يبدأ التطبيق في الدرج دون نافذة",
+            Value = SettingsValueKind.Bool,
+            DefaultLiteral = "false",
+            AutomationId = "Settings_StartupToggle",
+        },
+        new(SettingsKeys.RememberLastSource, SettingsShape.Toggle, SettingsScope.Global,
+            "تذكر آخر منصة مفتوحة", "system", 80)
+        {
+            HintAr = "عند إعادة تشغيل التطبيق يعود لنفس المنصة التي كنت عليها",
+            Value = SettingsValueKind.Bool,
+            DefaultLiteral = "true",
+            AutomationId = "Settings_RememberSourceToggle",
+        },
+        new(SettingsKeys.IsDarkMode, SettingsShape.Toggle, SettingsScope.Global,
+            "الوضع الداكن", "system", 90)
+        {
+            HintAr = "تبديل مظهر التطبيق بين الفاتح والداكن",
+            Value = SettingsValueKind.Bool,
+            DefaultLiteral = "false",
+            AutomationId = "Settings_DarkModeToggle",
+            AutomationIdMobile = "Settings_Mobile_DarkModeToggle",
+        },
+        // The three choices the close dialog offers, as VALUES rather than indices: "Ask" is not a
+        // stored action — it clears the remembered flag — while the other two are the real
+        // `CloseAction` names the window-closing path reads. Same labels, same order, so the picker
+        // renders identically; what stops existing is a row whose "1" silently disagrees with the
+        // service that persists "Exit".
+        new(SettingsKeys.CloseBehaviorAction, SettingsShape.EnumPicker, SettingsScope.Global,
+            "عند الضغط على X", "system", 100)
+        {
+            HintAr = "سلوك التطبيق عند إغلاق النافذة",
+            Options =
+            [
+                new("Ask", "سؤالني كل مرة"),
+                new("Exit", "إغلاق نهائي"),
+                new("MinimizeToTray", "الإغلاق إلى الدرج"),
+            ],
+            Value = SettingsValueKind.Enum,
+            Validation = SettingsValidationKind.EnumIndex,
+            ErrorAr = "اختر سلوكًا معروفًا للإغلاق.",
+            DefaultLiteral = "Ask",
+            AutomationId = "Settings_CloseBehaviorPicker",
+        },
+        new(SettingsKeys.CloseBehaviorRemembered, SettingsShape.Toggle, SettingsScope.Global,
+            "تذكر خياري", "system", 110)
+        {
+            HintAr = "لا تسألني مرة أخرى بعد اختيار السلوك",
+            Value = SettingsValueKind.Bool,
+            DefaultLiteral = "false",
+            // Rendered: this is how the user UNDOES a remembered close choice without hunting for
+            // the dialog's own checkbox, which only appears when nothing is remembered.
+            AutomationId = "Settings_RememberCloseBehaviorToggle",
+        },
+
+        // ── Band: platform (المنصة) — a property of ONE site, stored in that site's container ─
+        // A SectionHeader's Order is its band's RANK in the page (SettingsCatalog reads it; the header
+        // itself always renders first inside its band), so a source that contributes a section places
+        // it with data instead of inheriting "whichever section appeared last".
+        new("section-platform", SettingsShape.SectionHeader, SettingsScope.Global,
+            "المنصة", "platform", 10)
+        {
+            HintAr = "المصادر يحددها المطوّر — كل منصة تعرض إعداداتها الخاصة بها، وقد تختلف الإعدادات والصفحات وحقول البطاقات من منصة لأخرى.",
+            IconName = "Plug",
+        },
+        // Deliberately the one cadence/rate row that stays PerSource: each pipeline owns a private
+        // TokenBucketRateLimiter, so a budget spent on one site has no bearing on another — the
+        // number is a property of one site's tolerance, not of app behavior. (Scan interval is the
+        // opposite case: one cadence for the app, floored per site by MinSafePollIntervalSeconds.)
         new(SettingsKeys.MaxRequestsPerMinute, SettingsShape.NumericBounded, SettingsScope.PerSource,
             "حد الطلبات", "platform", 20)
         {
@@ -51,33 +210,6 @@ public static partial class SettingsCatalog
             AutomationId = "Settings_RequestsPerMinuteInput",
             AutomationIdMobile = "Settings_Mobile_RateLimitEntry",
             IsLtr = true,
-        },
-        // A bool, not a count: `TokenBucketRateLimiter.Reconfigure(rpm, safeRequests)` takes a flag,
-        // and the view-model has always read this key as one. The row's number is the RATE ceiling
-        // above; this switch only chooses how strictly it is spaced.
-        new(SettingsKeys.SafeRequests, SettingsShape.Toggle, SettingsScope.PerSource,
-            "الطلبات الآمنة", "platform", 30)
-        {
-            HintAr = "يوزّع الطلبات على مدار الدقيقة مع فاصل ثانية بين كل طلبين — السلوك الموصى به لتجنّب الحجب",
-            Value = SettingsValueKind.Bool,
-            DefaultLiteral = "true",
-            AutomationId = "Settings_SafeRequestsToggle",
-        },
-        new(SettingsKeys.MaxConcurrentDetailFetches, SettingsShape.NumericBounded, SettingsScope.PerSource,
-            "تحميل التفاصيل المتوازي", "platform", 40)
-        {
-            HintAr = "عدد صفحات التفاصيل التي تُجلب في وقت واحد",
-            // WorkerPool.Reconfigure has no upper bound (it only rejects <= 0), so the row must not
-            // invent one: a max here would silently disagree with what the pool accepts.
-            Min = 1,
-            Value = SettingsValueKind.Int,
-            Validation = SettingsValidationKind.IntMin,
-            ErrorAr = "عدد التوازي يجب أن يكون رقمًا أكبر من صفر.",
-            // The untouched-install value is what the view-model has always read (2); the pool starts
-            // at that same count, so an install that never opened Settings keeps the same behavior.
-            DefaultLiteral = "2",
-            BareEditor = true,
-            AutomationId = "Settings_ConcurrentFetchesInput",
         },
         new(SettingsKeys.QueryParams, SettingsShape.TextEntry, SettingsScope.PerSource,
             "معاملات البحث", "platform", 50)
@@ -105,43 +237,6 @@ public static partial class SettingsCatalog
             Value = SettingsValueKind.Bool,
             DefaultLiteral = "true",
             AutomationId = "Settings_SourceNotificationsToggle",
-        },
-        new(SettingsKeys.GroupingMode, SettingsShape.EnumPicker, SettingsScope.PerSource,
-            "نمط التجميع", "platform", 80)
-        {
-            // Option values are the enum NAMES as plain strings, because that is what the repository
-            // already holds on every existing install (`nameof(NotificationGroupingMode.…)`);
-            // indices would silently re-read a stored "AfterCount" as unknown the day this row drove
-            // the write. Strings (not `nameof`) also keep this file linkable into the offline test
-            // harness, which does not compile Services.
-            Options =
-            [
-                new("EndOfMinute", "نهاية الدقيقة"),
-                new("AfterMinutes", "بعد دقائق"),
-                new("AfterCount", "بعد عدد"),
-            ],
-            Value = SettingsValueKind.Enum,
-            Validation = SettingsValidationKind.EnumIndex,
-            ErrorAr = "اختر نمط تجميع معروفًا.",
-            DefaultLiteral = "EndOfMinute",
-            AutomationId = "Settings_GroupingModePicker",
-        },
-        new(SettingsKeys.GroupingThreshold, SettingsShape.NumericBounded, SettingsScope.PerSource,
-            "حد التجميع", "platform", 90)
-        {
-            HintAr = "عدد المشاريع الذي يُجمَّع عنده التنبيه",
-            Min = 1,
-            Value = SettingsValueKind.Int,
-            Validation = SettingsValidationKind.IntMin,
-            ErrorAr = "حد التجميع يجب أن يكون رقمًا أكبر من صفر.",
-            BareEditor = true,
-            SecondaryLabelAr = "تغيير",
-            // NotificationGrouper's own AfterCountThreshold default is 5; a settings row advertising
-            // anything else would promise a number the grouper never uses.
-            DefaultLiteral = "5",
-            AutomationId = "Settings_GroupingThresholdInput",
-            AutomationIdMobile = "Settings_Mobile_GroupingThresholdEntry",
-            IsLtr = true,
         },
         new("supervised-types", SettingsShape.ReadOnlyStat, SettingsScope.PerSource,
             "أنواع المشاريع المتابَعة", "platform", 100)
@@ -192,81 +287,9 @@ public static partial class SettingsCatalog
             AutomationId = "Settings_ViewArchiveButton",
         },
 
-        // ── Section: general (عام) ───────────────────────────────────────────────────────
-        new("section-general", SettingsShape.SectionHeader, SettingsScope.Global,
-            "عام", "general", 0)
-        {
-            IconName = "Sliders",
-        },
-        new(SettingsKeys.StartupEnabled, SettingsShape.Toggle, SettingsScope.Global,
-            "تشغيل مع النظام", "general", 10)
-        {
-            HintAr = "يبدأ التطبيق في الدرج دون نافذة",
-            Value = SettingsValueKind.Bool,
-            DefaultLiteral = "false",
-            AutomationId = "Settings_StartupToggle",
-        },
-        new(SettingsKeys.NotificationGroupingEnabled, SettingsShape.Toggle, SettingsScope.PerSource,
-            "تجميع التنبيهات", "general", 20)
-        {
-            HintAr = "تنبيه واحد لكل دفعة بدل تنبيه لكل مشروع — على كل المنصات",
-            Value = SettingsValueKind.Bool,
-            DefaultLiteral = "true",
-            AutomationId = "Settings_GroupingToggle",
-            AutomationIdMobile = "Settings_Mobile_GroupingToggle",
-        },
-        new(SettingsKeys.RememberLastSource, SettingsShape.Toggle, SettingsScope.Global,
-            "تذكر آخر منصة مفتوحة", "general", 30)
-        {
-            HintAr = "عند إعادة تشغيل التطبيق يعود لنفس المنصة التي كنت عليها",
-            Value = SettingsValueKind.Bool,
-            DefaultLiteral = "true",
-            AutomationId = "Settings_RememberSourceToggle",
-        },
-        new(SettingsKeys.IsDarkMode, SettingsShape.Toggle, SettingsScope.Global,
-            "الوضع الداكن", "general", 40)
-        {
-            HintAr = "تبديل مظهر التطبيق بين الفاتح والداكن",
-            Value = SettingsValueKind.Bool,
-            DefaultLiteral = "false",
-            AutomationId = "Settings_DarkModeToggle",
-            AutomationIdMobile = "Settings_Mobile_DarkModeToggle",
-        },
-        // The three choices the close dialog offers, as VALUES rather than indices: "Ask" is not a
-        // stored action — it clears the remembered flag — while the other two are the real
-        // `CloseAction` names the window-closing path reads. Same labels, same order, so the picker
-        // renders identically; what stops existing is a row whose "1" silently disagrees with the
-        // service that persists "Exit".
-        new(SettingsKeys.CloseBehaviorAction, SettingsShape.EnumPicker, SettingsScope.Global,
-            "عند الضغط على X", "general", 50)
-        {
-            HintAr = "سلوك التطبيق عند إغلاق النافذة",
-            Options =
-            [
-                new("Ask", "سؤالني كل مرة"),
-                new("Exit", "إغلاق نهائي"),
-                new("MinimizeToTray", "الإغلاق إلى الدرج"),
-            ],
-            Value = SettingsValueKind.Enum,
-            Validation = SettingsValidationKind.EnumIndex,
-            ErrorAr = "اختر سلوكًا معروفًا للإغلاق.",
-            DefaultLiteral = "Ask",
-            AutomationId = "Settings_CloseBehaviorPicker",
-        },
-        new(SettingsKeys.CloseBehaviorRemembered, SettingsShape.Toggle, SettingsScope.Global,
-            "تذكر خياري", "general", 60)
-        {
-            HintAr = "لا تسألني مرة أخرى بعد اختيار السلوك",
-            Value = SettingsValueKind.Bool,
-            DefaultLiteral = "false",
-            // Rendered: this is how the user UNDOES a remembered close choice without hunting for
-            // the dialog's own checkbox, which only appears when nothing is remembered.
-            AutomationId = "Settings_RememberCloseBehaviorToggle",
-        },
-
-        // ── Section: actions ─────────────────────────────────────────────────────────────
+        // ── Band: actions (الإجراءات) ─────────────────────────────────────────────────────
         new("section-actions", SettingsShape.SectionHeader, SettingsScope.Global,
-            "الإجراءات", "actions", 0)
+            "الإجراءات", "actions", 90)
         {
             IconName = "Save",
         },

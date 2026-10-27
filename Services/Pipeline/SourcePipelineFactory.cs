@@ -45,19 +45,20 @@ public sealed class SourcePipelineFactory
         var queue = new DiscoveryQueue();
         var tracker = new InFlightTracker();
 
-        // Per-source budget read through the namespaced settings store (legacy flat key is the
-        // read-through fallback); the descriptor supplies this source's documented defaults.
+        // Rate budget is a PER-PLATFORM fact (each pipeline owns a private limiter, so requests spent
+        // on one site are irrelevant to another); the spacing policy is a SYSTEM fact (how strictly the
+        // app behaves anywhere). See ISourceSettingsContribution's scope rulings.
         var limiter = new TokenBucketRateLimiter(
             _settings.Get(descriptor.Id, SettingsKeys.MaxRequestsPerMinute, descriptor.DefaultRequestsPerMinute),
-            _settings.Get(descriptor.Id, SettingsKeys.SafeRequests, true));
+            _settings.GetGlobal(SettingsKeys.SafeRequests, true));
 
         var enrichmentService = new EnrichmentService(enrichment, limiter, _assetDownloadService);
         var diffEngine = new DiffEngine.DiffEngine(new SqliteCommittedProvider(_projectRepository), new InFlightSetProvider(tracker));
 
-        var poll = new PollService(discovery, diffEngine, queue, tracker, _projectRepository, status, limiter)
-        {
-            PollIntervalSeconds = descriptor.DefaultPollIntervalSeconds
-        };
+        // PollService's own default (30s) is the untouched-install cadence and matches the system
+        // row's DefaultLiteral; StartAll overwrites it with whatever is stored, floored by the
+        // descriptor's MinSafePollIntervalSeconds.
+        var poll = new PollService(discovery, diffEngine, queue, tracker, _projectRepository, status, limiter);
 
         var pool = new EnrichmentWorkerPool(queue, enrichmentService, tracker, _projectRepository, _ownerRepository, status, _notificationDispatcher);
 

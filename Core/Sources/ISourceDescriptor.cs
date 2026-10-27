@@ -40,7 +40,17 @@ public interface ISourceDescriptor
 
     public BrandTokenSet Brands { get; }
 
-    public int DefaultPollIntervalSeconds { get; }
+    /// <summary>
+    /// The smallest poll interval this site tolerates, whatever the user's system-wide setting says.
+    /// <para>
+    /// Scan interval is a SYSTEM value (one number for every platform), but a platform's tolerance for
+    /// being polled is a fact about that platform, so it stays here: the pipeline clamps the shared
+    /// value up to this floor per source instead of letting one platform's setting hammer another's
+    /// site. Mostaql never asked for more than the 10s validation floor; Nafezly overrides this to 60
+    /// because Cloudflare answers a burst from one client with a 429/1015.
+    /// </para>
+    /// </summary>
+    public int MinSafePollIntervalSeconds => 10;
 
     public int DefaultRequestsPerMinute { get; }
 

@@ -38,10 +38,13 @@ public sealed class NafezlySettingsContribution : ISourceSettingsContribution
 
     public IReadOnlyList<SettingsDescriptor> Adds =>
     [
+        // Order 12 = this section's rank in the page: right after the platform band (10) and before
+        // the actions band (90). A contributed section places itself with data; the shared catalog
+        // never has to know nafezly exists.
         new("nafezly-section-header", SettingsShape.SectionHeader, SettingsScope.PerSource,
-            "إعدادات نفذلي", SectionKey, 0),
+            "إعدادات نفذلي", SectionKey, 12),
         new(NafezlySettingsKeys.EnrichmentRetryEnabled, SettingsShape.Toggle, SettingsScope.PerSource,
-            "إعادة محاولة الإثراء التلقائي", SectionKey, 10)
+            "إعادة محاولة الإثراء التلقائي", SectionKey, 20)
         {
             HintAr = "يعيد محاولة إثراء المشاريع التي فشلت بسبب حظر مؤقت (403/429)",
             Value = SettingsValueKind.Bool,
@@ -50,13 +53,13 @@ public sealed class NafezlySettingsContribution : ISourceSettingsContribution
             AutomationIdMobile = "Settings_Mobile_NafezlyRetryToggle",
         },
         new("nafezly-session-requires-login", SettingsShape.ReadOnlyStat, SettingsScope.PerSource,
-            "جلسة الإثراء", SectionKey, 20)
+            "جلسة الإثراء", SectionKey, 30)
         {
             HintAr = "يتطلب تسجيل الدخول لبيانات كاملة",
             VisibilityFlag = "NeedsSessionForFullEnrichment",
         },
         new("nafezly-session-anonymous", SettingsShape.ReadOnlyStat, SettingsScope.PerSource,
-            "جلسة الإثراء", SectionKey, 20)
+            "جلسة الإثراء", SectionKey, 30)
         {
             HintAr = "يعمل بدون تسجيل دخول (بيانات أساسية مجهولة المصدر)",
             VisibilityFlag = "WorksWithoutSession",

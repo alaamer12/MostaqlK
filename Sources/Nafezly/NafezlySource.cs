@@ -34,9 +34,11 @@ public sealed class NafezlySource : ISourceDescriptor
     // + links, and the four dark counterparts #FFB84D/#FFB84D/#24FFB84D/#2a1d00 (B1-core, contract §3).
     public BrandTokenSet Brands { get; } = new("#FFA200", "#9A6100", "#FFF4DE", "#3a2a00", "#9A6100", "#FFB84D", "#FFB84D", "#FFB84D", "#24FFB84D", "#2a1d00");
 
-    // Cloudflare rate-limits a burst (> ~6 req/min from one client) with a 429/1015; 60s cadence
-    // and 8 rpm keep well under that ceiling (capture-manifest "Rate-limit truth").
-    public int DefaultPollIntervalSeconds => 60;
+    // Cloudflare rate-limits a burst (> ~6 req/min from one client) with a 429/1015. The scan
+    // interval is a system-wide value now, so this floor is what keeps a user who set 15s for
+    // Mostaql from polling nafezly.com at that rate too (see ISourceDescriptor
+    // .MinSafePollIntervalSeconds); 8 rpm stays this site's own per-platform budget.
+    public int MinSafePollIntervalSeconds => 60;
 
     public int DefaultRequestsPerMinute => 8;
 

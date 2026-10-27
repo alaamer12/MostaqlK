@@ -34,10 +34,13 @@ public enum SettingsValueKind { Bool, Int, String, Enum }
 public enum SettingsValidationKind { None, IntRange, IntMin, EnumIndex, CookieParse }
 
 /// <summary>
-/// A default supplied by the source descriptor itself instead of a literal, so cadence/rate
-/// defaults live in exactly one place (the module) and the VM stops duplicating constants.
+/// A default supplied by the source descriptor itself instead of a literal, so a per-platform
+/// cadence fact lives in exactly one place (the module) and the VM stops duplicating constants.
+/// Only per-platform rows may use it — a system row's default must not depend on which platform
+/// happens to be projected (that is why <c>PollIntervalSeconds</c> left this enum with the
+/// System/Platform split).
 /// </summary>
-public enum DefaultFact { None, PollIntervalSeconds, RequestsPerMinute }
+public enum DefaultFact { None, RequestsPerMinute }
 
 /// <summary>
 /// How the row's secondary line is painted. The mockup gives the same slot three meanings

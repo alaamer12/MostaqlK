@@ -82,13 +82,14 @@ public sealed class SourcePipelineOrchestrator
 
         foreach (var pipeline in All)
         {
-            // The poll interval is persisted but was only ever read by the Transient
-            // SettingsViewModel, so an untouched app ignored the user's saved value entirely. It is
-            // now read per-source through the namespaced store (legacy flat key as read-through),
-            // and every source clamps to the same safe band.
+            // The poll interval is a SYSTEM value since the System/Platform split: one number for
+            // every platform, read through the flat container. The lower bound is NOT the row's
+            // validation floor any more — it is this site's own safety minimum
+            // (ISourceDescriptor.MinSafePollIntervalSeconds), because a user who wants mostaql.com
+            // checked every 15s must not be able to make nafezly.com answer 4 requests a minute.
             pipeline.Poll.PollIntervalSeconds = Math.Clamp(
-                _settings.Get(pipeline.Source, SettingsKeys.PollIntervalSeconds, pipeline.Poll.PollIntervalSeconds),
-                10,
+                _settings.GetGlobal(SettingsKeys.PollIntervalSeconds, pipeline.Poll.PollIntervalSeconds),
+                pipeline.Descriptor.MinSafePollIntervalSeconds,
                 3600);
 
             // Persist the Start/Pause state: the app now "reserves the state it closed with".
