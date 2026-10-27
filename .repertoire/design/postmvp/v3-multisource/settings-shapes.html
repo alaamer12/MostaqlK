@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar" data-source="mostaql"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mostaqlk — كتالوج الأشكال (settings shapes)</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+        darkMode: 'class',
+        theme: { extend: { colors: {
+            primary: '#3b82f6', secondary: '#64748b', background: '#f8fafc', surface: '#ffffff',
+        } } }
+    };
+</script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<style data-purpose="custom-styles">
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
+    body { font-family: 'Tajawal', sans-serif; }
+
+    /* Identity tokens — verbatim from settings.html: the gallery must be
+       clone-able 1:1 by the MAUI renderer, so no new colors are invented here
+       beyond the danger token every form system needs. */
+    :root {
+        --accent-positive: #2E9E6B; --danger: #DC2626;
+        --bg-app: #f1f5f9; --surface: #ffffff; --surface-2: #f8fafc;
+        --ink-1: #0f172a; --ink-2: #475569; --ink-3: #64748b; --line: #e2e8f0;
+    }
+    html[data-source="mostaql"] { --brand: #2386C8; --brand-ink: #1A6DA6; --brand-soft: #EFF6FB; --brand-on: #ffffff; }
+    html[data-source="nafezly"] { --brand: #FFA200; --brand-ink: #9A6100; --brand-soft: #FFF4DE; --brand-on: #3a2a00; }
+    html.dark {
+        --accent-positive: #4FBF8C; --danger: #F87171;
+        --bg-app: #0f172a; --surface: #1e293b; --surface-2: #172032;
+        --ink-1: #f1f5f9; --ink-2: #cbd5e1; --ink-3: #94a3b8; --line: #334155;
+    }
+    html.dark[data-source="mostaql"] { --brand: #5CA8DE; --brand-ink: #5CA8DE; --brand-soft: rgba(92,168,222,.14); --brand-on: #0b1c2a; }
+    html.dark[data-source="nafezly"] { --brand: #FFB84D; --brand-ink: #FFB84D; --brand-soft: rgba(255,184,77,.14); --brand-on: #2a1d00; }
+
+    body { background-color: var(--bg-app); color: var(--ink-2); }
+    ::selection { background: var(--brand); color: var(--brand-on); }
+
+    /* Row anatomy — identical to settings.html */
+    .set-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .7rem 0; border-top: 1px solid var(--line); font-size: 13px; }
+    .set-row:first-child { border-top: 0; }
+    .set-label { color: var(--ink-2); font-weight: 700; }
+    .set-sub { display: block; font-weight: 400; font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+    .set-value { color: var(--ink-1); font-weight: 700; display: flex; align-items: center; gap: .6rem; }
+    .set-edit { color: var(--brand-ink); font-weight: 700; font-size: 12px; cursor: pointer; background: none; border: 0; font-family: inherit; }
+    .set-edit:hover { text-decoration: underline; }
+    .section-head { position: sticky; top: 0; z-index: 10; background: var(--surface); border-bottom: 1px solid var(--line); padding: 1.15rem 2rem; }
+    .set-pad { padding: 1.25rem 2rem; border-bottom: 1px solid var(--line); }
+
+    /* Signature: the descriptor enum name as a mono eyebrow above each Arabic
+       title — the page IS the contract: one row ⇄ one descriptor. */
+    .enum-eyebrow { font-family: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Consolas, monospace; direction: ltr; unicode-bidi: isolate; font-size: 11px; font-weight: 700; letter-spacing: .02em; color: var(--brand-ink); background: var(--brand-soft); display: inline-block; padding: 1px 7px; border-radius: 6px; margin-inline-end: .5rem; vertical-align: middle; }
+
+    .toggle { position: relative; width: 40px; height: 24px; border-radius: 999px; background: var(--line); cursor: pointer; transition: background-color .15s ease; border: 0; flex-shrink: 0; }
+    .toggle::after { content: ''; position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: translate .15s ease; }
+    .toggle[aria-checked="true"] { background: var(--brand); }
+    .toggle[aria-checked="true"]::after { translate: -16px 0; }
+    .toggle:disabled, .toggle.disabled { opacity: .45; cursor: not-allowed; }
+
+    .num-input { width: 92px; text-align: center; font-weight: 700; color: var(--ink-1); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: .3rem .5rem; font-size: 13px; font-family: inherit; }
+    .num-input.ltr { direction: ltr; unicode-bidi: isolate; }
+    .num-input:focus-visible, select:focus-visible, .chip:focus-visible, button:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+    .num-input.invalid { border-color: var(--danger); }
+    .num-input:disabled, select:disabled, input[type="range"]:disabled { opacity: .45; cursor: not-allowed; }
+    .set-error { display: block; font-size: 11px; color: var(--danger); margin-top: 3px; font-weight: 500; }
+    .clamp-note { display: block; font-size: 11px; color: var(--brand-ink); margin-top: 3px; font-weight: 500; }
+
+    select.pick { font-family: inherit; font-size: 13px; font-weight: 700; color: var(--ink-1); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: .3rem 1.6rem .3rem .6rem; }
+
+    .chip { font-size: 12px; font-weight: 700; border-radius: 999px; padding: .28rem .8rem; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); cursor: pointer; }
+    .chip[aria-pressed="true"] { background: var(--brand-soft); border-color: transparent; color: var(--brand-ink); }
+
+    .seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 2px; gap: 2px; }
+    .seg button { font-size: 12px; font-weight: 700; border: 0; background: none; color: var(--ink-3); padding: .28rem .8rem; border-radius: 8px; cursor: pointer; font-family: inherit; }
+    .seg button[aria-selected="true"] { background: var(--surface); color: var(--ink-1); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+
+    input[type="range"] { width: 160px; accent-color: var(--brand); }
+    .range-val { font-weight: 800; color: var(--ink-1); font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate; }
+
+    .btn-primary { background: var(--brand); color: var(--brand-on); font-weight: 800; font-size: 13px; border: 0; border-radius: 10px; padding: .5rem 1.2rem; cursor: pointer; font-family: inherit; }
+    .btn-ghost { border: 1px solid var(--line); color: var(--ink-2); background: var(--surface); font-weight: 700; font-size: 13px; border-radius: 10px; padding: .45rem 1.1rem; cursor: pointer; font-family: inherit; }
+    .btn-ghost:hover { background: var(--surface-2); color: var(--ink-1); }
+    .btn-primary:disabled, .btn-ghost:disabled { opacity: .45; cursor: not-allowed; }
+
+    .link-out { color: var(--brand-ink); font-weight: 700; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: .35rem; }
+    .link-out:hover { text-decoration: underline; }
+
+    .info-banner { display: flex; gap: .6rem; align-items: flex-start; background: var(--brand-soft); border-radius: 10px; padding: .7rem .9rem; font-size: 12px; color: var(--ink-2); }
+    .info-banner i { color: var(--brand-ink); margin-top: 2px; }
+
+    .cookie-status { font-size: 11px; font-weight: 700; }
+    .cookie-ok { color: var(--accent-positive); }
+    .cookie-busy { color: var(--brand-ink); }
+    .src-tile { font-weight: 800; font-size: 15px; width: 34px; height: 34px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; border: 0; cursor: pointer; }
+    .src-tile[data-src="mostaql"] { background: #2386C8; color: #fff; }
+    .src-tile[data-src="nafezly"] { background: #FFA200; color: #3a2a00; }
+    html.dark .src-tile[data-src="mostaql"] { background: #5CA8DE; color: #0b1c2a; }
+    html.dark .src-tile[data-src="nafezly"] { background: #FFB84D; color: #2a1d00; }
+    .src-tile:not(.active) { opacity: .4; filter: saturate(.4); }
+
+    .variant { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 0 1rem .2rem; margin-bottom: 1rem; }
+    .variant-cap { font-size: 10px; font-weight: 800; letter-spacing: .04em; color: var(--ink-3); padding-top: .55rem; text-transform: uppercase; }
+    .shape-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 900px) { .shape-grid { grid-template-columns: 1fr; } }
+
+    .toolbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: .6rem; background: var(--surface); border-bottom: 1px solid var(--line); padding: .7rem 2rem; }
+
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+</style>
+<script data-purpose="theme-init">
+    (function () {
+        try {
+            var stored = localStorage.getItem('mostaqlk-theme');
+            var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (stored ? stored === 'dark' : systemDark) document.documentElement.classList.add('dark');
+            var src = localStorage.getItem('mostaqlk-source');
+            if (src === 'nafezly' || src === 'mostaql') document.documentElement.setAttribute('data-source', src);
+        } catch (e) {}
+    })();
+</script>
+</head>
+<body class="min-h-screen">
+
+<!-- BEGIN: Toolbar -->
+<div class="toolbar" style="direction: rtl;">
+    <span class="text-sm font-extrabold" style="color: var(--ink-1);">كتالوج الأشكال</span>
+    <span class="text-xs" style="color: var(--ink-3);">— كل <span class="enum-eyebrow">SettingsShape</span> وكل حالة، كما سيصنعها الـ renderer من الـ descriptor وحده</span>
+    <div class="flex-1"></div>
+    <button class="src-tile active" data-src="mostaql" aria-label="هوية مستقل" onclick="setSource('mostaql')">م</button>
+    <button class="src-tile" data-src="nafezly" aria-label="هوية نفذلي" onclick="setSource('nafezly')">ن</button>
+    <button class="src-tile" style="background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line);" aria-label="تبديل الوضع" onclick="toggleTheme()"><i id="theme-icon" class="fa-regular fa-moon"></i></button>
+</div>
+<!-- END: Toolbar -->
+
+<main style="direction: rtl;">
+<div style="background: var(--surface);">
+
+    <!-- BEGIN: Shape Toggle -->
+    <section data-shape="toggle">
+        <div class="section-head">
+            <h2 class="text-base font-extrabold flex items-center gap-2" style="color: var(--ink-1);">
+                <span class="enum-eyebrow">Toggle</span> مفتاح
+            </h2>
+            <p class="text-xs mt-1" style="color: var(--ink-3);">قيمة منطقية واحدة: تشغيل/إيقاف. يُكتب فورًا عبر الطابور المؤجَّل.</p>
+        </div>
+        <div class="set-pad"><div class="shape-grid">
+            <div class="variant"><div class="variant-cap" data-state="valid">صحيح — مفعّل</div>
+                <div class="set-row"><span class="set-label">تنبيهات هذه المنصة<span class="set-sub">لن تصلك تنبيهات من هذه المنصة أثناء الإيقاف</span></span><button class="toggle" role="switch" aria-checked="true" onclick="flip(this)"></button></div></div>
+            <div class="variant"><div class="variant-cap" data-state="off">صحيح — متوقف</div>
+                <div class="set-row"><span class="set-label">تخطي المشاريع المغلقة</span><button class="toggle" role="switch" aria-checked="false" onclick="flip(this)"></button></div></div>
+            <div class="variant"><div class="variant-cap" data-state="disabled">معطّل (لا تملكه هذه المنصة)</div>
+                <div class="set-row"><span class="set-label">تجميع التنبيهات<span class="set-sub">متاح على مستوى النظام فقط</span></span><button class="toggle" role="switch" aria-checked="true" disabled></button></div></div>
+        </div></div>
+    </section>
+    <!-- END: Shape Toggle -->
+
+    <!-- BEGIN: Shape NumericBounded -->
+    <section data-shape="numeric">
+        <div class="section-head">
+            <h2 class="text-base font-extrabold flex items-center gap-2" style="color: var(--ink-1);">
+                <span class="enum-eyebrow">NumericBounded</span> رقم ذو حدَّين
+            </h2>
+            <p class="text-xs mt-1" style="color: var(--ink-3);">min/max/step + وحدة + رسالة خطأ من الـ descriptor نفسه (Template {0}={min} {1}={max}).</p>
+        </div>
+        <div class="set-pad"><div class="shape-grid">
+            <div class="variant"><div class="variant-cap" data-state="valid">صحيح</div>
+                <div class="set-row"><span class="set-label">فاصل الفحص</span><span class="set-value"><input class="num-input ltr" value="30" aria-label="فاصل الفحص"> ثانية</span></div></div>
+            <div class="variant"><div class="variant-cap" data-state="clamped">مقصوص عند الحد</div>
+                <div class="set-row"><span class="set-label">حد الطلبات<span class="clamp-note">ضُبط تلقائيًا على الحد الأقصى (60)</span></span><span class="set-value"><input class="num-input ltr" value="60" aria-label="حد الطلبات"> طلب/دقيقة</span></div></div>
+            <div class="variant"><div class="variant-cap" data-state="error">خطأ — خارج المدى</div>
+                <div class="set-row"><span class="set-label">فاصل الفحص<span class="set-error">القيمة يجب أن تكون بين 10 و3600 ثانية — المدخل 5000.</span></span><span class="set-value"><input class="num-input ltr invalid" value="5000" aria-invalid="true" aria-label="فاصل الفحص"> ثانية</span></div></div>
+            <div class="variant"><div class="variant-cap" data-state="disabled">معطّل</div>
+                <div class="set-row"><span class="set-label">طلبات متزامنة</span><span class="set-value"><input class="num-input ltr" value="4" disabled> بالتوازي</span></div></div>
+        </div></div>
+    </section>
+    <!-- END: Shape NumericBounded -->
+
+    <!-- BEGIN: Shape TextEntry -->
+    <section data-shape="text">
+        <div class="section-head">
+            <h2 class="text-base font-extrabold flex items-center gap-2" style="color: var(--ink-1);">
+                <span class="enum-eyebrow">TextEntry</span> نص
+            </h2>
+            <p class="text-xs mt-1" style="color: var(--ink-3);">عزل LTR إلزامي للقيم التقنية داخل واجهة عربية.</p>
+        </div>
+        <div class="set-pad"><div class="shape-grid">
+            <div class="variant"><div class="variant-cap" data-state="valid">صحيح — معزول LTR</div>
+                <div class="set-row"><span class="set-label">معاملات البحث<span class="set-sub">تُضاف كما هي إلى رابط بحث المنصة</span></span><input class="num-input ltr" style="width: 220px; text-align: start;" value="category=development&sort=latest" aria-label="معاملات البحث"></div></div>
+            <div class="variant"><div class="variant-cap" data-state="error">خطأ — ترميز غير مقبول</div>
+                <div class="set-row"><span class="set-label">معاملات البحث<span class="set-error">الحرف "&lt;" غير مسموح في روابط المنصات.</span></span><input class="num-input ltr invalid" style="width: 220px; text-align: start;" value="q=<script>" aria-invalid="true"></div></div>
+        </div></div>
+    </section>
+    <!-- END: Shape TextEntry -->
+
+    <!-- BEGIN: Shape EnumPicker -->
+    <section data-shape="enum">
+        <div class="section-head">
+            <h2 class="text-base font-extrabold flex items-center gap-2" style="color: var(--ink-1);">
+                <span class="enum-eyebrow">EnumPicker</span> قائمة اختيار
+            </h2>
+            <p class="text-xs mt-1" style="color: var(--ink-3);">خياراتها من Options في الـ descriptor — لا مصفوفات عربية في الكود.</p>
+        </div>
+        <div class="set-pad"><div class="shape-grid">
+            <div class="variant"><div class="variant-cap" data-state="valid">صحيح</div>
+                <div class="set-row"><span class="set-label">نمط التجميع</span><select class="pick" aria-label="نمط التجميع"><option>حسب المنصة</option><option selected>دفعة واحدة</option><option>فردي</option></select></div></div>
+            <div class="variant"><div class="variant-cap" data-state="disabled">معطّل</div>
+                <div class="set-row"><span class="set-label">نمط التجميع</span><select class="pick" disabled><option>دفعة واحدة</option></select></div></div>
+        </div></div>
+    </section>
+    <!-- END: Shape EnumPicker -->
+
+    <!-- BEGIN: Shape CookieEditor -->
+    <section data-shape="cookie">
+        <div class="section-head">
+            <h2 class="text-base font-extrabold flex items-center gap-2" style="color: var(--ink-1);">
+                <span class="enum-eyebrow">CookieEditor</span> محرر الجلسة
+            </h2>
+            <p class="text-xs mt-1" style="color: var(--ink-3);">مركّب: حالة + رفع + حفظ + مسح، بحالات انشغال/نجاح/فشل. النص قابل للتجاوز الجزئي من كل منصة.</p>
+        </div>
+        <div class="set-pad"><div class="shape-grid">
+            <div class="variant"><div class="variant-cap" data-state="valid">مرتبط</div>
+                <div class="set-row" style="flex-wrap: wrap;"><span class="set-label">ارفع ملف ال cookies الخاص بك<span class="set-sub cookie-ok">جلسة محفوظة (24 كوكيز) — آخر تحديث 2026-10-27 09:14</span></span><span class="set-value"><button class="btn-ghost">رفع ملف</button><button class="set-edit">إلغاء الربط</button></span></div></div>
+            <div class="variant"><div class="variant-cap" data-state="busy">قيد التحقق</div>
+                <div class="set-row"><span class="set-label">ارفع ملف ال cookies الخاص بك<span class="set-sub cookie-busy"><i class="fa-solid fa-spinner fa-spin"></i> جارٍ التحقق من الملف وتشفيره…</span></span><span class="set-value"><button class="btn-primary" disabled>رفع ملف</button></span></div></div>
+            <div class="variant"><div class="variant-cap" data-state="error">فشل التحليل</div>
+                <div class="set-row"><span class="set-label">ارفع ملف ال cookies الخاص بك<span class="set-error">لم يُعثر على أي كوكيز صالحة في الملف. صدّر الملف بصيغة Netscape من متصفحك.</span></span><span class="set-value"><button class="btn-ghost">أعد المحاولة</button></span></div></div>
+            <div class="variant"><div class="variant-cap" data-state="overridden">نص متجاوز جزئيًا (نفذلي)</div>
+                <div class="set-row"><span class="set-label">ارفع ملف ال cookies الخاص بك لموقع نفذلي<span class="set-sub">نفس الشكل والقيم — النص فقط تجاوزته المنصة</span></span><span class="set-value"><button class="btn-ghost">رفع ملف</button></span></div></div>
+        </div></div>
+    </section>
+    <!-- END: Shape CookieEditor -->
+
+    <!-- BEGIN: Shape ReadOnlyStat -->
+    <section data-shape="stat">
+        <div class="section-head">
+            <h2 class="text-base font-extrabold flex items-center gap-2" style="color: var(--ink-1);">
+                <span class="enum-eyebrow">ReadOnlyStat</span> إحصاء + فعل
+            </h2>
+        </div>
+        <div class="set-pad">
+            <div class="set-row" data-state="valid"><span class="set-label">الأرشيف</span><span class="set-value">98 مشروعًا <button class="set-edit">عرض</button></span></div>
+        </div>
+    </section>
+    <!-- END: Shape ReadOnlyStat -->
+
+    <!-- BEGIN: Shape ActionButton -->
+    <section data-shape="action">
+        <div class="section-head">
+            <h2 class="text-base font-extrabold flex items-center gap-2" style="color: var(--ink-1);">
+                <span class="enum-eyebrow">ActionButton</span> زر فعل
+            </h2>
+        </div>
+        <div class="set-pad"><div class="shape-grid">
+            <div class="variant"><div class="variant-cap" data-state="valid">أساسي / شبحي</div>
+                <div class="set-row"><span class="set-label">حفظ التغييرات</span><span class="set-value"><button class="btn-primary">حفظ</button><button class="btn-ghost">إعادة تعيين</button></span></div></div>
+            <div class="variant"><div class="variant-cap" data-state="disabled">معطّل (لا تغييرات)</div>
+                <div class="set-row"><span class="set-label">حفظ التغييرات</span><span class="set-value"><button class="btn-primary" disabled>حفظ</button></span></div></div>
+        </div></div>
+    </section>
+    <!-- END: Shape ActionButton -->
+
+    <!-- BEGIN: Shape LinkOut -->
+    <section data-shape="link">
+        <div class="section-head">
+            <h2 class="text-base font-extrabold flex items-center gap-2" style="color: var(--ink-1);">
+                <span class="enum-eyebrow">LinkOut</span> رابط خارجي
+            </h2>
+        </div>
+        <div class="set-pad">
+            <div class="set-row" data-state="valid"><span class="set-label">صفحة المنصة</span><a class="link-out" href="#">عرض في مستقل <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i></a></div>
+        </div>
+    </section>
+    <!-- END: Shape LinkOut -->
+
+    <!-- BEGIN: Shape InfoBanner -->
+    <section data-shape="info">
+        <div class="section-head">
+            <h2 class="text-base font-extrabold flex items-center gap-2" style="color: var(--ink-1);">
+                <span class="enum-eyebrow">InfoBanner</span> تنويه
+            </h2>
+        </div>
+        <div class="set-pad">
+            <div data-state="valid"><div class="info-banner"><i class="fa-solid fa-circle-info"></i><span>هذه إعدادات النسخة الأولى؛ التخصيص الذكي لكل منصة يصل لاحقًا.</span></div></div>
+        </div>
+    </section>
+    <!-- END: Shape InfoBanner -->
+
+    <!-- BEGIN: Shape SectionHeader (meta) -->
+    <section data-shape="header">
+        <div class="section-head">
+            <h2 class="text-base font-extrabold flex items-center gap-2" style="color: var(--ink-1);">
+                <span class="enum-eyebrow">SectionHeader</span> رأس قسم
+            </h2>
+            <p class="text-xs mt-1" style="color: var(--ink-3);">هذا الرأس الذي تقرأه الآن هو الشكل — لاصق، بشعيرة سفلية، وأيقونة من الـ descriptor (fa-plug / fa-sliders).</p>
+        </div>
+    </section>
+    <!-- END: Shape SectionHeader -->
+
+    <!-- BEGIN: Shape Slider -->
+    <section data-shape="slider">
+        <div class="section-head">
+            <h2 class="text-base font-extrabold flex items-center gap-2" style="color: var(--ink-1);">
+                <span class="enum-eyebrow">Slider</span> مؤشر متدرّج
+            </h2>
+            <p class="text-xs mt-1" style="color: var(--ink-3);">مدى + قيمة حية بجانب المقبض.</p>
+        </div>
+        <div class="set-pad"><div class="shape-grid">
+            <div class="variant"><div class="variant-cap" data-state="valid">صحيح</div>
+                <div class="set-row"><span class="set-label">سقف الطلبات في الدقيقة</span><span class="set-value"><input type="range" min="1" max="60" value="12" oninput="this.closest('.set-value').querySelector('.range-val').textContent=this.value"><span class="range-val">12</span></span></div></div>
+            <div class="variant"><div class="variant-cap" data-state="disabled">معطّل</div>
+                <div class="set-row"><span class="set-label">سقف الطلبات</span><span class="set-value"><input type="range" min="1" max="60" value="30" disabled><span class="range-val">30</span></span></div></div>
+        </div></div>
+    </section>
+    <!-- END: Shape Slider -->
+
+    <!-- BEGIN: Shape MultiChoiceChips -->
+    <section data-shape="chips">
+        <div class="section-head">
+            <h2 class="text-base font-extrabold flex items-center gap-2" style="color: var(--ink-1);">
+                <span class="enum-eyebrow">MultiChoiceChips</span> رقائق متعددة
+            </h2>
+            <p class="text-xs mt-1" style="color: var(--ink-3);">نفس شكل رقائق الفلاتر — مجموعة قيم مقبولة من Options.</p>
+        </div>
+        <div class="set-pad"><div class="shape-grid">
+            <div class="variant"><div class="variant-cap" data-state="valid">محدد/غير محدد</div>
+                <div class="set-row" style="flex-wrap: wrap; gap: .4rem;"><span class="set-label">المهارات المتابَعة</span><span class="set-value" style="flex-wrap: wrap;"><button class="chip" aria-pressed="true" onclick="flipChip(this)">تطوير الويب</button><button class="chip" aria-pressed="true" onclick="flipChip(this)">تصميم جرافيك</button><button class="chip" aria-pressed="false" onclick="flipChip(this)">كتابة محتوى</button></span></div></div>
+            <div class="variant"><div class="variant-cap" data-state="error">لا اختيار</div>
+                <div class="set-row" style="flex-wrap: wrap;"><span class="set-label">المهارات المتابَعة<span class="set-error">اختر مهارة واحدة على الأقل.</span></span><span class="set-value"><button class="chip" aria-pressed="false">…</button></span></div></div>
+        </div></div>
+    </section>
+    <!-- END: Shape MultiChoiceChips -->
+
+    <!-- BEGIN: Shape SegmentedButtons -->
+    <section data-shape="segmented">
+        <div class="section-head">
+            <h2 class="text-base font-extrabold flex items-center gap-2" style="color: var(--ink-1);">
+                <span class="enum-eyebrow">SegmentedButtons</span> أزرار مجزّأة
+            </h2>
+        </div>
+        <div class="set-pad"><div class="shape-grid">
+            <div class="variant"><div class="variant-cap" data-state="valid">ثلاث حالات</div>
+                <div class="set-row"><span class="set-label">المظهر</span><span class="seg" role="tablist"><button role="tab" aria-selected="false">فاتح</button><button role="tab" aria-selected="true">داكن</button><button role="tab" aria-selected="false">تلقائي</button></span></div></div>
+            <div class="variant"><div class="variant-cap" data-state="disabled">معطّل</div>
+                <div class="set-row"><span class="set-label">المظهر</span><span class="seg" style="opacity:.45;"><button aria-selected="true">فاتح</button></span></div></div>
+        </div></div>
+    </section>
+    <!-- END: Shape SegmentedButtons -->
+
+    <!-- BEGIN: Shape FilePicker -->
+    <section data-shape="file">
+        <div class="section-head">
+            <h2 class="text-base font-extrabold flex items-center gap-2" style="color: var(--ink-1);">
+                <span class="enum-eyebrow">FilePicker</span> اختيار ملف
+            </h2>
+            <p class="text-xs mt-1" style="color: var(--ink-3);">اسم الملف فقط يظهر؛ المحتوى لا يُنسخ لأي مكان.</p>
+        </div>
+        <div class="set-pad"><div class="shape-grid">
+            <div class="variant"><div class="variant-cap" data-state="valid">ملف مختار</div>
+                <div class="set-row"><span class="set-label">ملف الجلسة</span><span class="set-value"><span class="ltr" style="font-weight:400; direction: ltr; unicode-bidi: isolate;">cookies.txt</span> <button class="set-edit">تغيير</button></span></div></div>
+            <div class="variant"><div class="variant-cap" data-state="empty">فارغ</div>
+                <div class="set-row"><span class="set-label">ملف الجلسة<span class="set-sub">لم يُختر ملف بعد</span></span><button class="btn-ghost">اختيار ملف…</button></div></div>
+        </div></div>
+    </section>
+    <!-- END: Shape FilePicker -->
+
+    <div class="h-10"></div>
+</div>
+</main>
+
+<script data-purpose="gallery-state">
+    function flip(el) { el.setAttribute('aria-checked', el.getAttribute('aria-checked') === 'true' ? 'false' : 'true'); }
+    function flipChip(el) { el.setAttribute('aria-pressed', el.getAttribute('aria-pressed') === 'true' ? 'false' : 'true'); }
+    function setSource(source) {
+        document.documentElement.setAttribute('data-source', source);
+        document.querySelectorAll('.toolbar .src-tile[data-src]').forEach(function (b) {
+            b.classList.toggle('active', b.getAttribute('data-src') === source);
+        });
+        try { localStorage.setItem('mostaqlk-source', source); } catch (e) {}
+    }
+    function toggleTheme() {
+        var dark = document.documentElement.classList.toggle('dark');
+        var icon = document.getElementById('theme-icon');
+        if (icon) icon.className = dark ? 'fa-solid fa-sun' : 'fa-regular fa-moon';
+        try { localStorage.setItem('mostaqlk-theme', dark ? 'dark' : 'light'); } catch (e) {}
+    }
+    (function () {
+        if (document.documentElement.classList.contains('dark')) {
+            var icon = document.getElementById('theme-icon');
+            if (icon) icon.className = 'fa-solid fa-sun';
+        }
+        document.querySelectorAll('.toolbar .src-tile[data-src]').forEach(function (b) {
+            b.classList.toggle('active', b.getAttribute('data-src') === document.documentElement.getAttribute('data-source'));
+        });
+    })();
+</script>
+<script id="parity-force" data-purpose="harness-state-forcing">
+    // v3 visual-parity harness ONLY (tools/v3_parity.py): ?theme / ?source / ?shape / ?state.
+    // Additive — with no params the default render is untouched. ?shape isolates one section,
+    // ?state isolates one variant cell inside it, so every gallery cell is screenshot-able at
+    // 1280x800 without scrolling.
+    (function () {
+        var q;
+        try { q = new URLSearchParams(window.location.search); } catch (e) { return; }
+        var theme = q.get('theme'), source = q.get('source'), shape = q.get('shape'), state = q.get('state');
+        if (!theme && !source && !shape && !state) return;
+        if (theme === 'dark' || theme === 'light') {
+            document.documentElement.classList.toggle('dark', theme === 'dark');
+            var icon = document.getElementById('theme-icon');
+            if (icon) icon.className = theme === 'dark' ? 'fa-solid fa-sun' : 'fa-regular fa-moon';
+            try { localStorage.setItem('mostaqlk-theme', theme); } catch (e) {}
+        }
+        if (source === 'nafezly' || source === 'mostaql') setSource(source);
+        if (shape) document.querySelectorAll('[data-shape]').forEach(function (s) {
+            s.style.display = s.getAttribute('data-shape') === shape ? '' : 'none';
+        });
+        if (state) document.querySelectorAll('[data-state]').forEach(function (v) {
+            v.style.display = v.getAttribute('data-state') === state ? '' : 'none';
+        });
+    })();
+</script>
+</body></html>

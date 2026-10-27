@@ -22,6 +22,7 @@ riding the wavefront. Two 1-desktop apps in one frame.
 | [`projects.html`](./projects.html) | Click **ن** (Nafezly tile) in the rail → whole app morphs blue→orange with the circular reveal from the tile; click the moon button → same reveal for light/dark. Feeds carry source-native fields (`ر.س · مدة التسليم` vs `$ · العروض المقدمة · مشرف عليه`). |
 | [`project-details.html`](./project-details.html) | Continuous full-page pattern (same as Settings): sticky section headers, no floating cards. Title = the scraped project title; decision strip (big-number facts) → الوصف → معلومات المنفذ (Nafezly-only section) → صاحب المشروع → actions. The pipeline-provenance card was removed as noise. |
 | [`settings.html`](./settings.html) | Rail morphing works here too; المصادر section manages per-source state (enable, cadence, rate budget, session) — switching lives in the rail, management lives in Settings. |
+| [`settings-shapes.html`](./settings-shapes.html) | **Shape catalog** for the settings plugin system: every `SettingsShape` the descriptor renderer can produce (Toggle, NumericBounded, TextEntry, EnumPicker, CookieEditor, ReadOnlyStat, ActionButton, LinkOut, InfoBanner, SectionHeader, Slider, MultiChoiceChips, SegmentedButtons, FilePicker), each in its states (valid / clamped / error / disabled / partial-override). The mono eyebrow above every Arabic title is the descriptor's enum name — one row ⇄ one descriptor. Force params: `?shape=cookie&state=error&theme=dark&source=nafezly` isolates any cell for 1280×800 capture. This page is the spec the CRAFT step (`SettingsShapesPage` in MAUI) must clone 1:1. |
 
 ## The morph mechanics (ported from the magicui `AnimatedThemeToggler`)
 
@@ -83,6 +84,12 @@ drag handle is decorative; the real unit resizes.
 3. **Source management stays folded into Settings**; the rail only switches.
 4. Light/dark toggle uses the same circular reveal from its own rail button.
 5. `$` budgets render `dir="ltr"` so RTL doesn't mirror them.
+6. **`settings-shapes.html` joins the parity matrix only when its MAUI twin
+   exists.** `v3_parity.py` launches the app with `--default-page=<page>`, so
+   adding the gallery to `PAGES` before the CRAFT step ships `SettingsShapesPage`
+   would fail every harness run. The page is capture-able today via
+   `design_screenshot.py --url .../settings-shapes.html?shape=&state=&theme=&source=`;
+   the `PAGES` entry lands with step 3.
 
 ## Unit impact (for implementation; UNITS.md gets rows then)
 
