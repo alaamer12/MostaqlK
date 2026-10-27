@@ -145,6 +145,7 @@ public static class Program
         Run(nameof(TestPlatformNotificationMute), TestPlatformNotificationMute);
         Run(nameof(TestPlatformEnablementKeepsAtLeastOne), TestPlatformEnablementKeepsAtLeastOne);
         Run(nameof(TestRendererCoversEveryShape), TestRendererCoversEveryShape);
+        Run(nameof(TestConfigurationReferenceMatchesCatalog), TestConfigurationReferenceMatchesCatalog);
 
         Console.WriteLine();
         Console.WriteLine(new string('=', 60));
@@ -2320,6 +2321,80 @@ public static class Program
 
         Check("renderer: the switch keeps its exhaustive default throw",
             source.Contains("throw new ArgumentOutOfRangeException", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The scope rulings are written for the next person to add a platform, so the doc has to be
+    /// unable to lie: every settings key that has a descriptor must appear in
+    /// <c>configuration-reference.md</c>'s table, and its stated storage column must agree with that
+    /// descriptor's scope. A paragraph that contradicts code is a red test, not a stale document.
+    /// </summary>
+    private static void TestConfigurationReferenceMatchesCatalog()
+    {
+        var root = FindRepoRoot();
+        var doc = Path.Combine(root, ".repertoire", ".steering", "v1", "product", "configuration-reference.md");
+        Check("config doc: the reference exists", File.Exists(doc), doc);
+        if (!File.Exists(doc))
+        {
+            return;
+        }
+
+        var table = new Dictionary<string, string>(StringComparer.Ordinal);
+        var inTable = false;
+        foreach (var line in File.ReadAllLines(doc))
+        {
+            if (line.StartsWith("## ", StringComparison.Ordinal))
+            {
+                inTable = line.StartsWith("## Full settings table", StringComparison.Ordinal);
+                continue;
+            }
+
+            if (!inTable || !line.TrimStart().StartsWith("|", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var cells = line.Split('|').Select(c => c.Trim()).ToList();
+            if (cells.Count < 5 || !cells[1].StartsWith('`'))
+            {
+                continue; // header / separator rows
+            }
+
+            var key = cells[1].Trim('`');
+            table[key] = cells[4];
+        }
+
+        Check("config doc: the table parsed rows", table.Count >= 15, $"{table.Count} rows");
+
+        var mismatches = new List<string>();
+        foreach (var (key, storage) in table)
+        {
+            if (!SettingsCatalog.TryGetBuiltin(key, out var descriptor))
+            {
+                continue; // a persisted key with no row (active source, polling-active) has no scope
+            }
+
+            var expected = descriptor.Scope == SettingsScope.Global ? "system" : "per-platform";
+            if (!storage.StartsWith(expected, StringComparison.Ordinal))
+            {
+                mismatches.Add($"{key}: doc says '{storage}', catalog scope is {descriptor.Scope}");
+            }
+        }
+
+        Check("config doc: every listed row's storage matches the catalog's scope",
+            mismatches.Count == 0,
+            string.Join(" | ", mismatches));
+
+        var missing = typeof(SettingsKeys)
+            .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+            .Where(f => f.IsLiteral && f.GetValue(null) is string v && SettingsCatalog.BuiltinByKey.ContainsKey(v))
+            .Select(f => (string)f.GetValue(null)!)
+            .Where(key => !table.ContainsKey(key))
+            .ToList();
+
+        Check("config doc: every settings key with a row is documented",
+            missing.Count == 0,
+            string.Join(",", missing));
     }
 
     /// <summary>

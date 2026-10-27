@@ -57,15 +57,97 @@ Deferred — full detail in [roadmap-future.md](../../v2/product/roadmap-future.
 
 ## Full settings table
 
-| Setting | Default | Scope |
-|---|---|---|
-| `poll_interval_seconds` | 30 | v1 |
-| `max_requests_per_minute` | 2 | v1 |
-| `max_concurrent_detail_fetches` | 2–3 | v1 |
-| `safe_requests` | true | v1 |
-| `query_params` | *(empty)* | v2 |
-| `include_assets` | false | v2 |
-| `notification_grouping_enabled` | false | v2 |
-| `notification_grouping_mode` | — | v2 |
-| `notification_grouping_param` | — | v2 |
-| `push_notifications_enabled` | true (inert until paired) | v3 |
+**Storage** is where the value persists: `system` = the flat container (one value shared by every
+platform), `per-platform` = inside that platform's own container. **Since** is the version that
+introduced the key — the old single "Scope" column meant that, and reading it as storage is what
+allowed a row to advertise "على كل المنصات" while its value lived in one platform's container.
+
+The executable authority is `Features/Settings/SettingsCatalog.Builtin.cs` (one
+`SettingsDescriptor` per row: shape, scope, bounds, Arabic copy, ids, visibility). This table is the
+readable view of it, and `TestConfigurationReferenceMatchesCatalog` fails when the two disagree or
+when a catalog row is missing from this table — a stale paragraph is a red test here, not a rumour.
+
+| Key | Arabic row | Default | Storage | Since |
+|---|---|---|---|---|
+| `settings_disabled_platforms` | المنصات (per-platform switches) | *(empty — every platform on)* | system | dev57 |
+| `settings_poll_interval_seconds` | فاصل الفحص | 30 (floored per site by `MinSafePollIntervalSeconds`) | system | v1 |
+| `settings_safe_requests` | الطلبات الآمنة | true | system | v1 |
+| `settings_max_concurrent_detail_fetches` | تحميل التفاصيل المتوازي | 2 | system | v1 |
+| `settings_notification_grouping_enabled` | تجميع التنبيهات | true | system | v2 |
+| `settings_grouping_mode` | نمط التجميع | `EndOfMinute` | system | v2 |
+| `settings_grouping_threshold` | حد التجميع | 5 | system | v2 |
+| `settings_startup_enabled` | تشغيل مع النظام | false (the registry is the truth the row reads) | system | v1 |
+| `settings_remember_last_source` | تذكر آخر منصة مفتوحة | true | system | v3 |
+| `settings_is_dark_mode` | الوضع الداكن | false | system | v3 |
+| `close_behavior_action` | عند الضغط على X | `Ask` | system | v3 |
+| `close_behavior_remembered` | تذكر خياري | false | system | v3 |
+| `settings_is_polling_active` | *(Start/Pause state, no row)* | false | system | v1 |
+| `mostaqlk-source` | *(projected source, no row)* | default source | system | v3 |
+| `settings_max_requests_per_minute` | حد الطلبات | mostaql 2 · nafezly 8 | per-platform | v1 |
+| `settings_query_params` | معاملات البحث | *(empty)* | per-platform | v2 |
+| `settings_include_assets` | تحميل مرفقات المشاريع | false | per-platform | v2 |
+| `settings_enable_source_notifications` | تنبيهات هذه المنصة | true | per-platform | v3 |
+| `nafezly_enrichment_retry_enabled` | إعادة محاولة الإثراء التلقائي | true | per-platform | v3 |
+
+## Who owns a setting's scope
+
+The rules below exist so adding a platform never re-opens these questions.
+
+1. **System (flat container)** — anything whose meaning is "how the app behaves", or whose consumer is
+   a single app-wide object: scan interval, safe-request spacing, parallel detail fetches, notification
+   grouping (enable / mode / threshold — `NotificationGrouper` is one singleton for the whole app),
+   start-with-system, remember-last-platform, theme, close behavior, and the set of enabled platforms.
+2. **Per-platform (namespaced container)** — anything that is a property of one site: `max_requests_per_minute`
+   (each pipeline owns a private `TokenBucketRateLimiter`, so a budget spent on mostaql.com says nothing
+   about nafezly.com — there is no shared budget and no aggregate to protect), extra query params,
+   attachment download, that platform's notifications, its session cookie, and every read-only
+   capability statement (currency, supervised types, enrichment session).
+3. **A system value may still be floored by a platform's own safety minimum.** That is a capability
+   fact, so it lives in the module (`ISourceDescriptor.MinSafePollIntervalSeconds`: default 10, nafezly
+   60 because Cloudflare answers a burst with 429/1015) and not in the settings row. The clamp is
+   `SourceCadence.ClampPollInterval`, used by pipeline start-up, the live settings apply, and the feed
+   header caption — the header must never promise a cadence the pipeline refuses to run at.
+4. **Disabling a platform is network silence, not deletion.** Its projects, routes, deep links,
+   filters, archive, unread badge and notification history all keep working; polling (including a
+   forced "check now"), enrichment dequeue and toasts stop; already-queued items wait and resume on
+   re-enable. At least one platform must stay enabled — the switch that would break that renders
+   locked **with its reason**, never as a rejected click. A new source needs no code for any of this:
+   it is enabled by default and appears in المنصات on its own, because the row enumerates
+   `SourceRegistry`.
+5. **A source may override its own configuration, fully or partially, without shared code being
+   touched** — `ISourceSettingsContribution.Adds` (new rows; module-local keys stay module-local and
+   never enter `SettingsKeys`) and `.Overrides` (any single `SettingsDescriptorPatch` field: copy,
+   bounds, default, options, icon, visibility, section, order, ids; a whole descriptor for an existing
+   key is a full replace). What a module may **not** override is the user's stored value: a module sets
+   the shape and the default, the user owns the value.
+6. **Checklist for adding a platform** — register the descriptor + capabilities; contribute only rows
+   that are genuinely yours, with a `SectionHeader` whose `Order` is your section's rank (system 0,
+   platform 10, your section 12…, actions 90 — a header's `Order` ranks its band and always renders
+   first inside it); leave every system row alone; add your module-local keys to no shared table; and
+   put nothing about your id in `SettingsCatalog.Builtin.cs`. If a row you want already exists, patch
+   it.
+
+## Moving a setting between scopes
+
+`ISettingsRepository` resolves a per-platform read as *namespaced container → legacy flat key →
+default*, so a flat→container move needs no migration. **The opposite direction has no
+fall-through**: `GetGlobal` only ever looks at the flat container, so a row that becomes `system`
+would answer with its default while the user's value sat unread in a platform container.
+
+`SettingsScopeHarvest` closes that gap once: it never overwrites a value that is already global,
+otherwise takes the active platform's stored value, then any other platform that has one, and stamps
+`settings_scope_harvest_v1` so the decision is never re-made. Losing containers stay on disk
+untouched — nothing prunes them, and deleting a user's stored values is nobody's business here. The
+move this mechanism served (dev53–dev54): scan interval, safe requests, parallel fetches, and the
+three grouping settings went per-platform → system.
+
+## Behavior notes worth not re-discovering
+
+- `settings_enable_source_notifications` **is** read now (`NotificationDispatcher`, via
+  `NotificationMute`). It persisted for many builds with nothing consuming it, so switching it off
+  changed a number on disk and every toast still arrived. A platform's toasts are silenced while its
+  badge and history keep counting.
+- The startup row reads the OS (`IStartupService.IsStartupEnabled` → `HKCU\…\CurrentVersion\Run`),
+  not the stored bool, because the registry can be edited outside the app.
+- Grouping settings are applied when the grouper singleton is constructed, not when the settings page
+  is first opened; a launch that never visits Settings still obeys what is stored.
