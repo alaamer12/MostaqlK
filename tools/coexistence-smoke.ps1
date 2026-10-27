@@ -149,7 +149,16 @@ try {
 
     $werDump = Get-ChildItem (Join-Path $env:LOCALAPPDATA "CrashDumps") -Filter "*.dmp" -ErrorAction SilentlyContinue |
         Where-Object { $_.LastWriteTimeUtc -gt $startedAt }
-    foreach ($w in $werDump) { $failures += "WER dump: $($w.FullName)" }
+    $launched = @($started | ForEach-Object { $_.Id })
+    foreach ($w in $werDump) {
+        # The dump file is named MostaqlK.exe.<pid>.dmp. When that pid is NOT one of the launched
+        # instances, the crash belongs to some other process of the same layout (a leftover
+        # developer instance, a relaunch path) and says nothing about channel coexistence — so the
+        # failure line has to say which case it is, or the next one costs an hour to interpret.
+        $dumpedPid = [regex]::Match($w.Name, '\.(\d+)\.dmp$').Groups[1].Value
+        $mine = $launched -contains [int]$dumpedPid
+        $failures += "WER dump: $($w.FullName) (pid $dumpedPid, $(if ($mine) { 'LAUNCHED BY THIS RUN' } else { 'not a pid this run launched' }))"
+    }
 
     # Preference isolation: each store must still hold its OWN probe value after both channels ran.
     # A shared (or cross-read) store would leave whichever channel wrote last in both files.
