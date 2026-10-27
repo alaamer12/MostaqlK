@@ -79,6 +79,14 @@ public sealed class PollService : IPollService
     /// <summary>Toggles the paused flag (wired to the tray icon's "Pause / Resume" menu entry).</summary>
     public void SetPaused(bool paused) => _isPaused = paused;
 
+    /// <summary>
+    /// False while the user has this platform switched off in Settings. Unlike <see cref="IsPaused"/>
+    /// this is NOT overridden by a forced "check now": a platform that is off must not contact its
+    /// site at all — the feed says why nothing is arriving instead. The loop keeps ticking (cheaply)
+    /// so re-enabling resumes on the next tick without a restart.
+    /// </summary>
+    public bool PlatformEnabled { get; set; } = true;
+
     /// <summary>Forces an immediate poll cycle outside of the regular timer, without waiting for the next tick.</summary>
     public void RequestCheckNow()
     {
@@ -94,8 +102,9 @@ public sealed class PollService : IPollService
         try
         {
             // Run an immediate first poll rather than waiting a full interval on startup,
-            // unless the service is already paused (e.g. from a persisted preference).
-            if (!_isPaused)
+            // unless the service is already paused (e.g. from a persisted preference) or its platform
+            // is switched off.
+            if (PlatformEnabled && !_isPaused)
             {
                 ReportCycle(await PollOnceAsync(cancellationToken));
             }
@@ -119,7 +128,7 @@ public sealed class PollService : IPollService
                 // regular timer tick, which is exactly why clicking it while paused looked like
                 // the button did nothing. A regular timer tick still honours the pause.
                 var isManualCheckNow = completed == checkNowTask;
-                if (!_isPaused || isManualCheckNow)
+                if (PlatformEnabled && (isManualCheckNow || !_isPaused))
                 {
                     // The loop used to discard this Result entirely, which is the exact point where a
                     // permanent listing failure became invisible. Every cycle now reports its outcome.

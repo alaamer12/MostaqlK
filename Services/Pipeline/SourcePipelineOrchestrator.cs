@@ -13,16 +13,19 @@ public sealed class SourcePipelineOrchestrator
 {
     private readonly Dictionary<SourceId, SourcePipeline> _bySource = new();
     private readonly ISettingsRepository _settings;
+    private readonly PlatformEnablement _enablement;
 
     public SourcePipelineOrchestrator(
         SourcePipelineFactory factory,
         SourceRegistry registry,
         GlobalAppStatusService globalStatus,
         ISettingsRepository settings,
+        PlatformEnablement enablement,
         IEnumerable<ISourceDiscovery> discoveries,
         IEnumerable<ISourceEnrichment> enrichments)
     {
         _settings = settings;
+        _enablement = enablement;
 
         var discoveryBySource = new Dictionary<SourceId, ISourceDiscovery>();
         foreach (var discovery in discoveries)
@@ -95,6 +98,18 @@ public sealed class SourcePipelineOrchestrator
             // activated" requirement.
             pipeline.Poll.SetPaused(!isPollingActive);
 
+            // Seed the platform switch the same way the cadence is seeded: a platform that was off
+            // when the app closed must still be off after it reopens, without the settings page ever
+            // having to be opened to say so. Logged because "why is this platform quiet?" is otherwise
+            // indistinguishable from "this platform is slow" in the field.
+            var platformEnabled = _enablement.IsEnabled(pipeline.Source);
+            SetPlatformEnabled(pipeline.Source, platformEnabled);
+            MostaqlK.Services.Diagnostics.InteractionLogger.Mark("Pipeline.PlatformGate", "A", new
+            {
+                source = pipeline.Source.Value,
+                enabled = platformEnabled,
+            });
+
             // If debug-via-json is requested, force-enable polling to ensure we have data to export.
             if (forceDebugPolling)
             {
@@ -104,5 +119,20 @@ public sealed class SourcePipelineOrchestrator
             _ = Task.Run(() => pipeline.Poll.StartAsync(pipelineToken), pipelineToken);
             _ = Task.Run(() => pipeline.Pool.StartAsync(pipelineToken), pipelineToken);
         }
+    }
+
+    /// <summary>
+    /// Applies one platform's switched-on/off state to its running pipeline, live and without a
+    /// restart: the poll loop stops contacting the site (a forced "check now" included), the worker
+    /// pool stops dequeuing enrichment (holding queued items rather than dropping them), and the
+    /// status projection reports the reason. Navigation, stored data and the unread badge are
+    /// deliberately untouched — see <see cref="PlatformEnablement"/>.
+    /// </summary>
+    public void SetPlatformEnabled(SourceId source, bool enabled)
+    {
+        var pipeline = For(source);
+        pipeline.Poll.PlatformEnabled = enabled;
+        pipeline.Pool.SetPaused(!enabled);
+        pipeline.Status.IsPlatformDisabled = !enabled;
     }
 }

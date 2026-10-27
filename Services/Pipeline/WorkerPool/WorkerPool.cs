@@ -114,6 +114,17 @@ public sealed class WorkerPool
         }
     }
 
+    /// <summary>
+    /// True while this pipeline's platform is switched off in Settings. Workers check it before
+    /// touching the network, so a disabled platform makes no request at all; items already queued
+    /// wait their turn instead of being dropped, and re-enabling resumes them.
+    /// </summary>
+    public bool IsSuspended => _suspended;
+
+    private volatile bool _suspended;
+
+    public void SetPaused(bool suspended) => _suspended = suspended;
+
     public void Reconfigure(int workerCount)
     {
         if (workerCount == WorkerCount || workerCount <= 0 || _poolCts == null)
@@ -140,7 +151,8 @@ public sealed class WorkerPool
     private void SpawnWorker(int id, CancellationToken token)
     {
         var worker = new EnrichmentWorker(
-            id, _discoveryQueue, _enrichmentService, _inFlightTracker, _projectRepository, _ownerRepository, _status, _notificationDispatcher);
+            id, _discoveryQueue, _enrichmentService, _inFlightTracker, _projectRepository, _ownerRepository, _status, _notificationDispatcher,
+            () => _suspended);
         _runningWorkers.Add(Task.Run(async () =>
         {
             try

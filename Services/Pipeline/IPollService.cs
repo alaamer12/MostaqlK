@@ -22,6 +22,13 @@ public interface IPollService
     /// </summary>
     public int PollIntervalSeconds { get; set; }
 
+    /// <summary>
+    /// False while the user has this platform switched off in Settings: the loop keeps ticking but
+    /// contacts nothing, and a forced "check now" is refused too (unlike a pause). See
+    /// <c>PlatformEnablement</c> for the rule and what a disabled platform keeps working.
+    /// </summary>
+    public bool PlatformEnabled { get; set; }
+
     /// <summary>Current observable status, mirrored to the tray icon (see <c>TrayIconService</c>).</summary>
     public PollServiceStatus Status { get; }
 

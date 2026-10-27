@@ -128,6 +128,10 @@ public static class MauiProgram
         // One isolated cookie jar + one namespaced settings store per registered source.
         builder.Services.AddSingleton<ICookieJarProvider, CookieJarProvider>();
         builder.Services.AddSingleton<ISettingsRepository, FilePreferencesSettingsRepository>();
+        // Which platforms are switched on, and the at-least-one-enabled invariant. One instance for
+        // the settings row, the pipeline start-up, and the toast dispatcher — the rule must not be
+        // decided three ways.
+        builder.Services.AddSingleton<PlatformEnablement>();
         // Live brand palette of whichever source owns the UI identity (SourceLinkButton et al.).
         builder.Services.AddSingleton<MostaqlK.UI.DesignSystem.BrandTokens.IBrandTokenProvider, MostaqlK.UI.DesignSystem.BrandTokens.SourceBrandTokenProvider>();
         builder.Services.AddSingleton<IProjectRepository, ProjectRepository>();

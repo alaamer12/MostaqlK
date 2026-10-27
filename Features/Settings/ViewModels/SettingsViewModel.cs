@@ -63,6 +63,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly CloseBehaviorService _closeBehaviorService;
     private readonly IStartupService _startupService;
     private readonly ISettingsRepository _settings;
+    private readonly PlatformEnablement _enablement;
+    private readonly SourceRegistry _registry;
     private readonly SourceContributionRegistry _contributions;
     private readonly IServiceProvider _services;
     private bool _isLoading;
@@ -355,7 +357,15 @@ public sealed partial class SettingsViewModel : ObservableObject
             // Position facts, decided here rather than guessed by the renderer.
             ShowTopDivider = d.Shape != SettingsShape.SectionHeader && !isFirstInSection,
             LastScanAt = d.CommandName == "last-scan" ? _globalStatus.LastScanCompletedAt : null,
+            // The platform switcher's lines are enumerated from the registry here, so the renderer
+            // never asks which platforms exist and a new source appears without touching shared code.
+            PlatformItems = d.Shape == SettingsShape.PlatformSwitches ? BuildPlatformSwitchItems() : [],
         };
+
+        if (d.Shape == SettingsShape.PlatformSwitches)
+        {
+            row.PlatformSwitchToggled += OnPlatformSwitchToggled;
+        }
 
         if (d.Shape == SettingsShape.CookieEditor)
         {
@@ -395,6 +405,50 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         _cookieConnectCommand.NotifyCanExecuteChanged();
         _cookieClearCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// One line per registered platform: its Arabic name, its state, and whether the user may change
+    /// it. The last enabled platform is reported locked (the renderer draws it ON and un-togglable and
+    /// the row's hint states the rule), because refusing a click the UI should never have offered is
+    /// worse than never offering it.
+    /// </summary>
+    private IReadOnlyList<SettingsPlatformSwitchItem> BuildPlatformSwitchItems()
+    {
+        var locked = _enablement.LockedSource;
+        return _enablement.AllSources.Select(source => new SettingsPlatformSwitchItem(
+            source,
+            _registry.Get(source).DisplayNameAr,
+            _enablement.IsEnabled(source),
+            IsLocked: locked is not null && locked == source,
+            AutomationId: $"Settings_PlatformSwitch_{source.Value}")).ToList();
+    }
+
+    /// <summary>
+    /// Applies a platform switch: the invariant is decided by <see cref="PlatformEnablement"/>, the
+    /// running pipeline is re-pointed live (no restart), and the row is rebuilt on the next dispatcher
+    /// turn so the locked/unlocked state repaints without swapping the visual tree from inside the
+    /// toggle event that asked for it.
+    /// </summary>
+    private void OnPlatformSwitchToggled(SourceId source, bool enabled)
+    {
+        var result = _enablement.TrySetEnabled(source, enabled);
+
+        MostaqlK.Services.Diagnostics.InteractionLogger.Mark("SettingsViewModel.PlatformSwitch", "A", new
+        {
+            Source = source.Value,
+            enabled,
+            result.Applied,
+            result.ReasonKey,
+        });
+
+        if (result.Applied)
+        {
+            _services.GetRequiredService<MostaqlK.Services.Pipeline.SourcePipelineOrchestrator>()
+                .SetPlatformEnabled(source, enabled);
+        }
+
+        MainThread.BeginInvokeOnMainThread(ComposeGroups);
     }
 
     private object? RowValueOf(SettingsDescriptor d) => d.Key switch
@@ -546,6 +600,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         IStartupService startupService,
         ISettingsRepository settings,
         SourceContributionRegistry contributions,
+        PlatformEnablement enablement,
+        SourceRegistry registry,
         IServiceProvider services)
     {
         _cookieStores = cookieStoreProvider;
@@ -560,6 +616,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         _startupService = startupService;
         _settings = settings;
         _contributions = contributions;
+        _enablement = enablement;
+        _registry = registry;
         _services = services;
 
         // The cookie row's links are the only controls whose visibility is a state question rather

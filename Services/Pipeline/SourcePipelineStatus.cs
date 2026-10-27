@@ -145,11 +145,22 @@ public sealed partial class SourcePipelineStatus : ObservableObject
     public partial bool LastScanFailed { get; set; }
 
     /// <summary>
+    /// True while the user has this platform switched off in Settings. The footer needs its own word
+    /// for this: "last scan 3 hours ago" next to a green dot reads like a slow poll, not like a switch,
+    /// and a red one reads like a fault, which this is not.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ConnectionText))]
+    public partial bool IsPlatformDisabled { get; set; }
+
+    /// <summary>
     /// Footer connection line. It used to be the hard-coded string "الاتصال: متصل" next to a
     /// permanently green dot, so the app cheerfully claimed to be connected while every single scan
     /// was being rejected.
     /// </summary>
-    public string ConnectionText => LastScanFailed ? "الاتصال: فشل الفحص" : "الاتصال: متصل";
+    public string ConnectionText => IsPlatformDisabled
+        ? "الاتصال: المنصة معطّلة"
+        : LastScanFailed ? "الاتصال: فشل الفحص" : "الاتصال: متصل";
 
     /// <summary>Drives which of the two footer dots is shown (green vs red).</summary>
     public bool IsConnectionHealthy => !LastScanFailed;

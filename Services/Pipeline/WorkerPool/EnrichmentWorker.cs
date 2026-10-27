@@ -33,6 +33,9 @@ public sealed class EnrichmentWorker
     private readonly SourcePipelineStatus _status;
     private readonly INotificationDispatcher _notificationDispatcher;
 
+    /// <summary>True while this pipeline's platform is switched off in Settings.</summary>
+    private readonly Func<bool> _platformSuspended;
+
     public EnrichmentWorker(
         int workerId,
         DiscoveryQueue discoveryQueue,
@@ -41,7 +44,8 @@ public sealed class EnrichmentWorker
         IProjectRepository projectRepository,
         IOwnerRepository ownerRepository,
         SourcePipelineStatus status,
-        INotificationDispatcher notificationDispatcher)
+        INotificationDispatcher notificationDispatcher,
+        Func<bool> platformSuspended)
     {
         _workerId = workerId;
         _discoveryQueue = discoveryQueue;
@@ -51,6 +55,20 @@ public sealed class EnrichmentWorker
         _ownerRepository = ownerRepository;
         _status = status;
         _notificationDispatcher = notificationDispatcher;
+        _platformSuspended = platformSuspended;
+    }
+
+    /// <summary>
+    /// Holds a switched-off platform's work instead of dropping it: the item waits here (no request,
+    /// no radar activity, nothing removed from the persistent backlog), and the queue behind it stays
+    /// intact, so re-enabling the platform resumes exactly where it stopped.
+    /// </summary>
+    private async Task WaitForPlatformEnabledAsync(CancellationToken cancellationToken)
+    {
+        while (_platformSuspended())
+        {
+            await Task.Delay(250, cancellationToken);
+        }
     }
 
     public async Task RunAsync(CancellationToken cancellationToken = default)
@@ -61,6 +79,10 @@ public sealed class EnrichmentWorker
             {
                 try
                 {
+                    // A switched-off platform does no network work: hold the item here (before the
+                    // radar even shows it picked up) rather than discarding it.
+                    await WaitForPlatformEnabledAsync(cancellationToken);
+
                     // Radar: the queued project token travels to this worker's segment, then the
                     // segment activates - the user can see *which* worker picked the project up.
                     _status.NotifyProjectAssignedToWorker(_workerId, projectId);

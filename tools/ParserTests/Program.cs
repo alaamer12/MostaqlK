@@ -143,6 +143,8 @@ public static class Program
         Run(nameof(TestSettingsSectionRanking), TestSettingsSectionRanking);
         Run(nameof(TestPollIntervalIsClampedPerSite), TestPollIntervalIsClampedPerSite);
         Run(nameof(TestPlatformNotificationMute), TestPlatformNotificationMute);
+        Run(nameof(TestPlatformEnablementKeepsAtLeastOne), TestPlatformEnablementKeepsAtLeastOne);
+        Run(nameof(TestRendererCoversEveryShape), TestRendererCoversEveryShape);
 
         Console.WriteLine();
         Console.WriteLine(new string('=', 60));
@@ -1816,6 +1818,9 @@ public static class Program
             SettingsKeys.NotificationGroupingEnabled, SettingsKeys.GroupingMode, SettingsKeys.GroupingThreshold,
             SettingsKeys.StartupEnabled, SettingsKeys.RememberLastSource, SettingsKeys.IsDarkMode,
             SettingsKeys.CloseBehaviorAction, SettingsKeys.CloseBehaviorRemembered,
+            // The switch row lives with the system's settings (its set is one app-wide value) even
+            // though every value inside it describes one platform.
+            "platform-switches",
         };
         var platformRows = new[]
         {
@@ -2237,6 +2242,84 @@ public static class Program
 
         Check("mute: the row is stored per platform, never in the flat container",
             !repo.Flat.ContainsKey(SettingsKeys.EnableSourceNotifications));
+    }
+
+    /// <summary>
+    /// Step 5: the invariant behind the «المنصات» switches — at least one platform stays enabled —
+    /// plus the storage shape that makes it atomic (one flat set, not one flag per container).
+    /// </summary>
+    private static void TestPlatformEnablementKeepsAtLeastOne()
+    {
+        var repo = new FakeSettingsRepository();
+        var enablement = new PlatformEnablement(
+            repo, new SourceRegistry([MostaqlSource.Instance, NafezlySource.Instance]));
+        var mostaql = SourceId.From("mostaql");
+        var nafezly = SourceId.From("nafezly");
+
+        Check("enablement: every registered platform starts enabled (an absent set means all on)",
+            enablement.IsEnabled(mostaql) && enablement.IsEnabled(nafezly));
+        Check("enablement: nothing is locked while more than one platform is on",
+            enablement.LockedSource is null);
+
+        var first = enablement.TrySetEnabled(nafezly, false);
+        Check("enablement: a platform may be switched off while another stays on",
+            first.Applied && !enablement.IsEnabled(nafezly),
+            $"applied={first.Applied} reason={first.ReasonKey}");
+        Check("enablement: the remaining platform becomes the locked one",
+            enablement.LockedSource == mostaql);
+
+        var refused = enablement.TrySetEnabled(mostaql, false);
+        Check("enablement: switching off the last platform is refused, not applied",
+            !refused.Applied && refused.ReasonKey == PlatformEnablement.ReasonLastEnabledPlatform
+            && enablement.IsEnabled(mostaql),
+            $"applied={refused.Applied} reason={refused.ReasonKey}");
+
+        enablement.TrySetEnabled(nafezly, true);
+        Check("enablement: re-enabling releases the lock",
+            enablement.LockedSource is null && enablement.IsEnabled(nafezly));
+
+        Check("enablement: the set is one flat key, never a flag per platform container",
+            repo.Flat.ContainsKey(SettingsKeys.DisabledPlatforms)
+            && !repo.Namespaced("nafezly").ContainsKey(SettingsKeys.DisabledPlatforms));
+
+        // A platform removed from a later build must not take the settings page or the pipeline down.
+        repo.Flat[SettingsKeys.DisabledPlatforms] = "ghost-platform, nafezly";
+        Check("enablement: an unknown stored id is inert while the known one still applies",
+            enablement.IsEnabled(mostaql) && !enablement.IsEnabled(nafezly));
+
+        repo.Flat[SettingsKeys.DisabledPlatforms] = "ghost-platform";
+        Check("enablement: a set of only unknown ids leaves every real platform on",
+            enablement.IsEnabled(mostaql) && enablement.IsEnabled(nafezly));
+
+        Check("enablement: the switch row composes in the system band with its own shape",
+            SettingsCatalog.Compose(MostaqlSource.Instance, []).Descriptors
+                .Any(d => d.Key == "platform-switches"
+                    && d.Shape == SettingsShape.PlatformSwitches
+                    && d.Section == "system"
+                    && d.AutomationId == "Settings_PlatformSwitches"));
+    }
+
+    /// <summary>
+    /// The renderer's switch over a CLOSED enum is the one place a new shape can be added and then
+    /// crash at runtime (`default: throw`). The compiler cannot catch it across files, so this scans
+    /// the unit's source and fails when a shape has no branch.
+    /// </summary>
+    private static void TestRendererCoversEveryShape()
+    {
+        var root = FindRepoRoot();
+        var renderer = Path.Combine(root, "UI", "PlatformComponents", "SettingsRow", "SettingsRow.cs");
+        var source = File.ReadAllText(renderer);
+
+        var missing = Enum.GetValues<SettingsShape>()
+            .Where(shape => !source.Contains($"SettingsShape.{shape}", StringComparison.Ordinal))
+            .ToList();
+
+        Check("renderer: every SettingsShape has a branch in SettingsRow",
+            missing.Count == 0,
+            string.Join(",", missing));
+
+        Check("renderer: the switch keeps its exhaustive default throw",
+            source.Contains("throw new ArgumentOutOfRangeException", StringComparison.Ordinal));
     }
 
     /// <summary>

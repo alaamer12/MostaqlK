@@ -66,6 +66,12 @@ public static class SettingsKeys
     /// outside the settings page; this VM only exposes the persisted flag cleanly.</summary>
     public const string RememberLastSource = "settings_remember_last_source";
 
+    /// <summary>Global: comma-separated ids of the platforms the user SWITCHED OFF. Absent/empty means
+    /// every registered platform is enabled, which is what makes a newly added source on-by-default
+    /// and an id left behind by a removed source inert. Owned by <see cref="PlatformEnablement"/>:
+    /// the at-least-one-enabled invariant is a property of this set, so it is written as one value.</summary>
+    public const string DisabledPlatforms = "settings_disabled_platforms";
+
     /// <summary>Global: whether the user asked the close dialog's "remember my choice" box to stick.
     /// Owned here (not as a private constant inside the service) because the settings catalog renders
     /// and edits the SAME key the window-closing path reads.</summary>

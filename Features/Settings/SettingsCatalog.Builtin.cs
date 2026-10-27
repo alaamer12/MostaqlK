@@ -26,6 +26,17 @@ public static partial class SettingsCatalog
             HintAr = "إعدادات تطبّق على كل المنصات — قيمة واحدة يشترك فيها كل ما هو مفعّل منها.",
             IconName = "Sliders",
         },
+        // Which platforms the app works with at all. The row's lines are enumerated from the source
+        // registry by the composition, so a new source appears here without this file being touched,
+        // and the renderer names no platform. Disabling is network silence: the switch that would
+        // leave zero enabled is drawn locked, and the hint states the rule once for the whole row.
+        new("platform-switches", SettingsShape.PlatformSwitches, SettingsScope.Global,
+            "المنصات", "system", 5)
+        {
+            HintAr = "منصة واحدة على الأقل يجب أن تبقى مفعّلة. الإيقاف يوقف الفحص والإثراء والتنبيهات فقط — المشاريع المحفوظة والتنقّل والروابط تبقى كما هي.",
+            AutomationId = "Settings_PlatformSwitches",
+            AutomationIdMobile = "Settings_Mobile_PlatformSwitches",
+        },
         // A system row cannot take a per-platform default: the value it falls back to has to be the
         // same number whichever platform the user is on. `ISourceDescriptor.DefaultPollIntervalSeconds`
         // (mostaql 30 / nafezly 60) went out with that line because its only consumers were this row

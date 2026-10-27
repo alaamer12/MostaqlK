@@ -122,14 +122,24 @@
                                FontFamily="Tajawal" />
                     </HorizontalStackLayout>
 
-                    <lastscan:LastScanStatus Grid.Column="1"
-                                             LastScanAt="{Binding GlobalStatus.LastScanCompletedAt}"
-                                             IsChecking="{Binding GlobalStatus.IsScanning}"
-                                             ShowRefresh="True"
-                                             RefreshCommand="{Binding RefreshCommand}"
-                                             FontSize="11"
-                                             TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
-                                             VerticalOptions="Center" />
+                    <VerticalStackLayout Grid.Column="1" Spacing="2">
+                        <!-- Same rule as the Windows twin: a switched-off platform states itself next
+                             to the scan status, because its stored feed stays fully navigable. -->
+                        <Label Text="لا يوجد فحص — هذه المنصة معطّلة"
+                               IsVisible="{Binding IsPlatformDisabled}"
+                               AutomationId="Projects_Mobile_PlatformDisabledNotice"
+                               FontSize="11"
+                               FontFamily="TajawalBold"
+                               HorizontalOptions="End"
+                               TextColor="{AppThemeBinding Light=#B45309, Dark=#FBBF24}" />
+                        <lastscan:LastScanStatus LastScanAt="{Binding GlobalStatus.LastScanCompletedAt}"
+                                                 IsChecking="{Binding GlobalStatus.IsScanning}"
+                                                 ShowRefresh="True"
+                                                 RefreshCommand="{Binding RefreshCommand}"
+                                                 FontSize="11"
+                                                 TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                                 VerticalOptions="Center" />
+                    </VerticalStackLayout>
                 </Grid>
 
             </VerticalStackLayout>

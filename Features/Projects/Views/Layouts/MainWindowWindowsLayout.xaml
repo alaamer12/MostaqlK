@@ -355,6 +355,17 @@
 
             <!-- inline-end: آخر فحص (LastScanStatus unit) + poll pill (pause/resume). -->
             <HorizontalStackLayout Grid.Column="2" Spacing="12" VerticalOptions="Center" Margin="0,4,0,0">
+                <!-- A switched-off platform says so where the scan status lives. The feed keeps its
+                     stored projects and stays navigable, so this line — not a missing row — is what
+                     tells the user why nothing new is arriving. Amber: a state, not a fault. -->
+                <Label Text="لا يوجد فحص — هذه المنصة معطّلة"
+                       IsVisible="{Binding IsPlatformDisabled}"
+                       AutomationId="Projects_PlatformDisabledNotice"
+                       FontSize="11"
+                       FontFamily="TajawalBold"
+                       TextColor="{AppThemeBinding Light=#B45309, Dark=#FBBF24}"
+                       VerticalOptions="Center" />
+
                 <lastscan:LastScanStatus AutomationId="Projects_LastScanStatus"
                                          LabelAutomationId="Projects_LastScanLabel"
                                          RefreshAutomationId="Projects_RefreshLabel"

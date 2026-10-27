@@ -80,6 +80,22 @@ public sealed class SettingsRowViewModel
     public bool ShowTopDivider { get; init; } = true;
 
     /// <summary>
+    /// The lines of a <see cref="SettingsShape.PlatformSwitches"/> row — one per registered platform,
+    /// built by the composition from the source registry and <c>PlatformEnablement</c>. Empty for
+    /// every other row. The renderer enumerates this and never asks which platforms exist.
+    /// </summary>
+    public IReadOnlyList<SettingsPlatformSwitchItem> PlatformItems { get; init; } = [];
+
+    /// <summary>
+    /// Raised when the user flips one platform's switch. The owner of the row decides whether the
+    /// change is allowed (the at-least-one-enabled invariant lives in the composition, not here) and
+    /// then rebuilds the row, so a refused flip repaints the switch back ON instead of lying about it.
+    /// </summary>
+    public event Action<SourceId, bool>? PlatformSwitchToggled;
+
+    public void RaisePlatformSwitchToggled(SourceId source, bool enabled) => PlatformSwitchToggled?.Invoke(source, enabled);
+
+    /// <summary>
     /// Timestamp a <see cref="SettingsShape.ReadOnlyStat"/> row hosts through the
     /// <c>LastScanStatus</c> unit (the one stat whose text keeps re-wording itself after the row is
     /// built). Null for every other row; settable because the host keeps it current.

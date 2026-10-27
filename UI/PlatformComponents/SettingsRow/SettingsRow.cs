@@ -173,6 +173,7 @@ public partial class SettingsRow : ContentView
             case SettingsShape.SectionHeader: BuildSectionHeader(row); break;
             case SettingsShape.FilePicker: BuildFilePicker(row); break;
             case SettingsShape.CookieEditor: BuildCookieEditor(row); break;
+            case SettingsShape.PlatformSwitches: BuildPlatformSwitches(row); break;
             default: throw new ArgumentOutOfRangeException(nameof(row), d.Shape, $"Unhandled {nameof(SettingsShape)} '{d.Shape}' — the renderer must cover every catalog shape (see settings-shapes.html).");
         }
 
@@ -199,6 +200,48 @@ public partial class SettingsRow : ContentView
         toggle.IsToggled = row.Read() as bool? ?? false;
         toggle.Toggled += (_, e) => row.Write(e.Value);
         _valueCell.Children.Add(toggle);
+    }
+
+    /// <summary>
+    /// One line per registered platform: its Arabic name and its switch. The renderer asks nothing
+    /// about which platforms exist — the composition hands it the list — so adding a source changes
+    /// this row without touching this file.
+    /// <para>
+    /// The locked case is drawn, not enforced by a message: the last enabled platform's switch shows
+    /// ON and is not hit-testable, while the row's own hint states the rule once. A tap that the
+    /// system will refuse never gets to look like a control that broke.
+    /// </para>
+    /// </summary>
+    private void BuildPlatformSwitches(SettingsRowViewModel row)
+    {
+        var column = new VerticalStackLayout { Spacing = 10 };
+
+        foreach (var item in row.PlatformItems)
+        {
+            var line = new HorizontalStackLayout
+            {
+                Spacing = 10,
+                // Each platform's own line is the row's unit; the hairline between rows belongs to
+                // the row, not to these lines, so nothing here draws one.
+                VerticalOptions = LayoutOptions.Center,
+            };
+
+            var toggle = new AppToggle
+            {
+                OnColor = BrandPalette.Brand,
+                ThumbColor = Colors.White,
+                IsToggled = item.IsEnabled,
+                IsEnabled = !item.IsLocked,
+            };
+            ApplyId(toggle, item.AutomationId);
+            toggle.Toggled += (_, e) => row.RaisePlatformSwitchToggled(item.Source, e.Value);
+
+            line.Children.Add(new Label { Text = item.NameAr, VerticalOptions = LayoutOptions.Center });
+            line.Children.Add(toggle);
+            column.Children.Add(line);
+        }
+
+        _valueCell.Children.Add(column);
     }
 
     private void BuildNumeric(SettingsRowViewModel row)

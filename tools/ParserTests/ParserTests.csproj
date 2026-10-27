@@ -107,6 +107,11 @@
 		<!-- Step 3: the per-platform toast mute is the rule a settings row used to write without
 		     anything ever reading it, so its container and default are pinned offline. -->
 		<Compile Include="..\..\Core\Sources\NotificationMute.cs" LinkBase="Core" />
+		<!-- Step 5: the platform switch's at-least-one-enabled invariant is the rule the settings row,
+		     the pipeline and the toast dispatcher all share, so it is proven offline against the two
+		     real descriptors and a fake store. -->
+		<Compile Include="..\..\Core\Sources\SourceRegistry.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Sources\PlatformEnablement.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Sources\SourceContributions.cs" LinkBase="Core" />
 		<Compile Include="..\..\Sources\Nafezly\Contributions\NafezlySettingsContribution.cs" LinkBase="Sources" />
 		<Compile Include="..\..\Infrastructure\Http\CookieParser.cs" LinkBase="Http" />

@@ -43,6 +43,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     private readonly TokenBucketRateLimiter _rateLimiter;
     private readonly GlobalAppStatusService _globalStatus;
     private readonly ISettingsRepository _settings;
+    private readonly PlatformEnablement _enablement;
     private SourceId _source = SourceId.Default;
 
     // Generation-checked batch apply guard (renderer side of the store's contract): a snapshot
@@ -186,13 +187,26 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     /// <summary>True while a search term is active — drives filtered footer counts and the empty-state copy.</summary>
     public bool IsSearchActive => !string.IsNullOrWhiteSpace(SearchQuery);
 
-    public string EmptyStateTitle => IsSearchActive
-        ? $"لا توجد نتائج لـ \"{SearchQuery.Trim()}\""
-        : "لا توجد مشاريع حالياً";
+    /// <summary>
+    /// True while this feed's platform is switched off in Settings. The feed itself stays usable —
+    /// stored projects, filters, details and navigation are untouched — so this is the one place that
+    /// says why nothing new is arriving. It shows in the scan-status line and, when there is nothing
+    /// stored to show, in the empty state.
+    /// </summary>
+    public bool IsPlatformDisabled { get; private set; }
 
-    public string EmptyStateSubtitle => IsSearchActive
-        ? "جرّب كلمات بحث مختلفة أو تحقّق من الإملاء."
-        : "سيتم عرض المشاريع الجديدة هنا فور توفرها.";
+    /// <summary>Empty-state headline for a switched-off platform with nothing stored.</summary>
+    public string EmptyStateTitle => IsPlatformDisabled
+        ? "لا يوجد فحص لأن هذه المنصة معطّلة"
+        : IsSearchActive
+            ? $"لا توجد نتائج لـ \"{SearchQuery.Trim()}\""
+            : "لا توجد مشاريع حالياً";
+
+    public string EmptyStateSubtitle => IsPlatformDisabled
+        ? "فعّلها من الإعدادات لإعادة تشغيل الفحص — المشاريع المحفوظة تبقى متاحة هنا."
+        : IsSearchActive
+            ? "جرّب كلمات بحث مختلفة أو تحقّق من الإملاء."
+            : "سيتم عرض المشاريع الجديدة هنا فور توفرها.";
 
     public ProjectFeedViewModel(
         IProjectRepository projectRepository,
@@ -200,7 +214,8 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         IPollService pollService,
         TokenBucketRateLimiter rateLimiter,
         GlobalAppStatusService globalStatus,
-        ISettingsRepository settings)
+        ISettingsRepository settings,
+        PlatformEnablement enablement)
     {
         _projectRepository = projectRepository;
         _store = store;
@@ -208,6 +223,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         _rateLimiter = rateLimiter;
         _globalStatus = globalStatus;
         _settings = settings;
+        _enablement = enablement;
 
         // The VM is constructed after App's startup restore (or a parity `--source-id` launch)
         // has already re-pointed the projection, and events cannot reach a view-model that does
@@ -553,6 +569,15 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
             : storedInterval;
         RequestsPerMinute = _settings.Get(_source, SettingsKeys.MaxRequestsPerMinute, Math.Max(1, _rateLimiter.Capacity));
         IsPollingActive = !_pollService.IsPaused;
+
+        var platformDisabled = !_enablement.IsEnabled(_source);
+        if (platformDisabled != IsPlatformDisabled)
+        {
+            IsPlatformDisabled = platformDisabled;
+            OnPropertyChanged(nameof(IsPlatformDisabled));
+            OnPropertyChanged(nameof(EmptyStateTitle));
+            OnPropertyChanged(nameof(EmptyStateSubtitle));
+        }
 
         // The filter vocabulary is descriptor data of the CURRENT source: re-read it on every
         // header refresh (load + source morph) so the modal affordance and the active-query line

@@ -14,6 +14,7 @@ public sealed class NotificationDispatcher : INotificationDispatcher
     private readonly NotificationGrouper _grouper;
     private readonly GlobalAppStatusService _globalStatus;
     private readonly ISettingsRepository _settings;
+    private readonly PlatformEnablement _enablement;
     private readonly Lock _historyGate = new();
     private readonly List<ProjectSummary> _history = [];
 
@@ -40,12 +41,14 @@ public sealed class NotificationDispatcher : INotificationDispatcher
         INotificationSender toastSender,
         NotificationGrouper grouper,
         GlobalAppStatusService globalStatus,
-        ISettingsRepository settings)
+        ISettingsRepository settings,
+        PlatformEnablement enablement)
     {
         _toastSender = toastSender;
         _grouper = grouper;
         _globalStatus = globalStatus;
         _settings = settings;
+        _enablement = enablement;
         _grouper.OnFlush += HandleFlush;
     }
 
@@ -59,12 +62,14 @@ public sealed class NotificationDispatcher : INotificationDispatcher
         // `HandleFlush`.
         // "تنبيهات هذه المنصة" is enforced HERE. The row existed and persisted since the multi-source
         // work, but nothing ever read it — flipping it off changed a number on disk while every toast
-        // still arrived. It gates the TOAST BUFFER ONLY: the unread badge and the flyout history below
-        // keep counting, because muting a platform's popups must not hide its projects.
+        // still arrived. Two independent authorities are asked, never merged: that per-platform
+        // toggle, and the platform being switched off at all (a disabled platform emits nothing
+        // whatever its toggle says). Both gate the TOAST BUFFER ONLY: the unread badge and the flyout
+        // history below keep counting, because silencing a platform's popups must not hide its projects.
         var mutedSources = projects
             .Select(project => project.Source)
             .Distinct()
-            .Where(_settings.IsMuted)
+            .Where(source => _settings.IsMuted(source) || !_enablement.IsEnabled(source))
             .ToList();
 
         foreach (var project in projects)

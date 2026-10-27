@@ -13,6 +13,10 @@ public enum SettingsShape
     TextEntry,
     EnumPicker,
     CookieEditor,
+    // One switch per registered platform, enumerated from the source registry — the row that lets a
+    // user switch a platform off without deleting its data. Composite like CookieEditor: several
+    // controls in one row, all of them existing units.
+    PlatformSwitches,
     ReadOnlyStat,
     ActionButton,
     LinkOut,
