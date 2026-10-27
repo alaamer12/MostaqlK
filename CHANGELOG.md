@@ -116,6 +116,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release scripts accept `-Channel`; the canary channel skips the `tools/reset*.ps1` scripts because they target the stable data root.
 - Bundle-extraction guard relaunches a process that landed in the other channel's `bundle-cache` (the single-file apphost extracts before managed code runs, using a user-scoped env var both channels share).
 
+### Added (dev44 — layered isolability, settings plugin step 0)
+- `Core/Layers/`: typed layer keys (`LayerAxis`/`LayerCoordinate`/`LayerKey`), explicit `LayerRegistration<T>` cells, and `LayerResolver` implementing the resolution rules — most-coordinates-matches wins, equal-specificity collisions throw `AmbiguousLayerException` (never resolved by registration order), duplicate cells and missing bases fail at startup. Base/single-axis/tie-breaker layers plus the ascending-specificity merge chain are proven by 9 new ParserTests checks.
+- `tools/coexistence-smoke.ps1`: publishes both channels from one tree, launches them together, and asserts both singleton mutexes, both data roots, and zero crash logs — the manual side-by-side proof is now a repeatable gate.
+- Identity-literals lint (`TestIdentityLiterals`): the brand string may appear as a runtime literal only inside `ChannelIdentity`; process-local names (splash window class, thread names) now derive from it, with a documented allowlist for the shared `MostaqlK.exe` fallback and the mobile keystore alias.
+
+### Changed (dev44 — layered isolability, settings plugin step 0)
+- The channel axis moved from `#if CHANNEL_CANARY` branches to per-variant files (`ChannelIdentity.Stable.cs` / `ChannelIdentity.Canary.cs`) selected by the `-p:Channel` build property — one axis per filename, and a channel's layer files never compile into the other channel's binary.
+- Window/onboarding shell titles are channel-derived, so a canary window no longer labels itself like a stable install.
+
 ## [1.0.4] - 2026-09-02
 
 ### Added

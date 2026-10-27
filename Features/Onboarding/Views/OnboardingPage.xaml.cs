@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using MostaqlK.Core.Platform;
 using MostaqlK.Features.Onboarding.ViewModels;
 using MostaqlK.UI.PlatformComponents;
 
@@ -15,6 +16,7 @@ public partial class OnboardingPage : ContentPage
     public OnboardingPage(OnboardingViewModel viewModel)
     {
         InitializeComponent();
+        Title = ChannelIdentity.AppName;
         BindingContext = viewModel;
         FlowDirection = FlowDirection.RightToLeft;
 

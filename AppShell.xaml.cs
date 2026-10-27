@@ -1,4 +1,5 @@
 using MostaqlK.Core.Navigation;
+using MostaqlK.Core.Platform;
 using MostaqlK.Features.Projects.ViewModels;
 using MostaqlK.Features.Projects.Views;
 
@@ -13,6 +14,10 @@ public partial class AppShell : Shell
         MostaqlK.Services.Diagnostics.InteractionLogger.Mark("AppShell.Ctor", "A");
         _startup = startup;
         InitializeComponent();
+
+        // Channel-derived so a canary window is never labeled like a stable install; the XAML
+        // Title stays as the design-time default only.
+        Title = ChannelIdentity.AppName;
 
         // Detail-only route (not a ShellContent tab): reached via Shell.Current.GoToAsync
         // from ProjectFeedViewModel.SelectProjectCommand.

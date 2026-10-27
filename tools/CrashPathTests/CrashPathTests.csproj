@@ -13,6 +13,7 @@
 	<ItemGroup>
 		<Compile Include="..\..\Core\Platform\LogDirectoryPurger.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Platform\ChannelIdentity.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Platform\ChannelIdentity.Stable.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Diagnostics\NativeExceptionPolicy.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Diagnostics\BackgroundCanvasPolicy.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Diagnostics\BundleExtractPolicy.cs" LinkBase="Core" />

@@ -224,7 +224,7 @@ public static class NativeSplashScreen
             _splashThread = new Thread(SplashThreadProc)
             {
                 IsBackground = true,
-                Name = "MostaqlK.NativeSplashScreen"
+                Name = ChannelIdentity.AppName + ".NativeSplashScreen"
             };
             _splashThread.SetApartmentState(ApartmentState.STA);
             _splashThread.Start();
@@ -248,7 +248,9 @@ public static class NativeSplashScreen
 
     private static void SplashThreadProc()
     {
-        const string className = "MostaqlKSplashScreenWndClass";
+        // Per-process window class, but named from the channel identity so the identity lint has
+        // exactly one home for the brand string.
+        string className = ChannelIdentity.AppName + "SplashScreenWndClass";
         IntPtr hInstance = GetModuleHandle(null);
 
         _wndProc = WndProc;

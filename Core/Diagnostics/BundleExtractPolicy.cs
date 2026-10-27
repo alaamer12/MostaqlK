@@ -1,3 +1,5 @@
+using MostaqlK.Core.Platform;
+
 namespace MostaqlK.Core.Diagnostics;
 
 /// <summary>
@@ -105,7 +107,7 @@ public static class BundleExtractPolicy
         var firstSegment = relative.Split(
             new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, 2)[0];
 
-        return firstSegment.StartsWith("MostaqlK", StringComparison.OrdinalIgnoreCase)
+        return firstSegment.StartsWith(ChannelIdentity.BaseAppName, StringComparison.OrdinalIgnoreCase)
                && relative.Contains("bundle-cache", StringComparison.OrdinalIgnoreCase);
     }
 

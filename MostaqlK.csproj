@@ -28,11 +28,11 @@
 		<MauiXamlInflator>SourceGen</MauiXamlInflator>
 
 		<!-- Build channel stamp: stable by default; CI passes -p:Channel=canary for the canary branch.
-		     CHANNEL_CANARY drives ChannelIdentity (Core/Platform/ChannelIdentity.cs), which suffixes
-		     every persistent OS identity (.Canary) so both builds can run side by side. -->
+		     Channel selection is per-variant files (see the Compile Remove block below):
+		     ChannelIdentity.{Stable,Canary}.cs fulfil the identity seams, so no #if CHANNEL_CANARY
+		     ever appears in a body. The suffix also drives ApplicationTitle. -->
 		<Channel Condition="'$(Channel)' == ''">stable</Channel>
 		<ChannelSuffix Condition="'$(Channel)' == 'canary'">.Canary</ChannelSuffix>
-		<DefineConstants Condition="'$(Channel)' == 'canary'">$(DefineConstants);CHANNEL_CANARY</DefineConstants>
 
 		<!-- Display name -->
 		<ApplicationTitle>MostaqlK$(ChannelSuffix)</ApplicationTitle>
@@ -41,12 +41,12 @@
 		<ApplicationId>com.mostaqlk</ApplicationId>
 
 		<!-- Versions -->
-		<ApplicationDisplayVersion>1.0.4.dev43</ApplicationDisplayVersion>
-		<ApplicationVersion>48</ApplicationVersion>
+		<ApplicationDisplayVersion>1.0.4.dev44</ApplicationDisplayVersion>
+		<ApplicationVersion>49</ApplicationVersion>
 		<Version>1.0.4</Version>
-		<InformationalVersion>1.0.4.dev43</InformationalVersion>
-		<FileVersion>1.0.4.22</FileVersion>
-		<AssemblyVersion>1.0.4.22</AssemblyVersion>
+		<InformationalVersion>1.0.4.dev44</InformationalVersion>
+		<FileVersion>1.0.4.23</FileVersion>
+		<AssemblyVersion>1.0.4.23</AssemblyVersion>
 		<Description>MostaqlK Desktop</Description>
 		<Product>MostaqlK</Product>
 		<Company>MostaqlK</Company>
@@ -165,6 +165,17 @@
 	</ItemGroup>
 	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'windows'">
 		<Compile Remove="**\*.Windows.cs" />
+	</ItemGroup>
+
+	<!-- Channel selection (layered-isolability Level 1): the sparse build-time axis lives in file
+	     names, one axis per filename - never X.Canary.Windows.cs. A stable build compiles
+	     *.Stable.cs and excludes *.Canary.cs (and vice versa), so other channels' layer files
+	     never ship in this binary. -->
+	<ItemGroup Condition="'$(Channel)' != 'canary'">
+		<Compile Remove="**\*.Canary.cs" />
+	</ItemGroup>
+	<ItemGroup Condition="'$(Channel)' == 'canary'">
+		<Compile Remove="**\*.Stable.cs" />
 	</ItemGroup>
 
 	<!-- tools\* holds standalone dev-utility console projects (each with its own .csproj, e.g.

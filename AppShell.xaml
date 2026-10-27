@@ -6,7 +6,7 @@
     xmlns:local="clr-namespace:MostaqlK"
     xmlns:projectViews="clr-namespace:MostaqlK.Features.Projects.Views"
     xmlns:settingsViews="clr-namespace:MostaqlK.Features.Settings.Views"
-    Title="MostaqlK"
+    Title=""
     FlowDirection="RightToLeft"
     FlyoutBehavior="Disabled">
 

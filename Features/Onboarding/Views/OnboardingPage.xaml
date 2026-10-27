@@ -6,7 +6,7 @@
              xmlns:conv="clr-namespace:MostaqlK.UI.DesignSystem.Converters"
              x:Class="MostaqlK.Features.Onboarding.Views.OnboardingPage"
              BackgroundColor="{AppThemeBinding Light=#EEF1F6, Dark=#0B1424}"
-             Title="MostaqlK">
+             Title="">
     <ContentPage.Resources>
         <conv:InvertedBoolConverter x:Key="InvertedBoolConverter" />
     </ContentPage.Resources>

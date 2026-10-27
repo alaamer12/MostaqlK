@@ -2,6 +2,7 @@ using System.Text;
 using HtmlAgilityPack;
 using MostaqlK.Core;
 using MostaqlK.Core.Formatting;
+using MostaqlK.Core.Layers;
 using MostaqlK.Core.Sources;
 using MostaqlK.Infrastructure.Http;
 using MostaqlK.Features.Projects.ViewModels;
@@ -105,6 +106,18 @@ public static class Program
         Run(nameof(TestStoreRowStateMachine), TestStoreRowStateMachine);
         Run(nameof(TestStoreWarmPeerPrefetch), TestStoreWarmPeerPrefetch);
         Run(nameof(TestStoreOptimisticReadOverlay), TestStoreOptimisticReadOverlay);
+
+        // Step 0 (layered isolability): the resolver's rules (most-coordinates wins, equal-
+        // specificity collisions fail loudly, duplicate cells and missing bases throw) and the
+        // identity-literals lint that makes channel isolation a build error, not a testing
+        // discovery. Pure logic + filesystem scan, no app stack needed.
+        Console.WriteLine("\n--- Layers (Step 0) ---\n");
+        Run(nameof(TestLayerResolverSingleWinner), TestLayerResolverSingleWinner);
+        Run(nameof(TestLayerResolverAmbiguityThrows), TestLayerResolverAmbiguityThrows);
+        Run(nameof(TestLayerResolverDuplicateCellThrows), TestLayerResolverDuplicateCellThrows);
+        Run(nameof(TestLayerResolverMissingBaseThrows), TestLayerResolverMissingBaseThrows);
+        Run(nameof(TestLayerChainAscendingSpecificity), TestLayerChainAscendingSpecificity);
+        Run(nameof(TestIdentityLiterals), TestIdentityLiterals);
 
         Console.WriteLine();
         Console.WriteLine(new string('=', 60));
@@ -1457,6 +1470,172 @@ public static class Program
         var refined = store.Peek(mostaql)!;
         Check("refine racing the deferred write keeps the optimistic read (no flicker)",
             refined.Items.Any(i => i.ProjectId == 10 && !i.IsUnread) && refined.Counts.Unread >= 0);
+    }
+
+    // -----------------------------------------------------------------
+    // Layers (Step 0): resolution rules + identity-literals lint
+    // -----------------------------------------------------------------
+
+    private static void TestLayerResolverSingleWinner()
+    {
+        var layers = new List<LayerRegistration<string>>
+        {
+            new(LayerKey.Base, "base"),
+            new(LayerKey.For(LayerAxis.Source, "nafezly"), "by-source"),
+            new(LayerKey.For(LayerAxis.Channel, ChannelLayer.Canary), "by-channel"),
+            new(new LayerKey(
+                new LayerCoordinate(LayerAxis.Source, "nafezly"),
+                new LayerCoordinate(LayerAxis.Channel, ChannelLayer.Canary)), "tie-breaker"),
+        };
+
+        Check("layer: base wins when nothing matches",
+            LayerResolver.Resolve("seam", layers, LayerCtx("mostaql", ChannelLayer.Stable)) == "base");
+        Check("layer: source match wins over base",
+            LayerResolver.Resolve("seam", layers, LayerCtx("nafezly", ChannelLayer.Stable)) == "by-source");
+        Check("layer: channel match wins over base",
+            LayerResolver.Resolve("seam", layers, LayerCtx("mostaql", ChannelLayer.Canary)) == "by-channel");
+        Check("layer: tie-breaker beats both single-axis layers",
+            LayerResolver.Resolve("seam", layers, LayerCtx("nafezly", ChannelLayer.Canary)) == "tie-breaker");
+    }
+
+    private static void TestLayerResolverAmbiguityThrows()
+    {
+        // Two single-axis layers genuinely disagree at one cell with no tie-breaker registered:
+        // resolution must fail loudly, never pick by registration order.
+        var layers = new List<LayerRegistration<string>>
+        {
+            new(LayerKey.Base, "base"),
+            new(LayerKey.For(LayerAxis.Source, "nafezly"), "by-source"),
+            new(LayerKey.For(LayerAxis.Channel, ChannelLayer.Canary), "by-channel"),
+        };
+        Check("layer: equal-specificity collision throws",
+            ThrowsLayer<AmbiguousLayerException>(() => LayerResolver.Resolve("seam", layers, LayerCtx("nafezly", ChannelLayer.Canary))));
+    }
+
+    private static void TestLayerResolverDuplicateCellThrows()
+    {
+        var layers = new List<LayerRegistration<string>>
+        {
+            new(LayerKey.Base, "base"),
+            new(LayerKey.Base, "second-base"),
+        };
+        Check("layer: duplicate cell throws",
+            ThrowsLayer<DuplicateLayerException>(() => LayerResolver.Resolve("seam", layers, LayerCtx("mostaql", ChannelLayer.Stable))));
+    }
+
+    private static void TestLayerResolverMissingBaseThrows()
+    {
+        var layers = new List<LayerRegistration<string>>
+        {
+            new(LayerKey.For(LayerAxis.Source, "nafezly"), "by-source"),
+        };
+        Check("layer: missing base throws",
+            ThrowsLayer<MissingBaseException>(() => LayerResolver.Resolve("seam", layers, LayerCtx("mostaql", ChannelLayer.Stable))));
+    }
+
+    private static void TestLayerChainAscendingSpecificity()
+    {
+        var layers = new List<LayerRegistration<string>>
+        {
+            new(new LayerKey(
+                new LayerCoordinate(LayerAxis.Source, "nafezly"),
+                new LayerCoordinate(LayerAxis.Channel, ChannelLayer.Canary)), "tie"),
+            new(LayerKey.For(LayerAxis.Channel, ChannelLayer.Canary), "channel"),
+            new(LayerKey.Base, "base"),
+            new(LayerKey.For(LayerAxis.Source, "nafezly"), "source"),
+        };
+        var chain = LayerResolver.ResolveChain("seam", layers, LayerCtx("nafezly", ChannelLayer.Canary));
+        Check("layer: chain folds base→source→channel→tie regardless of registration order",
+            string.Join(">", chain.Select(r => r.Value)) == "base>source>channel>tie",
+            string.Join(">", chain.Select(r => r.Value)));
+
+        var otherChain = LayerResolver.ResolveChain("seam", layers, LayerCtx("mostaql", ChannelLayer.Stable));
+        Check("layer: chain keeps only matching layers",
+            otherChain.Count == 1 && otherChain[0].Value == "base");
+    }
+
+    private static void TestIdentityLiterals()
+    {
+        var root = FindRepoRoot();
+        // The brand string may appear as a runtime literal in exactly one place (ChannelIdentity);
+        // everywhere else it must be derived — layered-isolability §6: isolation is a build error.
+        var allowlist = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            // Process name is deliberately shared across channels (the exe is not renamed); the
+            // literal is only a fallback for when ProcessPath is unavailable.
+            [@"Platforms\Windows\NativeCrashForwarder.cs"] = "MostaqlK.exe fallback",
+            // Mobile keystore alias: mobile has no channel split (separate applicationId is the
+            // mobile story), so this is stable-only identity by design.
+            [@"Infrastructure\Security\_SecretProtector.Mobile.cs"] = "mobile keystore alias",
+        };
+
+        var violations = new List<string>();
+        foreach (var dir in new[] { "Core", "Features", "Infrastructure", "Models", "Platforms", "Services", "Sources", "UI" })
+        {
+            foreach (var file in Directory.EnumerateFiles(Path.Combine(root, dir), "*.cs", SearchOption.AllDirectories))
+            {
+                ScanIdentityFile(root, file, allowlist, violations);
+            }
+        }
+        foreach (var file in Directory.EnumerateFiles(root, "*.cs", SearchOption.TopDirectoryOnly))
+        {
+            ScanIdentityFile(root, file, allowlist, violations);
+        }
+
+        Check("identity: brand literal lives only in ChannelIdentity (+allowlist)",
+            violations.Count == 0,
+            string.Join(" | ", violations));
+    }
+
+    private static void ScanIdentityFile(string root, string file, Dictionary<string, string> allowlist, List<string> violations)
+    {
+        var rel = Path.GetRelativePath(root, file);
+        if (rel.Contains("ChannelIdentity", StringComparison.Ordinal)) return;
+        if (allowlist.ContainsKey(rel)) return;
+
+        var lines = File.ReadAllLines(file);
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var trimmed = lines[i].TrimStart();
+            if (trimmed.StartsWith("//", StringComparison.Ordinal) || trimmed.StartsWith("*", StringComparison.Ordinal)) continue;
+
+            var at = trimmed.IndexOf("\"MostaqlK", StringComparison.Ordinal);
+            if (at >= 0)
+            {
+                violations.Add($"{rel}:{i + 1} {trimmed[..Math.Min(trimmed.Length, 90)]}");
+            }
+        }
+    }
+
+    private static IReadOnlyDictionary<LayerAxis, string> LayerCtx(string source, string channel) =>
+        new Dictionary<LayerAxis, string> { [LayerAxis.Source] = source, [LayerAxis.Channel] = channel };
+
+    private static bool ThrowsLayer<TException>(Action action) where TException : Exception
+    {
+        try
+        {
+            action();
+            return false;
+        }
+        catch (TException)
+        {
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string FindRepoRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "MostaqlK.csproj")))
+        {
+            dir = dir.Parent;
+        }
+
+        return dir?.FullName ?? throw new InvalidOperationException($"MostaqlK.csproj not found above {AppContext.BaseDirectory}");
     }
 
     // -----------------------------------------------------------------

@@ -452,7 +452,7 @@ public static class Program
             })
             {
                 IsBackground = true,
-                Name = "MostaqlK.SingletonWake"
+                Name = ChannelIdentity.AppName + ".SingletonWake"
             };
             thread.Start();
         }

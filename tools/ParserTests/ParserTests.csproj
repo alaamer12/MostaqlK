@@ -43,6 +43,16 @@
 		<!-- B3: the descriptor now exposes the typed facet vocabulary, so the pure spec record links
 		     alongside it (the nafezly/mostaql facet tests below drive it). -->
 		<Compile Include="..\..\Core\Sources\FilterFacetSpec.cs" LinkBase="Core" />
+		<!-- Layered-isolability Step 0: the resolver is pure logic; it links with the channel
+		     identity it reads (stable variant — the harness never builds canary). -->
+		<Compile Include="..\..\Core\Layers\LayerAxis.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Layers\LayerKey.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Layers\LayerRegistration.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Layers\LayerExceptions.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Layers\LayerResolver.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Layers\LayerContext.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Platform\ChannelIdentity.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Platform\ChannelIdentity.Stable.cs" LinkBase="Core" />
 		<!-- B4: the schema-driven details renderer is MAUI-free (descriptor + models + Core/Formatting
 		     only), so it links here and its ordering / null-omission / capability gating / money flags
 		     are verified offline against the real descriptors. -->

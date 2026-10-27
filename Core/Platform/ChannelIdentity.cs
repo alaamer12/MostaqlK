@@ -1,31 +1,30 @@
 namespace MostaqlK.Core.Platform;
 
 /// <summary>
-/// Compile-time build channel. The stable build is the default; a canary build is stamped with
-/// <c>CHANNEL_CANARY</c> (<c>-p:Channel=canary</c> in MostaqlK.csproj). Every persistent OS identity
-/// — data root, named kernel objects, AUMID, toast COM CLSID, startup value — derives from here so a
-/// stable and a canary build can run side by side without sharing state.
+/// Compile-time build channel. The stable build is the default; CI selects the canary variant with
+/// <c>-p:Channel=canary</c>, which compiles <c>ChannelIdentity.Canary.cs</c> instead of
+/// <c>ChannelIdentity.Stable.cs</c> (per-variant files, never <c>#if</c> in bodies). Every
+/// persistent OS identity — data root, named kernel objects, AUMID, toast COM CLSID, startup value
+/// — derives from here so a stable and a canary build can run side by side without sharing state.
+/// The channel axis is the only one that feeds OS identity (the two must coexist); sources and
+/// settings scopes are data axes and never change these names.
 /// </summary>
-public static class ChannelIdentity
+public static partial class ChannelIdentity
 {
-#if CHANNEL_CANARY
-    public const string Suffix = ".Canary";
+    // Seam fulfilled by ChannelIdentity.Stable.cs / ChannelIdentity.Canary.cs:
+    //   const string Suffix                  — "" on stable, ".Canary" on canary
+    //   const string ToastActivatorClsid     — per-channel toast COM server id
+    //   static readonly bool IsCanary        — channel probe for guards and badges
 
-    /// <summary>Distinct CLSID so each channel owns its own toast-activation COM server.</summary>
-    public const string ToastActivatorClsid = "A1C0D5E2-7B34-4C8F-9E6A-2D7B4F1C8E30";
-
-    public static readonly bool IsCanary = true;
-#else
-    public const string Suffix = "";
-
-    /// <summary>Existing stable CLSID — must never change or toast clicks break for installed users.</summary>
-    public const string ToastActivatorClsid = "6A6D9142-4F91-4C6A-9C7B-6B6A6E5D9A11";
-
-    public static readonly bool IsCanary = false;
-#endif
+    /// <summary>
+    /// The channel-independent brand prefix. Only for logic that must recognize <em>any</em>
+    /// channel's artifacts (e.g. the foreign bundle-cache guard); identity itself always uses
+    /// <see cref="AppName"/>.
+    /// </summary>
+    public const string BaseAppName = "MostaqlK";
 
     /// <summary>Root identity and app-data folder name: <c>MostaqlK</c> or <c>MostaqlK.Canary</c>.</summary>
-    public static readonly string AppName = "MostaqlK" + Suffix;
+    public static readonly string AppName = BaseAppName + Suffix;
 
     /// <summary>AppUserModelID and Start Menu shortcut identity (<c>MostaqlK.App</c> / <c>MostaqlK.Canary.App</c>).</summary>
     public static readonly string Aumid = AppName + ".App";
