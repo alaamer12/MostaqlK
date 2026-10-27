@@ -146,6 +146,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed (dev46 — settings plugin step 3)
 - `tools/v3_parity.py` grew the shapes matrix (`--shapes`, `--shape=`), reports raw and structure scores side by side, and normalizes the app frame from the OS client rect instead of assuming the window's last row is the client's last.
 
+### Changed (dev47 — settings plugin step 4: the view-model reads the catalog)
+- `SettingsViewModel` composes its rows from `SettingsCatalog.Compose(activeSource, sourceContributions)` and exposes them as `Groups` (section → rows), so the settings surface is a list of descriptors; the shipped layouts keep binding the historic properties until step 7 deletes them, and the row callbacks read/write THROUGH those properties so there is still exactly one mutation path and one live-apply path.
+- New `Features/Settings/SettingsValidator.cs`: bounds and Arabic messages are evaluated off the descriptor (`IntRange`/`IntMin`/`EnumIndex`/`CookieParse`), replacing four hand-written range checks that each carried their own literals. The one rule a descriptor cannot state — the grouping threshold is only required when the mode consumes it — stays explicit in the view-model, documented as such rather than smuggled into the contract.
+- The view-model's private constants (`DefaultPollIntervalSeconds`, `DefaultMaxRequestsPerMinute`, min/max) and its hardcoded Arabic grouping-mode array are gone; defaults resolve through the descriptor (`DefaultLiteral`/`DefaultFrom` → the source descriptor's own cadence facts) and the Picker's options come from `SettingsDescriptor.Options`.
+- Drift the wiring exposed, all fixed in the catalog: `MaxConcurrentDetailFetches` claimed a ceiling of 16 that `WorkerPool.Reconfigure` never enforced (and defaulted 4 vs the real 2); `SafeRequests` was modeled as a numeric count when the limiter takes a bool; the grouping threshold defaulted 3 where `NotificationGrouper` uses 5; grouping-mode option values were `"0"/"1"/"2"` while the repository stores enum NAMES on every existing install, which would have rendered the picker empty and written a value nothing reads.
+- ParserTests +11 checks (validator rules with the exact historical Arabic wording, unbounded-above rate, non-numeric rejection, and four defaults-agree-with-services assertions): **372 passed / 0 failed**. Canary build 0 warnings / 0 errors; settings page re-verified live on the nafezly source (rows, contributed section, toggles, archive count, last-scan all rendering as before).
+
 ## [1.0.4] - 2026-09-02
 
 ### Added

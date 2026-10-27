@@ -42,28 +42,30 @@ public static partial class SettingsCatalog
             AutomationIdMobile = "Settings_Mobile_RateLimitEntry",
             IsLtr = true,
         },
-        new(SettingsKeys.SafeRequests, SettingsShape.NumericBounded, SettingsScope.PerSource,
-            "طلبات آمنة", "platform", 30)
+        // A bool, not a count: `TokenBucketRateLimiter.Reconfigure(rpm, safeRequests)` takes a flag,
+        // and the view-model has always read this key as one. The row's number is the RATE ceiling
+        // above; this switch only chooses how strictly it is spaced.
+        new(SettingsKeys.SafeRequests, SettingsShape.Toggle, SettingsScope.PerSource,
+            "الطلبات الآمنة", "platform", 30)
         {
-            HintAr = "حصة الطلبات المضمونة داخل سقف الدقيقة",
-            UnitAr = "طلب",
-            Min = 1,
-            Value = SettingsValueKind.Int,
-            Validation = SettingsValidationKind.IntMin,
-            ErrorAr = "عدد الطلبات الآمنة يجب أن يكون رقمًا أكبر من صفر.",
-            DefaultLiteral = "1",
-            AutomationId = "Settings_SafeRequestsInput",
+            HintAr = "يوزّع الطلبات على مدار الدقيقة مع فاصل ثانية بين كل طلبين — السلوك الموصى به لتجنّب الحجب",
+            Value = SettingsValueKind.Bool,
+            DefaultLiteral = "true",
+            AutomationId = "Settings_SafeRequestsToggle",
         },
         new(SettingsKeys.MaxConcurrentDetailFetches, SettingsShape.NumericBounded, SettingsScope.PerSource,
             "تحميل التفاصيل المتوازي", "platform", 40)
         {
             HintAr = "عدد صفحات التفاصيل التي تُجلب في وقت واحد",
+            // WorkerPool.Reconfigure has no upper bound (it only rejects <= 0), so the row must not
+            // invent one: a max here would silently disagree with what the pool accepts.
             Min = 1,
-            Max = 16,
             Value = SettingsValueKind.Int,
-            Validation = SettingsValidationKind.IntRange,
-            ErrorAr = "عدد التوازي يجب أن يكون بين {0} و {1}.",
-            DefaultLiteral = "4",
+            Validation = SettingsValidationKind.IntMin,
+            ErrorAr = "عدد التوازي يجب أن يكون رقمًا أكبر من صفر.",
+            // The untouched-install value is what the view-model has always read (2); the pool starts
+            // at that same count, so an install that never opened Settings keeps the same behavior.
+            DefaultLiteral = "2",
             AutomationId = "Settings_ConcurrentFetchesInput",
         },
         new(SettingsKeys.QueryParams, SettingsShape.TextEntry, SettingsScope.PerSource,
@@ -95,16 +97,21 @@ public static partial class SettingsCatalog
         new(SettingsKeys.GroupingMode, SettingsShape.EnumPicker, SettingsScope.PerSource,
             "نمط التجميع", "platform", 80)
         {
+            // Option values are the enum NAMES as plain strings, because that is what the repository
+            // already holds on every existing install (`nameof(NotificationGroupingMode.…)`);
+            // indices would silently re-read a stored "AfterCount" as unknown the day this row drove
+            // the write. Strings (not `nameof`) also keep this file linkable into the offline test
+            // harness, which does not compile Services.
             Options =
             [
-                new("0", "نهاية الدقيقة"),
-                new("1", "بعد دقائق"),
-                new("2", "بعد عدد"),
+                new("EndOfMinute", "نهاية الدقيقة"),
+                new("AfterMinutes", "بعد دقائق"),
+                new("AfterCount", "بعد عدد"),
             ],
             Value = SettingsValueKind.Enum,
             Validation = SettingsValidationKind.EnumIndex,
             ErrorAr = "اختر نمط تجميع معروفًا.",
-            DefaultLiteral = "0",
+            DefaultLiteral = "EndOfMinute",
             AutomationId = "Settings_GroupingModePicker",
         },
         new(SettingsKeys.GroupingThreshold, SettingsShape.NumericBounded, SettingsScope.PerSource,
@@ -115,7 +122,9 @@ public static partial class SettingsCatalog
             Value = SettingsValueKind.Int,
             Validation = SettingsValidationKind.IntMin,
             ErrorAr = "حد التجميع يجب أن يكون رقمًا أكبر من صفر.",
-            DefaultLiteral = "3",
+            // NotificationGrouper's own AfterCountThreshold default is 5; a settings row advertising
+            // anything else would promise a number the grouper never uses.
+            DefaultLiteral = "5",
             AutomationId = "Settings_GroupingThresholdInput",
             AutomationIdMobile = "Settings_Mobile_GroupingThresholdEntry",
             IsLtr = true,

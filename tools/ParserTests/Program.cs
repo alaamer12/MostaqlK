@@ -129,6 +129,8 @@ public static class Program
         Run(nameof(TestSettingsCatalogFullReplace), TestSettingsCatalogFullReplace);
         Run(nameof(TestSettingsCatalogUnknownKeyTolerance), TestSettingsCatalogUnknownKeyTolerance);
         Run(nameof(TestSettingsCatalogVisibilityFlags), TestSettingsCatalogVisibilityFlags);
+        Run(nameof(TestSettingsValidatorRules), TestSettingsValidatorRules);
+        Run(nameof(TestSettingsDefaultsAgreeWithServices), TestSettingsDefaultsAgreeWithServices);
 
         Console.WriteLine();
         Console.WriteLine(new string('=', 60));
@@ -1763,6 +1765,61 @@ public static class Program
             && mostaql.Descriptors.Any(d => d.Key == SettingsKeys.PollIntervalSeconds));
         Check("catalog: sections keep base-layer declaration order (platform before general before actions)",
             mostaql.Descriptors.Select(d => d.Section).Distinct().SequenceEqual(["platform", "general", "actions"]));
+    }
+
+    /// <summary>
+    /// The rules the settings screen enforces, checked as DATA (step 4 moved them out of four
+    /// hand-written `OnXChanged` blocks). The exact Arabic strings are asserted because the UI tests
+    /// and, more importantly, the user read them — a reworded error is a behavior change.
+    /// </summary>
+    private static void TestSettingsValidatorRules()
+    {
+        var rows = SettingsCatalog.Compose(MostaqlSource.Instance, []).Descriptors;
+        var poll = rows.First(d => d.Key == SettingsKeys.PollIntervalSeconds);
+        var rpm = rows.First(d => d.Key == SettingsKeys.MaxRequestsPerMinute);
+        var mode = rows.First(d => d.Key == SettingsKeys.GroupingMode);
+
+        Check("validator: in-range cadence accepted", SettingsValidator.Validate(poll, 30) is null);
+        Check("validator: cadence below min rejected with the historical wording",
+            SettingsValidator.Validate(poll, 9) == "فترة الفحص يجب أن تكون بين 10 و 3600 ثانية.");
+        Check("validator: cadence above max rejected", SettingsValidator.Validate(poll, 3601) is not null);
+        Check("validator: non-numeric cadence rejected, not silently kept",
+            SettingsValidator.Validate(poll, "abc") is not null);
+        Check("validator: rate floor of 1 enforced",
+            SettingsValidator.Validate(rpm, 0) == "الحد الأقصى للطلبات يجب أن يكون رقمًا أكبر من صفر."
+            && SettingsValidator.Validate(rpm, 1) is null);
+        Check("validator: unbounded above (the limiter has no ceiling to disagree with)",
+            SettingsValidator.Validate(rpm, 100_000) is null);
+        Check("validator: enum option accepts a stored name and rejects a foreign value",
+            SettingsValidator.Validate(mode, "AfterCount") is null
+            && SettingsValidator.Validate(mode, "batch") == "اختر نمط تجميع معروفًا.");
+    }
+
+    /// <summary>
+    /// Defaults and bounds must say what the SERVICES actually do. Every row here is a drift the
+    /// catalog had invented before it was wired to the live view-model (parallel-fetch ceiling,
+    /// "safe requests" as a count, threshold/grouping defaults).
+    /// </summary>
+    private static void TestSettingsDefaultsAgreeWithServices()
+    {
+        var rows = SettingsCatalog.Compose(MostaqlSource.Instance, []).Descriptors;
+        var concurrent = rows.First(d => d.Key == SettingsKeys.MaxConcurrentDetailFetches);
+        var threshold = rows.First(d => d.Key == SettingsKeys.GroupingThreshold);
+        var safe = rows.First(d => d.Key == SettingsKeys.SafeRequests);
+        var mode = rows.First(d => d.Key == SettingsKeys.GroupingMode);
+
+        Check("defaults: parallel fetch is bounded only below (WorkerPool enforces no ceiling)",
+            concurrent.Min == 1 && concurrent.Max is null
+            && concurrent.Validation == SettingsValidationKind.IntMin
+            && concurrent.DefaultLiteral == "2");
+        Check("defaults: grouping threshold matches NotificationGrouper (5)",
+            threshold.DefaultLiteral == "5");
+        Check("defaults: safe-requests is the bool the limiter actually takes",
+            safe.Shape == SettingsShape.Toggle && safe.Value == SettingsValueKind.Bool
+            && safe.DefaultLiteral == "true");
+        Check("defaults: grouping options carry the enum names the repository already stores",
+            mode.Options!.Select(o => o.Value).SequenceEqual(["EndOfMinute", "AfterMinutes", "AfterCount"])
+            && mode.DefaultLiteral == "EndOfMinute");
     }
 
     // -----------------------------------------------------------------

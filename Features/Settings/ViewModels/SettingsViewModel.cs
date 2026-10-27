@@ -10,6 +10,7 @@ using MostaqlK.Services.Diagnostics;
 using MostaqlK.Services.Pipeline;
 using MostaqlK.Services.Pipeline.WorkerPool;
 using MostaqlK.UI.DesignSystem;
+using MostaqlK.UI.PlatformComponents.SettingsRow;
 
 namespace MostaqlK.Features.Settings.ViewModels;
 
@@ -35,13 +36,11 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// </summary>
     private SourceId _source => _globalStatus?.ActiveSource ?? SourceId.Default;
 
-    // configuration-reference.md: `poll_interval_seconds` default 30, `max_requests_per_minute`
-    // default 2. This screen used to advertise a 60s default while PollService itself defaulted to
-    // 30, so the two disagreed on an untouched install.
-    private const int DefaultPollIntervalSeconds = 30;
-    private const int DefaultMaxRequestsPerMinute = TokenBucketRateLimiter.DefaultRequestsPerMinute;
-    private const int MinPollIntervalSeconds = 10;
-    private const int MaxPollIntervalSeconds = 3600;
+    // No bounds, no defaults, no Arabic messages here any more: every one of them is declared on
+    // the setting's descriptor in `SettingsCatalog.Builtin` and read back through the composed
+    // catalog (see `DefaultOf` / `SettingsValidator`). This screen used to keep its own copies of
+    // all four, which is how it came to advertise a 60s cadence while `PollService` defaulted to
+    // 30, and a parallel-fetch ceiling of 16 that `WorkerPool` never enforced.
 
     /// <summary>Floor for how long the cookie drop zone's spinner stays visible, in milliseconds.</summary>
     private const int SpinnerMinimumVisibleMilliseconds = 500;
@@ -253,20 +252,36 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnHasSessionCookieChanged(bool value) => OnPropertyChanged(nameof(SessionValueText));
 
     // Grouping-mode Picker bridge: the UI tests drive a SelectedIndex on `Settings_GroupingModePicker`,
-    // so the enum is exposed as an index over the three Arabic labels in <see cref="GroupingModeOptions"/>.
-    /// <summary>Arabic grouping-mode labels in enum order (EndOfMinute / AfterMinutes / AfterCount).</summary>
-    public IReadOnlyList<string> GroupingModeOptions { get; } =
-        ["نهاية الدقيقة", "بعد دقائق", "بعد عدد"];
+    // so the enum is exposed as an index over the descriptor's own option list. The Arabic labels are
+    // NOT duplicated here any more — they are `SettingsDescriptor.Options` data, which is what lets a
+    // source rename an option (or add one) without a shared-code array.
+    private IReadOnlyList<FilterFacetOption> GroupingModeFacets =>
+        DescriptorOf(SettingsKeys.GroupingMode)?.Options ?? [];
 
-    /// <summary>Two-way Picker index mapped onto <see cref="GroupingMode"/>.</summary>
+    /// <summary>Arabic grouping-mode labels in the descriptor's declared order.</summary>
+    public IReadOnlyList<string> GroupingModeOptions =>
+        GroupingModeFacets.Select(o => o.LabelAr).ToList();
+
+    /// <summary>Two-way Picker index mapped onto <see cref="GroupingMode"/> through the option values.</summary>
     public int GroupingModeIndex
     {
-        get => (int)GroupingMode;
+        get
+        {
+            var facets = GroupingModeFacets;
+            var index = facets.ToList().FindIndex(o => o.Value == GroupingMode.ToString());
+            return index >= 0 ? index : 0;
+        }
         set
         {
-            if (value >= 0 && value < GroupingModeOptions.Count && (NotificationGroupingMode)value != GroupingMode)
+            var facets = GroupingModeFacets;
+            if (value < 0 || value >= facets.Count)
             {
-                GroupingMode = (NotificationGroupingMode)value;
+                return;
+            }
+
+            if (Enum.TryParse<NotificationGroupingMode>(facets[value].Value, out var parsed) && parsed != GroupingMode)
+            {
+                GroupingMode = parsed;
             }
         }
     }
@@ -293,6 +308,203 @@ public sealed partial class SettingsViewModel : ObservableObject
             .ToList();
         OnPropertyChanged(nameof(ContributedSections));
         OnPropertyChanged(nameof(HasContributedSections));
+    }
+
+    // -----------------------------------------------------------------
+    // Catalog-driven surface (settings plugin step 4).
+    // `Groups` is what the page will render once the hardcoded layouts are deleted: one row per
+    // composed descriptor, built by the `SettingsRow` unit from its descriptor alone. Until step 7
+    // the same values are ALSO exposed as the historic per-setting properties (the shipped layouts
+    // bind them), so the row callbacks read and write through those properties rather than opening
+    // a second persistence path — one mutation route, one live-apply route, no chance for the two
+    // surfaces to disagree. The key switch below is that temporary bridge and is deleted with the
+    // properties, not grown.
+    // -----------------------------------------------------------------
+
+    /// <summary>Sections + rows in catalog order, recomposed on every source switch.</summary>
+    public IReadOnlyList<SettingsGroupViewModel> Groups { get; private set; } = [];
+
+    private ComposedSettings _composed = new([], []);
+    private readonly Dictionary<string, SettingsRowViewModel> _rowsByKey = new(StringComparer.Ordinal);
+
+    /// <summary>The composed descriptor for a key, or null when this source does not show it.</summary>
+    private SettingsDescriptor? DescriptorOf(string key) => _composed.Descriptors.FirstOrDefault(d => d.Key == key);
+
+    /// <summary>
+    /// The default a setting falls back to when nothing is stored: the descriptor's literal, or the
+    /// fact it points at on the source descriptor (cadence/rate), so the number exists once.
+    /// </summary>
+    private int IntDefaultOf(string key, int fallback)
+    {
+        var d = DescriptorOf(key);
+        if (d is null)
+        {
+            return fallback;
+        }
+
+        return d.DefaultFrom switch
+        {
+            DefaultFact.PollIntervalSeconds => ActiveDescriptor?.DefaultPollIntervalSeconds ?? fallback,
+            DefaultFact.RequestsPerMinute => ActiveDescriptor?.DefaultRequestsPerMinute ?? fallback,
+            _ => int.TryParse(d.DefaultLiteral, out var parsed) ? parsed : fallback,
+        };
+    }
+
+    private bool BoolDefaultOf(string key, bool fallback)
+    {
+        var d = DescriptorOf(key);
+        return d is null || !bool.TryParse(d.DefaultLiteral, out var parsed) ? fallback : parsed;
+    }
+
+    private string StringDefaultOf(string key, string fallback)
+    {
+        var d = DescriptorOf(key);
+        return d?.DefaultLiteral ?? fallback;
+    }
+
+    private void ComposeGroups()
+    {
+        var descriptor = ActiveDescriptor;
+        if (descriptor is null)
+        {
+            _composed = new ComposedSettings([], []);
+            Groups = [];
+            _rowsByKey.Clear();
+            OnPropertyChanged(nameof(Groups));
+            return;
+        }
+
+        _composed = SettingsCatalog.Compose(descriptor, _contributions.SettingsContribsFor(_source));
+
+        _rowsByKey.Clear();
+        Groups = _composed.Descriptors
+            .GroupBy(d => d.Section)
+            .Select(group => new SettingsGroupViewModel(
+                group.Key,
+                group.Select(d => BuildRow(d)).ToList()))
+            .ToList();
+
+        OnPropertyChanged(nameof(Groups));
+    }
+
+    private SettingsRowViewModel BuildRow(SettingsDescriptor d)
+    {
+        var row = new SettingsRowViewModel(
+            d,
+            read: () => RowValueOf(d.Key),
+            write: v => RowWrite(d, v),
+            command: RowCommandOf(d),
+            valueText: RowValueTextOf(d));
+
+        _rowsByKey[d.Key] = row;
+        return row;
+    }
+
+    private object? RowValueOf(string key) => key switch
+    {
+        SettingsKeys.PollIntervalSeconds => PollIntervalSeconds,
+        SettingsKeys.MaxRequestsPerMinute => RequestsPerMinute,
+        SettingsKeys.MaxConcurrentDetailFetches => MaxConcurrentDetailFetches,
+        SettingsKeys.SafeRequests => SafeRequests,
+        SettingsKeys.QueryParams => QueryParams,
+        SettingsKeys.IncludeAssets => IncludeAssets,
+        SettingsKeys.NotificationGroupingEnabled => NotificationGroupingEnabled,
+        SettingsKeys.EnableSourceNotifications => SourceNotificationsEnabled,
+        SettingsKeys.GroupingMode => GroupingMode.ToString(),
+        SettingsKeys.GroupingThreshold => GroupingThreshold,
+        SettingsKeys.IsDarkMode => IsDarkMode,
+        SettingsKeys.StartupEnabled => StartupEnabled,
+        SettingsKeys.RememberLastSource => RememberLastSource,
+        _ => _settings.Get(_source, key, StringDefaultOf(key, string.Empty)),
+    };
+
+    private void RowWrite(SettingsDescriptor d, object? value)
+    {
+        switch (d.Key)
+        {
+            case SettingsKeys.PollIntervalSeconds: PollIntervalSeconds = ToInt(value, PollIntervalSeconds); return;
+            case SettingsKeys.MaxRequestsPerMinute: RequestsPerMinute = ToInt(value, RequestsPerMinute); return;
+            case SettingsKeys.MaxConcurrentDetailFetches: MaxConcurrentDetailFetches = ToInt(value, MaxConcurrentDetailFetches); return;
+            case SettingsKeys.GroupingThreshold: GroupingThreshold = ToInt(value, GroupingThreshold); return;
+            case SettingsKeys.GroupingMode:
+                if (Enum.TryParse<NotificationGroupingMode>(value?.ToString(), out var parsedMode))
+                {
+                    GroupingMode = parsedMode;
+                }
+                return;
+            case SettingsKeys.SafeRequests: SafeRequests = ToBool(value); return;
+            case SettingsKeys.IncludeAssets: IncludeAssets = ToBool(value); return;
+            case SettingsKeys.NotificationGroupingEnabled: NotificationGroupingEnabled = ToBool(value); return;
+            case SettingsKeys.EnableSourceNotifications: SourceNotificationsEnabled = ToBool(value); return;
+            case SettingsKeys.IsDarkMode: IsDarkMode = ToBool(value); return;
+            case SettingsKeys.StartupEnabled: StartupEnabled = ToBool(value); return;
+            case SettingsKeys.RememberLastSource: RememberLastSource = ToBool(value); return;
+            case SettingsKeys.QueryParams: QueryParams = value?.ToString() ?? string.Empty; return;
+        }
+
+        // Anything the view-model has no property for (a source's own contributed row, a future
+        // setting) persists straight through the repository and validates through the shared
+        // checker — the path every new setting takes from step 7 onward.
+        var error = SettingsValidator.Validate(d, value);
+        if (error is not null)
+        {
+            SetRowError(d.Key, error);
+            return;
+        }
+
+        ClearRowError(d.Key);
+        if (d.Scope == SettingsScope.Global)
+        {
+            DeferredPreferences.SetGlobal(_settings, d.Key, value);
+        }
+        else
+        {
+            DeferredPreferences.Set(_settings, _source, d.Key, value);
+        }
+    }
+
+    private static int ToInt(object? value, int fallback) => value switch
+    {
+        int i => i,
+        string s when int.TryParse(s, out var parsed) => parsed,
+        _ => fallback,
+    };
+
+    private static bool ToBool(object? value) => value switch
+    {
+        bool b => b,
+        string s when bool.TryParse(s, out var parsed) => parsed,
+        _ => false,
+    };
+
+    private System.Windows.Input.ICommand? RowCommandOf(SettingsDescriptor d) => d.Shape switch
+    {
+        SettingsShape.ActionButton when d.CommandName == "Save" => SaveCommand,
+        SettingsShape.CookieEditor => UploadSessionCookieCommand,
+        _ => null,
+    };
+
+    private string? RowValueTextOf(SettingsDescriptor d) => d.Shape switch
+    {
+        SettingsShape.ReadOnlyStat when d.Key == "archive" => ArchiveCountText,
+        SettingsShape.CookieEditor => SessionCookieStatusText,
+        _ => null,
+    };
+
+    public void SetRowError(string key, string message)
+    {
+        if (_rowsByKey.TryGetValue(key, out var row))
+        {
+            row.ErrorText = message;
+        }
+    }
+
+    public void ClearRowError(string key)
+    {
+        if (_rowsByKey.TryGetValue(key, out var row))
+        {
+            row.ErrorText = null;
+        }
     }
 
     /// <summary>
@@ -334,6 +546,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         _contributions = contributions;
         _services = services;
 
+        // Composed before the values are read: the catalog is where defaults and bounds live, so
+        // LoadFromPreferences takes its fallbacks from it (settings plugin step 4).
+        ComposeGroups();
         LoadFromPreferences();
         LoadContributedSections();
         RefreshCookieStatus();
@@ -362,6 +577,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// </summary>
     public void RefreshForActiveSource()
     {
+        // Composed before the values are read: the catalog is where defaults and bounds live, so
+        // LoadFromPreferences takes its fallbacks from it (settings plugin step 4).
+        ComposeGroups();
         LoadFromPreferences();
         LoadContributedSections();
         RefreshCookieStatus();
@@ -703,17 +921,21 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         _isLoading = true;
 
-        PollIntervalSeconds = _settings.Get(_source, SettingsKeys.PollIntervalSeconds, DefaultPollIntervalSeconds);
-        RequestsPerMinute = _settings.Get(_source, SettingsKeys.MaxRequestsPerMinute, DefaultMaxRequestsPerMinute);
-        MaxConcurrentDetailFetches = _settings.Get(_source, SettingsKeys.MaxConcurrentDetailFetches, 2);
-        QueryParams = _settings.Get(_source, SettingsKeys.QueryParams, string.Empty);
-        IncludeAssets = _settings.Get(_source, SettingsKeys.IncludeAssets, false);
-        NotificationGroupingEnabled = _settings.Get(_source, SettingsKeys.NotificationGroupingEnabled, false);
-        SourceNotificationsEnabled = _settings.Get(_source, SettingsKeys.EnableSourceNotifications, true);
-        SafeRequests = _settings.Get(_source, SettingsKeys.SafeRequests, true);
+        // Every fallback is the descriptor's own default (resolved through the composed catalog), so
+        // an untouched install agrees with the service that consumes the value — the disagreement
+        // this replace removes was: screen said 60s, PollService said 30; screen said parallel max
+        // 16, WorkerPool enforces none; screen said threshold 5, catalog said 3.
+        PollIntervalSeconds = _settings.Get(_source, SettingsKeys.PollIntervalSeconds, IntDefaultOf(SettingsKeys.PollIntervalSeconds, 30));
+        RequestsPerMinute = _settings.Get(_source, SettingsKeys.MaxRequestsPerMinute, IntDefaultOf(SettingsKeys.MaxRequestsPerMinute, 2));
+        MaxConcurrentDetailFetches = _settings.Get(_source, SettingsKeys.MaxConcurrentDetailFetches, IntDefaultOf(SettingsKeys.MaxConcurrentDetailFetches, 2));
+        QueryParams = _settings.Get(_source, SettingsKeys.QueryParams, StringDefaultOf(SettingsKeys.QueryParams, string.Empty));
+        IncludeAssets = _settings.Get(_source, SettingsKeys.IncludeAssets, BoolDefaultOf(SettingsKeys.IncludeAssets, false));
+        NotificationGroupingEnabled = _settings.Get(_source, SettingsKeys.NotificationGroupingEnabled, BoolDefaultOf(SettingsKeys.NotificationGroupingEnabled, false));
+        SourceNotificationsEnabled = _settings.Get(_source, SettingsKeys.EnableSourceNotifications, BoolDefaultOf(SettingsKeys.EnableSourceNotifications, true));
+        SafeRequests = _settings.Get(_source, SettingsKeys.SafeRequests, BoolDefaultOf(SettingsKeys.SafeRequests, true));
         StartupEnabled = _settings.GetGlobal(SettingsKeys.StartupEnabled, false);
         RememberLastSource = _settings.GetGlobal(SettingsKeys.RememberLastSource, true);
-        GroupingThreshold = _settings.Get(_source, SettingsKeys.GroupingThreshold, 5);
+        GroupingThreshold = _settings.Get(_source, SettingsKeys.GroupingThreshold, IntDefaultOf(SettingsKeys.GroupingThreshold, 5));
         // Seed from the theme the app already resolved at startup (App.xaml.cs, which honours a
         // `--theme=light|dark` argument over the stored preference) and only fall back to the
         // preference / effective theme when no explicit theme was applied. Reading the preference unconditionally
@@ -772,11 +994,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        if (!TryValidateRange(
-                value,
-                MinPollIntervalSeconds,
-                MaxPollIntervalSeconds,
-                $"فترة الفحص يجب أن تكون بين {MinPollIntervalSeconds} و {MaxPollIntervalSeconds} ثانية."))
+        if (!TryValidate(SettingsKeys.PollIntervalSeconds, value))
         {
             return;
         }
@@ -792,7 +1010,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        if (!TryValidateRange(value, min: 1, max: int.MaxValue, "الحد الأقصى للطلبات يجب أن يكون رقمًا أكبر من صفر."))
+        if (!TryValidate(SettingsKeys.MaxRequestsPerMinute, value))
         {
             return;
         }
@@ -804,7 +1022,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnMaxConcurrentDetailFetchesChanged(int value)
     {
         if (_isLoading) return;
-        if (!TryValidateRange(value, min: 1, max: int.MaxValue, "عدد التوازي يجب أن يكون رقمًا أكبر من صفر."))
+        if (!TryValidate(SettingsKeys.MaxConcurrentDetailFetches, value))
         {
             return;
         }
@@ -877,9 +1095,11 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
 
         // EndOfMinute ignores the threshold, so a non-positive value is only invalid for the
-        // modes that actually consume it (AfterMinutes / AfterCount).
+        // modes that actually consume it (AfterMinutes / AfterCount). This cross-key condition is
+        // the one rule a descriptor cannot state on its own (it depends on ANOTHER row's value),
+        // so it stays here explicitly rather than being smuggled into the contract as a flag.
         if (GroupingMode != NotificationGroupingMode.EndOfMinute
-            && !TryValidateRange(value, min: 1, max: int.MaxValue, "حد التجميع يجب أن يكون رقمًا أكبر من صفر."))
+            && !TryValidate(SettingsKeys.GroupingThreshold, value))
         {
             return;
         }
@@ -972,20 +1192,26 @@ public sealed partial class SettingsViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Shared range-check used by the numeric settings <c>OnXChanged</c> handlers. Sets the
-    /// validation error and returns <c>false</c> when <paramref name="value"/> is outside
-    /// <paramref name="min"/>..<paramref name="max"/> (inclusive); otherwise clears any prior
-    /// validation error and returns <c>true</c> so the caller can persist/apply the value.
+    /// The one validation entry point for a numeric row: the rule (bounds + message) is read off
+    /// the setting's descriptor by <see cref="SettingsValidator"/>, so a source that overrides
+    /// `Min`/`Max`/`ErrorAr` changes what is accepted without any code knowing it exists. The
+    /// offending message is shown both in the page-level banner (historic) and on the row itself
+    /// (what the catalog-driven renderer uses).
     /// </summary>
-    private bool TryValidateRange(int value, int min, int max, string errorMessage)
+    private bool TryValidate(string key, int value)
     {
-        if (value < min || value > max)
+        var descriptor = DescriptorOf(key);
+        var error = descriptor is null ? null : SettingsValidator.Validate(descriptor, value);
+
+        if (error is not null)
         {
-            SetValidationError(errorMessage);
+            SetValidationError(error);
+            SetRowError(key, error);
             return false;
         }
 
         ClearValidationError();
+        ClearRowError(key);
         return true;
     }
 
