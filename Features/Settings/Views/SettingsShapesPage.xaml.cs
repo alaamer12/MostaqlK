@@ -602,8 +602,13 @@ public partial class SettingsShapesPage : ContentPage
             cell.Descriptor,
             read: () => _store.TryGetValue(cell.Descriptor.Key, out var v) ? v : cell.Descriptor.DefaultLiteral,
             write: v => _store[cell.Descriptor.Key] = v,
-            valueText: cell.ValueText);
+            valueText: cell.ValueText)
+        {
+            ShowTopDivider = false,
+        };
 
+        // Inside a variant card the row never draws the page's inter-row hairline: the mockup's
+        // `.set-row:first-child { border-top: 0 }` applies to every card, which holds one row.
         var view = new SettingsRow();
         view.SetRow(row);
         if (cell.ErrorText is not null)

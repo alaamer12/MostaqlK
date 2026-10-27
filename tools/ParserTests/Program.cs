@@ -692,9 +692,28 @@ public static class Program
         Check("registry returns nothing for mostaql", mostaql.Count == 0, $"{mostaql.Count}");
         Check("nafezly section has no page contribution yet (B2)", registry.PagesFor(SourceId.From("nafezly")).Count == 0);
         Check("contribution source is nafezly", nafezly[0].Source == SourceId.From("nafezly"), nafezly[0].Source.ToString());
-        Check("contribution adds descriptors and overrides nothing",
-            nafezly[0].Adds.Count == 4 && nafezly[0].Overrides.Count == 0,
+        Check("contribution adds four rows and overrides exactly one field",
+            nafezly[0].Adds.Count == 4
+            && nafezly[0].Overrides.Count == 1
+            && nafezly[0].Overrides[0].SetFields().SequenceEqual([nameof(SettingsDescriptorPatch.LabelAr)]),
             $"{nafezly[0].Adds.Count}/{nafezly[0].Overrides.Count}");
+
+        // The acceptance example end to end: nafezly's cookie row reads its own Arabic, mostaql's
+        // keeps the shared text, and every OTHER field (shape, validation, ids) is identical.
+        var nafezlyCookie = SettingsCatalog.Compose(NafezlySource.Instance, nafezly).Descriptors
+            .First(d => d.Key == "session-cookie");
+        var mostaqlCookie = SettingsCatalog.Compose(MostaqlSource.Instance, [])
+            .Descriptors.First(d => d.Key == "session-cookie");
+
+        Check("override: nafezly reads the platform-specific label",
+            nafezlyCookie.LabelAr == "ارفع ملف ال cookies الخاص بك لموقع نفذلي", nafezlyCookie.LabelAr);
+        Check("override: mostaql keeps the global label",
+            mostaqlCookie.LabelAr == "ارفع ملف ال cookies الخاص بك", mostaqlCookie.LabelAr);
+        Check("override: behavior fields stay global on both",
+            nafezlyCookie.Shape == mostaqlCookie.Shape
+            && nafezlyCookie.Validation == mostaqlCookie.Validation
+            && nafezlyCookie.AutomationId == mostaqlCookie.AutomationId
+            && nafezlyCookie.Scope == mostaqlCookie.Scope);
     }
 
     /// <summary>Minimal IServiceProvider so the contribution's CreateViewModel can be exercised offline.</summary>

@@ -63,5 +63,13 @@ public sealed class NafezlySettingsContribution : ISourceSettingsContribution
         },
     ];
 
-    public IReadOnlyList<SettingsDescriptorPatch> Overrides => [];
+    /// <summary>
+    /// The owner's acceptance example, made real: nafezly overrides ONLY the cookie row's Arabic.
+    /// Shape, bounds, validation, ids and storage stay global, so the row behaves identically on
+    /// both platforms and reads "لموقع نفذلي" here while mostaql keeps the shared text.
+    /// </summary>
+    public IReadOnlyList<SettingsDescriptorPatch> Overrides =>
+    [
+        new("session-cookie") { LabelAr = "ارفع ملف ال cookies الخاص بك لموقع نفذلي" },
+    ];
 }

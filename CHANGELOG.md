@@ -171,6 +171,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deleted 81 lines of orphaned settings view-model surface: the capability visibility flags, the descriptor-owned copy (cookie section title, paste placeholders, session state word, budget-currency text, safe-requests tooltip), the grouping-mode Picker bridge and `IsCookieEditorClosed` — each was a second home for something the catalog already states. `close_behavior_remembered` flipped from hidden to a real toggle row, because undoing a remembered close choice had nowhere to live once the dialog stopped being the only path.
 - ParserTests 375/0 (the registry test now proves contribution isolation through descriptors; the visibility test asserts the remember-close row composes and a `Visible=false` descriptor still never does). Windows build 0/0, android build 0/0 with the JDK-17 override, UIA walk of the live page: 37 AutomationIds, 0 missing.
 
+### Added (dev50 — settings plugin acceptance example, live)
+- `NafezlySettingsContribution.Overrides` now carries the plan's acceptance example for real: nafezly patches ONLY the cookie row's `LabelAr` ("ارفع ملف ال cookies الخاص بك لموقع نفذلي"), while shape, validation, scope and both AutomationIds stay global. Proven offline (ParserTests: the override sets exactly one field, nafezly reads its label, mostaql keeps the shared text, behavior fields identical) and on the running app through a UIA text walk (the overridden label is present, the global one is not).
+- The CRAFT gallery suppresses the new inter-row hairline inside its variant cards (the mockup's `.set-row:first-child { border-top: 0 }` applies to every card); shapes parity re-measured after the renderer changes — every isolated shape ≥ 93.9% structure, mean across the sampled shapes 96.3%.
+
 ## [1.0.4] - 2026-09-02
 
 ### Added
