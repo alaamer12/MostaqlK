@@ -1,4 +1,5 @@
 using MostaqlK.Core;
+using MostaqlK.Core.Sources;
 using MostaqlK.Models;
 using MostaqlK.Services.Diagnostics;
 
@@ -12,6 +13,7 @@ public sealed class NotificationDispatcher : INotificationDispatcher
     private readonly INotificationSender _toastSender;
     private readonly NotificationGrouper _grouper;
     private readonly GlobalAppStatusService _globalStatus;
+    private readonly ISettingsRepository _settings;
     private readonly Lock _historyGate = new();
     private readonly List<ProjectSummary> _history = [];
 
@@ -34,11 +36,16 @@ public sealed class NotificationDispatcher : INotificationDispatcher
     /// <summary>Raised after a batch is added to <see cref="RecentHistory"/>, so the UI can refresh.</summary>
     public event Action? HistoryChanged;
 
-    public NotificationDispatcher(INotificationSender toastSender, NotificationGrouper grouper, GlobalAppStatusService globalStatus)
+    public NotificationDispatcher(
+        INotificationSender toastSender,
+        NotificationGrouper grouper,
+        GlobalAppStatusService globalStatus,
+        ISettingsRepository settings)
     {
         _toastSender = toastSender;
         _grouper = grouper;
         _globalStatus = globalStatus;
+        _settings = settings;
         _grouper.OnFlush += HandleFlush;
     }
 
@@ -50,9 +57,34 @@ public sealed class NotificationDispatcher : INotificationDispatcher
         // toast. Delivery itself happens asynchronously off `OnFlush`, so this always succeeds
         // as far as the caller is concerned — actual toast failures are reported/logged from
         // `HandleFlush`.
+        // "تنبيهات هذه المنصة" is enforced HERE. The row existed and persisted since the multi-source
+        // work, but nothing ever read it — flipping it off changed a number on disk while every toast
+        // still arrived. It gates the TOAST BUFFER ONLY: the unread badge and the flyout history below
+        // keep counting, because muting a platform's popups must not hide its projects.
+        var mutedSources = projects
+            .Select(project => project.Source)
+            .Distinct()
+            .Where(_settings.IsMuted)
+            .ToList();
+
         foreach (var project in projects)
         {
+            if (mutedSources.Contains(project.Source))
+            {
+                continue;
+            }
+
             _grouper.Add(project);
+        }
+
+        if (mutedSources.Count > 0)
+        {
+            InteractionLogger.Mark("NotificationDispatcher.NotifyNewProjectsAsync", "B", new
+            {
+                Reason = "platform-notifications-muted",
+                Muted = string.Join(",", mutedSources.Select(source => source.Value)),
+                Count = projects.Count
+            });
         }
 
         // FIX (unread badge desync - e.g. mark-all-as-read resets it to 0, then a single new

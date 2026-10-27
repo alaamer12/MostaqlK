@@ -83,14 +83,12 @@ public sealed class SourcePipelineOrchestrator
         foreach (var pipeline in All)
         {
             // The poll interval is a SYSTEM value since the System/Platform split: one number for
-            // every platform, read through the flat container. The lower bound is NOT the row's
-            // validation floor any more — it is this site's own safety minimum
-            // (ISourceDescriptor.MinSafePollIntervalSeconds), because a user who wants mostaql.com
-            // checked every 15s must not be able to make nafezly.com answer 4 requests a minute.
-            pipeline.Poll.PollIntervalSeconds = Math.Clamp(
-                _settings.GetGlobal(SettingsKeys.PollIntervalSeconds, pipeline.Poll.PollIntervalSeconds),
-                pipeline.Descriptor.MinSafePollIntervalSeconds,
-                3600);
+            // every platform, read through the flat container. The clamp is the descriptor's
+            // (ISourceDescriptor.MinSafePollIntervalSeconds up to SourceCadence's ceiling), because a
+            // user who wants mostaql.com checked every 15s must not be able to make nafezly.com answer
+            // four requests a minute.
+            pipeline.Poll.PollIntervalSeconds = pipeline.Descriptor.ClampPollInterval(
+                _settings.GetGlobal(SettingsKeys.PollIntervalSeconds, pipeline.Poll.PollIntervalSeconds));
 
             // Persist the Start/Pause state: the app now "reserves the state it closed with".
             // Defaults to false (paused) on the very first run to satisfy the "first run not

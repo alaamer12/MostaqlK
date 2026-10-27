@@ -27,7 +27,7 @@ public sealed class PollService : IPollService
     /// Poll interval in seconds. Settable at runtime (see <c>SettingsViewModel</c>); the loop
     /// re-reads this value on every tick instead of capturing it once at startup.
     /// </summary>
-    public int PollIntervalSeconds { get; set; } = 30;
+    public int PollIntervalSeconds { get; set; } = MostaqlK.Core.Sources.SourceCadence.DefaultPollIntervalSeconds;
 
     /// <summary>Current observable status, mirrored to the tray icon (see <c>TrayIconService</c>).</summary>
     public PollServiceStatus Status { get; private set; } = PollServiceStatus.Idle;

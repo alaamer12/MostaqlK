@@ -44,7 +44,7 @@ public static partial class SettingsCatalog
             Value = SettingsValueKind.Int,
             Validation = SettingsValidationKind.IntRange,
             ErrorAr = "فترة الفحص يجب أن تكون بين {0} و {1} ثانية.",
-            DefaultLiteral = "30",
+            DefaultLiteral = SourceCadence.DefaultPollIntervalSeconds.ToString(),
             BareEditor = true,
             SecondaryLabelAr = "تغيير",
             AutomationId = "Settings_PollIntervalInput",
@@ -72,9 +72,10 @@ public static partial class SettingsCatalog
             Value = SettingsValueKind.Int,
             Validation = SettingsValidationKind.IntMin,
             ErrorAr = "عدد التوازي يجب أن يكون رقمًا أكبر من صفر.",
-            // The untouched-install value is what the view-model has always read (2); the pool starts
-            // at that same count, so an install that never opened Settings keeps the same behavior.
-            DefaultLiteral = "2",
+            // The untouched-install value is what the view-model has always read; the pool starts at
+            // that same count through the shared constant, so an install that never opened Settings
+            // keeps the same behavior and the row cannot advertise a number nothing uses.
+            DefaultLiteral = SourceCadence.DefaultParallelDetailFetches.ToString(),
             BareEditor = true,
             AutomationId = "Settings_ConcurrentFetchesInput",
         },

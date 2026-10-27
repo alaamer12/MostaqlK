@@ -141,6 +141,8 @@ public static class Program
         Run(nameof(TestSettingsScopeHarvestPrecedence), TestSettingsScopeHarvestPrecedence);
         Run(nameof(TestSettingsScopeClassification), TestSettingsScopeClassification);
         Run(nameof(TestSettingsSectionRanking), TestSettingsSectionRanking);
+        Run(nameof(TestPollIntervalIsClampedPerSite), TestPollIntervalIsClampedPerSite);
+        Run(nameof(TestPlatformNotificationMute), TestPlatformNotificationMute);
 
         Console.WriteLine();
         Console.WriteLine(new string('=', 60));
@@ -2183,6 +2185,58 @@ public static class Program
             !repo.Flat.ContainsKey(SettingsKeys.MaxRequestsPerMinute) && !repo.Flat.ContainsKey(SettingsKeys.QueryParams));
         Check("harvest: a moved enum row copies as the stored name, not an index",
             repo.GetGlobal(SettingsKeys.GroupingMode, string.Empty) == "AfterCount");
+    }
+
+    /// <summary>
+    /// The rule that lets one SYSTEM scan interval coexist with per-site tolerance: the shared number
+    /// is clamped UP to what each site accepts, so a user who wants mostaql.com checked every 15
+    /// seconds cannot make nafezly.com answer four listing requests a minute (Cloudflare returns a
+    /// 429/1015 for that kind of burst).
+    /// </summary>
+    private static void TestPollIntervalIsClampedPerSite()
+    {
+        Check("cadence: a shared 15s is honored by a site with no special floor",
+            MostaqlSource.Instance.ClampPollInterval(15) == 15,
+            $"{MostaqlSource.Instance.ClampPollInterval(15)}");
+        Check("cadence: the same 15s is raised to nafezly's 60s Cloudflare floor",
+            NafezlySource.Instance.ClampPollInterval(15) == 60,
+            $"{NafezlySource.Instance.ClampPollInterval(15)}");
+        Check("cadence: the shared ceiling still applies to both",
+            MostaqlSource.Instance.ClampPollInterval(99_999) == SourceCadence.MaxPollIntervalSeconds
+            && NafezlySource.Instance.ClampPollInterval(99_999) == SourceCadence.MaxPollIntervalSeconds);
+        Check("cadence: the catalog's literals are the engine's constants, not copies of them",
+            SettingsCatalog.BuiltinByKey[SettingsKeys.PollIntervalSeconds].DefaultLiteral
+                == SourceCadence.DefaultPollIntervalSeconds.ToString()
+            && SettingsCatalog.BuiltinByKey[SettingsKeys.MaxConcurrentDetailFetches].DefaultLiteral
+                == SourceCadence.DefaultParallelDetailFetches.ToString());
+        Check("cadence: a per-platform default cannot be attached to a system row",
+            SettingsCatalog.BuiltinByKey[SettingsKeys.PollIntervalSeconds].DefaultFrom == DefaultFact.None
+            && SettingsCatalog.BuiltinByKey[SettingsKeys.MaxRequestsPerMinute].DefaultFrom == DefaultFact.RequestsPerMinute,
+            "the rate row is the only per-platform default left; interval must be one number for all");
+    }
+
+    /// <summary>
+    /// Step 3: <c>تنبيهات هذه المنصة</c> was a row that persisted and was never read. The mute rule is
+    /// pinned here so the row, the dispatcher and the store cannot describe three different things.
+    /// </summary>
+    private static void TestPlatformNotificationMute()
+    {
+        var repo = new FakeSettingsRepository();
+        var mostaql = SourceId.From("mostaql");
+        var nafezly = SourceId.From("nafezly");
+
+        Check("mute: an unconfigured platform still notifies (the row predates any stored value)",
+            !repo.IsMuted(mostaql));
+
+        repo.Set(mostaql, SettingsKeys.EnableSourceNotifications, false);
+        Check("mute: switching one platform off mutes it", repo.IsMuted(mostaql));
+        Check("mute: and does not touch any other platform", !repo.IsMuted(nafezly));
+
+        repo.Set(mostaql, SettingsKeys.EnableSourceNotifications, true);
+        Check("mute: switching it back on restores notifications", !repo.IsMuted(mostaql));
+
+        Check("mute: the row is stored per platform, never in the flat container",
+            !repo.Flat.ContainsKey(SettingsKeys.EnableSourceNotifications));
     }
 
     /// <summary>

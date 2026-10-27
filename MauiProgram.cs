@@ -216,7 +216,38 @@ public static class MauiProgram
         builder.Services.AddSingleton<OnboardingStateService>();
 
         // Notifications
-        builder.Services.AddSingleton<NotificationGrouper>();
+        // The grouper is ONE app-wide instance driven by SYSTEM settings, so it is seeded from the
+        // store at construction. It used to start with Enabled=false and be told otherwise only when
+        // the settings page happened to be constructed, which meant grouping was off after every fresh
+        // launch no matter what the user had configured — the same class of bug as the worker pool
+        // counting itself until someone opened Settings. Defaults here are the catalog's own literals
+        // (TestSettingsDefaultsAgreeWithServices pins the catalog side; the harvest guarantees the flat
+        // container already holds whatever an existing install had stored per platform).
+        builder.Services.AddSingleton(sp =>
+        {
+            var settings = sp.GetRequiredService<ISettingsRepository>();
+            var threshold = Math.Max(1, settings.GetGlobal(SettingsKeys.GroupingThreshold, 5));
+            var grouper = new NotificationGrouper
+            {
+                Enabled = settings.GetGlobal(SettingsKeys.NotificationGroupingEnabled, true),
+                Mode = Enum.TryParse<NotificationGroupingMode>(
+                    settings.GetGlobal(SettingsKeys.GroupingMode, nameof(NotificationGroupingMode.EndOfMinute)), out var mode)
+                    ? mode
+                    : NotificationGroupingMode.EndOfMinute,
+                AfterCountThreshold = threshold,
+                AfterMinutesThreshold = threshold,
+            };
+
+            // Logged because "grouping silently off after a fresh launch" was the bug: the singleton's
+            // start-up state is now whatever the store says, and this line is the evidence it did.
+            InteractionLogger.Mark("NotificationGrouper.Seeded", "A", new
+            {
+                grouper.Enabled,
+                Mode = grouper.Mode.ToString(),
+                grouper.AfterCountThreshold,
+            });
+            return grouper;
+        });
         builder.Services.AddSingleton<INotificationDispatcher, NotificationDispatcher>();
 
         // Tray icon — Windows-only desktop capability. PlatformCapability makes the

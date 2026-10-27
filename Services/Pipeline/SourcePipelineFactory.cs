@@ -62,6 +62,12 @@ public sealed class SourcePipelineFactory
 
         var pool = new EnrichmentWorkerPool(queue, enrichmentService, tracker, _projectRepository, _ownerRepository, status, _notificationDispatcher);
 
+        // Seed the pool from the SYSTEM row before StartAsync spawns it. WorkerCount defaulted to 3
+        // and only ever changed when someone opened the settings page, so an install that never
+        // touched Settings ran a concurrency the settings screen had never claimed.
+        pool.Reconfigure(Math.Max(1, _settings.GetGlobal(
+            SettingsKeys.MaxConcurrentDetailFetches, SourceCadence.DefaultParallelDetailFetches)));
+
         return new SourcePipeline(descriptor, status, queue, tracker, limiter, enrichmentService, poll, pool);
     }
 }

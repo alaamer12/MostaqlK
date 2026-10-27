@@ -1157,7 +1157,11 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private void ApplyPollSettings()
     {
-        _pollService.PollIntervalSeconds = PollIntervalSeconds;
+        // The row stores the shared number; the site decides how fast it may actually be polled
+        // (same clamp as StartAll, so saving a setting cannot bypass a platform's floor).
+        _pollService.PollIntervalSeconds = ActiveDescriptor is { } activeDescriptor
+            ? activeDescriptor.ClampPollInterval(PollIntervalSeconds)
+            : PollIntervalSeconds;
         _pollService.QueryParams = QueryParams;
 
         // The limiter derives capacity, refill and spacing from these two values itself, so the

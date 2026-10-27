@@ -101,6 +101,12 @@
 		     logic, so routing a read/write through it is proven offline (FakeSettingsRepository) and
 		     the call-site lint can compare every SettingsKeys use against the catalog's scope. -->
 		<Compile Include="..\..\Core\Sources\ScopedSettings.cs" LinkBase="Core" />
+		<!-- System/Platform split step 3: the cadence clamp is the rule that lets one SYSTEM interval
+		     coexist with per-site rate tolerance, so it is proven offline against both real descriptors. -->
+		<Compile Include="..\..\Core\Sources\SourceCadence.cs" LinkBase="Core" />
+		<!-- Step 3: the per-platform toast mute is the rule a settings row used to write without
+		     anything ever reading it, so its container and default are pinned offline. -->
+		<Compile Include="..\..\Core\Sources\NotificationMute.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Sources\SourceContributions.cs" LinkBase="Core" />
 		<Compile Include="..\..\Sources\Nafezly\Contributions\NafezlySettingsContribution.cs" LinkBase="Sources" />
 		<Compile Include="..\..\Infrastructure\Http\CookieParser.cs" LinkBase="Http" />

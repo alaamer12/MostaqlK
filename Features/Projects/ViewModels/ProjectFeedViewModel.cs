@@ -544,14 +544,13 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
 
     public void RefreshHeaderStatus()
     {
-        // Interval is a SYSTEM value, so the header shows the shared setting floored by what THIS
-        // site tolerates (ISourceDescriptor.MinSafePollIntervalSeconds) — the same clamp the poll
-        // loop applies, otherwise the caption promises a cadence the pipeline refuses to run at.
-        // The rate budget stays per platform, because each pipeline owns its own limiter.
+        // Interval is a SYSTEM value, so the header shows the shared setting run through the same
+        // per-site clamp the poll loop uses — otherwise the caption promises a cadence the pipeline
+        // refuses to run at. The rate budget stays per platform, because each pipeline owns its limiter.
         var storedInterval = _settings.GetGlobal(SettingsKeys.PollIntervalSeconds, _pollService.PollIntervalSeconds);
-        PollIntervalSeconds = Math.Max(
-            storedInterval,
-            SourceRegistryProvider.DescriptorFor(_source)?.MinSafePollIntervalSeconds ?? storedInterval);
+        PollIntervalSeconds = SourceRegistryProvider.DescriptorFor(_source) is { } intervalDescriptor
+            ? intervalDescriptor.ClampPollInterval(storedInterval)
+            : storedInterval;
         RequestsPerMinute = _settings.Get(_source, SettingsKeys.MaxRequestsPerMinute, Math.Max(1, _rateLimiter.Capacity));
         IsPollingActive = !_pollService.IsPaused;
 
