@@ -45,6 +45,13 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Floor for how long the cookie drop zone's spinner stays visible, in milliseconds.</summary>
     private const int SpinnerMinimumVisibleMilliseconds = 500;
 
+    /// <summary>
+    /// The catalog key of the session-cookie composite. A row identity in the composed list, not a
+    /// persisted preference (the cookie itself lives in <c>CookieStore</c>), so it is not a
+    /// <c>SettingsKeys</c> member.
+    /// </summary>
+    private const string SessionCookieRowKey = "session-cookie";
+
     private readonly IPollService _pollService;
     private readonly TokenBucketRateLimiter _rateLimiter;
     private readonly WorkerPool _workerPool;
@@ -249,7 +256,23 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Session row's state word: "مرتبطة" when a cookie is stored, else "غير مرتبطة".</summary>
     public string SessionValueText => HasSessionCookie ? "مرتبطة" : "غير مرتبطة";
 
-    partial void OnHasSessionCookieChanged(bool value) => OnPropertyChanged(nameof(SessionValueText));
+    partial void OnHasSessionCookieChanged(bool value)
+    {
+        OnPropertyChanged(nameof(SessionValueText));
+        NotifyCookieLinkCommands();
+        // The composite's status tone (green when a session exists) is part of its descriptor copy,
+        // so the row is rebuilt with it.
+        ComposeGroups();
+    }
+
+    partial void OnIsCookieEditorOpenChanged(bool value)
+    {
+        if (_rowsByKey.TryGetValue(SessionCookieRowKey, out var row))
+        {
+            row.IsExpanded = value;
+        }
+    }
+
 
     // Grouping-mode Picker bridge: the UI tests drive a SelectedIndex on `Settings_GroupingModePicker`,
     // so the enum is exposed as an index over the descriptor's own option list. The Arabic labels are
@@ -382,31 +405,85 @@ public sealed partial class SettingsViewModel : ObservableObject
             .Select(group =>
             {
                 // A section's Arabic caption is data too: the module that invents a section
-                // contributes a SectionHeader row for it, so the shared page holds no key→label map
-                // (and no source name). Without one, the key itself is what the host shows.
+                // contributes a SectionHeader row for it, and that row renders first in the group —
+                // the shared page holds no key→label map and names no source.
                 var header = group.FirstOrDefault(d => d.Shape == SettingsShape.SectionHeader);
-                return new SettingsGroupViewModel(
-                    header?.LabelAr ?? group.Key,
-                    group.Where(d => d.Shape != SettingsShape.SectionHeader)
-                        .Select(d => BuildRow(d))
-                        .ToList());
+                var rows = new List<SettingsRowViewModel>();
+                foreach (var descriptor in group)
+                {
+                    // The section band owns the divider under itself, so the row right after it
+                    // must not draw a second line.
+                    rows.Add(BuildRow(descriptor, isFirstInSection: rows.Count == 0));
+                }
+
+                return new SettingsGroupViewModel(header?.LabelAr ?? group.Key, rows);
             })
             .ToList();
 
         OnPropertyChanged(nameof(Groups));
     }
 
-    private SettingsRowViewModel BuildRow(SettingsDescriptor d)
+    private SettingsRowViewModel BuildRow(SettingsDescriptor d, bool isFirstInSection = false)
     {
+        // The cookie composite's status line is green only when a session actually exists, and the
+        // editor band is open only while the user is pasting — both are live state, so the row gets
+        // its own copy of the descriptor rather than the catalog mutating per source.
+        if (d.Shape == SettingsShape.CookieEditor)
+        {
+            d = d with { HintTone = HasSessionCookie ? SettingsHintTone.Success : SettingsHintTone.Muted };
+        }
+
         var row = new SettingsRowViewModel(
             d,
             read: () => RowValueOf(d),
             write: v => RowWrite(d, v),
             command: RowCommandOf(d),
-            valueText: RowValueTextOf(d));
+            valueText: RowValueTextOf(d),
+            commands: RowCommandsOf(d))
+        {
+            // Position facts, decided here rather than guessed by the renderer.
+            ShowTopDivider = d.Shape != SettingsShape.SectionHeader && !isFirstInSection,
+            LastScanAt = d.CommandName == "last-scan" ? _globalStatus.LastScanCompletedAt : null,
+        };
+
+        if (d.Shape == SettingsShape.CookieEditor)
+        {
+            row.IsExpanded = IsCookieEditorOpen;
+        }
 
         _rowsByKey[d.Key] = row;
         return row;
+    }
+
+    /// <summary>
+    /// The cookie row's four affordances as named commands. Which of the two links is visible is
+    /// decided by their <c>CanExecute</c> (a session exists or not), so the renderer asks no question
+    /// about cookies at all.
+    /// </summary>
+    private IReadOnlyDictionary<string, System.Windows.Input.ICommand>? RowCommandsOf(SettingsDescriptor d)
+    {
+        if (d.Shape != SettingsShape.CookieEditor)
+        {
+            return null;
+        }
+
+        return new Dictionary<string, System.Windows.Input.ICommand>(StringComparer.Ordinal)
+        {
+            ["Open"] = _cookieConnectCommand,
+            ["Close"] = CloseCookieEditorCommand,
+            ["Save"] = SaveSessionCookieCommand,
+            ["Clear"] = _cookieClearCommand,
+            ["Unlink"] = _cookieClearCommand,
+        };
+    }
+
+    private readonly CommunityToolkit.Mvvm.Input.RelayCommand _cookieConnectCommand;
+    private readonly CommunityToolkit.Mvvm.Input.RelayCommand _cookieClearCommand;
+
+    private void NotifyCookieLinkCommands()
+    {
+        _cookieConnectCommand.NotifyCanExecuteChanged();
+        _cookieClearCommand.NotifyCanExecuteChanged();
     }
 
     private object? RowValueOf(SettingsDescriptor d) => d.Key switch
@@ -578,6 +655,13 @@ public sealed partial class SettingsViewModel : ObservableObject
         _settings = settings;
         _contributions = contributions;
         _services = services;
+
+        // The cookie row's links are the only controls whose visibility is a state question rather
+        // than a data one; CanExecute carries the state so the renderer stays source-blind.
+        _cookieConnectCommand = new CommunityToolkit.Mvvm.Input.RelayCommand(
+            () => OpenCookieEditorCommand.Execute(null), () => !HasSessionCookie);
+        _cookieClearCommand = new CommunityToolkit.Mvvm.Input.RelayCommand(
+            () => ClearSessionCookieCommand.Execute(null), () => HasSessionCookie);
 
         // Composed before the values are read: the catalog is where defaults and bounds live, so
         // LoadFromPreferences takes its fallbacks from it (settings plugin step 4).

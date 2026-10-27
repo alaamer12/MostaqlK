@@ -15,18 +15,89 @@ public sealed class SettingsRowViewModel
         Func<object?>? read = null,
         Action<object?>? write = null,
         ICommand? command = null,
-        string? valueText = null)
+        string? valueText = null,
+        IReadOnlyDictionary<string, ICommand>? commands = null)
     {
         Descriptor = descriptor;
         _read = read;
         _write = write;
         Command = command;
+        _commands = commands;
         _valueText = valueText;
     }
 
     public SettingsDescriptor Descriptor { get; }
 
     public ICommand? Command { get; }
+
+    private readonly IReadOnlyDictionary<string, ICommand>? _commands;
+
+    /// <summary>
+    /// A composite row's extra commands (the cookie editor's open / save / clear), keyed by the role
+    /// the renderer asks for. One <see cref="Command"/> cannot express a row with three buttons, and
+    /// switching on a key here would move source knowledge back into shared code.
+    /// </summary>
+    public ICommand? CommandNamed(string role) =>
+        _commands is not null && _commands.TryGetValue(role, out var command) ? command : Command;
+
+    /// <summary>True while a composite row shows its expanded form (the cookie editor's paste field).</summary>
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set
+        {
+            if (_isExpanded == value) return;
+            _isExpanded = value;
+            ExpandedChanged?.Invoke();
+        }
+    }
+
+    private bool _isExpanded;
+
+    public event Action? ExpandedChanged;
+
+    /// <summary>Text the user is editing in an expanded composite (never the persisted value).</summary>
+    public string EditText
+    {
+        get => _editText;
+        set
+        {
+            if (_editText == value) return;
+            _editText = value;
+            EditTextChanged?.Invoke();
+        }
+    }
+
+    private string _editText = string.Empty;
+
+    public event Action? EditTextChanged;
+
+    /// <summary>
+    /// Whether the row draws the hairline above itself. The composition sets it (first row of a
+    /// section and section headers do not), because that is a fact about position in the list, not
+    /// about the setting — the renderer must not guess where it sits.
+    /// </summary>
+    public bool ShowTopDivider { get; init; } = true;
+
+    /// <summary>
+    /// Timestamp a <see cref="SettingsShape.ReadOnlyStat"/> row hosts through the
+    /// <c>LastScanStatus</c> unit (the one stat whose text keeps re-wording itself after the row is
+    /// built). Null for every other row; settable because the host keeps it current.
+    /// </summary>
+    public DateTimeOffset? LastScanAt
+    {
+        get => _lastScanAt;
+        set
+        {
+            if (_lastScanAt == value) return;
+            _lastScanAt = value;
+            LastScanAtChanged?.Invoke();
+        }
+    }
+
+    private DateTimeOffset? _lastScanAt;
+
+    public event Action? LastScanAtChanged;
 
     /// <summary>ReadOnlyStat / LinkOut caption (e.g. "98 مشروعًا").</summary>
     public string? ValueText => _valueText;

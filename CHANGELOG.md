@@ -159,6 +159,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `LayerResolver.ResolveChain` gained `requireBase`: an implementation seam with no base is a configuration error, but a COLLECTION seam (settings rows, nav items) is additive — a layer registered at coordinates the context does not satisfy means "not present for you", not "missing base". Found by the nafezly contribution composing for mostaql: it threw `MissingBaseException` instead of contributing nothing.
 - ParserTests +5 (section header, module-local key stays out of the base layer, exactly one session row composes, a foreign contribution composes nothing for another source): **377 passed / 0 failed**. Canary build 0 warnings / 0 errors.
 
+### Changed (dev49 — settings plugin step 7a: the shipped settings page renders from the catalog)
+- `SettingsPanelWindowsLayout.xaml` lost its hand-placed rows (532 → 218 lines): the page is now a `BindableLayout` over `Groups`, one `<settingsrow:SettingsRow Row="{Binding .}" />` per descriptor. Adding a descriptor to the catalog adds a row on the next open; deleting one removes it; nafezly's contributed section arrives with its own header row.
+- `SettingsRow` gained what that required, all as descriptor data: a top hairline whose visibility the composition decides (position, not setting), section bands with the descriptor's `IconName` + caption + hint, a hosted `LastScanStatus` for the scan-time stat, and `BareEditor` — the same numeric shape drawn as settings.html's bold value + `تغيير` focus link instead of settings-shapes.html's hairline field.
+- Two id rules fixed after a UIA walk of the live page: a row's PRIMARY control now takes `AutomationId` verbatim (the role-suffix derivation had silently renamed `Settings_SaveButton` to `Settings_SaveButtonInvoke` and `Settings_ViewArchiveButton` to `…ButtonView`, which would have broken the UI tests without any build error), and a link with no command stays visible (the focus link was being hidden by the "hide when the command can't run" rule).
+- Verified on the running app: every one of the 12 AutomationIds the UI tests and this wave assert resolves (0 missing), including the contributed `Settings_NafezlyRetryToggle`; parity against `settings.html` raw 69.9% / structure 90.8% / palette 99.9% — at or above the hand-written layout's committed baseline (69.0%).
+
 ## [1.0.4] - 2026-09-02
 
 ### Added

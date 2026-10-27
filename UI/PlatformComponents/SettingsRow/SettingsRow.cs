@@ -28,6 +28,7 @@ public partial class SettingsRow : ContentView
     private const double MockupLineHeight = 1.5;
 
     private readonly Grid _root;
+    private readonly BoxView _divider;
     private readonly VerticalStackLayout _labelCell;
     private readonly HorizontalStackLayout _valueCell;
     private readonly Label _titleLabel;
@@ -37,6 +38,27 @@ public partial class SettingsRow : ContentView
     private SettingsRowViewModel? _row;
     private Action? _repaint;
     private View? _spanChild;
+
+    /// <summary>
+    /// Bindable so a layout can render a whole catalog with <c>BindableLayout</c> and one line per
+    /// row (<c>&lt;settingsRow:SettingsRow Row="{Binding .}" /&gt;</c>) instead of hand-placing a
+    /// control per setting. Assigning it rebuilds the row from that descriptor.
+    /// </summary>
+    public static readonly BindableProperty RowProperty = BindableProperty.Create(
+        nameof(Row), typeof(SettingsRowViewModel), typeof(SettingsRow),
+        propertyChanged: (bindable, _, after) =>
+        {
+            if (after is SettingsRowViewModel row)
+            {
+                ((SettingsRow)bindable).SetRow(row);
+            }
+        });
+
+    public SettingsRowViewModel? Row
+    {
+        get => (SettingsRowViewModel?)GetValue(RowProperty);
+        set => SetValue(RowProperty, value);
+    }
 
     public SettingsRow()
     {
@@ -94,7 +116,14 @@ public partial class SettingsRow : ContentView
         _root.Children.Add(_labelCell);
         _root.Children.Add(_valueCell);
 
-        Content = _root;
+        // .set-row { border-top: 1px solid var(--line) } — the composition decides which rows draw
+        // it (a section's first row and the section band itself do not).
+        _divider = new BoxView
+        {
+            HeightRequest = 1,
+            HorizontalOptions = LayoutOptions.Fill,
+        };
+        Content = new VerticalStackLayout { Spacing = 0, Children = { _divider, _root } };
     }
 
     /// <summary>Rebuilds the row from the descriptor bound to <paramref name="row"/>.</summary>
@@ -122,6 +151,7 @@ public partial class SettingsRow : ContentView
         _row = row;
         var d = row.Descriptor;
 
+        _divider.IsVisible = row.ShowTopDivider && d.Shape != SettingsShape.SectionHeader;
         _titleLabel.Text = d.LabelAr;
         _hintLabel.Text = d.HintAr ?? string.Empty;
         _hintLabel.IsVisible = !string.IsNullOrEmpty(d.HintAr);
@@ -181,10 +211,30 @@ public partial class SettingsRow : ContentView
         entry.HorizontalTextAlignment = TextAlignment.Center;
         entry.Text = row.Read()?.ToString() ?? d.DefaultLiteral ?? string.Empty;
         entry.TextChanged += (_, e) => row.Write(ParseInt(e.NewTextValue));
-        _valueCell.Children.Add(NumBox(entry, width: 92));
+        if (d.BareEditor)
+        {
+            entry.WidthRequest = 56;
+            entry.BackgroundColor = Colors.Transparent;
+            entry.HorizontalTextAlignment = TextAlignment.Center;
+            _valueCell.Children.Add(entry);
+        }
+        else
+        {
+            _valueCell.Children.Add(NumBox(entry, width: 92));
+        }
+
         if (d.UnitAr is not null)
         {
             _valueCell.Children.Add(UnitLabel(d.UnitAr));
+        }
+
+        // settings.html's value line carries a تغيير link; with an always-editable field its only
+        // honest job is to focus the field, which is what it does.
+        if (d.SecondaryLabelAr is not null)
+        {
+            var edit = Link(d.SecondaryLabelAr, null, IdFor(d, "Edit"));
+            edit.Clicked += (_, _) => entry.Focus();
+            _valueCell.Children.Add(edit);
         }
     }
 
@@ -193,7 +243,16 @@ public partial class SettingsRow : ContentView
         var entry = NewEntry(row, keyboard: Keyboard.Plain);
         entry.Text = row.Read()?.ToString() ?? string.Empty;
         entry.TextChanged += (_, e) => row.Write(e.NewTextValue);
-        _valueCell.Children.Add(NumBox(entry, width: 220));
+        if (row.Descriptor.BareEditor)
+        {
+            entry.WidthRequest = 220;
+            entry.BackgroundColor = Colors.Transparent;
+            _valueCell.Children.Add(entry);
+        }
+        else
+        {
+            _valueCell.Children.Add(NumBox(entry, width: 220));
+        }
     }
 
     /// <summary>
@@ -351,6 +410,24 @@ public partial class SettingsRow : ContentView
         };
         row.ValueTextChanged += () => value.Text = row.ValueText ?? string.Empty;
         _valueCell.Children.Add(value);
+
+        // The one stat that keeps re-wording itself after construction is the scan time, and the
+        // app already owns that unit (its own timer, its own wording rules) — so the row hosts it
+        // rather than the renderer inventing a second relative-time formatter.
+        if (row.LastScanAt is { } scanAt)
+        {
+            var scan = new UI.PlatformComponents.LastScanStatus.LastScanStatus
+            {
+                LastScanAt = scanAt,
+                ShowLabel = false,
+                FontSize = LabelSize,
+                LabelFontFamily = "TajawalBold",
+                VerticalOptions = LayoutOptions.Center,
+                LabelAutomationId = d.AutomationId,
+            };
+            row.LastScanAtChanged += () => scan.LastScanAt = row.LastScanAt ?? default;
+            _valueCell.Children.Add(scan);
+        }
         if (d.SecondaryLabelAr is not null || d.CommandName is not null)
         {
             _valueCell.Children.Add(LinkAction(d.SecondaryLabelAr ?? "عرض", d, row, "View"));
@@ -360,7 +437,7 @@ public partial class SettingsRow : ContentView
     private void BuildAction(SettingsRowViewModel row)
     {
         var d = row.Descriptor;
-        _valueCell.Children.Add(PrimaryButton(d.ActionLabelAr ?? d.LabelAr, d, row, "Invoke"));
+        _valueCell.Children.Add(PrimaryButton(d.ActionLabelAr ?? d.LabelAr, d, row, "Invoke"));  // primary → d.AutomationId
         if (d.SecondaryLabelAr is not null)
         {
             _valueCell.Children.Add(GhostButton(d.SecondaryLabelAr, d, row, "Secondary"));
@@ -412,9 +489,64 @@ public partial class SettingsRow : ContentView
 
     private void BuildSectionHeader(SettingsRowViewModel row)
     {
-        _titleLabel.FontSize = 16;
-        var icon = new Label { Text = "⚙", FontSize = 14, VerticalOptions = LayoutOptions.Center };
-        _valueCell.Children.Add(icon);
+        var d = row.Descriptor;
+        // The section band is the whole width: caption (+ the descriptor's icon) and its explanatory
+        // line, with a hairline under it. This is the shape that used to exist only as XAML markup
+        // above a hand-placed group of rows.
+        _labelCell.IsVisible = false;
+
+        var title = new HorizontalStackLayout
+        {
+            Spacing = 8,
+            Children =
+            {
+                new Label
+                {
+                    Text = d.LabelAr,
+                    FontFamily = "TajawalBold",
+                    FontSize = 16,
+                    TextColor = Ink1,
+                    VerticalOptions = LayoutOptions.Center,
+                },
+            },
+        };
+
+        if (!string.IsNullOrEmpty(d.IconName) && Enum.TryParse<UI.PlatformComponents.AppIconGlyph>(d.IconName, out var glyph))
+        {
+            title.Children.Insert(0, new UI.PlatformComponents.AppIcon
+            {
+                Icon = glyph,
+                WidthRequest = 18,
+                HeightRequest = 18,
+                TextColor = BrandPalette.BrandInk,
+                VerticalOptions = LayoutOptions.Center,
+            });
+        }
+
+        var band = new VerticalStackLayout
+        {
+            Spacing = 2,
+            Padding = new Thickness(32, 18),
+            Children = { title },
+        };
+
+        if (!string.IsNullOrEmpty(d.HintAr))
+        {
+            band.Children.Add(new Label
+            {
+                Text = d.HintAr,
+                FontFamily = "Tajawal",
+                FontSize = 12,
+                TextColor = Ink3,
+                LineBreakMode = LineBreakMode.WordWrap,
+            });
+        }
+
+        Grid.SetColumn(band, 0);
+        Grid.SetColumnSpan(band, 2);
+        _root.Padding = new Thickness(0);
+        _root.Children.Add(band);
+        _spanChild = band;
     }
 
     private void BuildFilePicker(SettingsRowViewModel row)
@@ -461,14 +593,140 @@ public partial class SettingsRow : ContentView
         // The status line belongs under the label, not beside the buttons.
         _labelCell.Children.Insert(1, status);
 
-        // A verification in flight is the one state that asks for the filled button.
-        _valueCell.Children.Add(d.HintTone == SettingsHintTone.Brand
-            ? PrimaryButton(d.ActionLabelAr ?? "رفع ملف", d, row, "Upload")
-            : GhostButton(d.ActionLabelAr ?? "رفع ملف", d, row, "Upload"));
-        if (d.SecondaryLabelAr is not null)
+        if (!row.IsExpanded)
         {
-            _valueCell.Children.Add(LinkAction(d.SecondaryLabelAr, d, row, "Unlink"));
+            // Closed: the two states are mutually exclusive, and which one applies is the command's
+            // CanExecute — the renderer never learns what "has a session" means for a setting.
+            _valueCell.Children.Add(Link(d.ActionLabelAr ?? "ربط كوكيز", row.CommandNamed("Open"), d.AutomationId));
+            _valueCell.Children.Add(Link(d.SecondaryLabelAr ?? "إلغاء الربط", row.CommandNamed("Clear"), IdFor(d, "Unlink")));
+            return;
         }
+
+        // Expanded: paste field + save/clear in a band under the row, exactly as the shipped card
+        // laid them out, with the row itself reduced to its label and a close affordance.
+        _valueCell.Children.Add(Link("إغلاق", row.CommandNamed("Close"), IdFor(d, "Close")));
+
+        var entry = new AppEntry
+        {
+            Text = row.EditText,
+            Placeholder = d.PlaceholderAr,
+            IsPassword = true,
+            FlowDirection = FlowDirection.LeftToRight,
+            FontFamily = "Tajawal",
+            FontSize = 14,
+        };
+        entry.TextChanged += (_, e) => row.EditText = e.NewTextValue ?? string.Empty;
+
+        var actions = new HorizontalStackLayout { Spacing = 10 };
+        actions.Children.Add(Filled("حفظ الكوكي", row.CommandNamed("Save"), IdFor(d, "Save")));
+        actions.Children.Add(Outlined("مسح الكوكي", row.CommandNamed("Clear"), IdFor(d, "Clear")));
+
+        var editor = new VerticalStackLayout { Spacing = 10, Padding = new Thickness(32, 0, 32, 12) };
+        editor.Children.Add(Boxed(entry, radius: 8, padding: new Thickness(10, 6)));
+        editor.Children.Add(actions);
+
+        if (_root.RowDefinitions.Count == 1)
+        {
+            _root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        }
+        Grid.SetColumn(editor, 0);
+        Grid.SetRow(editor, 1);
+        Grid.SetColumnSpan(editor, 2);
+        _root.Children.Add(editor);
+        _spanChild = editor;
+    }
+
+    /// <summary>Descriptor-declared id for one of a composite's sub-controls.</summary>
+    private static string IdFor(SettingsDescriptor d, string role) =>
+        d.ControlAutomationIds is not null && d.ControlAutomationIds.TryGetValue(role, out var id)
+            ? id
+            : (string.IsNullOrEmpty(d.AutomationId) ? $"{d.Key}_{role}" : d.AutomationId + role);
+
+    /// <summary>Borderless brand text button, shown only while its command applies.</summary>
+    private Button Link(string text, System.Windows.Input.ICommand? command, string automationId)
+    {
+        var b = new Button
+        {
+            Text = text,
+            FontFamily = "TajawalBold",
+            FontSize = 12,
+            TextColor = BrandPalette.BrandInk,
+            BackgroundColor = Colors.Transparent,
+            BorderWidth = 0,
+            Padding = new Thickness(2, 0),
+            MinimumHeightRequest = 0,
+            VerticalOptions = LayoutOptions.Center,
+            AutomationId = automationId,
+        };
+        if (command is not null)
+        {
+            b.Command = command;
+        }
+        ShowWhenExecutable(b, command);
+        return b;
+    }
+
+    /// <summary>Filled brand button for a composite's own command.</summary>
+    private Button Filled(string text, System.Windows.Input.ICommand? command, string automationId)
+    {
+        var b = new Button
+        {
+            Text = text,
+            FontFamily = "TajawalBold",
+            FontSize = 13,
+            TextColor = BrandPalette.OnBrand,
+            BackgroundColor = BrandPalette.Brand,
+            BorderWidth = 0,
+            CornerRadius = 8,
+            Padding = new Thickness(14, 8),
+            MinimumHeightRequest = 0,
+            VerticalOptions = LayoutOptions.Center,
+            AutomationId = automationId,
+        };
+        if (command is not null)
+        {
+            b.Command = command;
+        }
+        ShowWhenExecutable(b, command);
+        return b;
+    }
+
+    /// <summary>Outlined neutral button for a composite's own command.</summary>
+    private Button Outlined(string text, System.Windows.Input.ICommand? command, string automationId)
+    {
+        var b = new Button
+        {
+            Text = text,
+            FontFamily = "TajawalBold",
+            FontSize = 13,
+            TextColor = Danger,
+            BackgroundColor = Colors.Transparent,
+            BorderColor = Line,
+            BorderWidth = 1,
+            CornerRadius = 8,
+            Padding = new Thickness(14, 8),
+            MinimumHeightRequest = 0,
+            VerticalOptions = LayoutOptions.Center,
+            AutomationId = automationId,
+        };
+        if (command is not null)
+        {
+            b.Command = command;
+        }
+        ShowWhenExecutable(b, command);
+        return b;
+    }
+
+    private static void ShowWhenExecutable(View view, System.Windows.Input.ICommand? command)
+    {
+        // No command at all (a focus-only link) is not "cannot run" — it has nothing to gate on.
+        if (command is null)
+        {
+            return;
+        }
+
+        view.IsVisible = command.CanExecute(null);
+        command.CanExecuteChanged += (_, _) => view.IsVisible = command.CanExecute(null);
     }
 
     // ------------------------------------------------------------------ helpers
@@ -489,7 +747,7 @@ public partial class SettingsRow : ContentView
             MinimumHeightRequest = 0,
             VerticalOptions = LayoutOptions.Center,
         };
-        SetAutomationId(b, ActionId(d, idSuffix));
+        SetAutomationId(b, ActionId(d, idSuffix, isPrimary: true));
         if (row.Command is not null) b.Command = row.Command;
         return b;
     }
@@ -511,7 +769,7 @@ public partial class SettingsRow : ContentView
             MinimumHeightRequest = 0,
             VerticalOptions = LayoutOptions.Center,
         };
-        SetAutomationId(b, ActionId(d, idSuffix));
+        SetAutomationId(b, ActionId(d, idSuffix, isPrimary: true));
         if (row.Command is not null) b.Command = row.Command;
         return b;
     }
@@ -531,13 +789,27 @@ public partial class SettingsRow : ContentView
             MinimumHeightRequest = 0,
             VerticalOptions = LayoutOptions.Center,
         };
-        SetAutomationId(b, ActionId(d, idSuffix));
+        SetAutomationId(b, ActionId(d, idSuffix, isPrimary: true));
         if (row.Command is not null) b.Command = row.Command;
         return b;
     }
 
-    private static string ActionId(SettingsDescriptor d, string idSuffix) =>
-        string.IsNullOrEmpty(d.AutomationId) ? $"{d.Key}_{idSuffix}" : d.AutomationId + idSuffix;
+    /// <summary>
+    /// Id for one of a row's controls. The PRIMARY control takes the descriptor's
+    /// <c>AutomationId</c> verbatim — those names are what the UI tests have asserted for waves
+    /// (<c>Settings_SaveButton</c>, <c>Settings_ViewArchiveButton</c>…), and appending a role suffix
+    /// to them silently breaks the tests. Secondary controls look up
+    /// <see cref="SettingsDescriptor.ControlAutomationIds"/> and fall back to a derived name.
+    /// </summary>
+    private static string ActionId(SettingsDescriptor d, string role, bool isPrimary = false)
+    {
+        if (isPrimary)
+        {
+            return string.IsNullOrEmpty(d.AutomationId) ? $"{d.Key}_{role}" : d.AutomationId;
+        }
+
+        return IdFor(d, role);
+    }
 
     /// <summary>Mockup anatomy: an editable value sits in a 1px hairline box; MAUI controls draw no frame.</summary>
     private static Border Boxed(View content, double radius, Thickness padding) => new()

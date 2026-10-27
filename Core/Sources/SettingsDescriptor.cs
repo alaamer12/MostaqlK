@@ -75,6 +75,20 @@ public sealed record SettingsDescriptor(
     /// <summary>Text of the secondary, link-styled control next to the primary one (إلغاء الربط، تغيير…).</summary>
     public string? SecondaryLabelAr { get; init; }
 
+    /// <summary>
+    /// <c>AppIconGlyph</c> name for the shapes that carry an icon (a section header's plug/sliders
+    /// mark). Data, because which mark a section wears is a design fact the renderer must not own.
+    /// </summary>
+    public string? IconName { get; init; }
+
+    /// <summary>
+    /// AutomationIds for the extra controls a composite shape builds (the cookie editor's paste
+    /// entry, save and clear buttons). Keyed by control role, values are the ids the UI tests have
+    /// always used — they live here because a composite's control set is descriptor data, and the
+    /// renderer must not hardcode either the names or a derivation of them.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? ControlAutomationIds { get; init; }
+
     /// <summary>Unit rendered after a numeric/text value (ثانية، طلب/دقيقة…).</summary>
     public string? UnitAr { get; init; }
 
@@ -112,6 +126,15 @@ public sealed record SettingsDescriptor(
     /// <summary>Render the editable value LTR-isolated (URLs, cookie names, numbers).</summary>
     public bool IsLtr { get; init; }
 
+    /// <summary>
+    /// <c>false</c> (the gallery default): the editable value sits in its own hairline field
+    /// (<c>settings-shapes.html .num-input</c>). <c>true</c>: the value reads as the row's own bold
+    /// text with no field chrome, and the <c>تغيير</c> link focuses it — which is how
+    /// <c>settings.html</c> draws the same shape. The shipped page is bare because a bordered
+    /// MAUI entry beside a 13px label both fights the typography and adds ~14px to every row.
+    /// </summary>
+    public bool BareEditor { get; init; }
+
     public bool IsPassword { get; init; }
 
     /// <summary>Action/stat rows bind a named command instead of a stored value.</summary>
@@ -134,6 +157,9 @@ public sealed record SettingsDescriptorPatch(string Key)
     public SettingsHintTone? HintTone { get; init; }
     public string? ActionLabelAr { get; init; }
     public string? SecondaryLabelAr { get; init; }
+    public string? IconName { get; init; }
+    public bool? BareEditor { get; init; }
+    public IReadOnlyDictionary<string, string>? ControlAutomationIds { get; init; }
     public string? UnitAr { get; init; }
     public int? Min { get; init; }
     public int? Max { get; init; }
@@ -166,6 +192,9 @@ public sealed record SettingsDescriptorPatch(string Key)
         if (HintTone is not null) yield return nameof(HintTone);
         if (ActionLabelAr is not null) yield return nameof(ActionLabelAr);
         if (SecondaryLabelAr is not null) yield return nameof(SecondaryLabelAr);
+        if (IconName is not null) yield return nameof(IconName);
+        if (BareEditor is not null) yield return nameof(BareEditor);
+        if (ControlAutomationIds is not null) yield return nameof(ControlAutomationIds);
         if (UnitAr is not null) yield return nameof(UnitAr);
         if (Min is not null) yield return nameof(Min);
         if (Max is not null) yield return nameof(Max);
@@ -197,6 +226,9 @@ public sealed record SettingsDescriptorPatch(string Key)
         HintTone = HintTone ?? baseDescriptor.HintTone,
         ActionLabelAr = ActionLabelAr ?? baseDescriptor.ActionLabelAr,
         SecondaryLabelAr = SecondaryLabelAr ?? baseDescriptor.SecondaryLabelAr,
+        IconName = IconName ?? baseDescriptor.IconName,
+        BareEditor = BareEditor ?? baseDescriptor.BareEditor,
+        ControlAutomationIds = ControlAutomationIds ?? baseDescriptor.ControlAutomationIds,
         UnitAr = UnitAr ?? baseDescriptor.UnitAr,
         Min = Min ?? baseDescriptor.Min,
         Max = Max ?? baseDescriptor.Max,

@@ -49,6 +49,7 @@ public partial class SettingsRow
             _ => Ink3,
         };
         _errorLabel.TextColor = Danger;
+        _divider.Color = Line;
 
         foreach (var child in _valueCell.Children)
         {

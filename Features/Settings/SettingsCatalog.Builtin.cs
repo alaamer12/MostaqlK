@@ -13,6 +13,12 @@ public static partial class SettingsCatalog
     public static IReadOnlyList<SettingsDescriptor> Builtin { get; } =
     [
         // ── Section: platform (المنصة) — per-source storage ─────────────────────────────
+        new("section-platform", SettingsShape.SectionHeader, SettingsScope.Global,
+            "المنصة", "platform", 0)
+        {
+            HintAr = "المصادر يحددها المطوّر — كل منصة تعرض إعداداتها الخاصة بها، وقد تختلف الإعدادات والصفحات وحقول البطاقات من منصة لأخرى.",
+            IconName = "Plug",
+        },
         new(SettingsKeys.PollIntervalSeconds, SettingsShape.NumericBounded, SettingsScope.PerSource,
             "فاصل الفحص", "platform", 10)
         {
@@ -24,6 +30,8 @@ public static partial class SettingsCatalog
             Validation = SettingsValidationKind.IntRange,
             ErrorAr = "فترة الفحص يجب أن تكون بين {0} و {1} ثانية.",
             DefaultFrom = DefaultFact.PollIntervalSeconds,
+            BareEditor = true,
+            SecondaryLabelAr = "تغيير",
             AutomationId = "Settings_PollIntervalInput",
             AutomationIdMobile = "Settings_Mobile_PollIntervalEntry",
             IsLtr = true,
@@ -38,6 +46,8 @@ public static partial class SettingsCatalog
             Validation = SettingsValidationKind.IntMin,
             ErrorAr = "الحد الأقصى للطلبات يجب أن يكون رقمًا أكبر من صفر.",
             DefaultFrom = DefaultFact.RequestsPerMinute,
+            BareEditor = true,
+            SecondaryLabelAr = "تغيير",
             AutomationId = "Settings_RequestsPerMinuteInput",
             AutomationIdMobile = "Settings_Mobile_RateLimitEntry",
             IsLtr = true,
@@ -66,6 +76,7 @@ public static partial class SettingsCatalog
             // The untouched-install value is what the view-model has always read (2); the pool starts
             // at that same count, so an install that never opened Settings keeps the same behavior.
             DefaultLiteral = "2",
+            BareEditor = true,
             AutomationId = "Settings_ConcurrentFetchesInput",
         },
         new(SettingsKeys.QueryParams, SettingsShape.TextEntry, SettingsScope.PerSource,
@@ -75,6 +86,7 @@ public static partial class SettingsCatalog
             PlaceholderAr = "category=software-dev&sort=latest",
             Value = SettingsValueKind.String,
             IsLtr = true,
+            BareEditor = true,
             AutomationId = "Settings_QueryParamsInput",
             AutomationIdMobile = "Settings_Mobile_QueryParamsEntry",
         },
@@ -122,6 +134,8 @@ public static partial class SettingsCatalog
             Value = SettingsValueKind.Int,
             Validation = SettingsValidationKind.IntMin,
             ErrorAr = "حد التجميع يجب أن يكون رقمًا أكبر من صفر.",
+            BareEditor = true,
+            SecondaryLabelAr = "تغيير",
             // NotificationGrouper's own AfterCountThreshold default is 5; a settings row advertising
             // anything else would promise a number the grouper never uses.
             DefaultLiteral = "5",
@@ -143,8 +157,19 @@ public static partial class SettingsCatalog
             CommandName = "cookie",
             Validation = SettingsValidationKind.CookieParse,
             ErrorAr = "لم يُعثر على أي كوكيز صالحة في الملف. صدّر الملف بصيغة Netscape من متصفحك.",
+            ActionLabelAr = "ربط كوكيز",
+            SecondaryLabelAr = "إلغاء الربط",
             AutomationId = "Settings_OpenCookieEditorButton",
             AutomationIdMobile = "Settings_Mobile_SessionCookieEntry",
+            // The revealed editor's own controls, by role: the renderer looks these up instead of
+            // hardcoding ids, so the historical names the UI tests assert survive the swap.
+            ControlAutomationIds = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["Unlink"] = "Settings_ClearCookieButton",
+                ["Save"] = "Settings_SaveCookieButton",
+                ["Clear"] = "Settings_ClearCookieButton",
+                ["Close"] = "Settings_CloseCookieEditorButton",
+            },
         },
         new("budget-currency", SettingsShape.ReadOnlyStat, SettingsScope.PerSource,
             "عملة الميزانية", "platform", 120)
@@ -157,6 +182,8 @@ public static partial class SettingsCatalog
             "آخر فحص", "platform", 130)
         {
             CommandName = "last-scan",
+            // The hosted LastScanStatus unit takes this as its label id (the UI tests read it).
+            AutomationId = "Settings_LastScanLabel",
         },
         new("archive", SettingsShape.ReadOnlyStat, SettingsScope.PerSource,
             "الأرشيف", "platform", 140)
@@ -166,6 +193,11 @@ public static partial class SettingsCatalog
         },
 
         // ── Section: general (عام) ───────────────────────────────────────────────────────
+        new("section-general", SettingsShape.SectionHeader, SettingsScope.Global,
+            "عام", "general", 0)
+        {
+            IconName = "Sliders",
+        },
         new(SettingsKeys.StartupEnabled, SettingsShape.Toggle, SettingsScope.Global,
             "تشغيل مع النظام", "general", 10)
         {
@@ -231,10 +263,16 @@ public static partial class SettingsCatalog
         },
 
         // ── Section: actions ─────────────────────────────────────────────────────────────
+        new("section-actions", SettingsShape.SectionHeader, SettingsScope.Global,
+            "الإجراءات", "actions", 0)
+        {
+            IconName = "Save",
+        },
         new("save", SettingsShape.ActionButton, SettingsScope.Global,
             "حفظ التغييرات", "actions", 10)
         {
             CommandName = "save",
+            ActionLabelAr = "حفظ",
             AutomationId = "Settings_SaveButton",
         },
     ];
