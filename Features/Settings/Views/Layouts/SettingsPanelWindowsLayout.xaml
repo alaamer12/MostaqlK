@@ -122,7 +122,8 @@
 
         <Grid Grid.Column="0" RowDefinitions="Auto,*" BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#0F172A}">
 
-            <!-- Header band (mockup <header>): centered title + "إعدادات المنصة الحالية: {tile} {name}" -->
+            <!-- Header band (mockup <header>): centered title + "إعدادات النظام وإعدادات المنصة الحالية: {tile} {name}"
+                 (the page carries two bands now, so the caption names both; settings.html follows in step 6) -->
             <VerticalStackLayout Grid.Row="0"
                                  Spacing="8"
                                  Padding="24,20"
@@ -134,7 +135,7 @@
                        TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
                        HorizontalOptions="Center" />
                 <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
-                    <Label Text="إعدادات المنصة الحالية:"
+                    <Label Text="إعدادات النظام وإعدادات المنصة الحالية:"
                            FontFamily="Tajawal"
                            FontSize="12"
                            VerticalOptions="Center"

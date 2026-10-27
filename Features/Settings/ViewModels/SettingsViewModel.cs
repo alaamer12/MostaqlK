@@ -194,7 +194,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private MostaqlK.Core.Sources.ISourceDescriptor? ActiveDescriptor =>
         MostaqlK.Core.Sources.SourceRegistryProvider.DescriptorFor(_source);
 
-    /// <summary>Arabic platform name for the header caption "إعدادات المنصة الحالية: …".</summary>
+    /// <summary>Arabic platform name for the header caption "إعدادات النظام وإعدادات المنصة الحالية: …".</summary>
     public string ActiveSourceName => ActiveDescriptor?.DisplayNameAr ?? "المنصة";
 
     /// <summary>Single-letter rail glyph for the header caption's tile.</summary>
@@ -947,7 +947,13 @@ public sealed partial class SettingsViewModel : ObservableObject
         NotificationGroupingEnabled = ReadSetting(SettingsKeys.NotificationGroupingEnabled, BoolDefaultOf(SettingsKeys.NotificationGroupingEnabled, false));
         SourceNotificationsEnabled = ReadSetting(SettingsKeys.EnableSourceNotifications, BoolDefaultOf(SettingsKeys.EnableSourceNotifications, true));
         SafeRequests = ReadSetting(SettingsKeys.SafeRequests, BoolDefaultOf(SettingsKeys.SafeRequests, true));
-        StartupEnabled = ReadSetting(SettingsKeys.StartupEnabled, false);
+        // The OS is the authority for "يبدأ مع النظام": the registry can be edited outside the app
+        // (or a write can fail), and IStartupService.IsStartupEnabled reads it directly, so the row
+        // cannot show a state Windows will not honor. Where the platform has no startup API at all,
+        // the stored preference is the only answer there is.
+        StartupEnabled = _startupService.IsSupported
+            ? _startupService.IsStartupEnabled
+            : ReadSetting(SettingsKeys.StartupEnabled, false);
         RememberLastSource = ReadSetting(SettingsKeys.RememberLastSource, true);
         GroupingThreshold = ReadSetting(SettingsKeys.GroupingThreshold, IntDefaultOf(SettingsKeys.GroupingThreshold, 5));
         // Seed from the theme the app already resolved at startup (App.xaml.cs, which honours a
