@@ -77,8 +77,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     public partial int PollIntervalSeconds { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SafeRequestsHintText))]
-    public partial int RequestsPerMinute { get; set; }
+        public partial int RequestsPerMinute { get; set; }
 
     [ObservableProperty]
     public partial int MaxConcurrentDetailFetches { get; set; }
@@ -102,8 +101,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// short window.
     /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SafeRequestsHintText))]
-    public partial bool SafeRequests { get; set; } = true;
+        public partial bool SafeRequests { get; set; } = true;
 
     /// <summary>Tooltip body for the "الطلبات الآمنة" row's (i) affordance.</summary>
     public string SafeRequestsHintText => SafeRequests
@@ -178,11 +176,8 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>Reveals the inline session-cookie editor behind the "جلسة الإثراء" row's "ربط" link.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsCookieEditorClosed))]
     public partial bool IsCookieEditorOpen { get; set; }
 
-    /// <summary>True while the cookie editor is hidden (drives the row's compact value+link display).</summary>
-    public bool IsCookieEditorClosed => !IsCookieEditorOpen;
 
     /// <summary>Total stored projects for the active source, for the "الأرشيف" row's "{n} مشروعًا".</summary>
     public string ArchiveCountText => $"{ArchiveCount} مشروعًا";
@@ -212,54 +207,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>The letter tile shows only when the source's baked icon is absent.</summary>
     public bool ShowsSourceGlyphLetter => ActiveSourceGlyphImage is null;
 
-    /// <summary>
-    /// "جلسة الإثراء" row shows only when the source's descriptor marks session-gated enrichment.
-    /// A source that enriches fully without a session renders no row (the module's own contributed
-    /// session read-out, if any, comes through <see cref="ContributedSections"/> instead).
-    /// </summary>
-    public bool ShowSessionEnrichmentRow => ActiveDescriptor?.Capabilities.NeedsSessionForFullEnrichment ?? false;
-
-    /// <summary>
-    /// "أنواع المشاريع المتابَعة" row shows only when the source declares a supervised-projects
-    /// capability. No registered source sets it true today, so the row is honestly absent until one
-    /// does — the same presence-by-data rule as the details schema (contract §1).
-    /// </summary>
-    public bool ShowSupervisedTypesRow => ActiveDescriptor?.Capabilities.HasSupervisedFlag ?? false;
-
-    /// <summary>
-    /// "عملة الميزانية" display row shows only when the source's currency differs from the default
-    /// source's (i.e. a non-ر.س platform) — the mockup renders it for the $-priced source only.
-    /// </summary>
-    public bool ShowBudgetCurrencyRow
-    {
-        get
-        {
-            var active = ActiveDescriptor?.CurrencySuffix;
-            if (string.IsNullOrEmpty(active))
-            {
-                return false;
-            }
-
-            var defaultSuffix = MostaqlK.Core.Sources.SourceRegistryProvider
-                .DescriptorFor(MostaqlK.Core.Sources.SourceId.Default)?.CurrencySuffix;
-            return !string.Equals(active, defaultSuffix, StringComparison.Ordinal);
-        }
-    }
-
-    /// <summary>The budget-currency value text, e.g. "كما في الموقع ($)" — suffix straight from the descriptor.</summary>
-    public string BudgetCurrencyDisplayText => $"كما في الموقع ({ActiveDescriptor?.CurrencySuffix ?? string.Empty})";
-
-    /// <summary>Hint under the session row; the platform name is the descriptor's, never a literal.</summary>
-    public string SessionEnrichmentHint =>
-        $"بعض صفحات {ActiveSourceName} تتطلب جلسة للدخول — بدونها يُضاف المشروع من الملخص فقط";
-
-    /// <summary>Session row's state word: "مرتبطة" when a cookie is stored, else "غير مرتبطة".</summary>
-    public string SessionValueText => HasSessionCookie ? "مرتبطة" : "غير مرتبطة";
-
     partial void OnHasSessionCookieChanged(bool value)
     {
-        OnPropertyChanged(nameof(SessionValueText));
-        NotifyCookieLinkCommands();
+                NotifyCookieLinkCommands();
         // The composite's status tone (green when a session exists) is part of its descriptor copy,
         // so the row is rebuilt with it.
         ComposeGroups();
@@ -274,64 +224,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     }
 
 
-    // Grouping-mode Picker bridge: the UI tests drive a SelectedIndex on `Settings_GroupingModePicker`,
-    // so the enum is exposed as an index over the descriptor's own option list. The Arabic labels are
-    // NOT duplicated here any more — they are `SettingsDescriptor.Options` data, which is what lets a
-    // source rename an option (or add one) without a shared-code array.
-    private IReadOnlyList<FilterFacetOption> GroupingModeFacets =>
-        DescriptorOf(SettingsKeys.GroupingMode)?.Options ?? [];
-
-    /// <summary>Arabic grouping-mode labels in the descriptor's declared order.</summary>
-    public IReadOnlyList<string> GroupingModeOptions =>
-        GroupingModeFacets.Select(o => o.LabelAr).ToList();
-
-    /// <summary>Two-way Picker index mapped onto <see cref="GroupingMode"/> through the option values.</summary>
-    public int GroupingModeIndex
-    {
-        get
-        {
-            var facets = GroupingModeFacets;
-            var index = facets.ToList().FindIndex(o => o.Value == GroupingMode.ToString());
-            return index >= 0 ? index : 0;
-        }
-        set
-        {
-            var facets = GroupingModeFacets;
-            if (value < 0 || value >= facets.Count)
-            {
-                return;
-            }
-
-            if (Enum.TryParse<NotificationGroupingMode>(facets[value].Value, out var parsed) && parsed != GroupingMode)
-            {
-                GroupingMode = parsed;
-            }
-        }
-    }
-
     public GlobalAppStatusService GlobalStatus => _globalStatus;
-
-    /// <summary>
-    /// Sections the ACTIVE source's module contributes beyond the shared descriptor rows (contract
-    /// §4/§10). Built from <see cref="SourceContributionRegistry.SettingsSectionsFor"/> — never an
-    /// <c>if (source == X)</c>. A source with no contribution (mostaql today) yields an empty list, so
-    /// <see cref="HasContributedSections"/> is false and the host renders nothing for it (absent =
-    /// never rendered, not empty). Each entry is the module's own bindable view-model.
-    /// </summary>
-    public IReadOnlyList<ISourceSettingsSectionViewModel> ContributedSections { get; private set; } = [];
-
-    /// <summary>Drives the host's section-group visibility.</summary>
-    public bool HasContributedSections => ContributedSections.Count > 0;
-
-    private void LoadContributedSections()
-    {
-        ContributedSections = _contributions.SettingsSectionsFor(_source)
-            .Select(contribution => contribution.CreateViewModel(_services))
-            .OfType<ISourceSettingsSectionViewModel>()
-            .ToList();
-        OnPropertyChanged(nameof(ContributedSections));
-        OnPropertyChanged(nameof(HasContributedSections));
-    }
 
     // -----------------------------------------------------------------
     // Catalog-driven surface (settings plugin step 4).
@@ -501,6 +394,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         SettingsKeys.IsDarkMode => IsDarkMode,
         SettingsKeys.StartupEnabled => StartupEnabled,
         SettingsKeys.RememberLastSource => RememberLastSource,
+        SettingsKeys.CloseBehaviorRemembered => RememberCloseBehavior,
         // The close-behavior row's authority is the service the window-closing path reads, not the
         // repository: "ask every time" is a cleared flag rather than a stored action.
         SettingsKeys.CloseBehaviorAction => SelectedCloseBehaviorIndex switch
@@ -542,6 +436,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             case SettingsKeys.StartupEnabled: StartupEnabled = ToBool(value); return;
             case SettingsKeys.RememberLastSource: RememberLastSource = ToBool(value); return;
             case SettingsKeys.QueryParams: QueryParams = value?.ToString() ?? string.Empty; return;
+            case SettingsKeys.CloseBehaviorRemembered: RememberCloseBehavior = ToBool(value); return;
             case SettingsKeys.CloseBehaviorAction:
                 SelectedCloseBehaviorIndex = value?.ToString() switch
                 {
@@ -667,7 +562,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         // LoadFromPreferences takes its fallbacks from it (settings plugin step 4).
         ComposeGroups();
         LoadFromPreferences();
-        LoadContributedSections();
         RefreshCookieStatus();
 
         // Guarded the same way LoadFromPreferences guards its own initial reads: setting
@@ -698,7 +592,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         // LoadFromPreferences takes its fallbacks from it (settings plugin step 4).
         ComposeGroups();
         LoadFromPreferences();
-        LoadContributedSections();
         RefreshCookieStatus();
 
         foreach (var name in new[]
@@ -707,13 +600,6 @@ public sealed partial class SettingsViewModel : ObservableObject
                      nameof(ActiveSourceGlyph),
                      nameof(ActiveSourceGlyphImage),
                      nameof(ShowsSourceGlyphLetter),
-                     nameof(ShowSessionEnrichmentRow),
-                     nameof(ShowSupervisedTypesRow),
-                     nameof(ShowBudgetCurrencyRow),
-                     nameof(BudgetCurrencyDisplayText),
-                     nameof(SessionEnrichmentHint),
-                     nameof(SessionValueText),
-                     nameof(CookiePastePlaceholder),
                  })
         {
             OnPropertyChanged(name);
@@ -1075,7 +961,6 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         // The Picker bridges the enum as an index; refresh it once the mode is seeded so the
         // control shows the stored row on first paint (same guarded pattern as every other load).
-        OnPropertyChanged(nameof(GroupingModeIndex));
 
         // Apply the loaded values to the live pipeline services right away, so the running
         // instances always reflect whatever was last persisted (e.g. after an app restart).
@@ -1193,7 +1078,6 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     partial void OnGroupingModeChanged(NotificationGroupingMode value)
     {
-        OnPropertyChanged(nameof(GroupingModeIndex));
 
         if (_isLoading)
         {
@@ -1268,8 +1152,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         // The limiter derives capacity, refill and spacing from these two values itself, so the
         // numbers can no longer drift apart from the configured budget.
         _rateLimiter.Reconfigure(RequestsPerMinute, SafeRequests);
-        OnPropertyChanged(nameof(SafeRequestsHintText));
-    }
+            }
 
     private void ApplyGroupingSettings()
     {

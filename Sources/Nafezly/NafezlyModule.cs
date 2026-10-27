@@ -28,10 +28,8 @@ public sealed class NafezlyModule : ISourceModule
         services.AddSingleton<ISourceDiscovery, NafezlyDiscovery>();
         services.AddSingleton<ISourceEnrichment, NafezlyEnrichment>();
         // First real consumer of the contribution seam: one per-source settings section.
-        services.AddSingleton<ISourceSettingsSectionContribution, NafezlySettingsSectionContribution>();
-        // Step 5: the same section expressed as descriptors (rendered by the shared SettingsRow
-        // unit). Both are registered while the shipped layouts still draw the old section template;
-        // the seam above is deleted with those templates.
+        // The module's settings rows are descriptors (step 5): the shared SettingsRow unit renders
+        // them, so there is no section view-model, no template, and no source name in shared code.
         services.AddSingleton<ISourceSettingsContribution, NafezlySettingsContribution>();
     }
 }

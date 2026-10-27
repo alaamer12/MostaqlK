@@ -165,6 +165,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Two id rules fixed after a UIA walk of the live page: a row's PRIMARY control now takes `AutomationId` verbatim (the role-suffix derivation had silently renamed `Settings_SaveButton` to `Settings_SaveButtonInvoke` and `Settings_ViewArchiveButton` to `…ButtonView`, which would have broken the UI tests without any build error), and a link with no command stays visible (the focus link was being hidden by the "hide when the command can't run" rule).
 - Verified on the running app: every one of the 12 AutomationIds the UI tests and this wave assert resolves (0 missing), including the contributed `Settings_NafezlyRetryToggle`; parity against `settings.html` raw 69.9% / structure 90.8% / palette 99.9% — at or above the hand-written layout's committed baseline (69.0%).
 
+### Changed (dev50 — settings plugin step 7b: the old section seam is gone, both platforms render descriptors)
+- `SettingsPanelMobileLayout.xaml` (226 → 90 lines) renders the same `Groups` through `SettingsRow`; the renderer picks each platform's id from the descriptor (`AutomationId` on Windows, `AutomationIdMobile` elsewhere) because the two sets were named in different eras and no rule connects them.
+- Deleted `ISourceSettingsSectionViewModel`, `ISourceSettingsSectionContribution`, the registry's section axis, `NafezlySettingsSectionViewModel` and its DI registration. Nafezly's section now arrives purely as four descriptors, and the shared page holds no view-model type, no template and no source name for it.
+- Deleted 81 lines of orphaned settings view-model surface: the capability visibility flags, the descriptor-owned copy (cookie section title, paste placeholders, session state word, budget-currency text, safe-requests tooltip), the grouping-mode Picker bridge and `IsCookieEditorClosed` — each was a second home for something the catalog already states. `close_behavior_remembered` flipped from hidden to a real toggle row, because undoing a remembered close choice had nowhere to live once the dialog stopped being the only path.
+- ParserTests 375/0 (the registry test now proves contribution isolation through descriptors; the visibility test asserts the remember-close row composes and a `Visible=false` descriptor still never does). Windows build 0/0, android build 0/0 with the JDK-17 override, UIA walk of the live page: 37 AutomationIds, 0 missing.
+
 ## [1.0.4] - 2026-09-02
 
 ### Added

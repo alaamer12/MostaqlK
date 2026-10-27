@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:MostaqlK.Features.Settings.ViewModels"
              xmlns:platform="clr-namespace:MostaqlK.UI.PlatformComponents"
+             xmlns:settingsrow="clr-namespace:MostaqlK.UI.PlatformComponents.SettingsRow"
              xmlns:sources="clr-namespace:MostaqlK.Core.Sources"
              xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem"
              xmlns:converters="clr-namespace:MostaqlK.UI.DesignSystem.Converters"
@@ -55,175 +56,33 @@
         </Grid>
 
         <ScrollView Grid.Row="1" AutomationId="Settings_Mobile_ScrollView">
-            <VerticalStackLayout Padding="16" Spacing="16">
+            <VerticalStackLayout Spacing="0" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
 
                 <Label Text="{Binding ValidationMessage}"
                        TextColor="{AppThemeBinding Light=#DC2626, Dark=#F87171}"
                        FontSize="13"
                        IsVisible="{Binding HasValidationError}"
-                       FontFamily="Tajawal" />
+                       FontFamily="Tajawal"
+                       Padding="16,12" />
 
-                <!-- poll_interval card -->
-                <Border Padding="16" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
-                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                    <VerticalStackLayout Spacing="8">
-                        <HorizontalStackLayout Spacing="8">
-                            <platform:AppIcon Icon="Stopwatch" TextColor="#6366F1" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
-                            <Label Text="الفاصل الزمني للفحص" FontSize="15" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
-                        </HorizontalStackLayout>
-                        <Label Text="المدة بين كل عمليتي فحص (بالثواني)" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
-                        <Border Style="{StaticResource SettingsInputBorderStyle}">
-                            <Entry AutomationId="Settings_Mobile_PollIntervalEntry"
-                                   Text="{Binding PollIntervalSeconds, Mode=TwoWay}"
-                                   Keyboard="Numeric"
-                                   Style="{StaticResource SettingsInputStyle}" />
-                        </Border>
-                    </VerticalStackLayout>
-                </Border>
-
-                <!-- rate_limit card -->
-                <Border Padding="16" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
-                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                    <VerticalStackLayout Spacing="8">
-                        <HorizontalStackLayout Spacing="8">
-                            <platform:AppIcon Icon="Gauge" TextColor="#0EA5E9" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
-                            <Label Text="حد الطلبات (معدل الوصول)" FontSize="15" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
-                        </HorizontalStackLayout>
-                        <Label Text="الحد الأقصى للطلبات في الدقيقة لتجنب الحظر" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" />
-                        <Border Style="{StaticResource SettingsInputBorderStyle}">
-                            <Entry AutomationId="Settings_Mobile_RateLimitEntry"
-                                   Text="{Binding RequestsPerMinute, Mode=TwoWay}"
-                                   Keyboard="Numeric"
-                                   Style="{StaticResource SettingsInputStyle}" />
-                        </Border>
-                    </VerticalStackLayout>
-                </Border>
-
-                <!-- query_params card -->
-                <Border Padding="16" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
-                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                    <VerticalStackLayout Spacing="8">
-                        <HorizontalStackLayout Spacing="8">
-                            <platform:AppIcon Icon="Filter" TextColor="#14B8A6" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
-                            <Label Text="معايير استعلام الفحص" FontSize="15" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
-                        </HorizontalStackLayout>
-                        <Border Style="{StaticResource SettingsInputBorderStyle}">
-                            <Entry AutomationId="Settings_Mobile_QueryParamsEntry"
-                                   Text="{Binding QueryParams, Mode=TwoWay}"
-                                   Placeholder="category=software-dev"
-                                   FlowDirection="LeftToRight"
-                                   Style="{StaticResource SettingsInputStyle}" />
-                        </Border>
-                    </VerticalStackLayout>
-                </Border>
-
-                <!-- notifications_grouping card -->
-                <Border Padding="16" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
-                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                    <VerticalStackLayout Spacing="10">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <HorizontalStackLayout Spacing="8">
-                                <platform:AppIcon Icon="Bell" TextColor="#F59E0B" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
-                                <Label Text="تجميع التنبيهات" FontSize="15" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" VerticalOptions="Center" />
-                            </HorizontalStackLayout>
-                            <platform:AppToggle Grid.Column="1"
-                                                AutomationId="Settings_Mobile_GroupingToggle"
-                                                IsToggled="{Binding NotificationGroupingEnabled, Mode=TwoWay}"
-                                                VerticalOptions="Center" />
-                        </Grid>
-                        <Grid ColumnDefinitions="*,120" Padding="0,4,0,0">
-                            <Label Text="حد التجميع (عدد المشاريع)" TextColor="{AppThemeBinding Light=#334155, Dark=#E2E8F0}" VerticalOptions="Center" FontSize="12" FontFamily="Tajawal" />
-                            <Border Grid.Column="1" Style="{StaticResource SettingsInputBorderStyle}">
-                                <Entry AutomationId="Settings_Mobile_GroupingThresholdEntry"
-                                       Text="{Binding GroupingThreshold, Mode=TwoWay}"
-                                       Keyboard="Numeric"
-                                       Style="{StaticResource SettingsInputStyle}" />
-                            </Border>
-                        </Grid>
-                    </VerticalStackLayout>
-                </Border>
-
-                <!-- session_cookie card -->
-                <Border Padding="16" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
-                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                    <VerticalStackLayout Spacing="10">
-                        <HorizontalStackLayout Spacing="8">
-                            <platform:AppIcon Icon="FileLines" TextColor="#F43F5E" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
-                            <Label Text="كوكي الجلسة (Session Cookie)" FontSize="15" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
-                        </HorizontalStackLayout>
-                        <Border Style="{StaticResource SettingsInputBorderStyle}">
-                            <Entry AutomationId="Settings_Mobile_SessionCookieEntry"
-                                   Text="{Binding SessionCookieInput, Mode=TwoWay}"
-                                   Placeholder="{Binding SessionKeyPlaceholder}"
-                                   IsPassword="True"
-                                   FlowDirection="LeftToRight"
-                                   Style="{StaticResource SettingsInputStyle}" />
-                        </Border>
-                        <HorizontalStackLayout Spacing="8">
-                            <Button AutomationId="Settings_Mobile_SaveCookieButton"
-                                    Text="حفظ"
-                                    Command="{Binding SaveSessionCookieCommand}"
-                                    BackgroundColor="{DynamicResource BrandLink}"
-                                    TextColor="White"
-                                    FontFamily="TajawalBold"
-                                    FontSize="12"
-                                    Padding="14,6"
-                                    CornerRadius="6" />
-                            <Button AutomationId="Settings_Mobile_ClearCookieButton"
-                                    Text="مسح"
-                                    Command="{Binding ClearSessionCookieCommand}"
-                                    BackgroundColor="Transparent"
-                                    TextColor="{AppThemeBinding Light=#DC2626, Dark=#F87171}"
-                                    FontFamily="Tajawal"
-                                    FontSize="12"
-                                    Padding="14,6"
-                                    IsVisible="{Binding HasSessionCookie}" />
-                        </HorizontalStackLayout>
-                    </VerticalStackLayout>
-                </Border>
-
-                <!-- Appearance card -->
-                <Border Padding="16" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
-                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                    <Grid ColumnDefinitions="*,Auto">
-                        <HorizontalStackLayout Spacing="8">
-                            <platform:AppIcon Icon="Moon" TextColor="{DynamicResource BrandLink}" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
-                            <Label Text="الوضع الداكن (Dark Mode)" FontSize="15" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" VerticalOptions="Center" />
-                        </HorizontalStackLayout>
-                        <platform:AppToggle Grid.Column="1"
-                                            AutomationId="Settings_Mobile_DarkModeToggle"
-                                            IsToggled="{Binding IsDarkMode, Mode=TwoWay}"
-                                            VerticalOptions="Center" />
-                    </Grid>
-                </Border>
-
-                <!-- Contributed per-source sections (contract §4/§10): after the shared descriptor
-                     rows, only for the ACTIVE source; absent source (mostaql) contributes nothing and
-                     the group is never rendered empty. Each row is presence-gated by its Has* flag. -->
-                <VerticalStackLayout Spacing="12" IsVisible="{Binding HasContributedSections}" BindableLayout.ItemsSource="{Binding ContributedSections}">
+                <!-- Same composed rows as the desktop layout: one SettingsRow per descriptor, so a
+                     setting added to the catalog appears on both platforms with no per-platform row
+                     markup. Mobile's own field ids come from the descriptor's AutomationIdMobile. -->
+                <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Groups}">
                     <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="sources:ISourceSettingsSectionViewModel">
-                                <Border Padding="16" StrokeThickness="1" Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
-                                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                                    <VerticalStackLayout Spacing="12">
-                                        <Label Text="{Binding HeaderAr}" FontSize="15" FontFamily="TajawalBold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
-                                        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasRetryToggle}">
-                                            <Label Text="{Binding RetryToggleLabelAr}" FontSize="13" TextColor="{AppThemeBinding Light=#334155, Dark=#E2E8F0}" VerticalOptions="Center" FontFamily="Tajawal" />
-                                            <platform:AppToggle Grid.Column="1"
-                                                                AutomationId="Settings_Mobile_ContributedRetryToggle"
-                                                                IsToggled="{Binding EnrichmentRetryEnabled, Mode=TwoWay}"
-                                                                VerticalOptions="Center" />
-                                        </Grid>
-                                        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasSessionRow}">
-                                            <Label Text="{Binding SessionRowLabelAr}" FontSize="13" TextColor="{AppThemeBinding Light=#334155, Dark=#E2E8F0}" VerticalOptions="Center" FontFamily="Tajawal" />
-                                            <Label Grid.Column="1" Text="{Binding SessionStateText}" FontSize="12" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" FontFamily="Tajawal" HorizontalOptions="End" />
-                                        </Grid>
-                                    </VerticalStackLayout>
-                                </Border>
-                            </DataTemplate>
-                        </BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SettingsGroupViewModel">
+                            <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Rows}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="settingsrow:SettingsRowViewModel">
+                                        <settingsrow:SettingsRow Row="{Binding .}" />
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
 
+                <BoxView HeightRequest="32" Color="Transparent" />
             </VerticalStackLayout>
         </ScrollView>
     </Grid>

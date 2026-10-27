@@ -677,32 +677,24 @@ public static class Program
     }
 
     /// <summary>
-    /// The contract §10 "growth without branches" proof: the registry, built from DI-style
-    /// collections, returns nafezly's contributed settings section for nafezly and NOTHING for
-    /// mostaql — no source-id if-branch anywhere. (DI wiring itself is the app build; this checks the
-    /// real contribution object the module registers.)
+    /// The contract §10 "growth without branches" proof, in its descriptor form: the registry,
+    /// built from DI-style collections, hands nafezly's settings contribution to nafezly and
+    /// NOTHING to mostaql — no source-id if-branch anywhere.
     /// </summary>
     private static void TestNafezlyContributionRegistry()
     {
-        ISourceSettingsSectionContribution[] sections = [new NafezlySettingsSectionContribution()];
-        var registry = new SourceContributionRegistry([], sections, []);
+        var registry = new SourceContributionRegistry([], [new NafezlySettingsContribution()]);
 
-        var nafezlySections = registry.SettingsSectionsFor(SourceId.From("nafezly"));
-        var mostaqlSections = registry.SettingsSectionsFor(SourceId.Mostaql);
+        var nafezly = registry.SettingsContribsFor(SourceId.From("nafezly"));
+        var mostaql = registry.SettingsContribsFor(SourceId.Mostaql);
 
-        Check("registry returns nafezly's settings section", nafezlySections.Count == 1, $"{nafezlySections.Count}");
-        Check("registry returns nothing for mostaql", mostaqlSections.Count == 0, $"{mostaqlSections.Count}");
+        Check("registry returns nafezly's settings contribution", nafezly.Count == 1, $"{nafezly.Count}");
+        Check("registry returns nothing for mostaql", mostaql.Count == 0, $"{mostaql.Count}");
         Check("nafezly section has no page contribution yet (B2)", registry.PagesFor(SourceId.From("nafezly")).Count == 0);
-
-        var contribution = nafezlySections[0];
-        Check("contribution source is nafezly", contribution.Source == SourceId.From("nafezly"), contribution.Source.ToString());
-        Check("contribution header Arabic", !string.IsNullOrEmpty(contribution.HeaderAr), contribution.HeaderAr);
-
-        var vm = contribution.CreateViewModel(new EmptyServiceProvider());
-        Check("view-model built without DI", vm is NafezlySettingsSectionViewModel, vm?.GetType().Name);
-        var nafezlyVm = (NafezlySettingsSectionViewModel)vm;
-        Check("view-model enrichment-retry defaults on", nafezlyVm.EnrichmentRetryEnabled);
-        Check("view-model reflects no-session capability", !nafezlyVm.RequiresSession, $"{nafezlyVm.RequiresSession}");
+        Check("contribution source is nafezly", nafezly[0].Source == SourceId.From("nafezly"), nafezly[0].Source.ToString());
+        Check("contribution adds descriptors and overrides nothing",
+            nafezly[0].Adds.Count == 4 && nafezly[0].Overrides.Count == 0,
+            $"{nafezly[0].Adds.Count}/{nafezly[0].Overrides.Count}");
     }
 
     /// <summary>Minimal IServiceProvider so the contribution's CreateViewModel can be exercised offline.</summary>
@@ -1758,8 +1750,17 @@ public static class Program
         Check("visibility: supervised-types absent for both sources (flag false)",
             !mostaql.Descriptors.Any(d => d.Key == "supervised-types")
             && !nafezly.Descriptors.Any(d => d.Key == "supervised-types"));
-        Check("visibility: hidden-by-design row never composes",
-            !mostaql.Descriptors.Any(d => d.Key == "close_behavior_remembered"));
+        // The remember-close-choice row used to be Visible=false ("owned by the dialog"); it is a
+        // real setting — it is how a user UNDOES a remembered choice — so it now composes as a
+        // toggle, while genuinely hidden-by-design rows still never appear.
+        Check("visibility: the remember-close row composes as a toggle",
+            mostaql.Descriptors.Any(d => d.Key == SettingsKeys.CloseBehaviorRemembered
+                && d.Shape == SettingsShape.Toggle && d.Visible));
+        Check("visibility: a Visible=false descriptor never composes",
+            !SettingsCatalog.Compose(MostaqlSource.Instance, [],
+                [.. SettingsCatalog.Builtin,
+                 new("hidden-row", SettingsShape.Toggle, SettingsScope.Global, "x", "general", 999) { Visible = false }])
+                .Descriptors.Any(d => d.Key == "hidden-row"));
         Check("visibility: both sources keep the cookie editor + cadence rows",
             mostaql.Descriptors.Any(d => d.Key == "session-cookie")
             && nafezly.Descriptors.Any(d => d.Key == "session-cookie")

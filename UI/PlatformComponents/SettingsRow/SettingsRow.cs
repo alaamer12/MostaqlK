@@ -195,7 +195,7 @@ public partial class SettingsRow : ContentView
             ThumbColor = Colors.White,
             HorizontalOptions = LayoutOptions.End,
         };
-        SetAutomationId(toggle, row.Descriptor.AutomationId);
+        SetAutomationId(toggle, row.Descriptor);
         toggle.IsToggled = row.Read() as bool? ?? false;
         toggle.Toggled += (_, e) => row.Write(e.Value);
         _valueCell.Children.Add(toggle);
@@ -287,7 +287,7 @@ public partial class SettingsRow : ContentView
             WidthRequest = 150,
             HorizontalOptions = LayoutOptions.End,
         };
-        SetAutomationId(picker, d.AutomationId);
+        SetAutomationId(picker, d);
         var options = d.Options ?? [];
         foreach (var o in options)
         {
@@ -382,7 +382,7 @@ public partial class SettingsRow : ContentView
         var max = d.Max ?? 100;
         var value = ToInt(row.Read(), min);
         var slider = new Slider(min, max, value) { WidthRequest = 160, VerticalOptions = LayoutOptions.Center };
-        SetAutomationId(slider, d.AutomationId);
+        SetAutomationId(slider, d);
         var val = new Label
         {
             Text = value.ToString(),
@@ -747,7 +747,7 @@ public partial class SettingsRow : ContentView
             MinimumHeightRequest = 0,
             VerticalOptions = LayoutOptions.Center,
         };
-        SetAutomationId(b, ActionId(d, idSuffix, isPrimary: true));
+        ApplyId(b, ActionId(d, idSuffix, isPrimary: true));
         if (row.Command is not null) b.Command = row.Command;
         return b;
     }
@@ -769,7 +769,7 @@ public partial class SettingsRow : ContentView
             MinimumHeightRequest = 0,
             VerticalOptions = LayoutOptions.Center,
         };
-        SetAutomationId(b, ActionId(d, idSuffix, isPrimary: true));
+        ApplyId(b, ActionId(d, idSuffix, isPrimary: true));
         if (row.Command is not null) b.Command = row.Command;
         return b;
     }
@@ -789,7 +789,7 @@ public partial class SettingsRow : ContentView
             MinimumHeightRequest = 0,
             VerticalOptions = LayoutOptions.Center,
         };
-        SetAutomationId(b, ActionId(d, idSuffix, isPrimary: true));
+        ApplyId(b, ActionId(d, idSuffix, isPrimary: true));
         if (row.Command is not null) b.Command = row.Command;
         return b;
     }
@@ -833,7 +833,7 @@ public partial class SettingsRow : ContentView
             IsPassword = d.IsPassword,
             Placeholder = d.PlaceholderAr,
         };
-        SetAutomationId(entry, d.AutomationId);
+        SetAutomationId(entry, d);
         return entry;
     }
 
@@ -845,7 +845,19 @@ public partial class SettingsRow : ContentView
         VerticalOptions = LayoutOptions.Center,
     };
 
-    private static void SetAutomationId(View v, string automationId)
+    /// <summary>
+    /// The descriptor carries both platforms' ids because the two sets were named in different
+    /// eras and do not follow one rule (<c>Settings_PollIntervalInput</c> vs
+    /// <c>Settings_Mobile_PollIntervalEntry</c>); the UI tests of each platform assert its own.
+    /// </summary>
+    private static string PlatformId(SettingsDescriptor d) =>
+        Microsoft.Maui.Devices.DeviceInfo.Current.Platform == DevicePlatform.WinUI
+            ? d.AutomationId
+            : (string.IsNullOrEmpty(d.AutomationIdMobile) ? d.AutomationId : d.AutomationIdMobile!);
+
+    private static void SetAutomationId(View v, SettingsDescriptor d) => ApplyId(v, PlatformId(d));
+
+    private static void ApplyId(View v, string automationId)
     {
         if (!string.IsNullOrEmpty(automationId))
         {

@@ -259,7 +259,9 @@ public static partial class SettingsCatalog
             HintAr = "لا تسألني مرة أخرى بعد اختيار السلوك",
             Value = SettingsValueKind.Bool,
             DefaultLiteral = "false",
-            Visible = false, // owned by the close-confirmation dialog, not the page
+            // Rendered: this is how the user UNDOES a remembered close choice without hunting for
+            // the dialog's own checkbox, which only appears when nothing is remembered.
+            AutomationId = "Settings_RememberCloseBehaviorToggle",
         },
 
         // ── Section: actions ─────────────────────────────────────────────────────────────

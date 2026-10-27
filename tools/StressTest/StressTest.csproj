@@ -51,8 +51,7 @@
     <Compile Include="../../Sources/Nafezly/Parsing/NafezlyParseException.cs" LinkBase="linked" />
     <Compile Include="../../Core/Sources/ISettingsRepository.cs" LinkBase="linked" />
     <Compile Include="../../Core/Sources/SourceContributions.cs" LinkBase="linked" />
-    <Compile Include="../../Core/Sources/ISourceSettingsSectionViewModel.cs" LinkBase="linked" />
-    <Compile Include="../../Sources/Nafezly/Contributions/NafezlySettingsSectionContribution.cs" LinkBase="linked" />
+    <Compile Include="../../Sources/Nafezly/Contributions/NafezlySettingsContribution.cs" LinkBase="linked" />
     <Compile Include="../../Models/ProjectDetails.cs" LinkBase="linked" />
     <Compile Include="../../Models/ProjectSummary.cs" LinkBase="linked" />
     <Compile Include="../../Models/Owner.cs" LinkBase="linked" />

@@ -95,8 +95,7 @@
 		     without pulling in DI or the MAUI stack. -->
 		<Compile Include="..\..\Core\Sources\ISettingsRepository.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Sources\SourceContributions.cs" LinkBase="Core" />
-		<Compile Include="..\..\Core\Sources\ISourceSettingsSectionViewModel.cs" LinkBase="Core" />
-		<Compile Include="..\..\Sources\Nafezly\Contributions\NafezlySettingsSectionContribution.cs" LinkBase="Sources" />
+		<Compile Include="..\..\Sources\Nafezly\Contributions\NafezlySettingsContribution.cs" LinkBase="Sources" />
 		<Compile Include="..\..\Infrastructure\Http\CookieParser.cs" LinkBase="Http" />
 		<!-- v3 Step 1 read model: SourceFeedStore is MAUI-free (its DB seam is the linkable
 		     IProjectRepository interface + delegates), so the pure coalescing / generation-cancel /
