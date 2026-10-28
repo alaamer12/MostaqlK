@@ -183,7 +183,8 @@ public sealed class DesignDataSeeder
     }
 
     /// <summary>The v3 Nafezly identity (fixture data only — this seeder is parity harness
-    /// infrastructure, its rows are explicitly the mockups' two platforms).</summary>
+    /// infrastructure, its rows are explicitly the mockups' two platforms). The id is built
+    /// through the canonical <see cref="SourceId"/> factory, never compared as a string.</summary>
     private static SourceId V3Nafezly => SourceId.From("nafezly");
 
     public Task<Result<int>> SeedAsync(CancellationToken cancellationToken = default)

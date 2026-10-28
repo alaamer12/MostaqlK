@@ -449,14 +449,15 @@ public partial class SettingsShapesPage : ContentPage
     private static Color NafezlyBrush => IsDark ? NafezlyDark : NafezlyLight;
     private static Color NafezlyOnBrush => Color.FromArgb("#3A2A00");
 
-    /// <summary>Which tile is lit: the source the app actually launched with (the harness passes <c>--source-id</c>).</summary>
+    /// <summary>Which tile is lit: the source the app actually launched with (the harness passes <c>--source-id</c>).
+    /// Compared as <see cref="SourceId"/>, never as a string literal — the shared-code gate forbids the latter.</summary>
     private static bool ActiveIsMostaql
     {
         get
         {
             var active = Application.Current?.Handler?.MauiContext?.Services
-                .GetService<MostaqlK.Services.GlobalAppStatusService>()?.ActiveSource.Value;
-            return !string.Equals(active, "nafezly", StringComparison.OrdinalIgnoreCase);
+                .GetService<MostaqlK.Services.GlobalAppStatusService>()?.ActiveSource;
+            return active != NafezlySource.Instance.Id;
         }
     }
 

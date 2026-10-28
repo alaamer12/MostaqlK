@@ -146,6 +146,8 @@ public static class Program
         Run(nameof(TestPlatformEnablementKeepsAtLeastOne), TestPlatformEnablementKeepsAtLeastOne);
         Run(nameof(TestRendererCoversEveryShape), TestRendererCoversEveryShape);
         Run(nameof(TestTickerCallbacksAreGuarded), TestTickerCallbacksAreGuarded);
+        Run(nameof(TestNoSourceIdStringLiteralsInSharedCode), TestNoSourceIdStringLiteralsInSharedCode);
+        Run(nameof(TestNoInlineBrandHexesOutsideTheirOwners), TestNoInlineBrandHexesOutsideTheirOwners);
         Run(nameof(TestConfigurationReferenceMatchesCatalog), TestConfigurationReferenceMatchesCatalog);
 
         Console.WriteLine();
@@ -2387,6 +2389,146 @@ public static class Program
         // shipped broken. The app has eight guarded tickers; the scan must see them.
         Check("ticker guard: the scan actually found the guarded tickers",
             guarded >= 8, $"guarded subscriptions = {guarded}");
+    }
+
+    /// <summary>
+    /// Directories that must stay platform-agnostic: they describe how the app works, not which
+    /// sites exist. A source id may only be named by the value object that defines it and by the
+    /// module that owns it.
+    /// </summary>
+    private static readonly string[] SharedCodeDirs =
+        ["Core", "Services", "Features", "UI", "Platforms", "Infrastructure"];
+
+    /// <summary>
+    /// The «المنصات» requirement in enforceable form: shared code must not name a platform, so
+    /// adding a third source changes no shared file. <c>SourceId</c> is exempt
+    /// because it is where the ids are actually born, and doc comments are exempt because naming a
+    /// platform in prose is how the rule gets explained.
+    /// </summary>
+    private static void TestNoSourceIdStringLiteralsInSharedCode()
+    {
+        var root = FindRepoRoot();
+        var violations = new List<string>();
+        var scanned = 0;
+
+        foreach (var dir in SharedCodeDirs)
+        {
+            var path = Path.Combine(root, dir);
+            if (!Directory.Exists(path))
+            {
+                continue;
+            }
+
+            foreach (var file in Directory.EnumerateFiles(path, "*.cs", SearchOption.AllDirectories))
+            {
+                scanned++;
+                var rel = Path.GetRelativePath(root, file).Replace('\\', '/');
+
+                // Two documented places a site name may legally appear in these directories, each
+                // because it is the definition rather than a decision:
+                //   Core/Sources/SourceId.cs        - where the ids are born (SourceId.Mostaql/Default)
+                //   DesignDataSeeder.cs             - the parity fixture's identity table: every
+                //       constant in that class is already named V3Mostaql*/V3Nafezly*, so hiding the
+                //       id behind indirection would not remove the coupling, only the honesty.
+                // Everything else must ask the registry or the descriptor, so a third source needs no
+                // shared edit.
+                if (rel.EndsWith("Core/Sources/SourceId.cs", StringComparison.Ordinal)
+                    || rel.EndsWith("Infrastructure/Database/DesignDataSeeder.cs", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var lines = File.ReadAllLines(file);
+                for (var i = 0; i < lines.Length; i++)
+                {
+                    var trimmed = lines[i].TrimStart();
+                    if (trimmed.StartsWith("//", StringComparison.Ordinal)
+                        || trimmed.StartsWith("/*", StringComparison.Ordinal)
+                        || trimmed.StartsWith("*", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    var match = System.Text.RegularExpressions.Regex.Match(
+                        lines[i], "\"(mostaql|nafezly)\"", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                    if (match.Success)
+                    {
+                        violations.Add($"{rel}:{i + 1} {match.Value}");
+                    }
+                }
+            }
+        }
+
+        Check("shared code names no platform (a new source must need no shared edit)",
+            violations.Count == 0, string.Join(" | ", violations));
+
+        // Anti-vacuity, the lesson this suite already records once: a scan that looks at nothing passes.
+        Check("shared-code source-id scan covered the tree", scanned >= 150, $"{scanned} files scanned");
+    }
+
+    /// <summary>
+    /// The brand palette lives in each descriptor's <c>BrandTokenSet</c> and is swept into
+    /// DynamicResource keys by <c>BrandPalette</c>; an inline hex in UI/ or Features/ is a second,
+    /// un-swept source of truth that silently stops following a source morph or theme flip.
+    /// </summary>
+    private static void TestNoInlineBrandHexesOutsideTheirOwners()
+    {
+        var root = FindRepoRoot();
+        var lockedHexes = new[]
+        {
+            "#2563EB", "#60A5FA", "#2386C8", "#5CA8DE", "#1A6DA6", "#EFF6FB", "#FFA200", "#FFB84D",
+        };
+
+        // One documented exception, and it is documented because it is a real deviation, not a
+        // clean-up I skipped: the shapes gallery must paint BOTH identities at once to match the
+        // mockup header, so it reads the mockup's colors rather than the active brand. Mapping it to
+        // descriptor.Brands is not value-identical - nafezly's on-text is the mockup's #3A2A00 in
+        // both themes while NafezlySource.Brands.OnBrandDark is #2A1D00 - so the conversion is a
+        // parity question for the harness owner, not a mechanical substitution.
+        const string HarnessExemption = "Features/Settings/Views/SettingsShapesPage.xaml.cs";
+
+        var violations = new List<string>();
+        var files = 0;
+        foreach (var dir in new[] { "UI", "Features" })
+        {
+            var path = Path.Combine(root, dir);
+            if (!Directory.Exists(path))
+            {
+                continue;
+            }
+
+            foreach (var file in Directory.EnumerateFiles(path, "*.cs", SearchOption.AllDirectories))
+            {
+                files++;
+                var rel = Path.GetRelativePath(root, file).Replace('\\', '/');
+                if (rel.Equals(HarnessExemption, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var lines = File.ReadAllLines(file);
+                for (var i = 0; i < lines.Length; i++)
+                {
+                    var trimmed = lines[i].TrimStart();
+                    if (trimmed.StartsWith("//", StringComparison.Ordinal)
+                        || trimmed.StartsWith("/*", StringComparison.Ordinal)
+                        || trimmed.StartsWith("*", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    var hit = lockedHexes.FirstOrDefault(h => lines[i].Contains(h, StringComparison.OrdinalIgnoreCase));
+                    if (hit is not null)
+                    {
+                        violations.Add($"{rel}:{i + 1} {hit}");
+                    }
+                }
+            }
+        }
+
+        Check("no inline brand hexes outside their descriptor owners",
+            violations.Count == 0, string.Join(" | ", violations));
+        Check("brand hex scan covered UI/ + Features/", files >= 100, $"{files} files scanned");
     }
 
     /// <summary>
