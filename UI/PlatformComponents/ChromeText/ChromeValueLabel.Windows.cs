@@ -407,11 +407,11 @@ public partial class ChromeValueLabel
         _startTicks = Environment.TickCount64;
         _sharedTicker = dispatcher.CreateTimer();
         _sharedTicker.Interval = TimeSpan.FromMilliseconds(33); // ~30fps — smooth enough for a slow sheen.
-        _sharedTicker.Tick += OnSharedTickerTick;
+        _sharedTicker.Tick += (_, _) => TickerGuard.Run(_sharedTicker, "ChromeValueLabel", OnSharedTickerTick);
         _sharedTicker.Start();
     }
 
-    private static void OnSharedTickerTick(object? sender, EventArgs e)
+    private static void OnSharedTickerTick()
     {
         var nowMs = (double)(Environment.TickCount64 - _startTicks);
 

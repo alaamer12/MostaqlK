@@ -684,8 +684,13 @@ public partial class PipelineRadar : ContentView
         _clock.Restart();
         _lastTickSeconds = 0;
 
-        new Animation(_ => OnFrame())
-            .Commit(this, TickerName, rate: 16, length: 1000, repeat: () => _isTicking);
+        // MAUI's animation ticker is a dispatcher timer under the hood, and its callback is not
+        // routed to Application.UnhandledException either - an escaping throw here would be the same
+        // 0xC000027B fail-fast the guarded tickers exist to prevent. ShouldStop keeps a permanently
+        // broken loop from throwing 60 times a second.
+        new Animation(_ => TickerGuard.Run(null, "PipelineRadarTicker", OnFrame))
+            .Commit(this, TickerName, rate: 16, length: 1000,
+                    repeat: () => _isTicking && !TickerGuard.ShouldStop("PipelineRadarTicker"));
     }
 
     private void OnFrame()

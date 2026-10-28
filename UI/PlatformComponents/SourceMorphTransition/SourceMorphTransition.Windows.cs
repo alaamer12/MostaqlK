@@ -175,12 +175,12 @@ public static partial class SourceMorphTransition
             return null;
         }
 
-        timer.Tick += OnCleanupTick;
+        timer.Tick += (_, _) => TickerGuard.Run(timer, "SourceMorphCleanup", OnCleanupTick);
         _cleanupTimer = timer;
         return timer;
     }
 
-    private static void OnCleanupTick(object? sender, EventArgs e)
+    private static void OnCleanupTick()
     {
         // MAUI's IDispatcherTimer repeats until stopped; stopping here makes each reveal's finalize
         // a single one-shot (re-armed via Stop()+Start() on the next reveal).
@@ -236,12 +236,12 @@ public static partial class SourceMorphTransition
             return null;
         }
 
-        timer.Tick += OnRefreshTick;
+        timer.Tick += (_, _) => TickerGuard.Run(timer, "SourceMorphRefresh", OnRefreshTick);
         _refreshTimer = timer;
         return timer;
     }
 
-    private static void OnRefreshTick(object? sender, EventArgs e)
+    private static void OnRefreshTick()
     {
         // One-shot semantics, same convention as the cleanup tick: stop first, then decide.
         _refreshTimer?.Stop();

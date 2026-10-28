@@ -83,7 +83,7 @@ public partial class PipelineDashboardPanel : ContentView
         if (_textTimer is not null)
         {
             _textTimer.Interval = TimeSpan.FromMilliseconds(TextRefreshMilliseconds);
-            _textTimer.Tick += (_, _) => RefreshReadout();
+            _textTimer.Tick += (_, _) => TickerGuard.Run(_textTimer, "PipelineDashboardPanel", RefreshReadout);
         }
 
         ApplyExpandedState(animate: false);
@@ -242,12 +242,15 @@ public partial class PipelineDashboardPanel : ContentView
             { 0, 1, new Animation(v => Body.Opacity = v, bodyFrom, bodyTo, Easing.CubicOut) },
             { 0, 1, new Animation(v => Rail.Opacity = v, railFrom, railTo, Easing.CubicOut) }
         }.Commit(this, WidthAnimationName, length: (uint)ToggleDuration, finished: (_, _) =>
+            // MAUI invokes this from its animation dispatcher timer; a throw escaping here would
+            // fail-fast the process exactly like an unguarded IDispatcherTimer tick.
+            TickerGuard.Run(null, "PipelineDashboardSlide", () =>
         {
             Body.IsVisible = IsExpanded;
             Rail.IsVisible = !IsExpanded;
             EndSlide();
             ApplyRadarDiameter();
-        });
+        }));
     }
 
     /// <summary>

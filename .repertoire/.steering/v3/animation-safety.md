@@ -32,6 +32,20 @@ hidden-to-tray), the out-of-process watchdog, and the heartbeat log.
 5. **Review grep gate** (run in the final wave of any UI milestone):
    `grep -rnE "TranslateToAsync|ScaleToAsync|RotateToAsync|FadeToAsync|Storyboard" UI Features` —
    every hit must map to a unit in the gated list above or carry its own suspension check.
+6. **No tick or animation callback may throw into WinUI — route it through `TickerGuard`.**
+   `UI/PlatformComponents/TickerGuard.cs` is the one seam every `IDispatcherTimer.Tick`
+   subscription and every `Animation.Commit` callback runs inside. Reason, proven from two crash
+   dumps on 2026-10-28: WinUI raises dispatcher-timer ticks through its own delegate adapter, so a
+   managed exception leaving that adapter is **stowed** by combase and turned into
+   `RoFailFastWithErrorContextInternal2` → `0xC000027B` (faulting chain
+   `DispatcherQueueTimer::TimerCallback → TimeoutManager::Callback_OnDispatch →
+   Microsoft.UI.Xaml.dll → combase → RaiseFailFastException`). `Application.UnhandledException` is
+   **not** consulted on this path — the hook that saves every other XAML fault cannot help here, and
+   the two dumps carried different inner errors (`0x80004002`, `0x80004005`), which is what proves
+   the *escape* is the fatal event rather than any one throw. This is a second, independent
+   fail-fast path, not a repeat of the finalizer/transform one above: it happens on the UI thread,
+   with zero transform churn, seconds after launch. `ParserTests`
+   `TestTickerCallbacksAreGuarded` is the gate that keeps it from rotting.
 
 ## Status @ dev21
 

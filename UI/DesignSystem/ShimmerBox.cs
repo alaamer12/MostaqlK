@@ -175,7 +175,7 @@ public class ShimmerBox : ContentView
         _startTicks = Environment.TickCount64;
         _sharedTicker = dispatcher.CreateTimer();
         _sharedTicker.Interval = TimeSpan.FromMilliseconds(33); // ~30fps — smooth enough for the slow sweep.
-        _sharedTicker.Tick += (_, _) =>
+        _sharedTicker.Tick += (_, _) => TickerGuard.Run(_sharedTicker, "ShimmerBox", () =>
         {
             var nowMs = (double)(Environment.TickCount64 - _startTicks);
             ShimmerBox[] snapshot;
@@ -193,7 +193,7 @@ public class ShimmerBox : ContentView
             {
                 box.Tick(nowMs);
             }
-        };
+        });
         _sharedTicker.Start();
     }
 }

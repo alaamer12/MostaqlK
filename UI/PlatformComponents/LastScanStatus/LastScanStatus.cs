@@ -139,7 +139,7 @@ public partial class LastScanStatus : ContentView
         if (_timer is not null)
         {
             _timer.Interval = TimeSpan.FromSeconds(1);
-            _timer.Tick += (_, _) => ApplyText();
+            _timer.Tick += (_, _) => TickerGuard.Run(_timer, "LastScanStatus", ApplyText);
         }
     }
 

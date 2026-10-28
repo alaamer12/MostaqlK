@@ -24,7 +24,17 @@ public partial class App : MauiWinUIApplication
         {
             try
             {
-                MostaqlK.Services.Diagnostics.CrashReporter.Report("WinUI.UnhandledException", e.Exception, new { e.Message }, isFatal: false);
+                // A WinRT failure that crosses into XAML's own error boundary arrives here as a bare
+                // InvalidCastException (0x80004002 "No such interface supported") whose own StackTrace
+                // is EMPTY - the native caller that failed left no managed frames behind. The live
+                // stack of this thread still shows which of OUR calls was in flight, which is the
+                // only way to name the failing API instead of guessing from a dump offset.
+                var liveStack = new System.Diagnostics.StackTrace(true).ToString();
+                MostaqlK.Services.Diagnostics.CrashReporter.Report(
+                    "WinUI.UnhandledException",
+                    e.Exception,
+                    new { e.Message, LiveStack = liveStack },
+                    isFatal: false);
                 e.Handled = true;
             }
             catch

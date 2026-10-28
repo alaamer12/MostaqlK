@@ -207,7 +207,7 @@ public class EnrichmentShimmerOverlay : ContentView
         _tickStartTicks = Environment.TickCount64;
         _sharedTicker = dispatcher.CreateTimer();
         _sharedTicker.Interval = TimeSpan.FromMilliseconds(33); // ~30fps - smooth enough for a slow, subtle sweep.
-        _sharedTicker.Tick += (_, _) =>
+        _sharedTicker.Tick += (_, _) => TickerGuard.Run(_sharedTicker, "EnrichmentShimmerOverlay", () =>
         {
             var nowMs = (double)(Environment.TickCount64 - _tickStartTicks);
             EnrichmentShimmerOverlay[] snapshot;
@@ -225,7 +225,7 @@ public class EnrichmentShimmerOverlay : ContentView
             {
                 overlay.Tick(nowMs);
             }
-        };
+        });
         _sharedTicker.Start();
     }
 

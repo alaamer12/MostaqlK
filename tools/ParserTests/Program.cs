@@ -145,6 +145,7 @@ public static class Program
         Run(nameof(TestPlatformNotificationMute), TestPlatformNotificationMute);
         Run(nameof(TestPlatformEnablementKeepsAtLeastOne), TestPlatformEnablementKeepsAtLeastOne);
         Run(nameof(TestRendererCoversEveryShape), TestRendererCoversEveryShape);
+        Run(nameof(TestTickerCallbacksAreGuarded), TestTickerCallbacksAreGuarded);
         Run(nameof(TestConfigurationReferenceMatchesCatalog), TestConfigurationReferenceMatchesCatalog);
 
         Console.WriteLine();
@@ -2321,6 +2322,71 @@ public static class Program
 
         Check("renderer: the switch keeps its exhaustive default throw",
             source.Contains("throw new ArgumentOutOfRangeException", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// An exception escaping an <c>IDispatcherTimer</c> tick never reaches
+    /// <c>Application.UnhandledException</c>: WinUI raises ticks through its own delegate adapter, and
+    /// combase stows whatever leaves it and fail-fasts the process (0xC000027B) - proven from two
+    /// dumps on 2026-10-28 whose faulting stack is
+    /// <c>DispatcherQueueTimer::TimerCallback → TimeoutManager::Callback_OnDispatch →
+    /// Microsoft.UI.Xaml → combase!RoFailFastWithErrorContextInternal2</c>, carrying two different
+    /// inner errors (0x80004002, 0x80004005). So the escape itself is fatal, whatever threw.
+    /// Every tick subscription therefore runs inside <c>TickerGuard</c>, and the next unit that
+    /// forgets must fail a check instead of shipping a kill-the-tray-build crash.
+    /// </summary>
+    private static void TestTickerCallbacksAreGuarded()
+    {
+        var root = FindRepoRoot();
+
+        Check("ticker guard: TickerGuard.cs exists as the one guarded seam",
+            File.Exists(Path.Combine(root, "UI", "PlatformComponents", "TickerGuard.cs")));
+
+        var unguarded = new List<string>();
+        var guarded = 0;
+        foreach (var dir in new[] { "Core", "Features", "Infrastructure", "Services", "Sources", "Platforms", "UI" })
+        {
+            var path = Path.Combine(root, dir);
+            if (!Directory.Exists(path))
+            {
+                continue;
+            }
+
+            foreach (var file in Directory.EnumerateFiles(path, "*.cs", SearchOption.AllDirectories))
+            {
+                var rel = Path.GetRelativePath(root, file);
+                if (rel.EndsWith("TickerGuard.cs", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var lines = File.ReadAllLines(file);
+                for (var i = 0; i < lines.Length; i++)
+                {
+                    if (!lines[i].Contains(".Tick +=", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    if (lines[i].Contains("TickerGuard.Run", StringComparison.Ordinal))
+                    {
+                        guarded++;
+                    }
+                    else
+                    {
+                        unguarded.Add($"{rel}:{i + 1}");
+                    }
+                }
+            }
+        }
+
+        Check("ticker guard: every Tick subscription routes through TickerGuard",
+            unguarded.Count == 0, string.Join(", ", unguarded));
+
+        // A source lint that matches nothing passes vacuously, which is how the scope lint first
+        // shipped broken. The app has eight guarded tickers; the scan must see them.
+        Check("ticker guard: the scan actually found the guarded tickers",
+            guarded >= 8, $"guarded subscriptions = {guarded}");
     }
 
     /// <summary>
