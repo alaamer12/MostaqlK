@@ -1,0 +1,15 @@
+# Line endings, pinned deliberately.
+#
+# Shell hooks MUST be LF. This machine has core.autocrlf=true, so without this rule a fresh checkout
+# gets "#!/bin/sh\r" and every hook dies with "bad interpreter" before it can run - which is the worst
+# possible failure for a gate: silent, on someone else's machine, and looks like the repo is broken.
+.githooks/* text eol=lf
+*.sh text eol=lf
+
+# PowerShell scripts are left at the repo's current default (autocrlf). PS 5.1 reads LF happily, so
+# there is no correctness reason to churn every existing .ps1's working-tree ending; what actually
+# bites those files is *encoding* (BOM-less UTF-8 is read as ANSI), so keep .ps1 content ASCII.
+
+# Windows XML/props keep their CRLF expectations alone - MSBuild does not care, and churn there
+# pollutes diffs for no reason.
+* text=auto
