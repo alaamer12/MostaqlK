@@ -1,5 +1,6 @@
 using MostaqlK.Core;
 using MostaqlK.Infrastructure.Http;
+using MostaqlK.Services.Diagnostics;
 
 namespace MostaqlK.Sources.Nafezly;
 
@@ -55,6 +56,7 @@ public sealed class NafezlyFetcher : IDisposable
                     request.Headers.TryAddWithoutValidation("Cookie", cookie);
                 }
 
+                InteractionLogger.Request(NafezlySource.Instance.Id.Value, "GET", url);
                 using var response = await _httpClient.SendAsync(request, timeoutCts.Token);
 
                 if ((int)response.StatusCode == 429 && attempt < Max429Retries)

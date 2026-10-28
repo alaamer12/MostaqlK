@@ -7,7 +7,16 @@
 
 param (
     [ValidateSet("Debug", "Release")]
-    [string]$Configuration = "Debug"
+    [string]$Configuration = "Debug",
+
+    # How long both instances must stay up. 4s was enough to catch the published-layout XAML
+    # fail-fast, and nothing longer; a crash that arrives later (first toast, first poll cycle,
+    # a long-idle path) walked past it. The soak is now explicit and repeatable.
+    [int]$SoakSeconds = 30,
+
+    # Re-run the checks against layouts that were already published (iteration without paying
+    # ~2 minutes of MSBuild per attempt).
+    [switch]$SkipPublish
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,6 +30,7 @@ $repo = Split-Path $PSScriptRoot -Parent
 $target = "net10.0-windows10.0.19041.0"
 $smokeDir = Join-Path $repo "scratch\smoke"
 $started = @()
+$launches = @()
 
 # Channel root (under %LOCALAPPDATA%) that each build writes its preferences into.
 $channelRoots = [ordered]@{ stable = "MostaqlK"; canary = "MostaqlK.Canary" }
@@ -31,6 +41,29 @@ function Stop-Started {
     foreach ($p in $script:started) {
         if ($p -and -not $p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
     }
+}
+
+# "Is the instance still running?" cannot be answered by pid alone: Windows reuses pids, so a
+# crashed instance whose number was handed to an unrelated process passes a bare Get-Process -Id
+# check and the smoke reports coexistence it never observed. The identity of "our instance" is the
+# executable path plus a start time after this run began — both must agree.
+function Get-LivenessIssue($process, [string]$exe) {
+    $proc = $null
+    try { $proc = Get-Process -Id $process.Id -ErrorAction Stop } catch { return "pid $($process.Id) is gone" }
+
+    $path = $null
+    try { $path = $proc.Path } catch { $path = $null }
+    if ($path -and -not [string]::Equals($path.TrimEnd('\'), $exe.TrimEnd('\'), [StringComparison]::OrdinalIgnoreCase)) {
+        return "pid $($process.Id) now belongs to another process ($path)"
+    }
+
+    try {
+        if ($proc.StartTime -lt $script:startedAt.AddSeconds(-10).ToLocalTime()) {
+            return "pid $($process.Id) started before this run ($($proc.StartTime)) - pid recycled or wrong instance"
+        }
+    } catch { }
+
+    return $null
 }
 
 # Preference isolation is only proven if the two channels disagree about a value and keep
@@ -76,6 +109,11 @@ function Restore-PreferenceFiles {
 try {
     foreach ($ch in @("stable", "canary")) {
         $out = Join-Path $smokeDir $ch
+        if ($SkipPublish) {
+            if (-not (Test-Path (Join-Path $out "MostaqlK.exe"))) { throw "-SkipPublish but no layout at $out" }
+            Write-Host "Skipping publish for $ch (-SkipPublish)" -ForegroundColor DarkGray
+            continue
+        }
         Write-Host "Publishing $ch -> $out" -ForegroundColor Cyan
         # Same shape as scripts/release-windows.ps1's directory export: self-contained, single-file
         # OFF, Arabic .NET satellites only. NOTE: this script used to blame its own 0xc000027b
@@ -99,7 +137,7 @@ try {
         }
     }
 
-    $startedAt = (Get-Date).ToUniversalTime()
+    $startedAt = $script:startedAt = (Get-Date).ToUniversalTime()
 
     # Back up and probe-mark both preference stores (restored in the finally block).
     New-Item -ItemType Directory -Force -Path $prefBackupDir | Out-Null
@@ -114,14 +152,17 @@ try {
         $exe = Join-Path $smokeDir "$ch\MostaqlK.exe"
         $p = Start-Process -FilePath $exe -ArgumentList "--silent-start" -PassThru
         $started += $p
+        $launches += [pscustomobject]@{ Channel = $ch; Process = $p; Exe = $exe }
         Write-Host "$ch launched pid=$($p.Id)" -ForegroundColor Gray
         Start-Sleep -Seconds 4
     }
-    Start-Sleep -Seconds 8
+    Write-Host "soaking both instances for $SoakSeconds seconds..." -ForegroundColor Gray
+    Start-Sleep -Seconds $SoakSeconds
 
     $failures = @()
-    foreach ($p in $started) {
-        if (-not (Get-Process -Id $p.Id -ErrorAction SilentlyContinue)) { $failures += "process $($p.Id) died" }
+    foreach ($l in $launches) {
+        $issue = Get-LivenessIssue $l.Process $l.Exe
+        if ($issue) { $failures += "$($l.Channel): $issue" }
     }
 
     foreach ($m in @("Local\MostaqlK.App.Singleton", "Local\MostaqlK.Canary.App.Singleton")) {
@@ -150,6 +191,10 @@ try {
     $werDump = Get-ChildItem (Join-Path $env:LOCALAPPDATA "CrashDumps") -Filter "*.dmp" -ErrorAction SilentlyContinue |
         Where-Object { $_.LastWriteTimeUtc -gt $startedAt }
     $launched = @($started | ForEach-Object { $_.Id })
+    $dumpType = $null
+    try {
+        $dumpType = (Get-ItemProperty "HKCU:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\MostaqlK.exe" -ErrorAction Stop).DumpType
+    } catch { }
     foreach ($w in $werDump) {
         # The dump file is named MostaqlK.exe.<pid>.dmp. When that pid is NOT one of the launched
         # instances, the crash belongs to some other process of the same layout (a leftover
@@ -158,6 +203,11 @@ try {
         $dumpedPid = [regex]::Match($w.Name, '\.(\d+)\.dmp$').Groups[1].Value
         $mine = $launched -contains [int]$dumpedPid
         $failures += "WER dump: $($w.FullName) (pid $dumpedPid, $(if ($mine) { 'LAUNCHED BY THIS RUN' } else { 'not a pid this run launched' }))"
+        if (-not $dumpType -or [int]$dumpType -lt 2) {
+            Write-Host "  hint: this is a mini dump - the stowed WinRT exception inside it is not" -ForegroundColor DarkGray
+            Write-Host "        readable. tools/enable-full-dumps.ps1 turns on full dumps (opt-in)," -ForegroundColor DarkGray
+            Write-Host "        and the [birth]/pid lines in the logs say who that process was." -ForegroundColor DarkGray
+        }
     }
 
     # Preference isolation: each store must still hold its OWN probe value after both channels ran.
@@ -178,6 +228,13 @@ try {
                 $failures += "preferences backend escaped the channel root ($l)"
             }
         }
+    }
+
+    # Second liveness pass: the soak plus every check above took real time, and an instance that
+    # survived the soak only to die during the assertions must not be reported as coexisting.
+    foreach ($l in $launches) {
+        $lateIssue = Get-LivenessIssue $l.Process $l.Exe
+        if ($lateIssue) { $failures += "$($l.Channel) died during the checks: $lateIssue" }
     }
 
     Stop-Started

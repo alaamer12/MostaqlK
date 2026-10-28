@@ -1,5 +1,6 @@
 using MostaqlK.Core;
 using MostaqlK.Infrastructure.Http;
+using MostaqlK.Services.Diagnostics;
 
 namespace MostaqlK.Sources.Mostaql;
 
@@ -42,6 +43,7 @@ public sealed class MostaqlFetcher
                 request.Headers.TryAddWithoutValidation("Cookie", cookie);
             }
 
+            InteractionLogger.Request(MostaqlSource.Instance.Id.Value, "GET", url);
             using var response = await _httpClient.SendAsync(request, timeoutCts.Token);
             response.EnsureSuccessStatusCode();
             var html = await response.Content.ReadAsStringAsync(timeoutCts.Token);

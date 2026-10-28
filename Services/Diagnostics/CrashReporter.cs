@@ -21,7 +21,12 @@ public static class CrashReporter
 {
     private static readonly object WriteLock = new();
     private static int _isRegistered;
+    private static int _firstChanceLogged;
+    private const int FirstChanceLogCap = 400;
     private static readonly DateTime ProcessStartTimeUtc = DateTime.UtcNow;
+
+    private static string Trim(string? value, int max) =>
+        string.IsNullOrEmpty(value) ? string.Empty : (value.Length <= max ? value : value[..max] + "…");
 
 #if WINDOWS || NET10_0_WINDOWS10_0_19041_0_OR_GREATER || WINDOWS10_0_17763_0_OR_GREATER
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]
@@ -105,25 +110,34 @@ public static class CrashReporter
             args.SetObserved();
         };
 
-        // Opt-in COM-interop probe (MOSTAQLK_DIAG_COM=1). A WinRT failure that reaches the UI
-        // thread's unhandled handler arrives as a bare InvalidCastException with an EMPTY stack —
-        // the one piece of evidence missing when diagnosing a 0x80004002 fast-fail. First-chance
-        // sees the exception where it was thrown, so the stack is still intact. Gated by an
-        // environment variable because it fires for every caught interop exception in a chatty
-        // app, and it is never set by a normal launch.
+        // Opt-in first-chance probe (MOSTAQLK_DIAG_COM=1).
+        //
+        // It used to filter on InvalidCastException/COMException/EntryPointNotFoundException, and
+        // that filter is what hid the 2026-10-28 fail-fast: the stowed error in those dumps is
+        // 0x80004005, which is what a PLAIN System.Exception marshals to. A type filter on the
+        // probe cannot see the bug that kills the process, so the probe now records every throw.
+        // Everything still crosses a WinRT boundary in a MAUI app, so the exception's own stack is
+        // often empty — the live stack of the throwing thread is what names the call.
+        //
+        // Gated by an environment variable and hard-capped, because a chatty app throws plenty of
+        // handled exceptions; a normal launch never sets it.
         if (Environment.GetEnvironmentVariable("MOSTAQLK_DIAG_COM") == "1")
         {
             AppDomain.CurrentDomain.FirstChanceException += (sender, args) =>
             {
-                if (args.Exception is not (InvalidCastException or COMException or EntryPointNotFoundException))
+                if (System.Threading.Interlocked.Increment(ref _firstChanceLogged) > FirstChanceLogCap)
                 {
                     return;
                 }
 
-                InteractionLogger.Fault("FirstChanceCOM", args.Exception, new
+                InteractionLogger.Fault("FirstChance", args.Exception, new
                 {
+                    Type = args.Exception.GetType().FullName,
                     args.Exception.HResult,
+                    Message = Trim(args.Exception.Message, 300),
+                    Thread = Environment.CurrentManagedThreadId,
                     Stack = args.Exception.StackTrace ?? "(no stack)",
+                    LiveStack = Trim(new StackTrace(true).ToString(), 4000),
                 });
             };
         }

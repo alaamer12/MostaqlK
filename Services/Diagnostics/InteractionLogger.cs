@@ -39,6 +39,26 @@ public static class InteractionLogger
     public static void Enter(string interactionName, object? parameters = null)
         => Write("ENTER", interactionName, variant: null, parameters, exception: null);
 
+    /// <summary>
+    /// Opt-in (`MOSTAQLK_DIAG_NET=1`) record of every outbound site request. "A disabled platform
+    /// makes zero network requests" is a claim about the network, not about a UI state, so the only
+    /// honest proof is a log line at the one place the bytes leave the process — and it must be
+    /// present in a Release/published build, which is why this is an environment flag rather than
+    /// a DEBUG-only call. Off by default: it would fire on every asset download.
+    /// </summary>
+    public static void Request(string source, string method, string url, int? status = null)
+    {
+        if (!NetDiagEnabled)
+        {
+            return;
+        }
+
+        Write("NET", "Http.Request", variant: null, new { source, method, url, status }, exception: null);
+    }
+
+    private static readonly bool NetDiagEnabled =
+        string.Equals(Environment.GetEnvironmentVariable("MOSTAQLK_DIAG_NET"), "1", StringComparison.Ordinal);
+
     /// <summary>Logs the successful completion of a traced command/handler invocation.</summary>
     public static void Exit(string interactionName, object? result = null)
         => Write("EXIT", interactionName, variant: null, result, exception: null);
@@ -79,6 +99,11 @@ public static class InteractionLogger
         {
             var entry = new StringBuilder()
                 .Append(DateTimeOffset.Now.ToString("O"))
+                // The pid is part of the line because every instance of a channel shares this file:
+                // without it, a second process (a toast-activated launch, a leftover from a harness
+                // run) interleaves marks that look like the primary's, and a crash in one becomes
+                // unattributable after the fact.
+                .Append(" | pid=").Append(Environment.ProcessId)
                 .Append(" | ").Append(kind)
                 .Append(" | ").Append(checkpoint);
 

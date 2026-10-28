@@ -38,6 +38,100 @@ public static class Program
     [DllImport("Microsoft.WindowsAppRuntime.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
     private static extern int WindowsAppRuntime_EnsureIsLoaded();
 
+    [DllImport("ntdll.dll")]
+    private static extern int NtQueryInformationProcess(
+        IntPtr processHandle,
+        int processInformationClass,
+        ref PROCESS_BASIC_INFORMATION processInformation,
+        int processInformationLength,
+        out int returnLength);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PROCESS_BASIC_INFORMATION
+    {
+        public IntPtr ExitStatus;
+        public IntPtr PebBaseAddress;
+        public IntPtr AffinityMask;
+        public IntPtr BasePriority;
+        public IntPtr UniqueProcessId;
+        public IntPtr InheritedFromUniqueProcessId;
+    }
+
+    /// <summary>
+    /// One line that says who this process is and who made it, before any WinUI, singleton or
+    /// activation code runs. A WER dump whose pid matches no launched instance is un-debuggable
+    /// without it: the app's own logs used to interleave two processes with nothing but a timestamp,
+    /// so "which process wrote this?" could not be answered after the fact.
+    /// </summary>
+    private static void LogBirthCertificate(string[] args)
+    {
+        try
+        {
+            var self = Process.GetCurrentProcess();
+            var parent = "unknown";
+
+            try
+            {
+                var info = new PROCESS_BASIC_INFORMATION();
+                var hr = NtQueryInformationProcess(
+                    self.Handle, 0, ref info, Marshal.SizeOf<PROCESS_BASIC_INFORMATION>(), out _);
+                if (hr == 0 && info.InheritedFromUniqueProcessId != IntPtr.Zero)
+                {
+                    var ppid = (int)info.InheritedFromUniqueProcessId.ToInt64();
+                    try
+                    {
+                        using var p = Process.GetProcessById(ppid);
+                        parent = $"{p.ProcessName}({ppid})";
+                    }
+                    catch
+                    {
+                        parent = $"{ppid} (already exited)";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                parent = $"unavailable ({ex.GetType().Name})";
+            }
+
+            LogDebug($"[birth] pid={self.Id} ppid={parent} channel={ChannelIdentity.AppName} "
+                     + $"version={FileVersionInfo()} toastActivation={ContainsAny(args, "--toastactivation", "-ToastInAumid", "-ToastActivationId")} "
+                     + $"redirectKey={AppInstanceKey}");
+        }
+        catch
+        {
+            // Diagnostics must never be the reason a launch fails.
+        }
+    }
+
+    private static string FileVersionInfo()
+    {
+        try
+        {
+            return MostaqlK.Core.Platform.AppPaths.VersionTag;
+        }
+        catch
+        {
+            return "unknown";
+        }
+    }
+
+    private static bool ContainsAny(string[] args, params string[] needles)
+    {
+        foreach (var arg in args)
+        {
+            foreach (var needle in needles)
+            {
+                if (arg.Contains(needle, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     [STAThread]
     private static void Main(string[] args)
     {
@@ -59,6 +153,7 @@ public static class Program
         LogDebug($"Main started with args: [{string.Join(", ", args)}]");
         LogDebug($"AppContext.BaseDirectory: {AppContext.BaseDirectory}");
         LogDebug($"Environment.CurrentDirectory: {Environment.CurrentDirectory}");
+        LogBirthCertificate(args);
 
         CrashReporter.RegisterGlobalHandlers();
         CrashReporter.CheckAndReportPreviousCrashes();
@@ -178,7 +273,7 @@ public static class Program
         _isWritingDebugLog = true;
         try
         {
-            string line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {msg}\n";
+            string line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} pid:{Environment.ProcessId}] {msg}\n";
             string logDir = MostaqlK.Core.Platform.AppPaths.LogsDirectory;
             Directory.CreateDirectory(logDir);
             var logPath = Path.Combine(logDir, "startup-debug.log");
