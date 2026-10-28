@@ -14,6 +14,34 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  # Headless gates first: these two suites carry the parser, catalog and source-lint checks
+  # (tick guard, scope routing, "shared code names no platform", "no inline brand hexes",
+  # config-doc vs catalog) and run on plain net10.0 console projects, so no MAUI workload is
+  # needed and the whole job costs about a minute.
+  #
+  # Deliberately NOT here: `dotnet format` (it has to evaluate the MAUI project, which needs the
+  # maui workload installed - run it locally with tools/quality-gate.ps1), and the coexistence
+  # smoke (publishes two channels, minutes). Both are in the local gate.
+  #
+  # To make releases depend on this job, add `needs: quality` to the job below. Left to the owner
+  # because it changes what can ship, not what is checked.
+  quality:
+    name: Quality gate (headless suites)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: ParserTests
+        run: dotnet run --project tools/ParserTests -c Debug --no-launch-profile
+
+      - name: CrashPathTests
+        run: dotnet run --project tools/CrashPathTests -c Debug --no-launch-profile
+
   build-and-release-windows:
     name: Build & Release Windows (Portable)
     runs-on: windows-latest

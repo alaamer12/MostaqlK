@@ -227,48 +227,48 @@ public partial class App : Application
     private void HandleDebugJsonArgument(IServiceProvider services, string[] args)
     {
 #if DEBUG
-		if (!args.Contains("--debug-via-json")) return;
+        if (!args.Contains("--debug-via-json")) return;
 
-		Task.Run(async () =>
-		{
-			// Wait for 30 seconds to allow polling and enrichment to happen.
-			await Task.Delay(30000);
+        Task.Run(async () =>
+        {
+            // Wait for 30 seconds to allow polling and enrichment to happen.
+            await Task.Delay(30000);
 
-			var projectRepo = services.GetRequiredService<IProjectRepository>();
-			var ownerRepo = services.GetRequiredService<IOwnerRepository>();
+            var projectRepo = services.GetRequiredService<IProjectRepository>();
+            var ownerRepo = services.GetRequiredService<IOwnerRepository>();
 
-			var projectsResult = await projectRepo.GetAllDetailsAsync();
-			var ownersResult = await ownerRepo.GetAllAsync();
+            var projectsResult = await projectRepo.GetAllDetailsAsync();
+            var ownersResult = await ownerRepo.GetAllAsync();
 
-			if (projectsResult.IsOk && ownersResult.IsOk)
-			{
-				var exportData = new
-				{
-					ExportedAt = DateTimeOffset.UtcNow,
-					Projects = projectsResult.Value,
-					Owners = ownersResult.Value
-				};
+            if (projectsResult.IsOk && ownersResult.IsOk)
+            {
+                var exportData = new
+                {
+                    ExportedAt = DateTimeOffset.UtcNow,
+                    Projects = projectsResult.Value,
+                    Owners = ownersResult.Value
+                };
 
-				var json = System.Text.Json.JsonSerializer.Serialize(exportData, new System.Text.Json.JsonSerializerOptions
-				{
-					WriteIndented = true
-				});
+                var json = System.Text.Json.JsonSerializer.Serialize(exportData, new System.Text.Json.JsonSerializerOptions
+                {
+                    WriteIndented = true
+                });
 
-				var scratchPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "scratch");
-				if (!Directory.Exists(scratchPath)) Directory.CreateDirectory(scratchPath);
+                var scratchPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "scratch");
+                if (!Directory.Exists(scratchPath)) Directory.CreateDirectory(scratchPath);
 
-				var filePath = Path.Combine(scratchPath, "exported_data.json");
-				await File.WriteAllTextAsync(filePath, json);
+                var filePath = Path.Combine(scratchPath, "exported_data.json");
+                await File.WriteAllTextAsync(filePath, json);
 
-				MostaqlK.Services.Diagnostics.InteractionLogger.Mark("App.Debug.JsonExported", "A", new { filePath });
-			}
+                MostaqlK.Services.Diagnostics.InteractionLogger.Mark("App.Debug.JsonExported", "A", new { filePath });
+            }
 
-			// Shutdown the app after export.
-			MainThread.BeginInvokeOnMainThread(() =>
-			{
-				Application.Current?.Quit();
-			});
-		});
+            // Shutdown the app after export.
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                Application.Current?.Quit();
+            });
+        });
 #endif
     }
 

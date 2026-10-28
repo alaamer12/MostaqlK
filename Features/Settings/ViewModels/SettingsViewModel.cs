@@ -79,7 +79,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     public partial int PollIntervalSeconds { get; set; }
 
     [ObservableProperty]
-        public partial int RequestsPerMinute { get; set; }
+    public partial int RequestsPerMinute { get; set; }
 
     [ObservableProperty]
     public partial int MaxConcurrentDetailFetches { get; set; }
@@ -103,7 +103,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// short window.
     /// </summary>
     [ObservableProperty]
-        public partial bool SafeRequests { get; set; } = true;
+    public partial bool SafeRequests { get; set; } = true;
 
     /// <summary>Tooltip body for the "الطلبات الآمنة" row's (i) affordance.</summary>
     public string SafeRequestsHintText => SafeRequests
@@ -211,7 +211,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     partial void OnHasSessionCookieChanged(bool value)
     {
-                NotifyCookieLinkCommands();
+        NotifyCookieLinkCommands();
         // The composite's status tone (green when a session exists) is part of its descriptor copy,
         // so the row is rebuilt with it.
         ComposeGroups();
@@ -1231,7 +1231,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         // The limiter derives capacity, refill and spacing from these two values itself, so the
         // numbers can no longer drift apart from the configured budget.
         _rateLimiter.Reconfigure(RequestsPerMinute, SafeRequests);
-            }
+    }
 
     private void ApplyGroupingSettings()
     {

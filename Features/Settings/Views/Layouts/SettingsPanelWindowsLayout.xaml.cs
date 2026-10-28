@@ -49,7 +49,7 @@ public partial class SettingsPanelWindowsLayout : ContentView
 
     /// <summary>
     /// A source switch (rail tiles or the header switcher) has already applied the global projection
-    /// inside <see cref="SourceSwitchTiles"/>; here we only re-point this page's descriptor-driven
+    /// inside <see cref="MostaqlK.UI.PlatformComponents.SourceRail.SourceSwitchTiles"/>; here we only re-point this page's descriptor-driven
     /// rows so the settings surface reflects the freshly-active platform.
     /// </summary>
     private void OnRailSourceChanged(object? sender, SourceId source)

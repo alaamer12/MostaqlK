@@ -19,6 +19,13 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 
+		<!-- Every build enforces .editorconfig code style (IDE#### rules), so style drift fails a
+		     build instead of waiting for a manual `dotnet format`. Safe to turn on here because
+		     IDE0051/IDE0052 (unused code) are pinned to `suggestion` in .editorconfig: a single-TFM
+		     compile cannot see the members that only another platform's partial uses. Verified
+		     0 warnings on net10.0-windows and net10.0-android. -->
+		<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
 		<!-- Enable XAML source generation for faster build times and improved performance.
 		     This generates C# code from XAML at compile time instead of runtime inflation.
 		     To disable, remove this line.
@@ -41,12 +48,12 @@
 		<ApplicationId>com.mostaqlk</ApplicationId>
 
 		<!-- Versions -->
-		<ApplicationDisplayVersion>1.0.4.dev61</ApplicationDisplayVersion>
-		<ApplicationVersion>66</ApplicationVersion>
+		<ApplicationDisplayVersion>1.0.4.dev62</ApplicationDisplayVersion>
+		<ApplicationVersion>67</ApplicationVersion>
 		<Version>1.0.4</Version>
 		<InformationalVersion>1.0.4.dev59</InformationalVersion>
-		<FileVersion>1.0.4.40</FileVersion>
-		<AssemblyVersion>1.0.4.40</AssemblyVersion>
+		<FileVersion>1.0.4.41</FileVersion>
+		<AssemblyVersion>1.0.4.41</AssemblyVersion>
 		<Description>MostaqlK Desktop</Description>
 		<Product>MostaqlK</Product>
 		<Company>MostaqlK</Company>

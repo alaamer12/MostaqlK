@@ -24,7 +24,7 @@ namespace MostaqlK.UI.PlatformComponents.ContentSettle;
 /// <c>TranslateTo/ScaleTo/RotateTo/FadeTo*</c>, <c>Storyboard</c>-driven transforms and
 /// <c>DispatcherTimer</c> property mutation; rule 3 says a transition "must be … a single reused
 /// transform via the existing mapping — never as a per-frame new-transform allocation." So on
-/// Windows this drives <see cref="Microsoft.UI.Composition.Visual"/>.<c>Translation</c> (a plain
+/// Windows this drives <c>Microsoft.UI.Composition.Visual</c>.<c>Offset</c> (a plain
 /// compositor <c>Vector3</c> property, NOT a XAML <c>RenderTransform</c>) with ONE
 /// <c>Vector3KeyFrameAnimation</c> per card, started on the render thread. Zero managed per-frame
 /// allocations — the same sanctioned compositor seam <c>SourceMorphTransition</c> uses for its

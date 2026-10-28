@@ -1,0 +1,13 @@
+#!/bin/sh
+# Fast local gate before every commit: the two headless suites (~12s), which include the source
+# lints that historically had to be re-discovered by hand - the tick-guard rule, the scope routing
+# rule, "shared code names no platform", "no inline brand hexes", the config-doc lint.
+#
+# Enable (owner action - the agent must not change git config):
+#     git config core.hooksPath .githooks
+#
+# Bypass for a deliberate WIP commit: git commit --no-verify
+# Full gate (formats, builds, smoke): powershell -File tools/quality-gate.ps1
+set -e
+cd "$(git rev-parse --show-toplevel)"
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/quality-gate.ps1 -Quick

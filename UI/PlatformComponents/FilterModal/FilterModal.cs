@@ -1,6 +1,6 @@
 using Microsoft.Maui;
-using Microsoft.Maui.Layouts;
 using Microsoft.Maui.Controls.Shapes;
+using Microsoft.Maui.Layouts;
 using MostaqlK.Core.Sources;
 using MostaqlK.UI.DesignSystem;
 using MostaqlK.UI.DesignSystem.BrandTokens;
@@ -111,9 +111,9 @@ public sealed class FilterModal : ContentView
         var closeButton = BuildHeaderCloseButton();
         var header = new Grid { ColumnDefinitions = new ColumnDefinitionCollection { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) }, ColumnSpacing = 12 };
         Grid.SetColumn(titleRow, 0);
-header.Children.Add(titleRow);
+        header.Children.Add(titleRow);
         Grid.SetColumn(closeButton, 1);
-header.Children.Add(closeButton);
+        header.Children.Add(closeButton);
 
         var body = new ScrollView { Content = _facetHost };
 
@@ -334,9 +334,9 @@ header.Children.Add(closeButton);
 
         var row = new Grid { ColumnDefinitions = new ColumnDefinitionCollection { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Star) }, ColumnSpacing = 12 };
         Grid.SetColumn(minEntry.Box, 0);
-row.Children.Add(minEntry.Box);
+        row.Children.Add(minEntry.Box);
         Grid.SetColumn(maxEntry.Box, 1);
-row.Children.Add(maxEntry.Box);
+        row.Children.Add(maxEntry.Box);
 
         var group = new VerticalStackLayout { Spacing = 8 };
         group.Children.Add(BuildFacetCaption(facet.LabelAr, 12));
@@ -548,9 +548,9 @@ row.Children.Add(maxEntry.Box);
 
         var footer = new Grid { ColumnDefinitions = new ColumnDefinitionCollection { new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Star) } };
         Grid.SetColumn(clearButton, 0);
-footer.Children.Add(clearButton);
+        footer.Children.Add(clearButton);
         Grid.SetColumn(right, 1);
-footer.Children.Add(right);
+        footer.Children.Add(right);
         return footer;
     }
 

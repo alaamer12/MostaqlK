@@ -1,0 +1,16 @@
+#!/bin/sh
+# Before anything leaves the machine: the headless suites AND the repo-wide code-style verify.
+#
+# Repo-wide rather than diff-scoped on purpose. A working tree is clean at pre-push time, so
+# `git diff HEAD` would name nothing and the format step would check zero files and pass -
+# the same vacuous-green failure mode the ParserTests lints guard against with their
+# "scanned >= N" floors. dotnet format evaluates the MAUI project, so this costs about 90s;
+# that is the right place to pay it.
+#
+# Enable (owner action - the agent must not change git config):
+#     git config core.hooksPath .githooks
+#
+# Bypass: git push --no-verify
+set -e
+cd "$(git rev-parse --show-toplevel)"
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/quality-gate.ps1

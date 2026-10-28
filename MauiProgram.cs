@@ -64,7 +64,7 @@ public static class MauiProgram
                 options.Debug = false;
                 options.Release = $"mostaqlk{ChannelIdentity.Suffix.ToLowerInvariant()}@{typeof(MauiProgram).Assembly.GetName().Version}";
 #if DEBUG
-				options.Environment = "debug";
+                options.Environment = "debug";
 #else
                 options.Environment = "production";
 #endif
@@ -95,8 +95,8 @@ public static class MauiProgram
             });
 
 #if DEBUG
-		builder.Logging.AddDebug();
-		builder.Logging.AddConsole();
+        builder.Logging.AddDebug();
+        builder.Logging.AddConsole();
 #endif
 
         // Infrastructure
