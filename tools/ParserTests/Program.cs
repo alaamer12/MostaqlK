@@ -159,6 +159,7 @@ public static class Program
         Run(nameof(TestGroupedToastCopyIsShared), TestGroupedToastCopyIsShared);
         Run(nameof(TestBrandIconContract), TestBrandIconContract);
         Run(nameof(TestNoHardcodedToastImages), TestNoHardcodedToastImages);
+        Run(nameof(TestVersionNumbersAgree), TestVersionNumbersAgree);
         Run(nameof(TestNoSourceIdStringLiteralsInSharedCode), TestNoSourceIdStringLiteralsInSharedCode);
         Run(nameof(TestNoInlineBrandHexesOutsideTheirOwners), TestNoInlineBrandHexesOutsideTheirOwners);
         Run(nameof(TestConfigurationReferenceMatchesCatalog), TestConfigurationReferenceMatchesCatalog);
@@ -3188,6 +3189,8 @@ public static class Program
             appSdk.Contains("AppRoutes.Projects", StringComparison.Ordinal),
             "a grouped toast click must land somewhere on both backends");
     }
+
+    private static void TestVersionNumbersAgree() => VersionContract.Verify(Check, FindRepoRoot());
 
     private static void TestBrandIconContract() => BrandIconContract.Verify(Check, FindRepoRoot());
 
