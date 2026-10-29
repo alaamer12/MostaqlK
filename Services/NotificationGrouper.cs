@@ -1,3 +1,5 @@
+using System.Linq;
+using MostaqlK.Core.Sources;
 using MostaqlK.Models;
 using MostaqlK.Services.Diagnostics;
 
@@ -22,11 +24,18 @@ public enum NotificationGroupingMode
 /// <summary>
 /// Buffers newly discovered/enriched projects and decides when a batch is ready to be
 /// flushed to the <see cref="INotificationDispatcher"/> based on the configured grouping mode.
+/// <para>
+/// The buffer is bucketed by source, so every batch handed to <see cref="OnFlush"/> — and therefore
+/// every grouped toast — has exactly one producing platform. That is a consequence of the toast now
+/// wearing that platform's colors: a batch mixing two sources could only dress itself in one of them
+/// and misreport the other. The cost is more toasts when several platforms discover work in the same
+/// window, which the owner accepted deliberately.
+/// </para>
 /// </summary>
 public sealed class NotificationGrouper : IDisposable
 {
     private readonly Lock _gate = new();
-    private readonly List<ProjectSummary> _pending = [];
+    private readonly Dictionary<SourceId, List<ProjectSummary>> _buckets = [];
     private Timer? _flushTimer;
 
     /// <summary>
@@ -42,28 +51,41 @@ public sealed class NotificationGrouper : IDisposable
     public int AfterCountThreshold { get; set; } = 5;
 
     /// <summary>
-    /// Raised whenever a batch is ready to be sent as a toast — either because a timing/count
-    /// threshold was reached, or (per the single-item bypass rule) because the batch that would
-    /// flush contains exactly one item.
+    /// Raised once per source whenever that source's batch is ready to be sent as a toast — either
+    /// because a timing/count threshold was reached, or (per the single-item bypass rule) because the
+    /// batch that would flush contains exactly one item.
     /// </summary>
     public event Action<IReadOnlyList<ProjectSummary>>? OnFlush;
 
     /// <summary>
-    /// Buffers <paramref name="project"/> and schedules/triggers a flush according to
-    /// <see cref="Mode"/>. Mirrors system-components.md #12 and
+    /// Buffers <paramref name="project"/> into its source's bucket and schedules/triggers a flush
+    /// according to <see cref="Mode"/>. Mirrors system-components.md #12 and
     /// configuration-reference.md § Notification grouping.
     /// </summary>
     public void Add(ProjectSummary project)
     {
-        IReadOnlyList<ProjectSummary>? readyBatch = null;
+        List<IReadOnlyList<ProjectSummary>> readyBatches = [];
 
         lock (_gate)
         {
-            _pending.Add(project);
-
-            if (!Enabled || (Mode == NotificationGroupingMode.AfterCount && _pending.Count >= AfterCountThreshold))
+            if (!_buckets.TryGetValue(project.Source, out var bucket))
             {
-                readyBatch = DrainLocked();
+                bucket = [];
+                _buckets[project.Source] = bucket;
+            }
+
+            bucket.Add(project);
+
+            if (!Enabled)
+            {
+                readyBatches = DrainAllLocked();
+            }
+            else if (Mode == NotificationGroupingMode.AfterCount && bucket.Count >= AfterCountThreshold)
+            {
+                // Only the bucket that tripped the threshold ships. The other platforms keep
+                // buffering toward their own toast, because "5 new projects" means five from one
+                // source, not five across the whole feed.
+                readyBatches.Add(DrainBucketLocked(project.Source));
             }
             else if (_flushTimer is null)
             {
@@ -73,10 +95,15 @@ public sealed class NotificationGrouper : IDisposable
             }
         }
 
-        if (readyBatch is { Count: > 0 })
+        foreach (var batch in readyBatches)
         {
-            InteractionLogger.Mark("NotificationGrouper.Flush", "A", new { Reason = "immediate", Count = readyBatch.Count });
-            OnFlush?.Invoke(readyBatch);
+            if (batch.Count == 0)
+            {
+                continue;
+            }
+
+            InteractionLogger.Mark("NotificationGrouper.Flush", "A", new { Reason = "immediate", Source = batch[0].Source.Value, Count = batch.Count });
+            OnFlush?.Invoke(batch);
         }
     }
 
@@ -91,41 +118,86 @@ public sealed class NotificationGrouper : IDisposable
 
     private void FlushDue()
     {
-        IReadOnlyList<ProjectSummary>? batch;
+        List<IReadOnlyList<ProjectSummary>> batches;
 
         lock (_gate)
         {
-            batch = DrainLocked();
+            batches = DrainAllLocked();
         }
 
-        if (batch is { Count: > 0 })
+        var flushed = 0;
+        foreach (var batch in batches)
         {
-            InteractionLogger.Mark("NotificationGrouper.Flush", "A", new { Reason = "timer-or-force", Count = batch.Count });
+            if (batch.Count == 0)
+            {
+                continue;
+            }
+
+            flushed += batch.Count;
+            InteractionLogger.Mark("NotificationGrouper.Flush", "A", new { Reason = "timer-or-force", Source = batch[0].Source.Value, Count = batch.Count });
             OnFlush?.Invoke(batch);
         }
-        else
+
+        if (flushed == 0)
         {
             InteractionLogger.Mark("NotificationGrouper.Flush", "B", "nothing-pending");
         }
     }
 
     /// <summary>
-    /// Clears and returns the pending batch. Must be called while holding <see cref="_gate"/>.
+    /// Empties one source's bucket. Must be called while holding <see cref="_gate"/>. The flush timer
+    /// stays armed while any other bucket still holds work, so draining one platform never cancels
+    /// another platform's scheduled toast.
     /// </summary>
-    private IReadOnlyList<ProjectSummary> DrainLocked()
+    private IReadOnlyList<ProjectSummary> DrainBucketLocked(SourceId source)
     {
-        _flushTimer?.Dispose();
-        _flushTimer = null;
-
-        if (_pending.Count == 0)
+        if (!_buckets.TryGetValue(source, out var bucket) || bucket.Count == 0)
         {
             return [];
         }
 
-        var batch = _pending.ToList();
-        _pending.Clear();
+        var batch = bucket.ToArray();
+        bucket.Clear();
+        _buckets.Remove(source);
+
+        if (_buckets.Count == 0)
+        {
+            _flushTimer?.Dispose();
+            _flushTimer = null;
+        }
+
         return batch;
     }
+
+    /// <summary>
+    /// Empties every bucket, one batch per source. Must be called while holding <see cref="_gate"/>.
+    /// Oldest item first, then by source id, so the order toasts appear in is stable.
+    /// </summary>
+    private List<IReadOnlyList<ProjectSummary>> DrainAllLocked()
+    {
+        _flushTimer?.Dispose();
+        _flushTimer = null;
+
+        if (_buckets.Count == 0)
+        {
+            return [];
+        }
+
+        var batches = _buckets
+            .OrderBy(entry => FirstSeen(entry.Value))
+            .ThenBy(entry => entry.Key.Value)
+            .Select(entry => (IReadOnlyList<ProjectSummary>)entry.Value.ToArray())
+            .ToList();
+
+        _buckets.Clear();
+        return batches;
+    }
+
+    /// <summary>
+    /// Bucket ordering key: the moment the bucket first became non-empty. Ties are broken by source id
+    /// in the caller, so the order toasts appear in is the same every time.
+    /// </summary>
+    private static long FirstSeen(IReadOnlyList<ProjectSummary> bucket) => bucket[0].PublishTimeNumber;
 
     private TimeSpan DueTimeFor(NotificationGroupingMode mode) => mode switch
     {

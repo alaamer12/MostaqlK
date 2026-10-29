@@ -15,6 +15,7 @@ using MostaqlK.Sources.Nafezly;
 using MostaqlK.Sources.Nafezly.Parsing;
 using MostaqlK.Sources.Nafezly.Contributions;
 using MostaqlK.Models;
+using MostaqlK.Services;
 
 namespace ParserTests;
 
@@ -154,6 +155,7 @@ public static class Program
         Run(nameof(TestBrandImageDecoderRoundTrip), TestBrandImageDecoderRoundTrip);
         Run(nameof(TestBrandBadgeComposition), TestBrandBadgeComposition);
         Run(nameof(TestToastAssetsBrandArt), TestToastAssetsBrandArt);
+        Run(nameof(TestToastGroupsArePerSource), TestToastGroupsArePerSource);
         Run(nameof(TestBrandIconContract), TestBrandIconContract);
         Run(nameof(TestNoHardcodedToastImages), TestNoHardcodedToastImages);
         Run(nameof(TestNoSourceIdStringLiteralsInSharedCode), TestNoSourceIdStringLiteralsInSharedCode);
@@ -3050,6 +3052,82 @@ public static class Program
 
         return transparent && opaque;
     }
+
+    /// <summary>
+    /// A grouped toast now wears one platform's colors, so it may only ever carry that platform's
+    /// projects. This is the rule that makes the branding true rather than decorative, and it lives in
+    /// the grouper's bucketing — proven here by driving the real class, not by asserting about it.
+    /// </summary>
+    private static void TestToastGroupsArePerSource()
+    {
+        var mostaql = MostaqlSource.Instance.Id;
+        var nafezly = NafezlySource.Instance.Id;
+
+        var batches = new List<IReadOnlyList<ProjectSummary>>();
+        var grouper = new NotificationGrouper { Enabled = true, Mode = NotificationGroupingMode.EndOfMinute };
+        grouper.OnFlush += batches.Add;
+
+        grouper.Add(NewProject(mostaql, 1));
+        grouper.Add(NewProject(nafezly, 2));
+        grouper.Add(NewProject(mostaql, 3));
+
+        Check("groups: nothing flushes before the mode's threshold",
+            batches.Count == 0, $"{batches.Count} flushes");
+
+        grouper.FlushNow();
+
+        Check("groups: one mixed buffer flushes as one toast per source",
+            batches.Count == 2, $"{batches.Count} flushes");
+        Check("groups: every flushed batch has exactly one source",
+            batches.All(b => b.Count > 0 && b.All(p => p.Source == b[0].Source)),
+            string.Join(" | ", batches.Select(b => $"{b[0].Source.Value}x{b.Count}")));
+        Check("groups: no buffered project was lost in the split",
+            batches.Sum(b => b.Count) == 3, $"{batches.Sum(b => b.Count)} projects");
+        Check("groups: the batch order is stable across sources",
+            batches[0][0].Source == mostaql && batches[1][0].Source == nafezly,
+            string.Join(",", batches.Select(b => b[0].Source.Value)));
+
+        batches.Clear();
+        grouper.FlushNow();
+        Check("groups: an empty buffer reports nothing rather than an empty toast",
+            batches.Count == 0, $"{batches.Count} flushes");
+
+        // AfterCount means "five from ONE platform", not "five across the feed": flushing one source
+        // must leave the other still buffering toward its own toast.
+        batches.Clear();
+        var counted = new NotificationGrouper { Enabled = true, Mode = NotificationGroupingMode.AfterCount, AfterCountThreshold = 3 };
+        counted.OnFlush += batches.Add;
+        counted.Add(NewProject(nafezly, 10));
+        counted.Add(NewProject(mostaql, 11));
+        counted.Add(NewProject(mostaql, 12));
+        Check("groups: the count threshold is per source, so a mixed feed does not trip it",
+            batches.Count == 0, $"{batches.Count} flushes");
+        counted.Add(NewProject(mostaql, 13));
+        Check("groups: reaching the threshold flushes only that source",
+            batches.Count == 1 && batches[0].Count == 3 && batches[0].All(p => p.Source == mostaql),
+            string.Join(" | ", batches.Select(b => $"{b[0].Source.Value}x{b.Count}")));
+        counted.FlushNow();
+        Check("groups: the other source's timer survived the partial flush and its work is kept",
+            batches.Count == 2 && batches[1].Count == 1 && batches[1][0].Source == nafezly,
+            string.Join(" | ", batches.Select(b => $"{b[0].Source.Value}x{b.Count}")));
+
+        batches.Clear();
+        var disabled = new NotificationGrouper { Enabled = false };
+        disabled.OnFlush += batches.Add;
+        disabled.Add(NewProject(mostaql, 20));
+        disabled.Add(NewProject(nafezly, 21));
+        Check("groups: grouping off still sends each project on its own, per source",
+            batches.Count == 2 && batches.All(b => b.Count == 1), $"{batches.Count} flushes");
+    }
+
+    private static ProjectSummary NewProject(SourceId source, long projectId) => new()
+    {
+        Source = source,
+        ProjectId = projectId,
+        Title = "مشروع اختبار",
+        Url = $"https://example.test/project/{projectId}",
+        PublishTimeNumber = 1,
+    };
 
     private static void TestBrandIconContract() => BrandIconContract.Verify(Check, FindRepoRoot());
 

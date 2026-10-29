@@ -117,6 +117,16 @@
 		<Compile Include="..\..\Core\Notifications\BrandImageDecoder.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Notifications\BrandBadge.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Notifications\ToastAssets.cs" LinkBase="Core" />
+		<!-- Step 3: the grouper decides what one toast may contain, and that rule is proven by
+		     driving the real class rather than by asserting about it. Its only dependencies are the
+		     model and the interaction log, both already linked here. -->
+		<Compile Include="..\..\Services\NotificationGrouper.cs" LinkBase="Services" />
+		<!-- The grouper logs which branch it took, which is the whole point of testing it: the sink
+		     and the channel-rooted paths it resolves are linked too, so the harness exercises the real
+		     class and not a stubbed-out version of it. -->
+		<Compile Include="..\..\Services\Diagnostics\InteractionLogger.cs" LinkBase="Services" />
+		<Compile Include="..\..\Core\Platform\AppPaths.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Platform\LogDirectoryPurger.cs" LinkBase="Core" />
 		<!-- Step 5: the platform switch's at-least-one-enabled invariant is the rule the settings row,
 		     the pipeline and the toast dispatcher all share, so it is proven offline against the two
 		     real descriptors and a fake store. -->
