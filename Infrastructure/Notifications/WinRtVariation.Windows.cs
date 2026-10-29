@@ -1,5 +1,6 @@
 using MostaqlK.Core;
 using MostaqlK.Core.Formatting;
+using MostaqlK.Core.Notifications;
 using MostaqlK.Models;
 using MostaqlK.Services.Diagnostics;
 using Windows.Data.Xml.Dom;
@@ -71,8 +72,6 @@ public sealed class WinRtVariation : IToastVariation
                 arguments='openUrl={Uri.EscapeDataString(project.Url)}' />
     </actions>";
 
-        var logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Images", "logo.png");
-
         // §6 (B5): every individual toast now stamps its source id (including the default source) so
         // activation resolves the project's OWN source and a stale/garbled payload is ignored rather
         // than silently routed to the default source's same-numbered project. Only the raw launch
@@ -84,7 +83,6 @@ public sealed class WinRtVariation : IToastVariation
 <toast lang='ar-SA' launch='projectId={project.ProjectId}{sourceParam}'>
     <visual lang='ar-SA'>
         <binding template='ToastGeneric'>
-            <image placement='appLogoOverride' src='file:///{logoPath}' />
             <text>{System.Security.SecurityElement.Escape(project.Title)}</text>
             <text>{System.Security.SecurityElement.Escape(description)}</text>
         </binding>
@@ -93,7 +91,7 @@ public sealed class WinRtVariation : IToastVariation
 </toast>";
 
         var xml = new XmlDocument();
-        xml.LoadXml(toastXmlString);
+        xml.LoadXml(ToastBranding.ApplyToBindingXml(toastXmlString, ToastBrandingResolver.For(project.Source)));
         return xml;
     }
 
@@ -104,20 +102,17 @@ public sealed class WinRtVariation : IToastVariation
 
         var firstUrlProject = projects.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.Url));
         var firstUrl = firstUrlProject?.Url;
-        var actionsXml = string.IsNullOrWhiteSpace(firstUrl)
+        var actionsXml = firstUrlProject is null || string.IsNullOrWhiteSpace(firstUrl)
             ? string.Empty
             : $@"<actions>
-        <action content='{NotificationCopy.ViewOnSource(firstUrlProject!.Source)}' 
-                arguments='openUrl={Uri.EscapeDataString(firstUrl!)}' />
+        <action content='{NotificationCopy.ViewOnSource(firstUrlProject.Source)}' 
+                arguments='openUrl={Uri.EscapeDataString(firstUrl)}' />
     </actions>";
-
-        var logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Images", "logo.png");
 
         var toastXmlString = $@"
 <toast lang='ar-SA' launch='filter=unread'>
     <visual lang='ar-SA'>
         <binding template='ToastGeneric'>
-            <image placement='appLogoOverride' src='file:///{logoPath}' />
             <text>{System.Security.SecurityElement.Escape(header)}</text>
         </binding>
     </visual>
@@ -125,7 +120,7 @@ public sealed class WinRtVariation : IToastVariation
 </toast>";
 
         var xml = new XmlDocument();
-        xml.LoadXml(toastXmlString);
+        xml.LoadXml(ToastBranding.ApplyToBindingXml(toastXmlString, ToastBrandingResolver.For(projects[0].Source)));
         return xml;
     }
 }

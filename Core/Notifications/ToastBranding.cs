@@ -1,15 +1,9 @@
 using System;
+using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 
 namespace MostaqlK.Core.Notifications;
-
-/// <summary>Which palette of a source's <c>BrandTokenSet</c> the toast art is built for.</summary>
-public enum ToastVisualTheme
-{
-    Light,
-    Dark,
-}
 
 /// <summary>
 /// The visual chrome one toast is allowed to carry, already resolved to escaped URIs.
@@ -68,6 +62,11 @@ public static class ToastBranding
     /// containing <c>#</c> — such as a dev checkout under <c>…\C#\MostaqlK\bin\…</c> — was read by the
     /// renderer as a fragment delimiter and the image silently disappeared.
     /// </para>
+    /// <para>
+    /// The path is also made absolute, for the same silent-failure reason: a relative cache directory
+    /// produced <c>file:///scratch/toast/hero.png</c>, which the renderer could not resolve, so the
+    /// whole brand band vanished and nothing on the toast explained why.
+    /// </para>
     /// </summary>
     public static string? ToFileUri(string? localPath)
     {
@@ -82,6 +81,21 @@ public static class ToastBranding
             || localPath.StartsWith("ms-appdata", StringComparison.OrdinalIgnoreCase))
         {
             return localPath;
+        }
+
+        try
+        {
+            // Lexical only — this never touches the filesystem, so a not-yet-written file is fine.
+            localPath = Path.GetFullPath(localPath);
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+        catch (IOException)
+        {
+            // A path whose root cannot be resolved (a disconnected drive) has no URI worth sending.
+            return null;
         }
 
         var sb = new StringBuilder("file:///");

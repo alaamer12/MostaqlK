@@ -4,6 +4,7 @@ using Microsoft.Windows.AppNotifications.Builder;
 using MostaqlK.Core;
 using MostaqlK.Core.Formatting;
 using MostaqlK.Core.Navigation;
+using MostaqlK.Core.Notifications;
 using MostaqlK.Models;
 using MostaqlK.Services.Diagnostics;
 
@@ -108,19 +109,20 @@ public sealed class WinAppSdkVariation : IToastVariation
                 ? BuildIndividualToast(projects[0])
                 : BuildGroupedToast(projects);
 
-            // AppNotificationBuilder doesn't have a direct Lang property in the builder,
-            // but we can ensure the XML carries it for proper RTL layout.
+            // The builder owns the text, arguments and buttons; the branded images are applied to its
+            // payload in XML, which is the same seam the WinRT backend uses — so both APIs show one
+            // source's toast identically, and this file already rebuilt the payload for the lang
+            // attribute.
             var notification = builder.BuildNotification();
-            var xml = notification.Payload;
+            var xml = ToastBranding.ApplyToBindingXml(notification.Payload, ToastBrandingResolver.For(projects[0].Source));
             if (!xml.Contains("lang="))
             {
                 // Inject lang attribute into the toast and visual tags
                 xml = xml.Replace("<toast", "<toast lang='ar-SA'");
                 xml = xml.Replace("<visual", "<visual lang='ar-SA'");
-                notification = new AppNotification(xml);
             }
 
-            AppNotificationManager.Default.Show(notification);
+            AppNotificationManager.Default.Show(new AppNotification(xml));
 
             InteractionLogger.Mark("WinAppSdkVariation.SendAsync", "A", new { Count = projects.Count });
             return Task.FromResult(Result<bool>.Ok(true));
@@ -145,7 +147,6 @@ public sealed class WinAppSdkVariation : IToastVariation
         });
 
         var builder = new AppNotificationBuilder()
-            .SetAppLogoOverride(new Uri(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Images", "logo.png")))
             .AddText(project.Title, new AppNotificationTextProperties().SetMaxLines(1))
             .AddText(description)
             .AddArgument("projectId", project.ProjectId.ToString());
@@ -170,7 +171,6 @@ public sealed class WinAppSdkVariation : IToastVariation
     {
         var header = $"يوجد {projects.Count} مشاريع جديدة — تفقدها هنا";
         var builder = new AppNotificationBuilder()
-            .SetAppLogoOverride(new Uri(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Images", "logo.png")))
             .AddText(header)
             .AddArgument("filter", "unread");
 

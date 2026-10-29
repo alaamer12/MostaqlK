@@ -33,6 +33,8 @@
 	<ItemGroup>
 		<Compile Include="..\..\Core\Notifications\ToastBranding.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Notifications\BrandImageEncoder.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Notifications\BrandImageDecoder.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Notifications\BrandBadge.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Notifications\ToastAssets.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Sources\SourceId.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Sources\BrandTokenSet.cs" LinkBase="Core" />

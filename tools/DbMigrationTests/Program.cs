@@ -633,6 +633,7 @@ internal static class Program
         public string DisplayNameLatin => Id.Value;
         public string Domain => Id.Value + ".test";
         public string RailGlyph => "X";
+        public string RailIconImageName => $"icon_{Id.Value}";
         public BrandTokenSet Brands => new("#000000", "#000000", "#000000", "#FFFFFF", "#0000FF", "#4040FF", "#555555", "#555555", "#24555555", "#111111");
         public int DefaultRequestsPerMinute => 2;
         public string CurrencySuffix => "";

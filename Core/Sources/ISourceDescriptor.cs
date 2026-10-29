@@ -29,14 +29,17 @@ public interface ISourceDescriptor
     public string RailGlyph { get; }
 
     /// <summary>
-    /// Base name of the source's baked tile icon (e.g. <c>"icon_mostaql"</c>, loaded as
-    /// <c>{name}.scale-200.png</c> from the app directory — the same Resizetizer output the
-    /// <c>AppIcon</c> unit reads). Tiles show the icon when the file exists and fall back to
-    /// <see cref="RailGlyph"/> otherwise, so a source without art is never blank. The art
-    /// carries NO square background: tiles keep painting their own brand fill underneath.
-    /// Default <c>null</c> — a module opts in by overriding.
+    /// Base name of the source's icon — <c>Resources/Images/{name}.svg</c> is a REQUIREMENT of every
+    /// module, and the same file is the source of both the rail tile (MAUI bakes it to
+    /// <c>{name}.scale-200.png</c> at the app's content root) and the toast art, which is composed
+    /// from it at runtime over the module's own brand ramp. A module never ships a second, toast-sized
+    /// copy of its mark, so there is nothing to keep in sync.
+    /// <para>
+    /// Required rather than optional: the name is the only way the notification code reaches the art,
+    /// and <c>tools/ParserTests</c> fails the build when the vector it names is not on disk.
+    /// </para>
     /// </summary>
-    public string? RailIconImageName => null;
+    public string RailIconImageName { get; }
 
     public BrandTokenSet Brands { get; }
 

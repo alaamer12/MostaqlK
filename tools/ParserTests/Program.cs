@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Text;
 using HtmlAgilityPack;
 using MostaqlK.Core;
@@ -149,6 +150,12 @@ public static class Program
         Run(nameof(TestTickerCallbacksAreGuarded), TestTickerCallbacksAreGuarded);
         Run(nameof(TestToastBrandingXmlShape), TestToastBrandingXmlShape);
         Run(nameof(TestBrandImageEncoderPng), TestBrandImageEncoderPng);
+        Run(nameof(TestToastFileUriIsAlwaysAbsolute), TestToastFileUriIsAlwaysAbsolute);
+        Run(nameof(TestBrandImageDecoderRoundTrip), TestBrandImageDecoderRoundTrip);
+        Run(nameof(TestBrandBadgeComposition), TestBrandBadgeComposition);
+        Run(nameof(TestToastAssetsBrandArt), TestToastAssetsBrandArt);
+        Run(nameof(TestBrandIconContract), TestBrandIconContract);
+        Run(nameof(TestNoHardcodedToastImages), TestNoHardcodedToastImages);
         Run(nameof(TestNoSourceIdStringLiteralsInSharedCode), TestNoSourceIdStringLiteralsInSharedCode);
         Run(nameof(TestNoInlineBrandHexesOutsideTheirOwners), TestNoInlineBrandHexesOutsideTheirOwners);
         Run(nameof(TestConfigurationReferenceMatchesCatalog), TestConfigurationReferenceMatchesCatalog);
@@ -2651,21 +2658,24 @@ public static class Program
     private static void TestBrandImageEncoderPng()
     {
         var brand = MostaqlSource.Instance.Brands;
-        var bands = new List<BrandImageEncoder.Rgb>();
-        foreach (var hex in new[] { brand.BrandInk, brand.Brand, brand.BrandSoft })
-        {
-            Check("png: descriptor palette hex parses", BrandImageEncoder.TryParseColorHex(hex, out _), hex);
-            BrandImageEncoder.TryParseColorHex(hex, out var rgb);
-            bands.Add(rgb);
-        }
+        Check("png: descriptor palette hex parses", BrandImageEncoder.TryParseColorHex(brand.BrandInk, out _), brand.BrandInk);
+        Check("png: descriptor palette hex parses", BrandImageEncoder.TryParseColorHex(brand.Brand, out _), brand.Brand);
+        BrandImageEncoder.TryParseColorHex(brand.BrandInk, out var from);
+        BrandImageEncoder.TryParseColorHex(brand.Brand, out var to);
 
         const int Width = 48;
         const int Height = 12;
-        var png = BrandImageEncoder.EncodeBanner(bands, Width, Height);
+        var png = BrandImageEncoder.EncodeGradient(from, to, Width, Height);
 
         Check("png: signature present",
             png.Length > 32 && png[0] == 0x89 && png[1] == 0x50 && png[2] == 0x4E && png[3] == 0x47,
             $"{png.Length} bytes");
+
+        // A flat ramp must compress hard, or the cached hero is hundreds of KB of noise on disk. This
+        // is the assertion that would have caught the stored-blocks version at 240 KB per image.
+        Check("png: a smooth ramp compresses far below its raw scanline size",
+            png.Length < (Width * Height * 4) / 8,
+            $"{png.Length} bytes vs {(Width * Height * 4)} raw");
 
         var chunks = ReadPngChunks(png, out var crcsValid);
         Check("png: IHDR, IDAT, IEND in order with every CRC valid",
@@ -2679,25 +2689,33 @@ public static class Program
             string.Join(",", ihdr));
 
         var idat = chunks.First(c => c.Type == "IDAT").Data;
-        var raw = InflateStored(idat, out var inflateOk);
+        var raw = InflateZlib(idat, out var inflateOk);
         Check("png: the stream inflates to exactly the expected scanlines",
             inflateOk && raw.Length == Height * (1 + (Width * 4)), $"{raw.Length} bytes");
 
         Check("png: every scanline begins with filter byte 0",
             Enumerable.Range(0, Height).All(y => raw[y * (1 + (Width * 4))] == 0));
 
-        BrandImageEncoder.TryParseColorHex(brand.Brand, out var middle);
-        var middleRow = Height / 2;
-        var sample = (middleRow * (1 + (Width * 4))) + 1 + ((Width / 2) * 4);
-        Check("png: the middle band is the source's own brand color, opaque",
-            raw[sample] == middle.R && raw[sample + 1] == middle.G && raw[sample + 2] == middle.B
-                && raw[sample + 3] == 255,
-            $"got {raw[sample]},{raw[sample + 1]},{raw[sample + 2]},{raw[sample + 3]}");
+        var top = 1 + ((Width / 2) * 4);
+        var bottom = ((Height - 1) * (1 + (Width * 4))) + 1 + ((Width / 2) * 4);
+        Check("png: the top row is the palette's deep tone, opaque",
+            raw[top] == from.R && raw[top + 1] == from.G && raw[top + 2] == from.B && raw[top + 3] == 255,
+            $"got {raw[top]},{raw[top + 1]},{raw[top + 2]}");
+        Check("png: the bottom row is the source's brand color",
+            raw[bottom] == to.R && raw[bottom + 1] == to.G && raw[bottom + 2] == to.B && raw[bottom + 3] == 255,
+            $"got {raw[bottom]},{raw[bottom + 1]},{raw[bottom + 2]}");
+        // A ramp, not a step: the reason the first on-screen hero looked like a flag was hard edges
+        // between stacked bands, so smoothness is now part of the contract.
+        var midRow = Height / 2;
+        var mid = (midRow * (1 + (Width * 4))) + 1 + ((Width / 2) * 4);
+        var expectedMid = (byte)((from.R + to.R) / 2);
+        Check("png: the middle row interpolates between the two tones",
+            Math.Abs(raw[mid] - expectedMid) <= 2, $"got {raw[mid]} expected ~{expectedMid}");
 
         Check("png: degenerate input yields no bytes instead of throwing",
-            BrandImageEncoder.EncodeBanner([], 10, 10).Length == 0
-                && BrandImageEncoder.EncodeBanner([new BrandImageEncoder.Rgb(1, 2, 3)], 0, 10).Length == 0
-                && BrandImageEncoder.EncodeBanner([new BrandImageEncoder.Rgb(1, 2, 3)], 99999, 10).Length == 0);
+            BrandImageEncoder.EncodeGradient(new BrandImageEncoder.Rgb(1, 2, 3), new BrandImageEncoder.Rgb(4, 5, 6), 0, 10).Length == 0
+                && BrandImageEncoder.EncodeGradient(new BrandImageEncoder.Rgb(1, 2, 3), new BrandImageEncoder.Rgb(4, 5, 6), 10, 0).Length == 0
+                && BrandImageEncoder.EncodeGradient(new BrandImageEncoder.Rgb(1, 2, 3), new BrandImageEncoder.Rgb(4, 5, 6), 99999, 10).Length == 0);
 
         Check("png: ARGB palette tokens parse with alpha dropped (BrandSoftDark is stored that way)",
             BrandImageEncoder.TryParseColorHex(brand.BrandSoftDark, out var softArgb)
@@ -2710,6 +2728,332 @@ public static class Program
             BrandImageEncoder.TryParseColorHex("#abc", out var shorthand)
                 && shorthand == new BrandImageEncoder.Rgb(0xAA, 0xBB, 0xCC), shorthand.ToString());
     }
+
+    /// <summary>
+    /// The URI the shell has to resolve. A relative cache directory produced
+    /// <c>file:///scratch/toastlab/hero.png</c>, which resolves to nothing, and the whole brand band
+    /// vanished with no error anywhere — so "always absolute" is now asserted rather than assumed.
+    /// </summary>
+    private static void TestToastFileUriIsAlwaysAbsolute()
+    {
+        var relative = ToastBranding.ToFileUri(Path.Combine("scratch", "hero.png"));
+        Check("uri: a relative path is made absolute",
+            relative is not null
+                && relative.StartsWith("file:///", StringComparison.Ordinal)
+                && Path.IsPathRooted(relative["file:///".Length..].Replace('/', Path.DirectorySeparatorChar)),
+            relative ?? "null");
+
+        Check("uri: '#' is escaped, not read as a fragment delimiter",
+            ToastBranding.ToFileUri(Path.Combine(Path.GetTempPath(), "a#b", "hero.png")) is { } hashed && !hashed.Contains('#'),
+            ToastBranding.ToFileUri(Path.Combine(Path.GetTempPath(), "a#b", "hero.png")) ?? "null");
+
+        Check("uri: an absolute path keeps its drive letter and gains slashes",
+            ToastBranding.ToFileUri(@"C:\temp\hero.png") == "file:///C:/temp/hero.png",
+            ToastBranding.ToFileUri(@"C:\temp\hero.png") ?? "null");
+
+        Check("uri: a scheme that is already one is passed through untouched",
+            ToastBranding.ToFileUri("ms-appx:///Assets/logo.png") == "ms-appx:///Assets/logo.png");
+
+        Check("uri: empty input yields no URI rather than an unresolvable one",
+            ToastBranding.ToFileUri("   ") is null && ToastBranding.ToFileUri(null) is null);
+    }
+
+    /// <summary>
+    /// The writer and the reader have to agree with the real PNG format, not with each other: the
+    /// round-trip is checked against a shipped asset that uses filter types the writer never emits.
+    /// </summary>
+    private static void TestBrandImageDecoderRoundTrip()
+    {
+        var brands = MostaqlSource.Instance.Brands;
+        BrandImageEncoder.TryParseColorHex(brands.BrandInk, out var from);
+        BrandImageEncoder.TryParseColorHex(brands.Brand, out var to);
+        var png = BrandImageEncoder.EncodeGradient(from, to, 24, 8);
+
+        var raster = BrandImageDecoder.TryDecode(png);
+        Check("decode: our own writer's output reads back at the right size",
+            raster is { Width: 24, Height: 8 }, raster is null ? "null" : $"{raster.Width}x{raster.Height}");
+        if (raster is not null)
+        {
+            raster.Pixel(3, 0, out var r, out var g, out var b, out var a);
+            Check("decode: the first row is the ramp's top color, opaque",
+                r == from.R && g == from.G && b == from.B && a == 255, $"{r},{g},{b},{a}");
+            raster.Pixel(3, 7, out r, out g, out b, out a);
+            Check("decode: the last row is the ramp's bottom color",
+                r == to.R && g == to.G && b == to.B && a == 255, $"{r},{g},{b},{a}");
+        }
+
+        var truncated = new byte[png.Length - 20];
+        Array.Copy(png, truncated, truncated.Length);
+        Check("decode: a truncated file is refused rather than half-read", BrandImageDecoder.TryDecode(truncated) is null);
+        Check("decode: bytes that are not a PNG are refused",
+            BrandImageDecoder.TryDecode([.. Enumerable.Repeat<byte>(7, 64)]) is null);
+
+        var logo = Path.Combine(FindRepoRoot(), "Resources", "Images", "logo.png");
+        var shipped = File.Exists(logo) ? BrandImageDecoder.TryDecode(File.ReadAllBytes(logo)) : null;
+        Check("decode: the app's real shipped logo decodes, transparency and all",
+            shipped is { Width: > 0, Height: > 0 } && HasTransparentAndOpaque(shipped),
+            shipped is null ? "null" : $"{shipped.Width}x{shipped.Height}");
+    }
+
+    /// <summary>
+    /// The badge is composed pixel by pixel, so the composition is asserted pixel by pixel — including
+    /// the two failures a screenshot taught us about: a square box pasted behind the app's mark, and
+    /// the mark colliding with the platform glyph.
+    /// </summary>
+    private static void TestBrandBadgeComposition()
+    {
+        const int Size = 96;
+        var black = new BrandImageEncoder.Rgb(0, 0, 0);
+        var white = new BrandImageEncoder.Rgb(255, 255, 255);
+        var glyph = SolidRaster(40, 40, 255, 255, 255, 255);
+
+        var plain = BrandBadge.TryBuild(new BrandBadgeArt(black, white, glyph, null), Size);
+        Check("badge: builds an opaque canvas of the requested size",
+            plain is not null && plain.Length == Size * Size * 4, plain?.Length.ToString() ?? "null");
+        if (plain is null)
+        {
+            return;
+        }
+
+        // The plate is a full-bleed rounded square: the corners are cut, the edges are not, and the
+        // app's mark has somewhere to sit that is still on the brand color.
+        Check("badge: the plate is a rounded square — corners cut, edges kept",
+            AlphaAt(plain, Size, Size / 2, Size / 2) == 255
+                && AlphaAt(plain, Size, Size / 2, 1) == 255
+                && AlphaAt(plain, Size, 1, 1) == 0,
+            $"centre {AlphaAt(plain, Size, Size / 2, Size / 2)} edge {AlphaAt(plain, Size, Size / 2, 1)} corner {AlphaAt(plain, Size, 1, 1)}");
+
+        var center = PixelAt(plain, Size, Size / 2, Size / 2);
+        Check("badge: the platform glyph sits at the centre of the plate",
+            center == (255, 255, 255), $"{center}");
+
+        var topEdge = PixelAt(plain, Size, Size / 2, 3);
+        Check("badge: the plate is the brand ramp, dark at the top",
+            topEdge.Item1 < 12, $"{topEdge}");
+
+        // The tile's own transparent padding is trimmed before scaling, so the ratio means the size of
+        // the artwork: 80% of the plate, which is what the reference measured.
+        var glyphPx = (int)Math.Round(Size * BrandBadge.GlyphRatio);
+        var glyphEdge = (Size - glyphPx) / 2;
+        Check("badge: the glyph is trimmed to its artwork and fills the plate",
+            PixelAt(plain, Size, glyphEdge + 2, Size / 2) == (255, 255, 255)
+                && PixelAt(plain, Size, glyphEdge - 2, Size / 2) != (255, 255, 255),
+            $"glyph {glyphPx}px from x={glyphEdge}");
+
+        Check("badge: padding inside a tile is trimmed rather than scaled with it",
+            BrandBadge.TrimToContent(SolidFramedRaster(40, 20)).Width == 20,
+            "a 40px raster with 10px of empty margin on each side should trim to 20");
+
+        var mark = SolidRaster(40, 40, 220, 30, 30, 255);
+        var composed = BrandBadge.TryBuild(new BrandBadgeArt(black, white, glyph, mark), Size);
+        if (composed is null)
+        {
+            Check("badge: composition with a corner mark succeeds", false, "null");
+            return;
+        }
+
+        // Same arithmetic as the compositor, so the ratios are pinned rather than re-asserted loosely.
+        var markPx = (int)Math.Round(Size * BrandBadge.MarkRatio);
+        var innerRadius = markPx / 2d;
+        var markCenter = (int)Math.Round(Size - (Size * BrandBadge.MarkMarginRatio) - innerRadius);
+
+        Check("badge: the app's own mark sits in the bottom-right corner",
+            PixelAt(composed, Size, markCenter, markCenter) == (220, 30, 30),
+            $"{PixelAt(composed, Size, markCenter, markCenter)} at ({markCenter},{markCenter}), mark {markPx}px");
+
+        // The one size rule the composition has to keep: the platform's glyph stays the subject and
+        // the app's mark stays secondary. How much smaller is a look, and the look is the owner's call.
+        Check("badge: the mark stays secondary to the platform glyph",
+            markPx < glyphPx / 2, $"mark {markPx} vs glyph {glyphPx}");
+
+        // One pixel outside the mark's disc: it must still be plate, because nothing is knocked out of
+        // the plate any more — the mark has no border in either shell theme.
+        var justOutside = markCenter - (int)innerRadius - 1;
+
+        Check("badge: the mark is borderless — the plate keeps its own pixels right up to it",
+            AlphaAt(composed, Size, justOutside, markCenter) == 255
+                && PixelAt(composed, Size, justOutside, markCenter) == PixelAt(plain, Size, justOutside, markCenter),
+            $"{PixelAt(composed, Size, justOutside, markCenter)} vs {PixelAt(plain, Size, justOutside, markCenter)}");
+
+        Check("badge: the mark is inset from the bounds, not clipped by them",
+            PixelAt(composed, Size, Size - 2, markCenter) == PixelAt(plain, Size, Size - 2, markCenter)
+                && AlphaAt(composed, Size, Size - 2, markCenter) == 255,
+            $"{PixelAt(composed, Size, Size - 2, markCenter)} vs {PixelAt(plain, Size, Size - 2, markCenter)}");
+
+        // The first implementation painted the mark's bounding box, so its square corner covered plate
+        // pixels it should never have touched.
+        var boxCorner = PixelAt(composed, Size, Size - 3, Size - 3);
+        var groundCorner = PixelAt(plain, Size, Size - 3, Size - 3);
+        Check("badge: nothing is painted outside the mark's circle",
+            boxCorner == groundCorner, $"mark={boxCorner} ground={groundCorner}");
+
+        Check("badge: a degenerate size yields no canvas instead of a huge allocation",
+            BrandBadge.TryBuild(new BrandBadgeArt(black, white, glyph, null), 4) is null
+                && BrandBadge.TryBuild(new BrandBadgeArt(black, white, glyph, null), 4096) is null);
+    }
+
+    /// <summary>
+    /// The orchestrator's promises: which file is produced, that a second send reuses it, and that
+    /// every missing input degrades to today's chrome instead of losing the notification.
+    /// </summary>
+    private static void TestToastAssetsBrandArt()
+    {
+        var descriptor = MostaqlSource.Instance;
+        var temp = Path.Combine(Path.GetTempPath(), "mostaqlk-toast-art-" + Guid.NewGuid().ToString("N"));
+        var cache = Path.Combine(temp, "cache");
+        var contentRoot = Path.Combine(temp, "content-root");
+        Directory.CreateDirectory(cache);
+        Directory.CreateDirectory(contentRoot);
+
+        const string BaseLogo = "file:///base/logo.png";
+
+        try
+        {
+            File.WriteAllBytes(
+                Path.Combine(contentRoot, $"{descriptor.RailIconImageName}.scale-200.png"),
+                BrandImageEncoder.EncodeRgba(64, 64, SolidRaster(64, 64, 255, 255, 255, 255).Rgba));
+
+            var logoSource = Path.Combine(FindRepoRoot(), "Resources", "Images", "logo.png");
+            var logoPath = Path.Combine(temp, "logo.png");
+            File.WriteAllBytes(logoPath, File.ReadAllBytes(logoSource));
+
+            var visual = ToastAssets.For(descriptor, cache, BaseLogo, contentRoot, logoPath);
+            Check("assets: a source with brand data gets a hero band and a composed badge",
+                visual.HeroFileUri is not null && visual.LogoFileUri is not null && visual.LogoFileUri.Contains("badge_"),
+                $"{visual.HeroFileUri} / {visual.LogoFileUri}");
+            Check("assets: our own art is not circle-cropped (the badge draws its own plate, and the mark hangs off the edge)",
+                !visual.CircleLogo, "hint-crop would slice the app's mark off");
+            Check("assets: the badge is our composed file, not the module's raw white tile",
+                visual.LogoFileUri!.Contains("badge_"), visual.LogoFileUri);
+            Check("assets: both URIs are absolute and therefore resolvable by the shell",
+                IsAbsoluteFileUri(visual.HeroFileUri) && IsAbsoluteFileUri(visual.LogoFileUri),
+                $"{visual.HeroFileUri}");
+
+            var heroes = Directory.GetFiles(cache, "hero_*.png");
+            var badges = Directory.GetFiles(cache, "badge_*.png");
+            Check("assets: exactly one hero and one badge on disk, both non-empty",
+                heroes.Length == 1 && badges.Length == 1
+                    && new FileInfo(heroes[0]).Length > 0 && new FileInfo(badges[0]).Length > 0,
+                $"{heroes.Length} heroes, {badges.Length} badges");
+            Check("assets: no temp file is left behind by the atomic write",
+                Directory.GetFiles(cache, "*.tmp").Length == 0);
+
+            var before = File.GetLastWriteTimeUtc(badges[0]);
+            var repeated = ToastAssets.For(descriptor, cache, BaseLogo, contentRoot, logoPath);
+            Check("assets: a second send reuses the cached art and names the same file",
+                File.GetLastWriteTimeUtc(badges[0]) == before && repeated.HeroFileUri == visual.HeroFileUri);
+
+            // One artwork per source: the same file serves a light toast and a dark one, so a second
+            // request must not quietly produce a second variant.
+            var again = ToastAssets.For(descriptor, cache, BaseLogo, contentRoot, logoPath);
+            // The cache key has to change when the COMPOSITION changes, not only when the inputs do:
+            // a build that moved the mark would otherwise keep serving the badge the previous build
+            // wrote, because the colors, the tile and the logo are all unchanged.
+            var recipe = ToastAssets.For(descriptor, cache, BaseLogo, contentRoot, logoPath);
+            Check("assets: the cache key carries the art recipe version",
+                recipe.HeroFileUri!.Contains(BrandBadge.ArtRecipeVersion.ToString())
+                    && recipe.LogoFileUri!.Contains(BrandBadge.ArtRecipeVersion.ToString()),
+                recipe.HeroFileUri);
+
+            Check("assets: a source has exactly one hero and one badge, whatever the shell theme",
+                again.HeroFileUri == visual.HeroFileUri
+                    && Directory.GetFiles(cache, "hero_*.png").Length == 1
+                    && Directory.GetFiles(cache, "badge_*.png").Length == 1,
+                $"{Directory.GetFiles(cache, "hero_*.png").Length} heroes");
+
+            var noTile = ToastAssets.For(descriptor, cache, BaseLogo, temp, null);
+            Check("assets: without a tile the color band still ships and the logo stays the app's own",
+                noTile.HeroFileUri is not null && noTile.LogoFileUri == BaseLogo && !noTile.CircleLogo,
+                $"{noTile.HeroFileUri} / {noTile.LogoFileUri}");
+
+            Check("assets: no descriptor at all is today's neutral chrome",
+                ToastAssets.For(null, cache, BaseLogo, contentRoot, logoPath) is var neutral
+                    && neutral.HeroFileUri is null && neutral.LogoFileUri == BaseLogo);
+
+            Check("assets: no cache directory degrades to neutral instead of writing to the current folder",
+                ToastAssets.For(descriptor, null, BaseLogo, contentRoot, logoPath) is var uncached
+                    && uncached.HeroFileUri is null && uncached.LogoFileUri == BaseLogo);
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(temp, recursive: true);
+            }
+            catch (IOException)
+            {
+                // A leftover temp folder is not a test failure; the suite owns nothing here.
+            }
+        }
+    }
+
+    private static bool IsAbsoluteFileUri(string? uri) =>
+        uri is not null
+            && uri.StartsWith("file:///", StringComparison.Ordinal)
+            && Path.IsPathRooted(uri["file:///".Length..].Replace('/', Path.DirectorySeparatorChar));
+
+    private static (byte, byte, byte) PixelAt(byte[] rgba, int width, int x, int y)
+    {
+        var i = ((y * width) + x) * 4;
+        return (rgba[i], rgba[i + 1], rgba[i + 2]);
+    }
+
+    private static byte AlphaAt(byte[] rgba, int width, int x, int y) => rgba[((y * width) + x) * 4 + 3];
+
+    /// <summary>An opaque square of content surrounded by fully transparent padding.</summary>
+    private static BrandRaster SolidFramedRaster(int size, int contentSize)
+    {
+        var pixels = new byte[size * size * 4];
+        var from = (size - contentSize) / 2;
+        for (var y = from; y < from + contentSize; y++)
+        {
+            for (var x = from; x < from + contentSize; x++)
+            {
+                var i = ((y * size) + x) * 4;
+                pixels[i] = 255;
+                pixels[i + 3] = 255;
+            }
+        }
+
+        return new BrandRaster(size, size, pixels);
+    }
+
+    private static BrandRaster SolidRaster(int width, int height, byte r, byte g, byte b, byte a)
+    {
+        var pixels = new byte[width * height * 4];
+        for (var i = 0; i < pixels.Length; i += 4)
+        {
+            pixels[i] = r;
+            pixels[i + 1] = g;
+            pixels[i + 2] = b;
+            pixels[i + 3] = a;
+        }
+
+        return new BrandRaster(width, height, pixels);
+    }
+
+    private static bool HasTransparentAndOpaque(BrandRaster raster)
+    {
+        var transparent = false;
+        var opaque = false;
+        for (var i = 3; i < raster.Rgba.Length; i += 4)
+        {
+            if (raster.Rgba[i] == 0)
+            {
+                transparent = true;
+            }
+            else if (raster.Rgba[i] == 255)
+            {
+                opaque = true;
+            }
+        }
+
+        return transparent && opaque;
+    }
+
+    private static void TestBrandIconContract() => BrandIconContract.Verify(Check, FindRepoRoot());
+
+    private static void TestNoHardcodedToastImages() => BrandIconContract.VerifyNoHardcodedToastImages(Check, FindRepoRoot());
 
     private static int ReadInt32(byte[] bytes, int offset) =>
         (bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3];
@@ -2763,39 +3107,32 @@ public static class Program
         return ~crc;
     }
 
-    private static byte[] InflateStored(byte[] zlib, out bool valid)
+    private static byte[] InflateZlib(byte[] zlib, out bool valid)
     {
-        // The encoder only ever writes stored blocks, so anything else means it changed the format
-        // without the test knowing — which is exactly what this check is for.
+        // Decompress with the framework's own zlib reader rather than a second hand-written inflate:
+        // the point of the check is that a REAL PNG decoder can read what the encoder produced, so an
+        // inflater here that only understands the format the encoder happens to emit today would prove
+        // nothing beyond "the two files agree with each other".
         valid = zlib.Length > 2 && zlib[0] == 0x78;
-        var raw = new List<byte>();
-        var i = 2;
-        while (valid && i + 5 <= zlib.Length)
+        if (!valid)
         {
-            var isFinal = (zlib[i] & 1) != 0;
-            if (((zlib[i] >> 1) & 3) != 0)
-            {
-                valid = false;
-                break;
-            }
-
-            var len = zlib[i + 1] | (zlib[i + 2] << 8);
-            var nlen = zlib[i + 3] | (zlib[i + 4] << 8);
-            if (((ushort)(len ^ 0xFFFF)) != nlen || i + 5 + len > zlib.Length)
-            {
-                valid = false;
-                break;
-            }
-
-            raw.AddRange(zlib[(i + 5)..(i + 5 + len)]);
-            i += 5 + len;
-            if (isFinal)
-            {
-                break;
-            }
+            return [];
         }
 
-        return raw.ToArray();
+        try
+        {
+            using var source = new MemoryStream(zlib);
+            using var decoder = new ZLibStream(source, CompressionMode.Decompress);
+            using var raw = new MemoryStream();
+            decoder.CopyTo(raw);
+            return raw.ToArray();
+        }
+        catch (InvalidDataException)
+        {
+            // A bad adler32 checksum or a malformed block is a broken file, not a test failure message.
+            valid = false;
+            return [];
+        }
     }
 
     /// <summary>

@@ -112,6 +112,11 @@
 		     byte-identical instead of merely intended to be. -->
 		<Compile Include="..\..\Core\Notifications\ToastBranding.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Notifications\BrandImageEncoder.cs" LinkBase="Core" />
+		<!-- The badge is composed from the module's own baked tile, so the reader and the compositor
+		     are part of the same offline-proven seam as the writer. -->
+		<Compile Include="..\..\Core\Notifications\BrandImageDecoder.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Notifications\BrandBadge.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Notifications\ToastAssets.cs" LinkBase="Core" />
 		<!-- Step 5: the platform switch's at-least-one-enabled invariant is the rule the settings row,
 		     the pipeline and the toast dispatcher all share, so it is proven offline against the two
 		     real descriptors and a fake store. -->

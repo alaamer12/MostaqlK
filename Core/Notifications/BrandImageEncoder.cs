@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.IO.Compression;
 
 namespace MostaqlK.Core.Notifications;
 
@@ -17,9 +19,10 @@ namespace MostaqlK.Core.Notifications;
 /// applies.
 /// </para>
 /// <para>
-/// The output is a minimal but fully valid PNG: IHDR, one IDAT of stored (uncompressed) deflate
-/// blocks, IEND, with real CRC32 and Adler-32. Uncompressed is the right trade — the payload is a few
-/// KB, and doing it here avoids pulling an encoder dependency into the notification path.
+/// The output is a minimal but fully valid PNG: IHDR, one IDAT, IEND, with real CRC32 on every chunk.
+/// The pixel payload goes through the BCL's own <see cref="System.IO.Compression.ZLibStream"/> rather
+/// than a hand-written stored-block writer — a flat gradient compresses to a couple of hundred bytes,
+/// where uncompressed scanlines made each cached hero image about 240 KB for no reason.
 /// </para>
 /// </summary>
 public static class BrandImageEncoder
@@ -30,40 +33,47 @@ public static class BrandImageEncoder
     private static readonly uint[] CrcTable = BuildCrcTable();
 
     /// <summary>
-    /// A <c>widthPx × heightPx</c> image split into horizontal bands, first band on top. Rows are
-    /// divided evenly; a remainder goes to the last band so the height is always exact.
-    /// Returns no bytes for degenerate input rather than throwing — the caller degrades to neutral.
+    /// A <c>widthPx × heightPx</c> image whose rows ramp linearly from <paramref name="from"/> at the
+    /// top to <paramref name="to"/> at the bottom. A gradient rather than bands because the shell
+    /// scales a hero image up and stretches hard edges into stripes — the first on-screen attempt
+    /// looked like a flag for exactly this reason. Returns no bytes for degenerate input, so a
+    /// caller degrades to neutral instead of throwing.
     /// </summary>
-    public static byte[] EncodeBanner(IReadOnlyList<Rgb> bandsTopToBottom, int widthPx, int heightPx)
+    public static byte[] EncodeGradient(Rgb from, Rgb to, int widthPx, int heightPx)
     {
-        if (bandsTopToBottom.Count == 0 || widthPx <= 0 || heightPx <= 0
-            || widthPx > 4096 || heightPx > 1024)
+        if (!IsSaneSize(widthPx, heightPx))
         {
-            // The caps are deliberate: this is a toast decoration, and an unbounded size here would be
-            // an unbounded memory write on the notification path.
+            return [];
+        }
+
+        var rgba = new byte[widthPx * heightPx * 4];
+        FillVerticalRamp(rgba, widthPx, heightPx, from, to);
+        return EncodeRgba(widthPx, heightPx, rgba);
+    }
+
+    /// <summary>
+    /// Writes <paramref name="rgba"/> as a valid PNG. The buffer is <c>width × height × 4</c>,
+    /// row-major, non-premultiplied — the same shape <see cref="BrandImageDecoder"/> hands back, so a
+    /// raster can be read, recomposed and written without an intermediate format.
+    /// </summary>
+    public static byte[] EncodeRgba(int widthPx, int heightPx, byte[] rgba)
+    {
+        if (!IsSaneSize(widthPx, heightPx) || rgba.Length < widthPx * heightPx * 4)
+        {
             return [];
         }
 
         var stride = 1 + (widthPx * 4); // filter byte + RGBA per pixel
         var raw = new byte[stride * heightPx];
-        var bandCount = bandsTopToBottom.Count;
-
         for (var y = 0; y < heightPx; y++)
         {
-            var band = bandsTopToBottom[(y * bandCount) / heightPx];
-            var row = y * stride;
-            raw[row] = 0; // filter: none
-            for (var x = 0; x < widthPx; x++)
-            {
-                var p = row + 1 + (x * 4);
-                raw[p] = band.R;
-                raw[p + 1] = band.G;
-                raw[p + 2] = band.B;
-                raw[p + 3] = 255;
-            }
+            // Filter byte 0 ("none"): every band we generate is authored, not photographed, so
+            // sub-pixel prediction would buy nothing and would make the writer longer than the
+            // format requires.
+            Array.Copy(rgba, y * (widthPx * 4), raw, (y * stride) + 1, widthPx * 4);
         }
 
-        var png = new List<byte>(raw.Length / 2 + 128);
+        var png = new List<byte>(raw.Length / 8 + 128);
         png.AddRange([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
         AddChunk(png, "IHDR", [
             (byte)(widthPx >> 24), (byte)(widthPx >> 16), (byte)(widthPx >> 8), (byte)widthPx,
@@ -72,10 +82,42 @@ public static class BrandImageEncoder
             6,   // color type: RGBA
             0, 0, 0, // compression, filter, interlace
         ]);
-        AddChunk(png, "IDAT", ZlibStore(raw));
+        AddChunk(png, "IDAT", ZlibCompress(raw));
         AddChunk(png, "IEND", []);
         return png.ToArray();
     }
+
+    /// <summary>
+    /// Fills an RGBA buffer with a linear ramp from <paramref name="from"/> at the top row to
+    /// <paramref name="to"/> at the bottom. Shared by the hero band and the badge's background so the
+    /// two pieces of one source's art always agree on the gradient.
+    /// </summary>
+    public static void FillVerticalRamp(byte[] rgba, int widthPx, int heightPx, Rgb from, Rgb to)
+    {
+        for (var y = 0; y < heightPx; y++)
+        {
+            var t01 = heightPx == 1 ? 0d : (double)y / (heightPx - 1);
+            var r = (byte)Math.Round(from.R + ((to.R - from.R) * t01));
+            var g = (byte)Math.Round(from.G + ((to.G - from.G) * t01));
+            var b = (byte)Math.Round(from.B + ((to.B - from.B) * t01));
+
+            for (var x = 0; x < widthPx; x++)
+            {
+                var p = ((y * widthPx) + x) * 4;
+                rgba[p] = r;
+                rgba[p + 1] = g;
+                rgba[p + 2] = b;
+                rgba[p + 3] = 255;
+            }
+        }
+    }
+
+    /// <summary>
+    /// The caps are deliberate: this is a toast decoration, and an unbounded size here would be an
+    /// unbounded memory write on the notification path.
+    /// </summary>
+    private static bool IsSaneSize(int widthPx, int heightPx) =>
+        widthPx > 0 && heightPx > 0 && widthPx <= 4096 && heightPx <= 4096;
 
     /// <summary>
     /// <c>#rgb</c>, <c>#rrggbb</c> or <c>#aarrggbb</c> → color, false when unparseable.
@@ -147,51 +189,17 @@ public static class BrandImageEncoder
         png.AddRange(crcBytes.ToArray());
     }
 
-    private static byte[] ZlibStore(byte[] raw)
+    private static byte[] ZlibCompress(byte[] raw)
     {
-        var outBytes = new List<byte>(raw.Length + 64);
-        outBytes.Add(0x78); // deflate, 32K window
-        outBytes.Add(0x01); // no preset dictionary, default compression
-
-        var offset = 0;
-        do
+        using var buffer = new MemoryStream(raw.Length / 8 + 128);
+        using (var zlib = new ZLibStream(buffer, CompressionLevel.SmallestSize, leaveOpen: true))
         {
-            var blockLength = Math.Min(raw.Length - offset, 0xFFFF);
-            var last = offset + blockLength >= raw.Length;
-
-            outBytes.Add((byte)(last ? 1 : 0)); // BFINAL + BTYPE=00 (stored)
-            outBytes.Add((byte)blockLength);
-            outBytes.Add((byte)(blockLength >> 8));
-            var complement = (ushort)~blockLength;
-            outBytes.Add((byte)complement);
-            outBytes.Add((byte)(complement >> 8));
-            for (var i = 0; i < blockLength; i++)
-            {
-                outBytes.Add(raw[offset + i]);
-            }
-
-            offset += blockLength;
-        }
-        while (offset < raw.Length);
-
-        var adler = Adler32(raw);
-        outBytes.Add((byte)(adler >> 24));
-        outBytes.Add((byte)(adler >> 16));
-        outBytes.Add((byte)(adler >> 8));
-        outBytes.Add((byte)adler);
-        return outBytes.ToArray();
-    }
-
-    private static uint Adler32(byte[] data)
-    {
-        uint a = 1, b = 0;
-        foreach (var value in data)
-        {
-            a = (a + value) % 65521;
-            b = (b + a) % 65521;
+            zlib.Write(raw, 0, raw.Length);
         }
 
-        return (b << 16) | a;
+        // ZLibStream writes the two-byte zlib header and the Adler-32 trailer itself, which is the
+        // whole reason this method is four lines instead of a hand-rolled deflate writer.
+        return buffer.ToArray();
     }
 
     private static uint Crc32(byte[] type, byte[] data)

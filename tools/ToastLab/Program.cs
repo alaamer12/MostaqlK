@@ -43,18 +43,24 @@ internal static class Program
         }
 
         var repoRoot = FindRepoRoot();
-        var appLogo = repoRoot is null
+        var appLogoPath = repoRoot is null
             ? null
-            : ToastBranding.ToFileUri(Path.Combine(repoRoot, "Resources", "Images", "logo.png"));
-        // The tile art the modules ship is baked into the app's build output, which is exactly the
-        // place a dev run would find it. Missing is a supported answer, not an error.
+            : Path.Combine(repoRoot, "Resources", "Images", "logo.png");
+        var appLogo = ToastBranding.ToFileUri(appLogoPath);
+        // MAUI bakes each module's .svg into {name}.scale-200.png at the app's CONTENT ROOT, not under
+        // Resources/Images — pointing at the source folder asked for an SVG the runtime never sees.
         var glyphDirectory = repoRoot is null
             ? null
-            : Path.Combine(repoRoot, "bin", "Debug", "net10.0-windows10.0.19041.0", "win-x64", "Resources", "Images");
+            : Path.Combine(repoRoot, "bin", "Debug", "net10.0-windows10.0.19041.0", "win-x64");
+
+        if (options.ArtOnly)
+        {
+            return WriteArt(options, appLogoPath, glyphDirectory);
+        }
 
         var outcomes = new List<string>();
         var dumpTargets = new List<string>();
-        var runs = options.Smoke ? SmokeMatrix() : [new Run(options.Source, options.Theme, options.Neutral, options.NoHero, options.Grouped, options.Title, options.Body)];
+        var runs = options.Smoke ? SmokeMatrix() : [new Run(options.Source, options.Neutral, options.NoHero, options.Grouped, options.Title, options.Body)];
 
         if (!EnsureLabIdentity())
         {
@@ -64,7 +70,7 @@ internal static class Program
 
         foreach (var run in runs)
         {
-            var label = $"{run.Source ?? "(neutral)"} {run.Theme} {(run.Grouped > 1 ? $"x{run.Grouped}" : "single")}";
+            var label = $"{run.Source ?? "(neutral)"} {(run.Grouped > 1 ? $"x{run.Grouped}" : "single")}";
             try
             {
                 ISourceDescriptor? descriptor = run.Neutral || run.Source is null
@@ -79,10 +85,10 @@ internal static class Program
 
                 var visual = ToastAssets.For(
                     descriptor,
-                    run.Theme,
                     options.OutDir,
                     appLogo,
-                    glyphDirectory);
+                    glyphDirectory,
+                    appLogoPath);
 
                 if (run.NoHero)
                 {
@@ -144,17 +150,132 @@ internal static class Program
 
     private static readonly ISourceDescriptor[] Descriptors = [MostaqlSource.Instance, NafezlySource.Instance];
 
+    /// <summary>
+    /// Writes the brand art to disk and exits — no toast, no identity, no waiting.
+    /// <para>
+    /// A badge is 48 logical pixels on a real toast, which is too small for a human to judge a design
+    /// decision in. So each variant is written twice: once at the size the code actually produces, and
+    /// once at 4x with the shell's circular crop already applied over a toast-coloured ground, which is
+    /// what the composition has to survive.
+    /// </para>
+    /// </summary>
+    private static int WriteArt(Options options, string? appLogoPath, string? glyphDirectory)
+    {
+        Directory.CreateDirectory(options.OutDir);
+        var mark = ToastAssets.LoadRaster(appLogoPath);
+        var written = 0;
+
+        foreach (var descriptor in Descriptors)
+        {
+            var glyphRaster = ToastAssets.ResolveGlyph(descriptor, glyphDirectory);
+            if (glyphRaster is null)
+            {
+                Console.WriteLine($"SKIP  {descriptor.Id.Value} — no baked tile under {glyphDirectory ?? "(no glyph directory)"}");
+                continue;
+            }
+
+            if (!ToastAssets.TryResolveRamp(descriptor, out var top, out var bottom))
+            {
+                Console.WriteLine($"SKIP  {descriptor.Id.Value} — palette does not parse");
+                continue;
+            }
+
+            {
+
+                var variants = new (string Name, BrandRaster? Center, BrandRaster? Corner)[]
+                {
+                    // The platform's own mark on its colors.
+                    ("glyph", glyphRaster, null),
+                    // The platform's mark with the app's logo knocked out of the plate's edge.
+                    ("with-mark", glyphRaster, mark),
+                };
+
+                foreach (var (name, center, corner) in variants)
+                {
+                    if (center is null)
+                    {
+                        continue;
+                    }
+
+                    var art = new BrandBadgeArt(top, bottom, center, corner);
+                    // 3x, because TryBuild caps the canvas at 512px to keep an unbounded size from
+                    // becoming an unbounded allocation on the notification path — and a preview that
+                    // silently failed that cap would have written nothing at all, as it just did.
+                    const int Preview = BrandBadge.DefaultSizePx * 3;
+                    var real = BrandBadge.TryBuild(art, BrandBadge.DefaultSizePx);
+                    var large = BrandBadge.TryBuild(art, Preview);
+                    if (real is null || large is null)
+                    {
+                        continue;
+                    }
+
+                    Save(options.OutDir, $"{descriptor.Id.Value}_{name}_{BrandBadge.DefaultSizePx}px.png",
+                        BrandImageEncoder.EncodeRgba(BrandBadge.DefaultSizePx, BrandBadge.DefaultSizePx, real));
+                    Save(options.OutDir, $"{descriptor.Id.Value}_{name}_3x.png",
+                        BrandImageEncoder.EncodeRgba(Preview, Preview, large));
+                    Save(options.OutDir, $"{descriptor.Id.Value}_{name}_3x-on-light-toast.png",
+                        OnToastGround(large, Preview, lightSurface: true));
+                    Save(options.OutDir, $"{descriptor.Id.Value}_{name}_3x-on-dark-toast.png",
+                        OnToastGround(large, Preview, lightSurface: false));
+                    written += 3;
+                }
+
+                var hero = BrandImageEncoder.EncodeGradient(top, bottom, ToastAssets.HeroWidthPx, ToastAssets.HeroHeightPx);
+                Save(options.OutDir, $"{descriptor.Id.Value}_hero.png", hero);
+                written++;
+            }
+        }
+
+        Console.WriteLine($"{written} art files in {Path.GetFullPath(options.OutDir)}");
+        return 0;
+    }
+
+    /// <summary>
+    /// Drops the badge on the toast's own surface color. No circular mask: the app asks for
+    /// <c>hint-crop='circle'</c> only for a logo it did not compose, and this art draws its own plate,
+    /// so what is written here is what Windows shows.
+    /// </summary>
+    private static byte[] OnToastGround(byte[] rgba, int size, bool lightSurface)
+    {
+        var ground = lightSurface
+            ? new byte[] { 0xF3, 0xF3, 0xF3 }
+            : new byte[] { 0x20, 0x20, 0x20 };
+        var output = new byte[rgba.Length];
+
+        for (var p = 0; p < rgba.Length; p += 4)
+        {
+            var a = rgba[p + 3] / 255d;
+            var inv = 1 - a;
+            output[p] = (byte)Math.Round((rgba[p] * a) + (ground[0] * inv));
+            output[p + 1] = (byte)Math.Round((rgba[p + 1] * a) + (ground[1] * inv));
+            output[p + 2] = (byte)Math.Round((rgba[p + 2] * a) + (ground[2] * inv));
+            output[p + 3] = 255;
+        }
+
+        return BrandImageEncoder.EncodeRgba(size, size, output);
+    }
+
+    private static void Save(string directory, string fileName, byte[] bytes)
+    {
+        if (bytes.Length == 0)
+        {
+            return;
+        }
+
+        File.WriteAllBytes(Path.Combine(directory, fileName), bytes);
+    }
+
     private static List<Run> SmokeMatrix() =>
     [
-        new(MostaqlSource.Instance.Id.Value, ToastVisualTheme.Light, false, false, 1,
+        new(MostaqlSource.Instance.Id.Value, false, false, 1,
             "مشروع جديد: تصميم واجهة مستخدم", "وصف مختصر لعرضه في الإشعار"),
-        new(NafezlySource.Instance.Id.Value, ToastVisualTheme.Light, false, false, 1,
+        new(NafezlySource.Instance.Id.Value, false, false, 1,
             "مشروع جديد: تحليل بيانات مبيعات", "وصف مختصر لعرضه في الإشعار"),
-        new(MostaqlSource.Instance.Id.Value, ToastVisualTheme.Dark, false, false, 1,
+        new(MostaqlSource.Instance.Id.Value, false, false, 1,
             "مشروع جديد (داكن)", "نفس النص على اللوحة الداكنة"),
-        new(NafezlySource.Instance.Id.Value, ToastVisualTheme.Dark, false, false, 3, string.Empty, string.Empty),
-        new(null, ToastVisualTheme.Light, true, false, 1, "إشعار محايد", "الشعار العام بدون لوحة ألوان"),
-        new(MostaqlSource.Instance.Id.Value, ToastVisualTheme.Light, false, true, 1, "بدون لوحة اللون", "الشعار فقط"),
+        new(NafezlySource.Instance.Id.Value, false, false, 3, string.Empty, string.Empty),
+        new(null, true, false, 1, "إشعار محايد", "الشعار العام بدون لوحة ألوان"),
+        new(MostaqlSource.Instance.Id.Value, false, true, 1, "بدون لوحة اللون", "الشعار فقط"),
     ];
 
     private static string BuildTemplateXml(string title, string body, string caption, string? baseLogoFileUri)
@@ -309,7 +430,6 @@ internal static class Program
 
     private sealed record Run(
         string? Source,
-        ToastVisualTheme Theme,
         bool Neutral,
         bool NoHero,
         int Grouped,
@@ -318,7 +438,6 @@ internal static class Program
 
     private sealed record Options(
         string? Source,
-        ToastVisualTheme Theme,
         bool Neutral,
         bool NoHero,
         int Grouped,
@@ -328,6 +447,7 @@ internal static class Program
         string? DumpXml,
         bool Smoke,
         int WaitMilliseconds,
+        bool ArtOnly,
         bool Help)
     {
         public const string Usage =
@@ -341,6 +461,7 @@ internal static class Program
             + "  --out-dir PATH       where generated brand PNGs go (default: %TEMP%\\mostaqlk-toastlab)\n"
             + "  --dump-xml PATH      write the exact payload sent\n"
             + "  --smoke              both sources x both themes x individual/grouped/neutral\n"
+            + "  --art-only           write the brand art to --out-dir and exit (no toast, no identity)\n"
             + "  --wait MS            stay alive long enough for Windows to take the toast\n";
 
         public static Options Parse(string[] args)
@@ -348,12 +469,12 @@ internal static class Program
             string? source = null;
             string? title = null;
             string? body = null;
-            var theme = ToastVisualTheme.Light;
             var neutral = false;
             var noHero = false;
             var grouped = 1;
             string? dumpXml = null;
             var smoke = false;
+            var artOnly = false;
             var wait = 2500;
             var help = false;
             var outDir = Path.Combine(Path.GetTempPath(), "mostaqlk-toastlab");
@@ -367,22 +488,22 @@ internal static class Program
                     case "--source": source = Next(); break;
                     case "--title": title = Next(); break;
                     case "--body": body = Next(); break;
-                    case "--theme": theme = string.Equals(Next(), "dark", StringComparison.OrdinalIgnoreCase) ? ToastVisualTheme.Dark : ToastVisualTheme.Light; break;
                     case "--neutral": neutral = true; break;
                     case "--no-hero": noHero = true; break;
                     case "--grouped": { if (int.TryParse(Next(), out var g)) { grouped = g; } break; }
                     case "--out-dir": outDir = Next() ?? outDir; break;
                     case "--dump-xml": dumpXml = Next(); break;
                     case "--smoke": smoke = true; break;
+                    case "--art-only": artOnly = true; break;
                     case "--wait": { if (int.TryParse(Next(), out var w)) { wait = w; } break; }
                     case "--help": case "-h": help = true; break;
                 }
             }
 
-            return new Options(source, theme, neutral, noHero, Math.Max(1, grouped),
+            return new Options(source, neutral, noHero, Math.Max(1, grouped),
                 title ?? "مشروع جديد من مستقل",
                 body ?? "تم اكتشاف مشروع مطابق للفلاتر المحفوظة — اضغط لفتحه.",
-                outDir, dumpXml, smoke, wait, help);
+                outDir, dumpXml, smoke, wait, artOnly, help);
         }
     }
 }

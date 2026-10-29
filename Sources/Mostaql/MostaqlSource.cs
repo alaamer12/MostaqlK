@@ -26,7 +26,7 @@ public sealed class MostaqlSource : ISourceDescriptor
 
     public string RailGlyph => "م";
 
-    public string? RailIconImageName => "icon_mostaql";
+    public string RailIconImageName => "icon_mostaql";
 
     // Seeded to the exact colors the app renders today (DesignTokens/inline hexes);
     // the UI phase will swap in the real per-source brand palette.
