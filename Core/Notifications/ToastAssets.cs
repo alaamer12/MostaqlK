@@ -26,16 +26,6 @@ namespace MostaqlK.Core.Notifications;
 public static class ToastAssets
 {
     /// <summary>
-    /// 16:9-ish, and small on purpose. The shell scales a hero image to the toast width and takes a
-    /// proportionate slice of height from it: the first attempt shipped a 1080x48 strip, which the
-    /// renderer stretched into a slab that dominated the notification. A quarter-size source costs a
-    /// couple of hundred bytes, and a smooth ramp survives upscaling without visible artifacts.
-    /// </summary>
-    public const int HeroWidthPx = 336;
-
-    public const int HeroHeightPx = 180;
-
-    /// <summary>
     /// Resolve the visual for one source. There is one artwork per source, not one per theme: the
     /// notification is shown on whatever surface the user's shell has, and a second variant could only
     /// be picked by guessing at that surface.
@@ -43,10 +33,11 @@ public static class ToastAssets
     /// <param name="descriptor">The producing source, or null when it cannot be resolved.</param>
     /// <param name="cacheDirectory">Where generated PNGs live; created on demand.</param>
     /// <param name="baseLogoFileUri">The app's own logo URI, already escaped — the neutral fallback.</param>
-    /// <param name="glyphDirectory">
-    /// Folder holding the source's baked tile (<c>{RailIconImageName}.scale-200.png</c>), if any. On
-    /// Windows that is the app's content root: MAUI bakes each module's <c>.svg</c> into scaled PNGs
-    /// there at build time, so the source format is SVG and the runtime format is PNG.
+    /// <param name="contentRoot">
+    /// The app's content root. Two artifacts are read from it: the baked tile MAUI leaves for each
+    /// module's vector icon (<c>{RailIconImageName}.scale-200.png</c>, at the root), and the source's
+    /// authored banner (<c>Resources/Images/{ToastBannerImageName}.png</c>, copied verbatim because it
+    /// is excluded from the resizetizer).
     /// </param>
     /// <param name="appLogoPath">
     /// The app's own logo as a file path, drawn as the small mark inside the badge so a notification
@@ -56,7 +47,7 @@ public static class ToastAssets
         ISourceDescriptor? descriptor,
         string? cacheDirectory,
         string? baseLogoFileUri,
-        string? glyphDirectory = null,
+        string? contentRoot = null,
         string? appLogoPath = null)
     {
         if (descriptor is null)
@@ -77,8 +68,10 @@ public static class ToastAssets
                 return ToastBrandVisual.Neutral(baseLogoFileUri);
             }
 
-            var hero = TryBuildHero(cacheDirectory, descriptor, rampTop, rampBottom);
-            var badge = TryBuildBadge(cacheDirectory, descriptor, rampTop, rampBottom, glyphDirectory, appLogoPath);
+            // The band is authored artwork, not something we generate: the hero area is a fixed region
+            // the shell stretches any image to fill, so only artwork cut to its ratio is safe.
+            var hero = FindBanner(contentRoot, descriptor);
+            var badge = TryBuildBadge(cacheDirectory, descriptor, rampTop, rampBottom, contentRoot, appLogoPath);
 
             // CircleLogo stays false for our own art: the badge already draws its plate as a circle and
             // lets the app's mark hang off the edge, which is precisely what cropping to a circle would
@@ -129,8 +122,8 @@ public static class ToastAssets
     /// Decodes the platform mark a module ships, or null. Public so the harness that lets a human
     /// judge these images composes them with the same rules the app runs, rather than a copy of them.
     /// </summary>
-    public static BrandRaster? ResolveGlyph(ISourceDescriptor descriptor, string? glyphDirectory) =>
-        LoadRaster(FindTile(glyphDirectory, descriptor.RailIconImageName));
+    public static BrandRaster? ResolveGlyph(ISourceDescriptor descriptor, string? contentRoot) =>
+        LoadRaster(FindTile(contentRoot, descriptor.RailIconImageName));
 
     /// <summary>Reads and decodes one PNG file, tolerating anything wrong with either.</summary>
     public static BrandRaster? LoadRaster(string? path)
@@ -155,35 +148,18 @@ public static class ToastAssets
     }
 
     /// <summary>The baked tile path for a module's mark, or null when it is not on disk.</summary>
-    public static string? ResolveGlyphPath(ISourceDescriptor descriptor, string? glyphDirectory) =>
-        FindTile(glyphDirectory, descriptor.RailIconImageName);
-
-    private static string? TryBuildHero(
-        string cacheDirectory,
-        ISourceDescriptor descriptor,
-        BrandImageEncoder.Rgb rampTop,
-        BrandImageEncoder.Rgb rampBottom)
-    {
-        var token = Fnv1aHex($"hero|{BrandBadge.ArtRecipeVersion}|{rampTop}|{rampBottom}|{HeroWidthPx}x{HeroHeightPx}");
-        var path = Path.Combine(cacheDirectory, $"hero_{descriptor.Id.Value}_{token}.png");
-        if (IsCached(path))
-        {
-            return ToastBranding.ToFileUri(path);
-        }
-
-        var bytes = BrandImageEncoder.EncodeGradient(rampTop, rampBottom, HeroWidthPx, HeroHeightPx);
-        return bytes.Length == 0 ? null : WriteAndLocate(path, bytes);
-    }
+    public static string? ResolveGlyphPath(ISourceDescriptor descriptor, string? contentRoot) =>
+        FindTile(contentRoot, descriptor.RailIconImageName);
 
     private static string? TryBuildBadge(
         string cacheDirectory,
         ISourceDescriptor descriptor,
         BrandImageEncoder.Rgb rampTop,
         BrandImageEncoder.Rgb rampBottom,
-        string? glyphDirectory,
+        string? contentRoot,
         string? appLogoPath)
     {
-        var glyphFile = FindTile(glyphDirectory, descriptor.RailIconImageName);
+        var glyphFile = FindTile(contentRoot, descriptor.RailIconImageName);
         if (glyphFile is null)
         {
             // No platform mark to place means no reason to override the app's own logo.
@@ -224,18 +200,45 @@ public static class ToastAssets
     /// The baked tile MAUI leaves for a module's vector icon. A source's own artwork is identity data
     /// it already ships, so the toast reads it rather than drawing a substitute.
     /// </summary>
-    private static string? FindTile(string? glyphDirectory, string iconName)
+    /// <summary>
+    /// The source's authored hero artwork, read straight from the app's content root. Null when the
+    /// module's banner file is absent — <c>BrandIconContract</c> makes that a build failure rather than
+    /// a runtime state, but a hand-deleted file must cost the user a band, not the notification.
+    /// </summary>
+    private static string? FindBanner(string? contentRoot, ISourceDescriptor descriptor)
     {
-        if (string.IsNullOrWhiteSpace(glyphDirectory))
+        if (string.IsNullOrWhiteSpace(contentRoot))
+        {
+            return null;
+        }
+
+        try
+        {
+            var path = Path.Combine(contentRoot, "Resources", "Images", $"{descriptor.ToastBannerImageName}.png");
+            return File.Exists(path) && new FileInfo(path).Length > 0 ? ToastBranding.ToFileUri(path) : null;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+    }
+
+    private static string? FindTile(string? contentRoot, string iconName)
+    {
+        if (string.IsNullOrWhiteSpace(contentRoot))
         {
             return null;
         }
 
         foreach (var candidate in new[]
                  {
-                     Path.Combine(glyphDirectory, $"{iconName}.scale-200.png"),
-                     Path.Combine(glyphDirectory, $"{iconName}.scale-150.png"),
-                     Path.Combine(glyphDirectory, $"{iconName}.png"),
+                     Path.Combine(contentRoot, $"{iconName}.scale-200.png"),
+                     Path.Combine(contentRoot, $"{iconName}.scale-150.png"),
+                     Path.Combine(contentRoot, $"{iconName}.png"),
                  })
         {
             try

@@ -156,6 +156,7 @@ public static class Program
         Run(nameof(TestBrandBadgeComposition), TestBrandBadgeComposition);
         Run(nameof(TestToastAssetsBrandArt), TestToastAssetsBrandArt);
         Run(nameof(TestToastGroupsArePerSource), TestToastGroupsArePerSource);
+        Run(nameof(TestGroupedToastCopyIsShared), TestGroupedToastCopyIsShared);
         Run(nameof(TestBrandIconContract), TestBrandIconContract);
         Run(nameof(TestNoHardcodedToastImages), TestNoHardcodedToastImages);
         Run(nameof(TestNoSourceIdStringLiteralsInSharedCode), TestNoSourceIdStringLiteralsInSharedCode);
@@ -2667,7 +2668,7 @@ public static class Program
 
         const int Width = 48;
         const int Height = 12;
-        var png = BrandImageEncoder.EncodeGradient(from, to, Width, Height);
+        var png = RampPng(from, to, Width, Height);
 
         Check("png: signature present",
             png.Length > 32 && png[0] == 0x89 && png[1] == 0x50 && png[2] == 0x4E && png[3] == 0x47,
@@ -2715,9 +2716,10 @@ public static class Program
             Math.Abs(raw[mid] - expectedMid) <= 2, $"got {raw[mid]} expected ~{expectedMid}");
 
         Check("png: degenerate input yields no bytes instead of throwing",
-            BrandImageEncoder.EncodeGradient(new BrandImageEncoder.Rgb(1, 2, 3), new BrandImageEncoder.Rgb(4, 5, 6), 0, 10).Length == 0
-                && BrandImageEncoder.EncodeGradient(new BrandImageEncoder.Rgb(1, 2, 3), new BrandImageEncoder.Rgb(4, 5, 6), 10, 0).Length == 0
-                && BrandImageEncoder.EncodeGradient(new BrandImageEncoder.Rgb(1, 2, 3), new BrandImageEncoder.Rgb(4, 5, 6), 99999, 10).Length == 0);
+            BrandImageEncoder.EncodeRgba(0, 10, []).Length == 0
+                && BrandImageEncoder.EncodeRgba(10, 0, []).Length == 0
+                && BrandImageEncoder.EncodeRgba(99999, 10, []).Length == 0
+                && BrandImageEncoder.EncodeRgba(4, 4, new byte[3]).Length == 0);
 
         Check("png: ARGB palette tokens parse with alpha dropped (BrandSoftDark is stored that way)",
             BrandImageEncoder.TryParseColorHex(brand.BrandSoftDark, out var softArgb)
@@ -2769,7 +2771,7 @@ public static class Program
         var brands = MostaqlSource.Instance.Brands;
         BrandImageEncoder.TryParseColorHex(brands.BrandInk, out var from);
         BrandImageEncoder.TryParseColorHex(brands.Brand, out var to);
-        var png = BrandImageEncoder.EncodeGradient(from, to, 24, 8);
+        var png = RampPng(from, to, 24, 8);
 
         var raster = BrandImageDecoder.TryDecode(png);
         Check("decode: our own writer's output reads back at the right size",
@@ -2915,56 +2917,66 @@ public static class Program
                 Path.Combine(contentRoot, $"{descriptor.RailIconImageName}.scale-200.png"),
                 BrandImageEncoder.EncodeRgba(64, 64, SolidRaster(64, 64, 255, 255, 255, 255).Rgba));
 
-            var logoSource = Path.Combine(FindRepoRoot(), "Resources", "Images", "logo.png");
+            // The band is authored artwork read from the content root, exactly where the build leaves
+            // it for a running app — so the fixture puts it there.
+            var bannerDir = Path.Combine(contentRoot, "Resources", "Images");
+            Directory.CreateDirectory(bannerDir);
+            var bannerPath = Path.Combine(bannerDir, $"{descriptor.ToastBannerImageName}.png");
+            File.WriteAllBytes(bannerPath, RampPng(
+                new BrandImageEncoder.Rgb(10, 20, 30), new BrandImageEncoder.Rgb(200, 100, 50), 20, 10));
+
             var logoPath = Path.Combine(temp, "logo.png");
-            File.WriteAllBytes(logoPath, File.ReadAllBytes(logoSource));
+            File.WriteAllBytes(logoPath, File.ReadAllBytes(Path.Combine(FindRepoRoot(), "Resources", "Images", "logo.png")));
 
             var visual = ToastAssets.For(descriptor, cache, BaseLogo, contentRoot, logoPath);
-            Check("assets: a source with brand data gets a hero band and a composed badge",
+            Check("assets: a source with brand data gets its band and a composed badge",
                 visual.HeroFileUri is not null && visual.LogoFileUri is not null && visual.LogoFileUri.Contains("badge_"),
                 $"{visual.HeroFileUri} / {visual.LogoFileUri}");
-            Check("assets: our own art is not circle-cropped (the badge draws its own plate, and the mark hangs off the edge)",
+            Check("assets: the band is the module's own authored file, not something we generated",
+                visual.HeroFileUri!.Contains("banner_") && visual.HeroFileUri.EndsWith(".png", StringComparison.Ordinal),
+                visual.HeroFileUri);
+            Check("assets: our own art is not circle-cropped (the badge draws its plate, and the mark hangs off the edge)",
                 !visual.CircleLogo, "hint-crop would slice the app's mark off");
-            Check("assets: the badge is our composed file, not the module's raw white tile",
-                visual.LogoFileUri!.Contains("badge_"), visual.LogoFileUri);
             Check("assets: both URIs are absolute and therefore resolvable by the shell",
                 IsAbsoluteFileUri(visual.HeroFileUri) && IsAbsoluteFileUri(visual.LogoFileUri),
                 $"{visual.HeroFileUri}");
 
-            var heroes = Directory.GetFiles(cache, "hero_*.png");
+            Check("assets: nothing is generated into the cache except the badge",
+                Directory.GetFiles(cache, "hero_*.png").Length == 0, "a generated band file exists");
             var badges = Directory.GetFiles(cache, "badge_*.png");
-            Check("assets: exactly one hero and one badge on disk, both non-empty",
-                heroes.Length == 1 && badges.Length == 1
-                    && new FileInfo(heroes[0]).Length > 0 && new FileInfo(badges[0]).Length > 0,
-                $"{heroes.Length} heroes, {badges.Length} badges");
+            Check("assets: exactly one badge on disk, non-empty",
+                badges.Length == 1 && new FileInfo(badges[0]).Length > 0, $"{badges.Length} badges");
             Check("assets: no temp file is left behind by the atomic write",
                 Directory.GetFiles(cache, "*.tmp").Length == 0);
 
             var before = File.GetLastWriteTimeUtc(badges[0]);
             var repeated = ToastAssets.For(descriptor, cache, BaseLogo, contentRoot, logoPath);
-            Check("assets: a second send reuses the cached art and names the same file",
-                File.GetLastWriteTimeUtc(badges[0]) == before && repeated.HeroFileUri == visual.HeroFileUri);
+            Check("assets: a second send reuses the cached badge and names the same file",
+                File.GetLastWriteTimeUtc(badges[0]) == before && repeated.LogoFileUri == visual.LogoFileUri);
 
-            // One artwork per source: the same file serves a light toast and a dark one, so a second
-            // request must not quietly produce a second variant.
-            var again = ToastAssets.For(descriptor, cache, BaseLogo, contentRoot, logoPath);
             // The cache key has to change when the COMPOSITION changes, not only when the inputs do:
             // a build that moved the mark would otherwise keep serving the badge the previous build
             // wrote, because the colors, the tile and the logo are all unchanged.
-            var recipe = ToastAssets.For(descriptor, cache, BaseLogo, contentRoot, logoPath);
-            Check("assets: the cache key carries the art recipe version",
-                recipe.HeroFileUri!.Contains(BrandBadge.ArtRecipeVersion.ToString())
-                    && recipe.LogoFileUri!.Contains(BrandBadge.ArtRecipeVersion.ToString()),
-                recipe.HeroFileUri);
+            Check("assets: the badge cache key carries the art recipe version",
+                repeated.LogoFileUri!.Contains(BrandBadge.ArtRecipeVersion.ToString()),
+                repeated.LogoFileUri);
 
-            Check("assets: a source has exactly one hero and one badge, whatever the shell theme",
-                again.HeroFileUri == visual.HeroFileUri
-                    && Directory.GetFiles(cache, "hero_*.png").Length == 1
-                    && Directory.GetFiles(cache, "badge_*.png").Length == 1,
-                $"{Directory.GetFiles(cache, "hero_*.png").Length} heroes");
+            File.Delete(bannerPath);
+            var noBanner = ToastAssets.For(descriptor, cache, BaseLogo, contentRoot, logoPath);
+            Check("assets: a missing banner costs the band, never the toast or the badge",
+                noBanner.HeroFileUri is null && noBanner.LogoFileUri is not null && noBanner.LogoFileUri != BaseLogo,
+                $"{noBanner.HeroFileUri} / {noBanner.LogoFileUri}");
+            File.WriteAllBytes(bannerPath, RampPng(
+                new BrandImageEncoder.Rgb(10, 20, 30), new BrandImageEncoder.Rgb(200, 100, 50), 20, 10));
 
-            var noTile = ToastAssets.For(descriptor, cache, BaseLogo, temp, null);
-            Check("assets: without a tile the color band still ships and the logo stays the app's own",
+            // A content root with the authored band but no baked tile: the two artifacts are
+            // independent, so losing one must not lose the other.
+            var bandOnlyRoot = Path.Combine(temp, "band-only-root");
+            Directory.CreateDirectory(Path.Combine(bandOnlyRoot, "Resources", "Images"));
+            File.Copy(bannerPath, Path.Combine(bandOnlyRoot, "Resources", "Images", $"{descriptor.ToastBannerImageName}.png"));
+
+            var noTile = ToastAssets.For(descriptor, cache, BaseLogo, bandOnlyRoot, null);
+            Check("assets: without a baked tile the band still ships and the logo stays the app's own",
                 noTile.HeroFileUri is not null && noTile.LogoFileUri == BaseLogo && !noTile.CircleLogo,
                 $"{noTile.HeroFileUri} / {noTile.LogoFileUri}");
 
@@ -2972,9 +2984,10 @@ public static class Program
                 ToastAssets.For(null, cache, BaseLogo, contentRoot, logoPath) is var neutral
                     && neutral.HeroFileUri is null && neutral.LogoFileUri == BaseLogo);
 
-            Check("assets: no cache directory degrades to neutral instead of writing to the current folder",
+            Check("assets: no cache directory still yields the authored band but composes nothing",
                 ToastAssets.For(descriptor, null, BaseLogo, contentRoot, logoPath) is var uncached
-                    && uncached.HeroFileUri is null && uncached.LogoFileUri == BaseLogo);
+                    && uncached.LogoFileUri == BaseLogo,
+                uncached.LogoFileUri);
         }
         finally
         {
@@ -3129,9 +3142,64 @@ public static class Program
         PublishTimeNumber = 1,
     };
 
+    /// <summary>
+    /// A grouped toast now says which platform produced it, and it morphs to that platform when
+    /// clicked. Both facts live in two senders that must not drift, so the rule is checked against the
+    /// source of each: one shared copy function, and a source argument on the grouped payload of both
+    /// backends.
+    /// </summary>
+    private static void TestGroupedToastCopyIsShared()
+    {
+        var directory = Path.Combine(FindRepoRoot(), "Infrastructure", "Notifications");
+        var senders = new[]
+        {
+            Path.Combine(directory, "WinRtVariation.Windows.cs"),
+            Path.Combine(directory, "WinAppSdkVariation.Windows.cs"),
+        };
+
+        var copy = File.ReadAllText(Path.Combine(directory, "NotificationCopy.cs"));
+        Check("copy: the grouped header names its source",
+            copy.Contains("مشاريع جديدة على") && copy.Contains("GroupedHeader"),
+            "NotificationCopy.GroupedHeader must carry the source name");
+
+        foreach (var sender in senders)
+        {
+            var name = Path.GetFileName(sender);
+            var text = File.ReadAllText(sender);
+
+            Check($"copy: {name} builds its grouped header through NotificationCopy",
+                text.Contains("NotificationCopy.GroupedHeader("), name);
+
+            // The Arabic sentence living in a sender as well would be a second source of truth, and
+            // the two would drift the first time one was edited.
+            Check($"copy: {name} holds no grouped-header literal of its own",
+                !text.Contains("مشاريع جديدة"), name);
+
+            var start = text.IndexOf("BuildGroupedToast", StringComparison.Ordinal);
+            var body = start < 0 ? string.Empty : text[start..];
+            Check($"activation: {name}'s grouped payload carries its source",
+                body.Contains("sourceId", StringComparison.Ordinal), $"{name} grouped toast has no sourceId");
+        }
+
+        // A grouped click morphs only if the handler reaches the morph for a payload WITHOUT a
+        // projectId; the App SDK handler used to stop at the projectId branch and do nothing else.
+        var appSdk = File.ReadAllText(senders[1]);
+        Check("activation: the App SDK handler opens the feed for a grouped click",
+            appSdk.Contains("AppRoutes.Projects", StringComparison.Ordinal),
+            "a grouped toast click must land somewhere on both backends");
+    }
+
     private static void TestBrandIconContract() => BrandIconContract.Verify(Check, FindRepoRoot());
 
     private static void TestNoHardcodedToastImages() => BrandIconContract.VerifyNoHardcodedToastImages(Check, FindRepoRoot());
+
+    /// <summary>The writer path the app uses: fill a ramp, then encode an RGBA buffer.</summary>
+    private static byte[] RampPng(BrandImageEncoder.Rgb from, BrandImageEncoder.Rgb to, int width, int height)
+    {
+        var rgba = new byte[width * height * 4];
+        BrandImageEncoder.FillVerticalRamp(rgba, width, height, from, to);
+        return BrandImageEncoder.EncodeRgba(width, height, rgba);
+    }
 
     private static int ReadInt32(byte[] bytes, int offset) =>
         (bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3];

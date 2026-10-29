@@ -50,6 +50,17 @@ internal static class BrandIconContract
             var svg = Path.Combine(images, $"{name}.svg");
             check($"brand: {module.Id.Value} ships Resources/Images/{name}.svg",
                 File.Exists(svg), svg);
+
+            // The hero area is a fixed box the shell stretches any image to fill (364x180 at 100%),
+            // so the band cannot be generated from colors the way the badge can — it has to be cut by
+            // hand. Requiring the file is what stops a new module shipping a distorted band.
+            var bannerName = module.ToastBannerImageName;
+            check($"brand: {module.Id.Value} names its toast banner",
+                !string.IsNullOrWhiteSpace(bannerName) && bannerName == $"banner_{module.Id.Value}",
+                bannerName ?? "null");
+            var banner = Path.Combine(images, $"{bannerName}.png");
+            check($"brand: {module.Id.Value} ships Resources/Images/{bannerName}.png",
+                File.Exists(banner), banner);
         }
     }
 

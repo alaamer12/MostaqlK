@@ -151,7 +151,10 @@ public sealed class NotificationDispatcher : INotificationDispatcher
             {
                 if (task.IsCompletedSuccessfully && task.Result.IsError)
                 {
-                    InteractionLogger.Mark("NotificationDispatcher.HandleFlush", "B", new { Reason = "toast-send-failed", Error = task.Result.Error?.ToString() });
+                    // No null-conditional here: `Result.Error` throws rather than returning null, so
+                    // `?.` would not protect anything — it would only hide the fact that the guard
+                    // above is what makes this access safe.
+                    InteractionLogger.Mark("NotificationDispatcher.HandleFlush", "B", new { Reason = "toast-send-failed", Error = task.Result.Error.ToString() });
                 }
                 else if (task.IsFaulted)
                 {

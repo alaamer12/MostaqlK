@@ -49,13 +49,15 @@ internal static class Program
         var appLogo = ToastBranding.ToFileUri(appLogoPath);
         // MAUI bakes each module's .svg into {name}.scale-200.png at the app's CONTENT ROOT, not under
         // Resources/Images — pointing at the source folder asked for an SVG the runtime never sees.
-        var glyphDirectory = repoRoot is null
+        // The app's content root: where MAUI bakes each module's icon AND where the authored banners
+        // land, so the lab reads exactly the files the running app will read.
+        var contentRoot = repoRoot is null
             ? null
             : Path.Combine(repoRoot, "bin", "Debug", "net10.0-windows10.0.19041.0", "win-x64");
 
         if (options.ArtOnly)
         {
-            return WriteArt(options, appLogoPath, glyphDirectory);
+            return WriteArt(options, appLogoPath, contentRoot);
         }
 
         var outcomes = new List<string>();
@@ -87,7 +89,7 @@ internal static class Program
                     descriptor,
                     options.OutDir,
                     appLogo,
-                    glyphDirectory,
+                    contentRoot,
                     appLogoPath);
 
                 if (run.NoHero)
@@ -159,7 +161,7 @@ internal static class Program
     /// what the composition has to survive.
     /// </para>
     /// </summary>
-    private static int WriteArt(Options options, string? appLogoPath, string? glyphDirectory)
+    private static int WriteArt(Options options, string? appLogoPath, string? contentRoot)
     {
         Directory.CreateDirectory(options.OutDir);
         var mark = ToastAssets.LoadRaster(appLogoPath);
@@ -167,10 +169,10 @@ internal static class Program
 
         foreach (var descriptor in Descriptors)
         {
-            var glyphRaster = ToastAssets.ResolveGlyph(descriptor, glyphDirectory);
+            var glyphRaster = ToastAssets.ResolveGlyph(descriptor, contentRoot);
             if (glyphRaster is null)
             {
-                Console.WriteLine($"SKIP  {descriptor.Id.Value} — no baked tile under {glyphDirectory ?? "(no glyph directory)"}");
+                Console.WriteLine($"SKIP  {descriptor.Id.Value} — no baked tile under {contentRoot ?? "(no content root)"}");
                 continue;
             }
 
@@ -220,9 +222,20 @@ internal static class Program
                     written += 3;
                 }
 
-                var hero = BrandImageEncoder.EncodeGradient(top, bottom, ToastAssets.HeroWidthPx, ToastAssets.HeroHeightPx);
-                Save(options.OutDir, $"{descriptor.Id.Value}_hero.png", hero);
-                written++;
+                // The band is authored artwork, so the preview copies it rather than drawing it — the
+                // same file the app reads from its content root.
+                var banner = contentRoot is null
+                    ? null
+                    : Path.Combine(contentRoot, "Resources", "Images", $"{descriptor.ToastBannerImageName}.png");
+                if (banner is not null && File.Exists(banner))
+                {
+                    File.Copy(banner, Path.Combine(options.OutDir, $"{descriptor.Id.Value}_hero.png"), overwrite: true);
+                    written++;
+                }
+                else
+                {
+                    Console.WriteLine($"WARN  {descriptor.Id.Value} — no authored banner at {banner}");
+                }
             }
         }
 

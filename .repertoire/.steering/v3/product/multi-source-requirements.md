@@ -363,7 +363,7 @@ task that implements it. Renames must update the old row, not duplicate it.
       successful projects), mostaql omits it; decision strip has exactly the 5 approved facts.
 - [ ] Settings: platform section swaps rows on morph; no add-source UI anywhere.
 - [ ] Disabling the active source auto-morphs to the enabled one; no dead feed state.
-- [ ] Toast deep-link morphs the app to the toast's source before scrolling to the project.
+- [x] Toast deep-link morphs the app to the toast's source before scrolling to the project. Individual toasts since dev21; grouped toasts since dev67, which is only possible now that a grouped batch has exactly one source (dev66).
 - [ ] Pipeline panel scopes to source; collapse state persists; 44px rail shows dots + backlog.
 - [ ] docs/UNITS.md updated for all new/renamed units; no dead references to AppSidebar/
       MostaqlLinkButton remain.
@@ -393,7 +393,7 @@ shell and identity are the product.
 | # | Question | Default if no answer |
 |---|----------|----------------------|
 | Q1 | Rail physical-left (current) vs RTL-native right? | Keep left (owner's explicit ask) |
-| Q2 | Toast/notification chrome: source-branded or neutral app chrome? | Neutral chrome, source name in text only |
+| Q2 | Toast/notification chrome: source-branded or neutral app chrome? | **DECIDED (dev65-dev67, owner): source-branded.** One artwork per source — its brand ramp as a rounded plate, its own icon trimmed to the artwork and filling it, and the app's logo as a small secondary mark. Windows owns the toast surface color, text color and fonts, so a source's palette can only reach a notification as imagery; that means the hero band and the logo badge, and the grouped-toast header naming its source (see §13.13). |
 | Q3 | Reveal ring weight: 3px+glow vs bolder filled-disc flash? | 3px + glow (mockup-approved) |
 | Q4 | Advanced search page: not redesigned in v3 mockups — ship v1 page with per-source queries, or defer? | Ship with per-source query scoping, no visual redesign |
 | Q5 | Onboarding copy mentions single-platform polling — refresh wording for multi-source? | Minor wording pass in phase 7, no new steps |

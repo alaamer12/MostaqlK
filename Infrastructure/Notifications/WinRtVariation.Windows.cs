@@ -98,7 +98,10 @@ public sealed class WinRtVariation : IToastVariation
 
     private static XmlDocument BuildGroupedToastXml(IReadOnlyList<ProjectSummary> projects)
     {
-        var header = $"يوجد {projects.Count} مشاريع جديدة — تفقدها هنا";
+        // A grouped batch has exactly one producing source (NotificationGrouper buckets per source),
+        // so the header can — and does — name it, and the launch argument can carry it.
+        var source = projects[0].Source;
+        var header = NotificationCopy.GroupedHeader(source, projects.Count);
 
         var firstUrlProject = projects.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.Url));
         var firstUrl = firstUrlProject?.Url;
@@ -109,8 +112,11 @@ public sealed class WinRtVariation : IToastVariation
                 arguments='openUrl={Uri.EscapeDataString(firstUrl)}' />
     </actions>";
 
+        // `sourceId` on a GROUPED toast is new: it is what makes the existing morph-first activation in
+        // ToastActivator.OnActivated fire for a grouped click too, so a Nafezly notification opens the
+        // app on Nafezly rather than on whichever source happened to be active.
         var toastXmlString = $@"
-<toast lang='ar-SA' launch='filter=unread'>
+<toast lang='ar-SA' launch='filter=unread&amp;sourceId={Uri.EscapeDataString(source.Value)}'>
     <visual lang='ar-SA'>
         <binding template='ToastGeneric'>
             <text>{System.Security.SecurityElement.Escape(header)}</text>
@@ -120,7 +126,7 @@ public sealed class WinRtVariation : IToastVariation
 </toast>";
 
         var xml = new XmlDocument();
-        xml.LoadXml(ToastBranding.ApplyToBindingXml(toastXmlString, ToastBrandingResolver.For(projects[0].Source)));
+        xml.LoadXml(ToastBranding.ApplyToBindingXml(toastXmlString, ToastBrandingResolver.For(source)));
         return xml;
     }
 }

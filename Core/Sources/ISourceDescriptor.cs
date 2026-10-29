@@ -41,6 +41,16 @@ public interface ISourceDescriptor
     /// </summary>
     public string RailIconImageName { get; }
 
+    /// <summary>
+    /// Base name of the source's toast banner — <c>Resources/Images/{name}.png</c>, authored at the
+    /// hero box's exact aspect ratio (364x180 at 100%%, per Microsoft's app-notification content spec).
+    /// Like <see cref="RailIconImageName"/> this is a requirement of every module, not an optional
+    /// extra: the hero area is a fixed region the shell stretches any image to fill, so an artwork at
+    /// the wrong ratio is silently distorted and a source with no banner is a data bug the build gate
+    /// catches rather than a toast that quietly loses its identity.
+    /// </summary>
+    public string ToastBannerImageName { get; }
+
     public BrandTokenSet Brands { get; }
 
     /// <summary>

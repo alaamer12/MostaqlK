@@ -33,25 +33,6 @@ public static class BrandImageEncoder
     private static readonly uint[] CrcTable = BuildCrcTable();
 
     /// <summary>
-    /// A <c>widthPx × heightPx</c> image whose rows ramp linearly from <paramref name="from"/> at the
-    /// top to <paramref name="to"/> at the bottom. A gradient rather than bands because the shell
-    /// scales a hero image up and stretches hard edges into stripes — the first on-screen attempt
-    /// looked like a flag for exactly this reason. Returns no bytes for degenerate input, so a
-    /// caller degrades to neutral instead of throwing.
-    /// </summary>
-    public static byte[] EncodeGradient(Rgb from, Rgb to, int widthPx, int heightPx)
-    {
-        if (!IsSaneSize(widthPx, heightPx))
-        {
-            return [];
-        }
-
-        var rgba = new byte[widthPx * heightPx * 4];
-        FillVerticalRamp(rgba, widthPx, heightPx, from, to);
-        return EncodeRgba(widthPx, heightPx, rgba);
-    }
-
-    /// <summary>
     /// Writes <paramref name="rgba"/> as a valid PNG. The buffer is <c>width × height × 4</c>,
     /// row-major, non-premultiplied — the same shape <see cref="BrandImageDecoder"/> hands back, so a
     /// raster can be read, recomposed and written without an intermediate format.

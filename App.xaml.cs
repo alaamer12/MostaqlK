@@ -401,6 +401,29 @@ public partial class App : Application
         window.X = Math.Max(0, (workWidth - mainWidth) / 2);
         window.Y = Math.Max(0, (workHeight - mainHeight) / 2);
 
+        // Dev-only: --test-toast pushes one synthetic project through the real dispatcher once the app
+        // has settled. It is the only way to prove the notification path resolves its own cache
+        // directory and content root, which a harness that passes those paths in cannot show.
+        // Inert in Release: NotificationProbe.IsRequested is the single gate.
+        if (NotificationProbe.IsRequested(Environment.GetCommandLineArgs()))
+        {
+            var startupArgs = Environment.GetCommandLineArgs();
+            var probeSource = NotificationProbe.RequestedSource(
+                startupArgs,
+                _services.GetRequiredService<GlobalAppStatusService>().ActiveSource);
+            MostaqlK.Core.Sources.ISourceDescriptor? probeDescriptor = null;
+            if (_services.GetService<MostaqlK.Core.Sources.SourceRegistry>() is { } registry)
+            {
+                registry.TryGet(probeSource, out probeDescriptor);
+            }
+
+            var probeDispatcher = _services.GetRequiredService<INotificationDispatcher>();
+            var probeGrouper = _services.GetService<NotificationGrouper>();
+            window.Dispatcher.DispatchDelayed(
+                TimeSpan.FromSeconds(4),
+                () => _ = NotificationProbe.RunAsync(probeDispatcher, probeGrouper, probeDescriptor, probeSource));
+        }
+
         return window;
     }
 

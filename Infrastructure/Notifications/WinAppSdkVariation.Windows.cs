@@ -51,8 +51,7 @@ public sealed class WinAppSdkVariation : IToastVariation
             // Validate before marshalling to the main thread so the window is never disturbed by a
             // malformed payload. Route-level defaults for external deep links are intentionally
             // unchanged (AppRoutes / ProjectDetailsPage).
-            if (!args.Arguments.TryGetValue("sourceId", out var sourceStr)
-                || !MostaqlK.Core.Sources.SourceId.TryFrom(sourceStr, out var source))
+            if (!TryReadSource(args.Arguments, out var source))
             {
                 InteractionLogger.Mark("WinAppSdkVariation.OnNotificationInvoked", "Ignored-MissingSourceId", new { ProjectId = projectId });
                 return;
@@ -62,27 +61,7 @@ public sealed class WinAppSdkVariation : IToastVariation
             {
                 try
                 {
-                    var services = IPlatformApplication.Current?.Services;
-
-                    // Restore window if needed
-                    var appLifecycleService = services?.GetService<Services.AppLifecycleService>();
-                    if (appLifecycleService is { IsInBackground: true })
-                    {
-                        // Raise restore requested via TrayIconService
-                        var trayService = services?.GetService<UI.TrayIcon.TrayIconService>();
-                        trayService?.OnOpen();
-                    }
-
-                    // §6 morph-first (owner decision): a notification from another source
-                    // PERMANENTLY switches the app to that source before navigating, so the
-                    // details page, palette, feed and live pipeline consumers all agree with
-                    // what the user clicked. No-op when already on that source.
-                    MostaqlK.Services.SourceMorph.Apply(
-                        services?.GetService<MostaqlK.Core.Sources.ISettingsRepository>(),
-                        services?.GetService<Services.GlobalAppStatusService>(),
-                        services?.GetService<MostaqlK.UI.DesignSystem.BrandTokens.IBrandTokenProvider>(),
-                        source);
-
+                    await RevealAndMorphAsync(source);
                     await AppRoutes.NavigateAsync(AppRoutes.ProjectDetails(source, projectId));
                 }
                 catch (Exception ex)
@@ -90,7 +69,74 @@ public sealed class WinAppSdkVariation : IToastVariation
                     InteractionLogger.Fault("WinAppSdkVariation.NavigateToProject", ex, new { ProjectId = projectId });
                 }
             });
+            return;
         }
+
+        // A grouped toast carries no projectId, and used to fall through this handler doing nothing:
+        // no window restore, no morph, no navigation — while the classic WinRT path has always opened
+        // the projects feed for the same payload. Both backends now agree, and since dev66 a grouped
+        // batch has exactly one source, so its click morphs to that source first.
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            try
+            {
+                if (TryReadSource(args.Arguments, out var groupedSource))
+                {
+                    await RevealAndMorphAsync(groupedSource);
+                }
+                else
+                {
+                    await RevealAsync();
+                }
+
+                await AppRoutes.NavigateAsync(AppRoutes.Projects);
+            }
+            catch (Exception ex)
+            {
+                InteractionLogger.Fault("WinAppSdkVariation.NavigateToProjects", ex);
+            }
+        });
+    }
+
+    /// <summary>
+    /// §6 morph-first (owner decision): a notification from another source PERMANENTLY switches the
+    /// app to that source before navigating, so the details page, palette, feed and live pipeline
+    /// consumers all agree with what the user clicked. No-op when already on that source.
+    /// </summary>
+    private static async Task RevealAndMorphAsync(MostaqlK.Core.Sources.SourceId source)
+    {
+        await RevealAsync();
+
+        var services = IPlatformApplication.Current?.Services;
+        MostaqlK.Services.SourceMorph.Apply(
+            services?.GetService<MostaqlK.Core.Sources.ISettingsRepository>(),
+            services?.GetService<Services.GlobalAppStatusService>(),
+            services?.GetService<MostaqlK.UI.DesignSystem.BrandTokens.IBrandTokenProvider>(),
+            source);
+    }
+
+    /// <summary>
+    /// The activation payload's source, if it carries one. A grouped toast has always been allowed to
+    /// arrive without it (it simply does not morph); an individual project toast may not, because
+    /// guessing a source would open a same-numbered project on the wrong site.
+    /// </summary>
+    private static bool TryReadSource(IDictionary<string, string> arguments, out MostaqlK.Core.Sources.SourceId source)
+    {
+        source = default;
+        return arguments.TryGetValue("sourceId", out var value)
+            && MostaqlK.Core.Sources.SourceId.TryFrom(value, out source);
+    }
+
+    /// <summary>Brings the window back from the tray, if it was hidden.</summary>
+    private static Task RevealAsync()
+    {
+        var services = IPlatformApplication.Current?.Services;
+        if (services?.GetService<Services.AppLifecycleService>() is { IsInBackground: true })
+        {
+            services.GetService<UI.TrayIcon.TrayIconService>()?.OnOpen();
+        }
+
+        return Task.CompletedTask;
     }
 
     public Task<Result<bool>> SendAsync(IReadOnlyList<ProjectSummary> projects)
@@ -169,16 +215,21 @@ public sealed class WinAppSdkVariation : IToastVariation
 
     private static AppNotificationBuilder BuildGroupedToast(IReadOnlyList<ProjectSummary> projects)
     {
-        var header = $"يوجد {projects.Count} مشاريع جديدة — تفقدها هنا";
+        // One producing source per grouped batch (NotificationGrouper buckets per source), so the
+        // header names it and the activation arguments carry it — which is what makes the existing
+        // morph-first path fire for a grouped click as well as an individual one.
+        var source = projects[0].Source;
+        var header = NotificationCopy.GroupedHeader(source, projects.Count);
         var builder = new AppNotificationBuilder()
             .AddText(header)
-            .AddArgument("filter", "unread");
+            .AddArgument("filter", "unread")
+            .AddArgument("sourceId", source.Value);
 
-        var firstUrl = projects.Select(p => p.Url).FirstOrDefault(u => !string.IsNullOrWhiteSpace(u));
-        if (!string.IsNullOrWhiteSpace(firstUrl))
+        var firstUrlProject = projects.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.Url));
+        if (firstUrlProject is not null)
         {
-            builder.AddButton(new AppNotificationButton(NotificationCopy.ViewOnSource(projects.First(p => !string.IsNullOrWhiteSpace(p.Url)).Source))
-                .AddArgument("openUrl", firstUrl));
+            builder.AddButton(new AppNotificationButton(NotificationCopy.ViewOnSource(firstUrlProject.Source))
+                .AddArgument("openUrl", firstUrlProject.Url));
         }
 
         return builder;
