@@ -3,6 +3,7 @@ using HtmlAgilityPack;
 using MostaqlK.Core;
 using MostaqlK.Core.Formatting;
 using MostaqlK.Core.Layers;
+using MostaqlK.Core.Notifications;
 using MostaqlK.Core.Sources;
 using MostaqlK.Features.Settings;
 using MostaqlK.Infrastructure.Http;
@@ -146,6 +147,8 @@ public static class Program
         Run(nameof(TestPlatformEnablementKeepsAtLeastOne), TestPlatformEnablementKeepsAtLeastOne);
         Run(nameof(TestRendererCoversEveryShape), TestRendererCoversEveryShape);
         Run(nameof(TestTickerCallbacksAreGuarded), TestTickerCallbacksAreGuarded);
+        Run(nameof(TestToastBrandingXmlShape), TestToastBrandingXmlShape);
+        Run(nameof(TestBrandImageEncoderPng), TestBrandImageEncoderPng);
         Run(nameof(TestNoSourceIdStringLiteralsInSharedCode), TestNoSourceIdStringLiteralsInSharedCode);
         Run(nameof(TestNoInlineBrandHexesOutsideTheirOwners), TestNoInlineBrandHexesOutsideTheirOwners);
         Run(nameof(TestConfigurationReferenceMatchesCatalog), TestConfigurationReferenceMatchesCatalog);
@@ -2489,7 +2492,7 @@ public static class Program
 
         var violations = new List<string>();
         var files = 0;
-        foreach (var dir in new[] { "UI", "Features" })
+        foreach (var dir in new[] { "UI", "Features", "Infrastructure", "Core" })
         {
             var path = Path.Combine(root, dir);
             if (!Directory.Exists(path))
@@ -2528,7 +2531,271 @@ public static class Program
 
         Check("no inline brand hexes outside their descriptor owners",
             violations.Count == 0, string.Join(" | ", violations));
-        Check("brand hex scan covered UI/ + Features/", files >= 100, $"{files} files scanned");
+        // The floor rose with the scan width on purpose: a widened scan that still reports
+        // the old minimum would prove nothing about the directories it just added.
+        Check("brand hex scan covered UI/, Features/, Infrastructure/ and Core/", files >= 210, $"{files} files scanned");
+    }
+
+    /// <summary>
+    /// The seam both notification backends share, proven in text space: one visual in, one markup
+    /// out, whichever API ends up rendering the toast. The URI cases are pinned because the senders
+    /// used to splice <c>file:///{path}</c> raw, which loses the image for a path containing a space
+    /// or a '#'.
+    /// </summary>
+    private static void TestToastBrandingXmlShape()
+    {
+        var logo = ToastBranding.ToFileUri(@"C:\brand\logo.png");
+        var hero = ToastBranding.ToFileUri(@"C:\brand\hero band.png");
+
+        Check("toast uri: file scheme for a local path",
+            logo is not null && logo.StartsWith("file:///", StringComparison.OrdinalIgnoreCase), logo ?? "(null)");
+        Check("toast uri: space percent-encoded",
+            hero is not null && hero.Contains("%20", StringComparison.Ordinal), hero ?? "(null)");
+
+        var hash = ToastBranding.ToFileUri(@"F:\Projects\C#\MostaqlK\bin\logo.png");
+        Check("toast uri: '#' encoded (a dev path used to swallow the logo image)",
+            hash is not null && hash.Contains("%23", StringComparison.Ordinal)
+                && !hash.Contains("C#", StringComparison.Ordinal), hash ?? "(null)");
+        Check("toast uri: an existing URI passes through",
+            ToastBranding.ToFileUri("https://example.com/a.png") == "https://example.com/a.png");
+
+        var visual = new ToastBrandVisual(logo, hero, true);
+
+        // The classic WinRT payload: single quotes, an app logo already in place.
+        var winrt = "<toast lang='ar-SA' launch='projectId=1&amp;sourceId=x'><visual lang='ar-SA'>"
+            + "<binding template='ToastGeneric'>"
+            + "<image placement='appLogoOverride' src='file:///C:/old/logo.png' />"
+            + "<text>title</text><text>desc</text></binding></visual>"
+            + "<actions><action content='open' arguments='openUrl=y' /></actions></toast>";
+
+        // The Windows App SDK payload: double quotes, builder-emitted image, protocol activation.
+        var appSdk = "<toast launch='projectId=1' activationType='protocol'><visual>"
+            + "<binding template=\"ToastGeneric\">"
+            + "<image placement=\"appLogoOverride\" src=\"file:///C:/old/logo.png\"/>"
+            + "<text>title</text><text>desc</text></binding></visual></toast>";
+
+        var brandedWinrt = ToastBranding.ApplyToBindingXml(winrt, visual);
+        var brandedAppSdk = ToastBranding.ApplyToBindingXml(appSdk, visual);
+
+        Check("toast xml: exactly one hero image",
+            CountOccurrences(brandedWinrt, "<image placement='hero'") == 1, brandedWinrt);
+        Check("toast xml: the old logo is replaced, never duplicated",
+            CountOccurrences(brandedWinrt, "appLogoOverride") == 1
+                && !brandedWinrt.Contains("C:/old/logo", StringComparison.Ordinal), brandedWinrt);
+        Check("toast xml: circular crop carried through",
+            brandedWinrt.Contains("hint-crop='circle'", StringComparison.Ordinal), brandedWinrt);
+        Check("toast xml: text, actions and arguments survive untouched",
+            brandedWinrt.Contains("<text>title</text>", StringComparison.Ordinal)
+                && brandedWinrt.Contains("<text>desc</text>", StringComparison.Ordinal)
+                && brandedWinrt.Contains("<actions>", StringComparison.Ordinal)
+                && brandedWinrt.Contains("sourceId=x", StringComparison.Ordinal), brandedWinrt);
+        Check("toast xml: images precede the text so the shell treats them as chrome",
+            brandedWinrt.IndexOf("placement='hero'", StringComparison.Ordinal)
+                < brandedWinrt.IndexOf("<text>", StringComparison.Ordinal), brandedWinrt);
+        Check("toast xml: applying the same visual twice changes nothing",
+            ToastBranding.ApplyToBindingXml(brandedWinrt, visual) == brandedWinrt,
+            "AGAIN: " + ToastBranding.ApplyToBindingXml(brandedWinrt, visual));
+        Check("toast xml: both backends arrive at identical image markup",
+            ToastImageMarkup(brandedWinrt) == ToastImageMarkup(brandedAppSdk),
+            ToastImageMarkup(brandedWinrt) + " VS " + ToastImageMarkup(brandedAppSdk));
+
+        var neutral = ToastBranding.ApplyToBindingXml(winrt, ToastBrandVisual.Neutral(logo));
+        Check("toast xml: neutral chrome keeps a logo and drops the hero",
+            !neutral.Contains("placement='hero'", StringComparison.Ordinal)
+                && neutral.Contains("appLogoOverride", StringComparison.Ordinal), neutral);
+        Check("toast xml: a payload with no binding comes back exactly as it arrived",
+            ToastBranding.ApplyToBindingXml("<toast></toast>", visual) == "<toast></toast>");
+        Check("toast xml: an empty visual contributes no elements",
+            ToastBranding.ImageElementsXml(new ToastBrandVisual(null, null, false)).Length == 0);
+        Check("toast xml: scraped text is escaped",
+            ToastBranding.EscapeXmlText("a<b>&c") == "a&lt;b&gt;&amp;c", ToastBranding.EscapeXmlText("a<b>&c"));
+    }
+
+    private static int CountOccurrences(string haystack, string needle)
+    {
+        var count = 0;
+        for (var i = haystack.IndexOf(needle, StringComparison.Ordinal);
+             i >= 0;
+             i = haystack.IndexOf(needle, i + 1, StringComparison.Ordinal))
+        {
+            count++;
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// The image elements a branded binding carries, whitespace-stripped and quote-normalized, so a
+    /// difference between the two backends can only be a real visual difference, not a quoting habit.
+    /// </summary>
+    private static string ToastImageMarkup(string xml)
+    {
+        var start = xml.IndexOf("<image", StringComparison.Ordinal);
+        var end = xml.IndexOf("<text", StringComparison.Ordinal);
+        if (start < 0 || end < start)
+        {
+            return string.Empty;
+        }
+
+        var span = xml[start..end];
+        var compact = new string(span.Where(c => !char.IsWhiteSpace(c)).ToArray());
+        return compact.Replace("\\\"", "'").Replace('"', '\'');
+    }
+
+    /// <summary>
+    /// The PNG a source's brand colors turn into, verified as a real image file rather than as
+    /// plausible bytes: chunk structure with CRCs, IHDR dimensions, and pixel values read back out of
+    /// the stored deflate blocks. Colors come from the real descriptor, so this also proves the
+    /// palette reaches the toast unchanged.
+    /// </summary>
+    private static void TestBrandImageEncoderPng()
+    {
+        var brand = MostaqlSource.Instance.Brands;
+        var bands = new List<BrandImageEncoder.Rgb>();
+        foreach (var hex in new[] { brand.BrandInk, brand.Brand, brand.BrandSoft })
+        {
+            Check("png: descriptor palette hex parses", BrandImageEncoder.TryParseColorHex(hex, out _), hex);
+            BrandImageEncoder.TryParseColorHex(hex, out var rgb);
+            bands.Add(rgb);
+        }
+
+        const int Width = 48;
+        const int Height = 12;
+        var png = BrandImageEncoder.EncodeBanner(bands, Width, Height);
+
+        Check("png: signature present",
+            png.Length > 32 && png[0] == 0x89 && png[1] == 0x50 && png[2] == 0x4E && png[3] == 0x47,
+            $"{png.Length} bytes");
+
+        var chunks = ReadPngChunks(png, out var crcsValid);
+        Check("png: IHDR, IDAT, IEND in order with every CRC valid",
+            crcsValid && string.Join(",", chunks.Select(c => c.Type)) == "IHDR,IDAT,IEND",
+            string.Join(",", chunks.Select(c => c.Type ?? "(broken)")));
+
+        var ihdr = chunks.First(c => c.Type == "IHDR").Data;
+        Check("png: IHDR carries the requested size, RGBA, 8-bit, not interlaced",
+            ReadInt32(ihdr, 0) == Width && ReadInt32(ihdr, 4) == Height
+                && ihdr[8] == 8 && ihdr[9] == 6 && ihdr[12] == 0,
+            string.Join(",", ihdr));
+
+        var idat = chunks.First(c => c.Type == "IDAT").Data;
+        var raw = InflateStored(idat, out var inflateOk);
+        Check("png: the stream inflates to exactly the expected scanlines",
+            inflateOk && raw.Length == Height * (1 + (Width * 4)), $"{raw.Length} bytes");
+
+        Check("png: every scanline begins with filter byte 0",
+            Enumerable.Range(0, Height).All(y => raw[y * (1 + (Width * 4))] == 0));
+
+        BrandImageEncoder.TryParseColorHex(brand.Brand, out var middle);
+        var middleRow = Height / 2;
+        var sample = (middleRow * (1 + (Width * 4))) + 1 + ((Width / 2) * 4);
+        Check("png: the middle band is the source's own brand color, opaque",
+            raw[sample] == middle.R && raw[sample + 1] == middle.G && raw[sample + 2] == middle.B
+                && raw[sample + 3] == 255,
+            $"got {raw[sample]},{raw[sample + 1]},{raw[sample + 2]},{raw[sample + 3]}");
+
+        Check("png: degenerate input yields no bytes instead of throwing",
+            BrandImageEncoder.EncodeBanner([], 10, 10).Length == 0
+                && BrandImageEncoder.EncodeBanner([new BrandImageEncoder.Rgb(1, 2, 3)], 0, 10).Length == 0
+                && BrandImageEncoder.EncodeBanner([new BrandImageEncoder.Rgb(1, 2, 3)], 99999, 10).Length == 0);
+
+        Check("png: ARGB palette tokens parse with alpha dropped (BrandSoftDark is stored that way)",
+            BrandImageEncoder.TryParseColorHex(brand.BrandSoftDark, out var softArgb)
+                && BrandImageEncoder.TryParseColorHex("#5CA8DE", out var sameWithoutAlpha)
+                && softArgb == sameWithoutAlpha,
+            brand.BrandSoftDark);
+
+        Check("png: a malformed hex is refused", !BrandImageEncoder.TryParseColorHex("#zzzzzz", out _));
+        Check("png: the 3-digit shorthand expands",
+            BrandImageEncoder.TryParseColorHex("#abc", out var shorthand)
+                && shorthand == new BrandImageEncoder.Rgb(0xAA, 0xBB, 0xCC), shorthand.ToString());
+    }
+
+    private static int ReadInt32(byte[] bytes, int offset) =>
+        (bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3];
+
+    private static (string? Type, byte[] Data)[] ReadPngChunks(byte[] png, out bool crcsValid)
+    {
+        var list = new List<(string?, byte[])>();
+        crcsValid = true;
+        var i = 8; // past the signature
+        while (i + 12 <= png.Length)
+        {
+            var length = ReadInt32(png, i);
+            if (length < 0 || i + 12 + length > png.Length)
+            {
+                crcsValid = false;
+                break;
+            }
+
+            var type = Encoding.ASCII.GetString(png, i + 4, 4);
+            var data = png[(i + 8)..(i + 8 + length)];
+            var crcRegion = png[(i + 4)..(i + 8 + length)]; // type + data
+            var stored = (uint)ReadInt32(png, i + 8 + length);
+            if (PngCrc32(crcRegion) != stored)
+            {
+                crcsValid = false;
+            }
+
+            list.Add((type, data));
+            i += 12 + length;
+        }
+
+        return list.ToArray();
+    }
+
+    private static uint PngCrc32(byte[] bytes)
+    {
+        uint crc = 0xFFFFFFFF;
+        foreach (var b in bytes)
+        {
+            // The table entry is folded from the BYTE, not from the polynomial: seeding it any other
+            // way yields a CRC that validates nothing, which is exactly the bug this helper had.
+            var value = (uint)(byte)((crc ^ b) & 0xFF);
+            for (var bit = 0; bit < 8; bit++)
+            {
+                value = (value & 1) != 0 ? 0xEDB88320u ^ (value >> 1) : value >> 1;
+            }
+
+            crc = (crc >> 8) ^ value;
+        }
+
+        return ~crc;
+    }
+
+    private static byte[] InflateStored(byte[] zlib, out bool valid)
+    {
+        // The encoder only ever writes stored blocks, so anything else means it changed the format
+        // without the test knowing — which is exactly what this check is for.
+        valid = zlib.Length > 2 && zlib[0] == 0x78;
+        var raw = new List<byte>();
+        var i = 2;
+        while (valid && i + 5 <= zlib.Length)
+        {
+            var isFinal = (zlib[i] & 1) != 0;
+            if (((zlib[i] >> 1) & 3) != 0)
+            {
+                valid = false;
+                break;
+            }
+
+            var len = zlib[i + 1] | (zlib[i + 2] << 8);
+            var nlen = zlib[i + 3] | (zlib[i + 4] << 8);
+            if (((ushort)(len ^ 0xFFFF)) != nlen || i + 5 + len > zlib.Length)
+            {
+                valid = false;
+                break;
+            }
+
+            raw.AddRange(zlib[(i + 5)..(i + 5 + len)]);
+            i += 5 + len;
+            if (isFinal)
+            {
+                break;
+            }
+        }
+
+        return raw.ToArray();
     }
 
     /// <summary>
