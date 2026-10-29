@@ -106,6 +106,41 @@ function Restore-PreferenceFiles {
     }
 }
 
+# An unpackaged app's toast identity IS a Start Menu shortcut, and the app rewrites that shortcut on
+# launch to point at whichever exe is running. Launching the scratch layouts above therefore repoints
+# the user's own MostaqlK.lnk / MostaqlK.Canary.lnk at scratch\smoke\...; when this script is done and
+# that folder goes away the shortcut dangles, and Windows then drops every toast the REAL app sends
+# with no error anywhere. Same treatment as the preference stores: back up first, put back after.
+$shortcutBackupDir = Join-Path $smokeDir "shortcuts-backup"
+
+function Get-ChannelShortcutPath([string]$appName) {
+    Join-Path $env:APPDATA ("Microsoft\Windows\Start Menu\Programs\" + $appName + ".lnk")
+}
+
+function Backup-ChannelShortcuts {
+    New-Item -ItemType Directory -Force -Path $shortcutBackupDir | Out-Null
+    foreach ($ch in $channelRoots.Keys) {
+        $lnk = Get-ChannelShortcutPath $channelRoots[$ch]
+        if (Test-Path $lnk) { Copy-Item $lnk (Join-Path $shortcutBackupDir "$ch.lnk") -Force }
+    }
+}
+
+function Restore-ChannelShortcuts {
+    foreach ($ch in $channelRoots.Keys) {
+        $bak = Join-Path $shortcutBackupDir "$ch.lnk"
+        $lnk = Get-ChannelShortcutPath $channelRoots[$ch]
+        if (Test-Path $bak) {
+            Copy-Item $bak $lnk -Force
+            Write-Host "restored toast identity: $lnk" -ForegroundColor DarkGray
+        } elseif (Test-Path $lnk) {
+            # There was no shortcut before this run, so the scratch launch created this one; leaving it
+            # would advertise an app identity pointing at a folder that is about to be deleted.
+            Remove-Item $lnk -Force
+            Write-Host "removed toast identity created by this run: $lnk" -ForegroundColor DarkGray
+        }
+    }
+}
+
 try {
     foreach ($ch in @("stable", "canary")) {
         $out = Join-Path $smokeDir $ch
@@ -141,6 +176,7 @@ try {
 
     # Back up and probe-mark both preference stores (restored in the finally block).
     New-Item -ItemType Directory -Force -Path $prefBackupDir | Out-Null
+    Backup-ChannelShortcuts
     foreach ($ch in $channelRoots.Keys) {
         $f = Join-Path $env:LOCALAPPDATA ($channelRoots[$ch] + "\Settings\preferences.dat")
         $prefFiles[$ch] = $f
@@ -255,5 +291,6 @@ catch {
 }
 finally {
     Stop-Started
+    Restore-ChannelShortcuts
     Restore-PreferenceFiles
 }
