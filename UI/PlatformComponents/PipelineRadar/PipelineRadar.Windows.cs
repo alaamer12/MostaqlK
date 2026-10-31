@@ -79,7 +79,13 @@ public partial class PipelineRadar
 
             var loop = compositor.CreateScalarKeyFrameAnimation();
             loop.Duration = TimeSpan.FromSeconds(Math.Max(0.5, periodSeconds));
-            loop.IterationCount = -1; // this projection surfaces the WinRT UINT32 as int; -1 == 0xFFFFFFFF == infinite
+            // The WinAppSDK 1.7 C# projection types IterationCount as INT32 and validates > 0 —
+            // the old `-1` (thinking it wraps to UINT32_MAX) now THROWS E_INVALIDARG here. The throw
+            // was swallowed by the catch below, but it abandoned the half-built KeyFrameAnimation COM
+            // object, and abandoned composition objects finalize off-thread — the exact fuel of the
+            // documented 0xC000027B dispatcher fail-fast (published-layout-dispatcher-failfast §10).
+            // int.MaxValue is ~273 years at this duration: infinite for every purpose.
+            loop.IterationCount = int.MaxValue;
             loop.InsertKeyFrame(0.0f, 0.0f);
             loop.InsertKeyFrame(1.0f, 360.0f); // linear by default — a radar sweep never eases
 
