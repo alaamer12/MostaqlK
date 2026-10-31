@@ -34,7 +34,8 @@ public partial class LastScanStatus : ContentView
 
     /// <summary>Defaults to the muted metadata slate both hosts already use.</summary>
     public static readonly BindableProperty TextColorProperty = BindableProperty.Create(
-        nameof(TextColor), typeof(Color), typeof(LastScanStatus), Color.FromArgb("#64748B"));
+        nameof(TextColor), typeof(Color), typeof(LastScanStatus),
+        MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.Get("FixedInkMuted"));
 
     /// <summary>
     /// Set on the inner <see cref="Label"/>, not on this view: the UI tests read the text of

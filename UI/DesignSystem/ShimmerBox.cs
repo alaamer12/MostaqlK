@@ -52,13 +52,13 @@ public class ShimmerBox : ContentView
     {
         _baseBox = new BoxView
         {
-            Color = Color.FromArgb("#E0E0E0"),
+            Color = Tokens.ThemeTokens.Get("ShimmerBase"),
             CornerRadius = 8,
         };
 
         _sweep = new BoxView
         {
-            Color = Color.FromArgb("#40FFFFFF"),
+            Color = Tokens.ThemeTokens.Get("ShimmerHighlight"),
             CornerRadius = 8,
             WidthRequest = 60,
             Opacity = 0.6,

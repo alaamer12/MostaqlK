@@ -148,8 +148,8 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     public string PollToggleLabel => IsPollingActive ? "إيقاف الفحص" : "استئناف الفحص";
 
     public Color PollToggleColor => IsPollingActive
-        ? DesignTokens.Colors.PollToggleActive
-        : DesignTokens.Colors.PollToggleInactive;
+        ? MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.PollActive
+        : MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.PollInactive;
 
     public AppIconGlyph PollToggleIcon => IsPollingActive ? AppIconGlyph.Pause : AppIconGlyph.Play;
 

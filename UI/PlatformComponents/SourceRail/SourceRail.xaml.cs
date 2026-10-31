@@ -32,16 +32,10 @@ public partial class SourceRail : ContentView
 {
     // Mockup `.rail-btn { color: var(--ink-3) }` neutral inactive ink (state chrome, never brand):
     // projects.html tokens — light #64748b, dark #94a3b8.
-    private const string InactiveInkLight = "#64748B";
-    private const string InactiveInkDark = "#94A3B8";
 
     // Mockup `.rail-btn:hover { background: var(--surface-2); color: var(--ink-1) }` — the hover
     // box is the 44px rounded button surface itself (NOT the full 64px cell, which is what the
     // old PressableEffect highlight painted: a square-cornered full-width band).
-    private static readonly Color HoverSurfaceLight = Color.FromArgb("#F8FAFC");
-    private static readonly Color HoverSurfaceDark = Color.FromArgb("#172032");
-    private static readonly Color HoverInkLight = Color.FromArgb("#0F172A");
-    private static readonly Color HoverInkDark = Color.FromArgb("#F1F5F9");
 
     public static readonly BindableProperty ActivePageProperty = BindableProperty.Create(
         nameof(ActivePage), typeof(RailPage), typeof(SourceRail), RailPage.None,
@@ -145,9 +139,8 @@ public partial class SourceRail : ContentView
                 return;
             }
 
-            var dark = Application.Current?.RequestedTheme == AppTheme.Dark;
-            row.BackgroundColor = dark ? HoverSurfaceDark : HoverSurfaceLight;
-            icon.TintColor = dark ? HoverInkDark : HoverInkLight;
+            row.BackgroundColor = MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.SurfaceHover;
+            icon.TintColor = MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.TextPrimary;
         };
         pointer.PointerExited += (_, _) =>
         {
@@ -164,8 +157,7 @@ public partial class SourceRail : ContentView
     private static void RestoreInactiveRow(Border row, TintableIcon icon)
     {
         row.BackgroundColor = Colors.Transparent;
-        var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
-        icon.TintColor = Color.FromArgb(isDark ? InactiveInkDark : InactiveInkLight);
+        icon.TintColor = MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.TextMuted;
     }
 
     private void OnTilesSourceChanged(object? sender, SourceId source)

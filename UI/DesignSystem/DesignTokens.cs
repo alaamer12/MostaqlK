@@ -1,47 +1,11 @@
-using Microsoft.Maui.Graphics;
-
 namespace MostaqlK.UI.DesignSystem;
 
 /// <summary>
-/// Central source of truth for spacing and corner-radius tokens used across the MostaqlK design
-/// system, plus the brand accent colors — which since B1b are LIVE reads through
-/// <see cref="BrandTokens.BrandPalette"/> (the active source's brand pair) rather than literals.
-/// The remaining palette values are derived from the MVP mockups
-/// (.repertoire/design/mvp/*.html) and mirror the resources declared in
-/// Resources/Styles/Colors.xaml. Keep the two in sync when either changes.
+/// Spacing and corner-radius tokens used across the MostaqlK design system. Colors moved to
+/// <see cref="Tokens.NeutralTokenSet"/> / <see cref="Tokens.ThemeTokens"/> (one authority).
 /// </summary>
 public static class DesignTokens
 {
-    /// <summary>Brand and semantic colors (light/dark pairs).</summary>
-    public static class Colors
-    {
-        // Brand accent, now the live per-source palette (UI/DesignSystem/BrandTokens/BrandPalette):
-        // AccentPrimary carries the active source's LIGHT brand, AccentPrimaryDark its DARK brand —
-        // same theme-pair semantics as the historical Mostaql-blue literals, seeded value-identical.
-        // XAML that needs the ACTIVE-theme brand paints from the `{DynamicResource Brand}` key instead.
-        public static Color AccentPrimary => BrandTokens.BrandPalette.AccentLight;
-        public static Color AccentPrimaryDark => BrandTokens.BrandPalette.AccentDark;
-
-        // Positive/success accent.
-        public static readonly Color AccentPositive = Color.FromArgb("#2E9E6B");
-        public static readonly Color AccentPositiveDark = Color.FromArgb("#4FBF8C");
-
-        // Polling toggle (running vs stopped) semantic colors.
-        // Mirrors the MVP mockup (projects.html) and the existing pipeline error/success dots.
-        public static readonly Color PollToggleActive = Color.FromArgb("#EF4444");
-        public static readonly Color PollToggleInactive = Color.FromArgb("#22C55E");
-
-        // Slate background/surface palette.
-        public static readonly Color BackgroundLight = Color.FromArgb("#F8FAFC");
-        public static readonly Color BackgroundDark = Color.FromArgb("#0F172A");
-        public static readonly Color SurfaceLight = Color.FromArgb("#FFFFFF");
-        public static readonly Color SurfaceDark = Color.FromArgb("#1E293B");
-
-        // Muted "read" project-card border/accent colors (unread accent bar uses AccentPrimary instead).
-        public static readonly Color ReadBorderLight = Color.FromArgb("#CBD5E1");
-        public static readonly Color ReadBorderDark = Color.FromArgb("#475569");
-    }
-
     /// <summary>Spacing scale, in device-independent units. No ad-hoc numeric literals per system-components.md.</summary>
     public static class Spacing
     {

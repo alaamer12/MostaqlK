@@ -32,7 +32,7 @@ Two-hue system: **Mostaql blue** as the primary brand/accent color (matches the 
 ## Light / dark theme
 
 - Both themes ship at v1, togglable in settings (with a "match system" default).
-- All colors are defined as semantic tokens (`--surface`, `--text-primary`, `--border`, `--accent-primary`, `--accent-positive`, etc.) — never hardcoded hex in components — so theme switching is a token-swap, not a per-component rewrite.
+- All colors are defined as semantic tokens (`--surface`, `--text-primary`, `--border`, `--accent-primary`, `--accent-positive`, etc.) — never hardcoded hex in components — so theme switching is a token-swap, not a per-component rewrite. Implementation: `UI/DesignSystem/Tokens/NeutralTokenSet.cs` (the table) + `ThemeTokens` (the bridge that writes it); markup consumes `{DynamicResource <Token>}`, never a hex or a color `AppThemeBinding` (ParserTests enforces it).
 - Contrast checked independently per theme, not just inverted — the blue/green pair above are already tuned with lighter variants for dark mode rather than reusing the light-mode values on a dark background.
 
 ## RTL support

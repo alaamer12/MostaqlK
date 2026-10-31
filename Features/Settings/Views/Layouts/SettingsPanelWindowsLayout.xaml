@@ -27,7 +27,7 @@
             <Style x:Key="SetLabel" TargetType="Label">
                 <Setter Property="FontFamily" Value="TajawalBold" />
                 <Setter Property="FontSize" Value="13" />
-                <Setter Property="TextColor" Value="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                <Setter Property="TextColor" Value="{DynamicResource TextPrimary}" />
                 <Setter Property="VerticalOptions" Value="Center" />
             </Style>
 
@@ -35,7 +35,7 @@
             <Style x:Key="SetHint" TargetType="Label">
                 <Setter Property="FontFamily" Value="Tajawal" />
                 <Setter Property="FontSize" Value="11" />
-                <Setter Property="TextColor" Value="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                <Setter Property="TextColor" Value="{DynamicResource TextMuted}" />
                 <Setter Property="LineBreakMode" Value="WordWrap" />
                 <Setter Property="Margin" Value="0,2,0,0" />
             </Style>
@@ -44,7 +44,7 @@
             <Style x:Key="SetValue" TargetType="Label">
                 <Setter Property="FontFamily" Value="TajawalBold" />
                 <Setter Property="FontSize" Value="13" />
-                <Setter Property="TextColor" Value="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                <Setter Property="TextColor" Value="{DynamicResource TextPrimary}" />
                 <Setter Property="VerticalOptions" Value="Center" />
             </Style>
 
@@ -52,7 +52,7 @@
             <Style x:Key="SetUnit" TargetType="Label">
                 <Setter Property="FontFamily" Value="TajawalBold" />
                 <Setter Property="FontSize" Value="13" />
-                <Setter Property="TextColor" Value="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                <Setter Property="TextColor" Value="{DynamicResource TextPrimary}" />
                 <Setter Property="VerticalOptions" Value="Center" />
             </Style>
 
@@ -72,8 +72,8 @@
             <!-- 1px row divider (existing ink-divider token) -->
             <Style x:Key="SetDivider" TargetType="BoxView">
                 <Setter Property="HeightRequest" Value="1" />
-                <Setter Property="Color" Value="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" />
-                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" />
+                <Setter Property="Color" Value="{DynamicResource Border}" />
+                <Setter Property="BackgroundColor" Value="{DynamicResource Border}" />
             </Style>
 
             <!-- numeric inline editor: visually the settings.html value (bold ink-1, no field
@@ -82,7 +82,7 @@
             <Style x:Key="SetEditor" TargetType="platform:AppEntry">
                 <Setter Property="FontFamily" Value="TajawalBold" />
                 <Setter Property="FontSize" Value="13" />
-                <Setter Property="TextColor" Value="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                <Setter Property="TextColor" Value="{DynamicResource TextPrimary}" />
                 <Setter Property="BackgroundColor" Value="Transparent" />
                 <Setter Property="WidthRequest" Value="48" />
                 <Setter Property="HorizontalTextAlignment" Value="End" />
@@ -96,7 +96,7 @@
          to land on the physical left and the settings content (col 0, *) renders to its right,
          exactly mirroring the mockup's `<div style="direction:ltr">` [rail | main(rtl)] split.
          RailWidths.Width (64px) replaces the old 256px AppSidebar column, reclaiming 192px. -->
-    <Grid BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#0F172A}">
+    <Grid BackgroundColor="{DynamicResource TextInverse}">
         <!-- Rail track pinned (never Auto): an Auto rail column is resolved after the content star
              and lands outside the window frame (RTL clips at the physical left). -->
         <Grid.ColumnDefinitions>
@@ -120,26 +120,26 @@
                          NotificationsClicked="OnRailNotificationsClicked"
                          SourceChanged="OnRailSourceChanged" />
 
-        <Grid Grid.Column="0" RowDefinitions="Auto,*" BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#0F172A}">
+        <Grid Grid.Column="0" RowDefinitions="Auto,*" BackgroundColor="{DynamicResource TextInverse}">
 
             <!-- Header band (mockup <header>): centered title + "إعدادات النظام وإعدادات المنصة الحالية: {tile} {name}"
                  (the page carries two bands now, so the caption names both; settings.html follows in step 6) -->
             <VerticalStackLayout Grid.Row="0"
                                  Spacing="8"
                                  Padding="24,20"
-                                 BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}">
+                                 BackgroundColor="{DynamicResource SurfaceRaised}">
                 <Label Text="الإعدادات"
                        FontFamily="TajawalBold"
                        FontSize="36"
                        LineHeight="1.25"
-                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
+                       TextColor="{DynamicResource TextPrimary}"
                        HorizontalOptions="Center" />
                 <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
                     <Label Text="إعدادات النظام وإعدادات المنصة الحالية:"
                            FontFamily="Tajawal"
                            FontSize="12"
                            VerticalOptions="Center"
-                           TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                           TextColor="{DynamicResource TextMuted}" />
                     <!-- dev33 shell-unify: the header stays the mockup's COMPACT single active-source
                          tile + name (settings.html `<p …><span class="w-5 h-5 src-tile">…<span id=set-src-name>`).
                          The interactive IconOnly SourceSwitchTiles switcher is wired into THIS page via the
@@ -181,12 +181,12 @@
             </VerticalStackLayout>
 
             <ScrollView Grid.Row="1">
-                <VerticalStackLayout BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}" Spacing="0">
+                <VerticalStackLayout BackgroundColor="{DynamicResource SurfaceRaised}" Spacing="0">
 
                     <!-- Inline validation message (the page-level banner; each row also carries its
                          own inline error under the control). -->
                     <Label Text="{Binding ValidationMessage}"
-                           TextColor="{AppThemeBinding Light=#DC2626, Dark=#F87171}"
+                           TextColor="{DynamicResource Danger}"
                            FontSize="13"
                            FontFamily="Tajawal"
                            Padding="32,11"

@@ -347,29 +347,14 @@ public partial class SettingsShapesPage : ContentPage
 
     // ------------------------------------------------------------------ chrome
 
-    private static readonly Color Ink1Light = Color.FromArgb("#0F172A");
-    private static readonly Color Ink1Dark = Color.FromArgb("#F1F5F9");
-    private static readonly Color Ink2Light = Color.FromArgb("#475569");
-    private static readonly Color Ink2Dark = Color.FromArgb("#CBD5E1");
-    private static readonly Color Ink3Light = Color.FromArgb("#64748B");
-    private static readonly Color Ink3Dark = Color.FromArgb("#94A3B8");
-    private static readonly Color LineLight = Color.FromArgb("#E2E8F0");
-    private static readonly Color LineDark = Color.FromArgb("#334155");
-    private static readonly Color SurfaceLight = Color.FromArgb("#FFFFFF");
-    private static readonly Color SurfaceDark = Color.FromArgb("#1E293B");
-    private static readonly Color Surface2Light = Color.FromArgb("#F8FAFC");
-    private static readonly Color Surface2Dark = Color.FromArgb("#172032");
-    private static readonly Color BgAppLight = Color.FromArgb("#F1F5F9");
-    private static readonly Color BgAppDark = Color.FromArgb("#0F172A");
-
     private static bool IsDark => Application.Current?.RequestedTheme == AppTheme.Dark;
-    private static Color Ink1 => IsDark ? Ink1Dark : Ink1Light;
-    private static Color Ink2 => IsDark ? Ink2Dark : Ink2Light;
-    private static Color Ink3 => IsDark ? Ink3Dark : Ink3Light;
-    private static Color Line => IsDark ? LineDark : LineLight;
-    private static Color Surface => IsDark ? SurfaceDark : SurfaceLight;
-    private static Color Surface2 => IsDark ? Surface2Dark : Surface2Light;
-    private static Color BgApp => IsDark ? BgAppDark : BgAppLight;
+    private static Color Ink1 => MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.TextPrimary;
+    private static Color Ink2 => MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.TextSecondaryStrong;
+    private static Color Ink3 => MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.TextMuted;
+    private static Color Line => MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.Border;
+    private static Color Surface => MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.SurfaceRaised;
+    private static Color Surface2 => MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.SurfaceHover;
+    private static Color BgApp => MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.BackgroundChrome;
 
     private static View Hairline() => new BoxView { HeightRequest = 1, Color = Line };
 
@@ -438,16 +423,15 @@ public partial class SettingsShapesPage : ContentPage
         return new VerticalStackLayout { Spacing = 0, Children = { bar, Hairline() } };
     }
 
-    // The tiles show BOTH identities at once, so their hexes are the mockup's, not the active brand.
-    private static readonly Color MostaqlLight = Color.FromArgb("#2386C8");
-    private static readonly Color MostaqlDark = Color.FromArgb("#5CA8DE");
-    private static readonly Color NafezlyLight = Color.FromArgb("#FFA200");
-    private static readonly Color NafezlyDark = Color.FromArgb("#FFB84D");
+    // The tiles show BOTH identities at once, so their colors come from each source's descriptor
+    // (the same BrandTokenSet BrandPalette projects), never from a literal.
+    private static BrandTokenSet MostaqlBrands => MostaqlSource.Instance.Brands;
+    private static BrandTokenSet NafezlyBrands => NafezlySource.Instance.Brands;
 
-    private static Color MostaqlBrush => IsDark ? MostaqlDark : MostaqlLight;
-    private static Color MostaqlOnBrush => IsDark ? Color.FromArgb("#0B1C2A") : Colors.White;
-    private static Color NafezlyBrush => IsDark ? NafezlyDark : NafezlyLight;
-    private static Color NafezlyOnBrush => Color.FromArgb("#3A2A00");
+    private static Color MostaqlBrush => Color.FromArgb(IsDark ? MostaqlBrands.BrandDark : MostaqlBrands.Brand);
+    private static Color MostaqlOnBrush => Color.FromArgb(IsDark ? MostaqlBrands.OnBrandDark : MostaqlBrands.OnBrand);
+    private static Color NafezlyBrush => Color.FromArgb(IsDark ? NafezlyBrands.BrandDark : NafezlyBrands.Brand);
+    private static Color NafezlyOnBrush => Color.FromArgb(NafezlyBrands.OnBrand);
 
     /// <summary>Which tile is lit: the source the app actually launched with (the harness passes <c>--source-id</c>).
     /// Compared as <see cref="SourceId"/>, never as a string literal — the shared-code gate forbids the latter.</summary>

@@ -124,10 +124,9 @@ public partial class ProjectCardWindowsLayout : ContentView
             return;
         }
 
-        var dark = Application.Current?.RequestedTheme == AppTheme.Dark;
         if (BindingContext is ProjectCardViewModel { IsUnread: true })
         {
-            var surface = dark ? Color.FromArgb("#1E293B") : Colors.White;
+            var surface = MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.SurfaceRaised;
             var brand = BrandPalette.Brand;
             HoverLayer.Color = new Color(
                 (brand.Red * UnreadHoverBrandWeight) + (surface.Red * (1 - UnreadHoverBrandWeight)),
@@ -136,7 +135,7 @@ public partial class ProjectCardWindowsLayout : ContentView
         }
         else
         {
-            HoverLayer.Color = dark ? Color.FromArgb("#172032") : Color.FromArgb("#F8FAFC");
+            HoverLayer.Color = MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.SurfaceHover;
         }
 
         HoverLayer.IsVisible = true;

@@ -3,6 +3,7 @@ using Microsoft.Maui.Controls;
 using Microsoft.Maui.Layouts;
 using MostaqlK.Core.Sources;
 using MostaqlK.UI.DesignSystem.BrandTokens;
+using MostaqlK.UI.DesignSystem.Tokens;
 
 namespace MostaqlK.UI.PlatformComponents.SettingsRow;
 
@@ -124,6 +125,11 @@ public partial class SettingsRow : ContentView
             HorizontalOptions = LayoutOptions.Fill,
         };
         Content = new VerticalStackLayout { Spacing = 0, Children = { _divider, _root } };
+
+        // Imperative painter: repaint when ThemeTokens rewrites the table on a theme flip. Scoped
+        // to the on-screen lifetime (Application-level publisher would root every realized row).
+        Loaded += OnRowLoaded;
+        Unloaded += OnRowUnloaded;
     }
 
     /// <summary>Rebuilds the row from the descriptor bound to <paramref name="row"/>.</summary>
@@ -314,8 +320,8 @@ public partial class SettingsRow : ContentView
         // box would push every row of the section down by the same amount, which is exactly the
         // drift the parity heatmap sees as doubled hairlines.
         box.HeightRequest = 29;
-        box.Stroke = _row?.HasError == true ? Danger : Line;
-        box.BackgroundColor = IsDark ? SurfaceDark : SurfaceLight;
+        box.Stroke = _row?.HasError == true ? ThemeTokens.Danger : ThemeTokens.Border;
+        box.BackgroundColor = ThemeTokens.SurfaceRaised;
         return box;
     }
 
@@ -346,7 +352,7 @@ public partial class SettingsRow : ContentView
                 row.Write(options[picker.SelectedIndex].Value);
             }
         };
-        picker.TextColor = Ink1;
+        picker.TextColor = ThemeTokens.TextPrimary;
         // .pick in the mockup is a bordered control; MAUI's Picker draws no frame of its own.
         _valueCell.Children.Add(Boxed(picker, radius: 8, padding: new Thickness(10, 5)));
     }
@@ -387,8 +393,8 @@ public partial class SettingsRow : ContentView
         var seg = new Border
         {
             StrokeThickness = 1,
-            Stroke = Line,
-            BackgroundColor = IsDark ? Surface2Dark : Surface2Light,
+            Stroke = ThemeTokens.Border,
+            BackgroundColor = ThemeTokens.SurfaceHover,
             Padding = new Thickness(2),
             StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 10 },
             Content = new HorizontalStackLayout { Spacing = 2 },
@@ -408,8 +414,8 @@ public partial class SettingsRow : ContentView
                 CornerRadius = 8,
                 BorderWidth = 0,
                 MinimumHeightRequest = 0,
-                BackgroundColor = selectedNow ? (IsDark ? SurfaceDark : SurfaceLight) : Colors.Transparent,
-                TextColor = selectedNow ? Ink1 : Ink3,
+                BackgroundColor = selectedNow ? ThemeTokens.SurfaceRaised : Colors.Transparent,
+                TextColor = selectedNow ? ThemeTokens.TextPrimary : ThemeTokens.TextMuted,
                 AutomationId = $"{d.AutomationId}_{option.Value}",
             };
             b.Clicked += (_, _) => { row.Write(option.Value); SetRow(row); };
@@ -431,7 +437,7 @@ public partial class SettingsRow : ContentView
             Text = value.ToString(),
             FontFamily = "TajawalBold",
             FontSize = 13,
-            TextColor = Ink1,
+            TextColor = ThemeTokens.TextPrimary,
             FlowDirection = FlowDirection.LeftToRight,
             VerticalOptions = LayoutOptions.Center,
         };
@@ -448,7 +454,7 @@ public partial class SettingsRow : ContentView
             Text = row.ValueText ?? string.Empty,
             FontFamily = "TajawalBold",
             FontSize = LabelSize,
-            TextColor = Ink1,
+            TextColor = ThemeTokens.TextPrimary,
             VerticalOptions = LayoutOptions.Center,
         };
         row.ValueTextChanged += () => value.Text = row.ValueText ?? string.Empty;
@@ -515,7 +521,7 @@ public partial class SettingsRow : ContentView
                         Text = d.HintAr ?? d.LabelAr,
                         FontFamily = "Tajawal",
                         FontSize = 12,
-                        TextColor = Ink2,
+                        TextColor = ThemeTokens.TextSecondaryStrong,
                         LineBreakMode = LineBreakMode.WordWrap,
                         HorizontalOptions = LayoutOptions.Fill,
                     },
@@ -548,7 +554,7 @@ public partial class SettingsRow : ContentView
                     Text = d.LabelAr,
                     FontFamily = "TajawalBold",
                     FontSize = 16,
-                    TextColor = Ink1,
+                    TextColor = ThemeTokens.TextPrimary,
                     VerticalOptions = LayoutOptions.Center,
                 },
             },
@@ -580,7 +586,7 @@ public partial class SettingsRow : ContentView
                 Text = d.HintAr,
                 FontFamily = "Tajawal",
                 FontSize = 12,
-                TextColor = Ink3,
+                TextColor = ThemeTokens.TextMuted,
                 LineBreakMode = LineBreakMode.WordWrap,
             });
         }
@@ -607,7 +613,7 @@ public partial class SettingsRow : ContentView
             Text = name,
             FontFamily = "Tajawal",
             FontSize = 13,
-            TextColor = Ink2,
+            TextColor = ThemeTokens.TextSecondaryStrong,
             FlowDirection = FlowDirection.LeftToRight,
             VerticalOptions = LayoutOptions.Center,
         });
@@ -626,9 +632,9 @@ public partial class SettingsRow : ContentView
             // .cookie-ok / .cookie-busy: the composite's status line carries its own tone.
             TextColor = d.HintTone switch
             {
-                SettingsHintTone.Success => IsDark ? PositiveDark : PositiveLight,
+                SettingsHintTone.Success => ThemeTokens.Positive,
                 SettingsHintTone.Brand => BrandPalette.BrandInk,
-                _ => Ink3,
+                _ => ThemeTokens.TextMuted,
             },
             IsVisible = !string.IsNullOrEmpty(row.ValueText),
         };
@@ -742,9 +748,9 @@ public partial class SettingsRow : ContentView
             Text = text,
             FontFamily = "TajawalBold",
             FontSize = 13,
-            TextColor = Danger,
+            TextColor = ThemeTokens.Danger,
             BackgroundColor = Colors.Transparent,
-            BorderColor = Line,
+            BorderColor = ThemeTokens.Border,
             BorderWidth = 1,
             CornerRadius = 8,
             Padding = new Thickness(14, 8),
@@ -803,9 +809,9 @@ public partial class SettingsRow : ContentView
             Text = text,
             FontFamily = "TajawalBold",
             FontSize = 13,
-            TextColor = Ink2,
-            BackgroundColor = IsDark ? SurfaceDark : SurfaceLight,
-            BorderColor = Line,
+            TextColor = ThemeTokens.TextSecondaryStrong,
+            BackgroundColor = ThemeTokens.SurfaceRaised,
+            BorderColor = ThemeTokens.Border,
             BorderWidth = 1,
             CornerRadius = 10,
             Padding = new Thickness(17, 8),
@@ -927,7 +933,7 @@ public partial class SettingsRow : ContentView
         {
             if (child is Border { Content: Entry } box)
             {
-                box.Stroke = _row.HasError ? Danger : Line;
+                box.Stroke = _row.HasError ? ThemeTokens.Danger : ThemeTokens.Border;
             }
         }
     }

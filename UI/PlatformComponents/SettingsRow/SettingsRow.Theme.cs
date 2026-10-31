@@ -1,6 +1,7 @@
 using Microsoft.Maui;
 using MostaqlK.Core.Sources;
 using MostaqlK.UI.DesignSystem.BrandTokens;
+using MostaqlK.UI.DesignSystem.Tokens;
 
 namespace MostaqlK.UI.PlatformComponents.SettingsRow;
 
@@ -13,50 +14,35 @@ namespace MostaqlK.UI.PlatformComponents.SettingsRow;
 /// </summary>
 public partial class SettingsRow
 {
-    private static readonly Color Ink1Light = Color.FromArgb("#0F172A");
-    private static readonly Color Ink2Light = Color.FromArgb("#475569");
-    private static readonly Color Ink3Light = Color.FromArgb("#64748B");
-    private static readonly Color LineLight = Color.FromArgb("#E2E8F0");
-    private static readonly Color DangerLight = Color.FromArgb("#DC2626");
-    private static readonly Color PositiveLight = Color.FromArgb("#2E9E6B");
-    private static readonly Color SurfaceLight = Color.FromArgb("#FFFFFF");
-    private static readonly Color Surface2Light = Color.FromArgb("#F8FAFC");
+    private void OnRowLoaded(object? sender, EventArgs e)
+    {
+        ThemeTokens.TokensChanged -= OnPaletteTokensChanged;
+        ThemeTokens.TokensChanged += OnPaletteTokensChanged;
+    }
 
-    private static readonly Color Ink1Dark = Color.FromArgb("#F1F5F9");
-    private static readonly Color Ink2Dark = Color.FromArgb("#CBD5E1");
-    private static readonly Color Ink3Dark = Color.FromArgb("#94A3B8");
-    private static readonly Color LineDark = Color.FromArgb("#334155");
-    private static readonly Color DangerDark = Color.FromArgb("#F87171");
-    private static readonly Color PositiveDark = Color.FromArgb("#4FBF8C");
-    private static readonly Color SurfaceDark = Color.FromArgb("#1E293B");
-    private static readonly Color Surface2Dark = Color.FromArgb("#172032");
+    private void OnRowUnloaded(object? sender, EventArgs e) =>
+        ThemeTokens.TokensChanged -= OnPaletteTokensChanged;
 
-    private static bool IsDark => Application.Current?.RequestedTheme == AppTheme.Dark;
-
-    private static Color Ink1 => IsDark ? Ink1Dark : Ink1Light;
-    private static Color Ink2 => IsDark ? Ink2Dark : Ink2Light;
-    private static Color Ink3 => IsDark ? Ink3Dark : Ink3Light;
-    private static Color Line => IsDark ? LineDark : LineLight;
-    private static Color Danger => IsDark ? DangerDark : DangerLight;
+    private void OnPaletteTokensChanged() => ApplyTheme();
 
     private void ApplyTheme()
     {
-        _titleLabel.TextColor = Ink2;
+        _titleLabel.TextColor = ThemeTokens.TextSecondaryStrong;
         _hintLabel.TextColor = _row?.Descriptor.HintTone switch
         {
             SettingsHintTone.Brand => BrandPalette.BrandInk,
-            SettingsHintTone.Success => IsDark ? PositiveDark : PositiveLight,
-            _ => Ink3,
+            SettingsHintTone.Success => ThemeTokens.Positive,
+            _ => ThemeTokens.TextMuted,
         };
-        _errorLabel.TextColor = Danger;
-        _divider.Color = Line;
+        _errorLabel.TextColor = ThemeTokens.Danger;
+        _divider.Color = ThemeTokens.Border;
 
         foreach (var child in _valueCell.Children)
         {
             PaintValue(child);
             if (child is Border box && box.Content is IView inner)
             {
-                box.Stroke = _row?.HasError == true ? Danger : Line;
+                box.Stroke = _row?.HasError == true ? ThemeTokens.Danger : ThemeTokens.Border;
                 PaintValue(inner);
             }
         }
@@ -72,22 +58,22 @@ public partial class SettingsRow
         switch (view)
         {
             case Label label when label.FontSize >= LabelSize:
-                label.TextColor = Ink1;
+                label.TextColor = ThemeTokens.TextPrimary;
                 break;
             case Label small:
-                small.TextColor = Ink3;
+                small.TextColor = ThemeTokens.TextMuted;
                 break;
             case Entry entry:
-                entry.TextColor = Ink1;
-                entry.PlaceholderColor = Ink3;
+                entry.TextColor = ThemeTokens.TextPrimary;
+                entry.PlaceholderColor = ThemeTokens.TextMuted;
                 entry.BackgroundColor = Colors.Transparent;
                 break;
             case Picker picker:
-                picker.TextColor = Ink1;
+                picker.TextColor = ThemeTokens.TextPrimary;
                 break;
             case Slider slider:
                 slider.MinimumTrackColor = BrandPalette.Brand;
-                slider.MaximumTrackColor = Line;
+                slider.MaximumTrackColor = ThemeTokens.Border;
                 slider.ThumbColor = BrandPalette.Brand;
                 break;
         }
@@ -95,8 +81,8 @@ public partial class SettingsRow
 
     private void PaintChip(Button chip, bool pressed)
     {
-        chip.BackgroundColor = pressed ? BrandPalette.BrandSoft : IsDark ? SurfaceDark : SurfaceLight;
-        chip.TextColor = pressed ? BrandPalette.BrandInk : Ink2;
-        chip.BorderColor = pressed ? Colors.Transparent : Line;
+        chip.BackgroundColor = pressed ? BrandPalette.BrandSoft : ThemeTokens.SurfaceRaised;
+        chip.TextColor = pressed ? BrandPalette.BrandInk : ThemeTokens.TextSecondaryStrong;
+        chip.BorderColor = pressed ? Colors.Transparent : ThemeTokens.Border;
     }
 }

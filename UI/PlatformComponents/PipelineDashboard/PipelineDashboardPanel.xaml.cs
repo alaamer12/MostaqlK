@@ -435,7 +435,7 @@ public partial class PipelineDashboardPanel : ContentView
             // Discovery is brand identity: dark reads the live palette's dark brand (the locked
             // dark-blue accent); the legacy deeper light hue #1D6FA5 predates the locked set and stays
             // inline to keep light-theme pixels identical (B1b report, surfaced for a design pass).
-            ? (IsDark ? MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.AccentDark : Color.FromArgb("#1D6FA5"))
+            ? (IsDark ? MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.AccentDark : MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.DataDiscovery)
             : IdleDotColor;
 
         // W-content-polish: the mockup's discovery box is a compact "الاكتشاف + آخر فحص" pair. The
@@ -617,13 +617,13 @@ public partial class PipelineDashboardPanel : ContentView
     /// Idle indicators need a colour that reads on *both* surfaces: the old single slate value
     /// disappeared into the dark panel, which is what made the resting state look empty.
     /// </summary>
-    private static Color IdleDotColor => IsDark ? Color.FromArgb("#7C8CA5") : Color.FromArgb("#64748B");
+    private static Color IdleDotColor => MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.DataIdle;
 
     private static Color ColorFor(RadarWorkerState state) => state switch
     {
-        RadarWorkerState.Processing => IsDark ? Color.FromArgb("#22C55E") : Color.FromArgb("#15803D"),
-        RadarWorkerState.Completed => IsDark ? Color.FromArgb("#38BDF8") : Color.FromArgb("#0369A1"),
-        RadarWorkerState.Error => IsDark ? Color.FromArgb("#EF4444") : Color.FromArgb("#B91C1C"),
+        RadarWorkerState.Processing => MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.DataWorker,
+        RadarWorkerState.Completed => MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.DataCompleted,
+        RadarWorkerState.Error => MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.DataError,
         _ => IdleDotColor
     };
 

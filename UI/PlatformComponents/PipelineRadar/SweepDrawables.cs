@@ -10,15 +10,14 @@ namespace MostaqlK.UI.PlatformComponents.PipelineRadar;
 /// </summary>
 internal static class RadarSweepPalette
 {
-    // Discovery ring legacy light hue + snapshot sweep contrast hue, kept identical to the
-    // main drawable's private constants so the overlays and the rings never disagree.
-    public static readonly Color DiscoveryLight = Color.FromArgb("#1D6FA5");
-
+    // Same hues as the main drawable so the overlays and the rings never disagree.
     public static Color DiscoveryColor(bool isDarkTheme) =>
-        isDarkTheme ? MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.AccentDark : DiscoveryLight;
+        isDarkTheme
+            ? MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.AccentDark
+            : MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.DataDiscovery;
 
     public static Color SweepColor(bool isDarkTheme) =>
-        isDarkTheme ? Colors.White : Color.FromArgb("#334155");
+        isDarkTheme ? Colors.White : MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.Get("RadarSweepLight");
 
     public static void Polar(float cx, float cy, float r, double angleDegrees, out float x, out float y)
     {

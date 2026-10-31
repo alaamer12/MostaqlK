@@ -7,6 +7,6 @@
              Title="تفاصيل المشروع"
              Shell.NavBarIsVisible="False"
              FlowDirection="RightToLeft"
-             BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
+             BackgroundColor="{DynamicResource Background}">
 
 </ContentPage>

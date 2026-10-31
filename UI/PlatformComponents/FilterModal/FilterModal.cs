@@ -4,6 +4,7 @@ using Microsoft.Maui.Layouts;
 using MostaqlK.Core.Sources;
 using MostaqlK.UI.DesignSystem;
 using MostaqlK.UI.DesignSystem.BrandTokens;
+using MostaqlK.UI.DesignSystem.Tokens;
 
 namespace MostaqlK.UI.PlatformComponents.FilterModal;
 
@@ -40,16 +41,8 @@ public sealed class FilterModal : ContentView
     // Mockup modal-card max-width 30rem ≈ 480px.
     private const double CardMaxWidth = 480;
 
-    // Mockup `.modal-overlay { background: rgba(2, 6, 23, .55) }` → ARGB 8C020617 (neutral scrim, not brand).
-    private static readonly Color ScrimColor = Color.FromArgb("#8C020617");
-
-    // Neutral chrome pairs (light/dark) mirroring the swept layouts: --surface / --line / --ink-1 / --ink-2 / --ink-3 / --surface-2.
-    private const string SurfaceLight = "#FFFFFF", SurfaceDark = "#0F172A";
-    private const string LineLight = "#E2E8F0", LineDark = "#1E293B";
-    private const string Ink1Light = "#0F172A", Ink1Dark = "#F1F5F9";
-    private const string Ink2Light = "#475569", Ink2Dark = "#94A3B8";
-    private const string Ink3Light = "#64748B", Ink3Dark = "#94A3B8";
-    private const string InputBgLight = "#F8FAFC", InputBgDark = "#1E293B";
+    // Mockup `.modal-overlay { background: rgba(2, 6, 23, .55) }` (neutral scrim, not brand).
+    private static Color ScrimColor => ThemeTokens.Scrim;
 
     private readonly VerticalStackLayout _facetHost;
     private ISourceDescriptor? _descriptor;
@@ -589,18 +582,16 @@ public sealed class FilterModal : ContentView
         };
     }
 
-    private static bool IsDarkTheme => Application.Current?.RequestedTheme == AppTheme.Dark;
+    private static Color Surface() => ThemeTokens.Surface;
 
-    private static Color Surface() => Color.FromArgb(IsDarkTheme ? SurfaceDark : SurfaceLight);
+    private static Color InputBackground() => ThemeTokens.SurfaceField;
 
-    private static Color InputBackground() => Color.FromArgb(IsDarkTheme ? InputBgDark : InputBgLight);
-
-    private static Color Line() => Color.FromArgb(IsDarkTheme ? LineDark : LineLight);
+    private static Color Line() => ThemeTokens.BorderSubtle;
 
     private static Color Ink(int level) => level switch
     {
-        1 => Color.FromArgb(IsDarkTheme ? Ink1Dark : Ink1Light),
-        2 => Color.FromArgb(IsDarkTheme ? Ink2Dark : Ink2Light),
-        _ => Color.FromArgb(IsDarkTheme ? Ink3Dark : Ink3Light),
+        1 => ThemeTokens.TextPrimary,
+        2 => ThemeTokens.TextSecondary,
+        _ => ThemeTokens.TextMuted,
     };
 }

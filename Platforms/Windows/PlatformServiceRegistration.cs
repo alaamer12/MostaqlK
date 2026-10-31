@@ -73,18 +73,12 @@ internal static class PlatformServiceRegistration
     {
         var isDark = Microsoft.Maui.Controls.Application.Current?.RequestedTheme == Microsoft.Maui.ApplicationModel.AppTheme.Dark;
 
-        var background = isDark
-            ? global::Windows.UI.Color.FromArgb(255, 30, 30, 30)
-            : global::Windows.UI.Color.FromArgb(255, 255, 255, 255);
-        var foreground = isDark
-            ? global::Windows.UI.Color.FromArgb(255, 255, 255, 255)
-            : global::Windows.UI.Color.FromArgb(255, 0, 0, 0);
-        var buttonHover = isDark
-            ? global::Windows.UI.Color.FromArgb(255, 60, 60, 60)
-            : global::Windows.UI.Color.FromArgb(255, 230, 230, 230);
-        var buttonPressed = isDark
-            ? global::Windows.UI.Color.FromArgb(255, 80, 80, 80)
-            : global::Windows.UI.Color.FromArgb(255, 210, 210, 210);
+        // Native WinUI colors cannot read DynamicResource; they resolve the same values from the
+        // token bridge (value-identical to the previous inline ternaries).
+        var background = ToWindowsColor(MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.TitleBarBackground);
+        var foreground = ToWindowsColor(MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.TitleBarInk);
+        var buttonHover = ToWindowsColor(MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.TitleBarHover);
+        var buttonPressed = ToWindowsColor(MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.TitleBarPressed);
 
         // The Page's own BackgroundColor only paints the Page's own content area; MAUI reserves
         // the title-bar-height strip above it as inset padding handled by the native WinUI
@@ -130,6 +124,13 @@ internal static class PlatformServiceRegistration
         DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, ref useDarkMode, sizeof(int));
         DwmSetWindowAttribute(hwnd, 19 /* DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 */, ref useDarkMode, sizeof(int));
     }
+
+    private static global::Windows.UI.Color ToWindowsColor(Microsoft.Maui.Graphics.Color color) =>
+        global::Windows.UI.Color.FromArgb(
+            (byte)Math.Round(color.Alpha * 255),
+            (byte)Math.Round(color.Red * 255),
+            (byte)Math.Round(color.Green * 255),
+            (byte)Math.Round(color.Blue * 255));
 
     /// <summary>
     /// Hides the native scrollbar track/thumb on every <see cref="Microsoft.Maui.Controls.CollectionView"/>

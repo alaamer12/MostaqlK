@@ -98,19 +98,16 @@ public partial class AppCard : Border
 
     private void UpdateThemeColors()
     {
-        var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
-
-        // Surface background — mirrors AppSurfaceLight/AppSurfaceDark from Colors.xaml.
-        BackgroundColor = isDark ? Color.FromArgb("#0F172A") : Colors.White;
+        // Surface background — the same values the retired AppSurfaceLight/Dark keys carried.
+        BackgroundColor = MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.Surface;
 
         // Unread cards use the mockup's brand edge treatment (border-inline-start accent, painted
         // from the live brand palette for the active source + theme). MAUI Border can't do per-edge
         // strokes, so a stronger full outline stands in for the accent bar. Read cards use the
-        // muted ReadBorderLight/ReadBorderDark slate outline instead — neutral state chrome, never
-        // brand-retinted.
+        // muted BorderMuted slate outline instead — neutral state chrome, never brand-retinted.
         StrokeThickness = IsUnread ? 2 : 1;
         Stroke = IsUnread
             ? new SolidColorBrush(MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.Brand)
-            : new SolidColorBrush(isDark ? Color.FromArgb("#475569") : Color.FromArgb("#CBD5E1"));
+            : new SolidColorBrush(MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.BorderMuted);
     }
 }

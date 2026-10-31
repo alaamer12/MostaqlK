@@ -38,8 +38,6 @@ public sealed class SourceSwitchTiles : ContentView
 
     // Neutral sidebar name-ink for inactive tiles — the SAME slate pair AppSidebar uses for its
     // inactive nav rows (state chrome, never brand-retinted), kept in sync with that unit.
-    private const string InactiveNameLight = "#475569";
-    private const string InactiveNameDark = "#94A3B8";
 
     private readonly SourceRegistry? _registry;
     private readonly IBrandTokenProvider? _provider;
@@ -312,8 +310,7 @@ public sealed class SourceSwitchTiles : ContentView
             }
             else
             {
-                var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
-                name.TextColor = Color.FromArgb(isDark ? InactiveNameDark : InactiveNameLight);
+                name.TextColor = MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.TextSecondary;
             }
         }
     }

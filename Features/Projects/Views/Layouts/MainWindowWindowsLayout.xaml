@@ -13,14 +13,10 @@
              x:Class="MostaqlK.Features.Projects.Views.Layouts.MainWindowWindowsLayout"
              x:DataType="vm:ProjectFeedViewModel"
              FlowDirection="RightToLeft"
-             BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#0F172A}">
+             BackgroundColor="{DynamicResource TextInverse}">
 
     <ContentView.Resources>
         <ResourceDictionary>
-            <!-- Paused poll-pill state colours (a STATE colour, never brand). Setter.Value cannot
-                 take an AppThemeBinding in MAUI, so the paused variant uses fixed green tokens. -->
-            <Color x:Key="PausedGreen">#2E9E6B</Color>
-            <Color x:Key="PausedGreenSoft">#262E9E6B</Color>
         </ResourceDictionary>
     </ContentView.Resources>
 
@@ -35,7 +31,7 @@
          Panel/feed/rail split is unchanged; the splitter pans the panel/feed boundary (OnRootSizeChanged
          clamps it against the shared RailWidths token). -->
     <Grid x:Name="Root"
-          BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#0F172A}"
+          BackgroundColor="{DynamicResource TextInverse}"
           RowDefinitions="Auto,*,Auto"
           SizeChanged="OnRootSizeChanged">
 
@@ -67,7 +63,7 @@
               Grid.Column="0"
               Grid.ColumnSpan="3"
               RowDefinitions="Auto"
-              BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}">
+              BackgroundColor="{DynamicResource SurfaceRaised}">
 
             <!-- Padded content band. The hairline lives OUTSIDE this grid: inside the padded grid
                  VerticalOptions=End put it on the content's bottom edge, leaving a strip of empty
@@ -83,25 +79,25 @@
                            LineHeight="1.25"
                            FontFamily="TajawalBold"
                            HorizontalTextAlignment="Center"
-                           TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                           TextColor="{DynamicResource TextPrimary}" />
                     <HorizontalStackLayout HorizontalOptions="Center" Spacing="6">
                         <Label Text="{Binding PollIntervalText}"
                                FontSize="12"
                                LineHeight="1.33"
                                FontFamily="Tajawal"
                                VerticalOptions="Center"
-                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                               TextColor="{DynamicResource TextMuted}" />
                         <Label Text="·"
                                FontSize="12"
                                LineHeight="1.33"
                                VerticalOptions="Center"
-                               TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}" />
+                               TextColor="{DynamicResource TextFaint}" />
                         <Label Text="{Binding RateLimitText}"
                                FontSize="12"
                                LineHeight="1.33"
                                FontFamily="Tajawal"
                                VerticalOptions="Center"
-                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                               TextColor="{DynamicResource TextMuted}" />
                     </HorizontalStackLayout>
                 </VerticalStackLayout>
 
@@ -115,16 +111,16 @@
                         VerticalOptions="Start"
                         Margin="0,-4,0,0"
                         StrokeThickness="1"
-                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
+                        Stroke="{DynamicResource BorderBrush}"
                         Padding="15,16,15,0">
                     <Border.Background>
                         <LinearGradientBrush StartPoint="0.35,0" EndPoint="0.65,1">
-                            <GradientStop Color="{AppThemeBinding Light=#F8FAFC, Dark=#172032}" Offset="0.0" />
-                            <GradientStop Color="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}" Offset="1.0" />
+                            <GradientStop Color="{DynamicResource SurfaceHover}" Offset="0.0" />
+                            <GradientStop Color="{DynamicResource SurfaceRaised}" Offset="1.0" />
                         </LinearGradientBrush>
                     </Border.Background>
                     <Border.Shadow>
-                        <Shadow Brush="#020617" Opacity="0.08" Offset="0,1" Radius="3" />
+                        <Shadow Brush="{DynamicResource ShadowDeepBrush}" Opacity="0.08" Offset="0,1" Radius="3" />
                     </Border.Shadow>
                     <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                     <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
@@ -132,7 +128,7 @@
                                FontSize="11"
                                FontFamily="TajawalBold"
                                HorizontalTextAlignment="Center"
-                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                               TextColor="{DynamicResource TextMuted}" />
                         <components:ChromeValueLabel Text="{Binding GlobalStatus.ProjectsAddedTodayText}"
                                                      AutomationId="Sidebar_StatValueLabel"
                                                      FontSize="30"
@@ -148,7 +144,7 @@
             <BoxView Grid.Row="0"
                      HeightRequest="1"
                      VerticalOptions="End"
-                     Color="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" />
+                     Color="{DynamicResource Border}" />
         </Grid>
 
         <!-- ============ PIPELINE PANEL (reused shipped unit, active-source scoped) ============ -->
@@ -179,7 +175,7 @@
         <Grid Grid.Row="1"
               Grid.Column="2"
               RowDefinitions="Auto,*"
-              BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}">
+              BackgroundColor="{DynamicResource SurfaceRaised}">
 
             <!-- Search row: full-width input (right) with the filters button docked at its left.
                  Lives INSIDE the feed column so the pipeline panel squeezes it (they are relative). -->
@@ -191,8 +187,8 @@
                         StrokeThickness="1"
                         HeightRequest="42"
                         VerticalOptions="Center"
-                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
-                        BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#172032}">
+                        Stroke="{DynamicResource BorderBrush}"
+                        BackgroundColor="{DynamicResource SurfaceHover}">
                     <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
                     <Grid ColumnDefinitions="Auto,*"
                           ColumnSpacing="8"
@@ -201,15 +197,15 @@
                         <components:AppIcon Grid.Column="0"
                                             Icon="Search"
                                             FontSize="14"
-                                            TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
+                                            TextColor="{DynamicResource TextFaint}"
                                             VerticalOptions="Center" />
                         <components:SearchInputField Grid.Column="1"
                                                      AutomationId="Projects_SearchInput"
                                                      FlowDirection="RightToLeft"
                                                      Text="{Binding SearchQuery}"
                                                      Placeholder="{Binding SearchPlaceholder}"
-                                                     PlaceholderColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
-                                                     TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
+                                                     PlaceholderColor="{DynamicResource TextFaint}"
+                                                     TextColor="{DynamicResource TextPrimary}"
                                                      BackgroundColor="Transparent"
                                                      FontSize="14"
                                                      DebounceMilliseconds="300"
@@ -227,8 +223,8 @@
                         SemanticProperties.Description="فلاتر البحث"
                         VerticalOptions="Center"
                         IsVisible="{Binding HasFilterFacets}"
-                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
-                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}"
+                        Stroke="{DynamicResource BorderBrush}"
+                        BackgroundColor="{DynamicResource SurfaceRaised}"
                         Padding="14,0">
                     <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
                     <Border.GestureRecognizers>
@@ -240,12 +236,12 @@
                     <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
                         <components:AppIcon Icon="Sliders"
                                             FontSize="12"
-                                            TextColor="{AppThemeBinding Light=#475569, Dark=#CBD5E1}"
+                                            TextColor="{DynamicResource TextSecondaryStrong}"
                                             VerticalOptions="Center" />
                         <Label Text="الفلاتر"
                                FontSize="14"
                                FontFamily="TajawalBold"
-                               TextColor="{AppThemeBinding Light=#475569, Dark=#CBD5E1}"
+                               TextColor="{DynamicResource TextSecondaryStrong}"
                                VerticalOptions="Center" />
                     </HorizontalStackLayout>
                 </Border>
@@ -290,16 +286,16 @@
               ColumnDefinitions="Auto,*,Auto"
               ColumnSpacing="16"
               Padding="24,12"
-              BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}">
+              BackgroundColor="{DynamicResource SurfaceRaised}">
             <BoxView Grid.ColumnSpan="3"
                      HeightRequest="1"
                      VerticalOptions="Start"
-                     Color="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" />
+                     Color="{DynamicResource Border}" />
 
             <!-- inline-start cluster: tracked count · unread · تحديد الكل كمقروء -->
             <HorizontalStackLayout Grid.Column="0" Spacing="10" VerticalOptions="Center" Margin="0,4,0,0">
-                <Label Text="{Binding FooterTrackedText}" AutomationId="Projects_TrackedCountLabel" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" VerticalOptions="Center" FontFamily="Tajawal" />
-                <BoxView WidthRequest="4" HeightRequest="4" Color="{AppThemeBinding Light=#CBD5E1, Dark=#475569}" CornerRadius="2" VerticalOptions="Center" />
+                <Label Text="{Binding FooterTrackedText}" AutomationId="Projects_TrackedCountLabel" FontSize="11" TextColor="{DynamicResource TextMuted}" VerticalOptions="Center" FontFamily="Tajawal" />
+                <BoxView WidthRequest="4" HeightRequest="4" Color="{DynamicResource BorderMuted}" CornerRadius="2" VerticalOptions="Center" />
                 <Label Text="{Binding UnreadCountText}" AutomationId="Projects_UnreadCountLabel" FontSize="11" FontFamily="TajawalBold" TextColor="{DynamicResource BrandInk}" VerticalOptions="Center" />
                 <!-- Real Button, not a Label+tap: the mockup's "hover:underline" text action, but a
                      Label tap gesture proved unreliable under a real pointer here (and a Button is the
@@ -327,16 +323,16 @@
 
             <!-- center: active query + تعديل (opens the same FilterModal as الفلاتر). -->
             <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="Center" VerticalOptions="Center" Margin="0,4,0,0">
-                <components:AppIcon Icon="Filter" FontSize="10" TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}" VerticalOptions="Center" />
+                <components:AppIcon Icon="Filter" FontSize="10" TextColor="{DynamicResource TextFaint}" VerticalOptions="Center" />
                 <Label Text="الاستعلام النشط:"
                        FontSize="11"
-                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                       TextColor="{DynamicResource TextMuted}"
                        VerticalOptions="Center"
                        FontFamily="Tajawal" />
                 <Label Text="{Binding ActiveQueryText}"
                        FontSize="11"
                        FontFamily="TajawalBold"
-                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
+                       TextColor="{DynamicResource TextPrimary}"
                        VerticalOptions="Center" />
                 <Label Text="تعديل"
                        IsVisible="{Binding HasFilterFacets}"
@@ -363,7 +359,7 @@
                        AutomationId="Projects_PlatformDisabledNotice"
                        FontSize="11"
                        FontFamily="TajawalBold"
-                       TextColor="{AppThemeBinding Light=#B45309, Dark=#FBBF24}"
+                       TextColor="{DynamicResource Warning}"
                        VerticalOptions="Center" />
 
                 <lastscan:LastScanStatus AutomationId="Projects_LastScanStatus"
@@ -374,7 +370,7 @@
                                          ShowRefresh="True"
                                          RefreshCommand="{Binding RefreshCommand}"
                                          FontSize="11"
-                                         TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                         TextColor="{DynamicResource TextMuted}"
                                          VerticalOptions="Center" />
 
                 <!-- Poll pill: brand-outlined, BrandSoft fill, BrandInk text+glyph. Paused → accent-green
@@ -398,8 +394,8 @@
                              values here because MAUI Setter.Value does not accept AppThemeBinding; the
                              translucent fill blends correctly over both surfaces. -->
                         <DataTrigger TargetType="Border" Binding="{Binding IsPollingActive}" Value="False">
-                            <Setter Property="Stroke" Value="{StaticResource PausedGreen}" />
-                            <Setter Property="BackgroundColor" Value="{StaticResource PausedGreenSoft}" />
+                            <Setter Property="Stroke" Value="{DynamicResource FixedPositiveBrush}" />
+                            <Setter Property="BackgroundColor" Value="{DynamicResource PositiveWash}" />
                         </DataTrigger>
                     </Border.Triggers>
                     <HorizontalStackLayout Spacing="6">
@@ -409,7 +405,7 @@
                                             VerticalOptions="Center">
                             <components:AppIcon.Triggers>
                                 <DataTrigger TargetType="components:AppIcon" Binding="{Binding IsPollingActive}" Value="False">
-                                    <Setter Property="TextColor" Value="{StaticResource PausedGreen}" />
+                                    <Setter Property="TextColor" Value="{DynamicResource FixedPositive}" />
                                 </DataTrigger>
                             </components:AppIcon.Triggers>
                         </components:AppIcon>
@@ -420,7 +416,7 @@
                                TextColor="{DynamicResource BrandInk}">
                             <Label.Triggers>
                                 <DataTrigger TargetType="Label" Binding="{Binding IsPollingActive}" Value="False">
-                                    <Setter Property="TextColor" Value="{StaticResource PausedGreen}" />
+                                    <Setter Property="TextColor" Value="{DynamicResource FixedPositive}" />
                                 </DataTrigger>
                             </Label.Triggers>
                         </Label>

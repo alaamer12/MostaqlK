@@ -46,12 +46,12 @@
 
     <Grid ColumnDefinitions="*,1"
           RowDefinitions="Auto,*,Auto"
-          BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}">
+          BackgroundColor="{DynamicResource SurfaceRaised}">
 
         <!-- Rail end-edge hairline (mockup `.rail { border-inline-end: 1px solid line-token }`;
              LTR wrapper → inline-end is the physical right, the edge facing the content column). -->
         <BoxView Grid.Column="1" Grid.RowSpan="3"
-                 Color="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" />
+                 Color="{DynamicResource Border}" />
 
         <!-- TOP: brand mark · separator · source tiles · separator · section nav · contributions -->
         <VerticalStackLayout Grid.Column="0" Grid.Row="0" Spacing="8" Padding="0,16,0,0">
@@ -69,14 +69,14 @@
             </Border>
 
             <BoxView WidthRequest="32" HeightRequest="1" Margin="0,0,0,4" HorizontalOptions="Center"
-                     Color="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" />
+                     Color="{DynamicResource Border}" />
 
             <!-- Source tiles (contract §3): ONE tile per registered source, registry-driven,
                  tap = SourceMorph.Apply. Rail visual form, shared switching unit. -->
             <rail:SourceSwitchTiles x:Name="Tiles" IconOnly="True" SourceChanged="OnTilesSourceChanged" />
 
             <BoxView WidthRequest="32" HeightRequest="1" Margin="4,4" HorizontalOptions="Center"
-                     Color="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" />
+                     Color="{DynamicResource Border}" />
 
             <!-- Sections of the active source's app (mockup order: المشاريع · البحث المتقدم ·
                  الإعدادات · حول التطبيق). AutomationIds keep the Sidebar_* names the UI tests assert. -->

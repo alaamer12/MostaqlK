@@ -94,8 +94,8 @@ public partial class PressableEffect
 
         // Modern elegant hover color: slightly lighter in dark, slightly darker in light
         var defaultHover = Application.Current?.RequestedTheme == AppTheme.Dark
-            ? Color.FromArgb("#15FFFFFF") // Subtle light overlay for dark theme
-            : Color.FromArgb("#0A000000"); // Very subtle dark overlay for light theme
+            ? Tokens.ThemeTokens.Get("OverlayLight") // Subtle light overlay for dark theme
+            : Tokens.ThemeTokens.Get("OverlayDark"); // Very subtle dark overlay for light theme
 
         var highlight = HoverColor ?? defaultHover;
 

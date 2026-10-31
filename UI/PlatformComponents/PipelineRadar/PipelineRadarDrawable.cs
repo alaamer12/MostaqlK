@@ -10,23 +10,6 @@ namespace MostaqlK.UI.PlatformComponents.PipelineRadar;
 /// </summary>
 public sealed class PipelineRadarDrawable : IDrawable
 {
-    // Two palettes, because one is never legible on both surfaces: the dark-theme hues are the
-    // light, luminous ones that read on #0F172A, while light theme needs the darker, saturated
-    // variants of the same tokens to survive on a white panel.
-    // The DISCOVERY ring is brand identity, not pipeline state: it reads the live brand palette's
-    // dark counterpart so a source morph re-tints it. Its legacy light counterpart (#1D6FA5,
-    // a deeper hand-picked hue that predates the locked brand set) stays inline below — converging
-    // it onto the light brand value would change how the resting-state ring reads today.
-    private static readonly Color QueueDark = Color.FromArgb("#F59E0B");
-    private static readonly Color WorkerDark = Color.FromArgb("#22C55E");
-    private static readonly Color CompletedDark = Color.FromArgb("#38BDF8");
-    private static readonly Color ErrorDark = Color.FromArgb("#EF4444");
-
-    private static readonly Color DiscoveryLight = Color.FromArgb("#1D6FA5");
-    private static readonly Color QueueLight = Color.FromArgb("#B45309");
-    private static readonly Color WorkerLight = Color.FromArgb("#15803D");
-    private static readonly Color CompletedLight = Color.FromArgb("#0369A1");
-    private static readonly Color ErrorLight = Color.FromArgb("#B91C1C");
 
     // Baseline (idle) alphas used to sit around 0.1, which made the three rings effectively
     // invisible whenever the pipeline was quiet - the whole point of the dial is that its resting
@@ -54,17 +37,20 @@ public sealed class PipelineRadarDrawable : IDrawable
     /// </summary>
     public bool IsDarkTheme { get; set; } = true;
 
+    // The DISCOVERY ring is brand identity, not pipeline state: its dark variant is the live brand
+    // palette's dark accent so a source morph re-tints it; its light variant keeps the legacy
+    // deeper hue (a deliberate, value-preserved exception). Pipeline state hues are palette tokens.
     private Color DiscoveryColor => IsDarkTheme
         ? MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.AccentDark
-        : DiscoveryLight;
+        : MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.DataDiscovery;
 
-    private Color QueueColor => IsDarkTheme ? QueueDark : QueueLight;
+    private Color QueueColor => MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.DataQueue;
 
-    private Color WorkerColor => IsDarkTheme ? WorkerDark : WorkerLight;
+    private Color WorkerColor => MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.DataWorker;
 
-    private Color CompletedColor => IsDarkTheme ? CompletedDark : CompletedLight;
+    private Color CompletedColor => MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.DataCompleted;
 
-    private Color ErrorColor => IsDarkTheme ? ErrorDark : ErrorLight;
+    private Color ErrorColor => MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.DataError;
 
     public void Draw(ICanvas canvas, RectF dirtyRect)
     {

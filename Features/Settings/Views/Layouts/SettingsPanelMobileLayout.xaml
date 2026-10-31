@@ -17,8 +17,8 @@
 
             <Style x:Key="SettingsInputBorderStyle" TargetType="Border">
                 <Setter Property="StrokeThickness" Value="1" />
-                <Setter Property="Stroke" Value="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" />
-                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#F8FAFC, Dark=#1E293B}" />
+                <Setter Property="Stroke" Value="{DynamicResource BorderBrush}" />
+                <Setter Property="BackgroundColor" Value="{DynamicResource SurfaceFieldBrush}" />
                 <Setter Property="Padding" Value="12,2" />
                 <Setter Property="StrokeShape">
                     <Setter.Value>
@@ -30,36 +30,36 @@
             <Style x:Key="SettingsInputStyle" TargetType="InputView">
                 <Setter Property="FontSize" Value="13" />
                 <Setter Property="FontFamily" Value="Tajawal" />
-                <Setter Property="TextColor" Value="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
-                <Setter Property="PlaceholderColor" Value="{AppThemeBinding Light=#94A3B8, Dark=#64748B}" />
+                <Setter Property="TextColor" Value="{DynamicResource TextPrimary}" />
+                <Setter Property="PlaceholderColor" Value="{DynamicResource TextFaint}" />
                 <Setter Property="BackgroundColor" Value="Transparent" />
             </Style>
 
             <Style x:Key="SettingsPickerStyle" TargetType="Picker">
                 <Setter Property="FontSize" Value="13" />
                 <Setter Property="FontFamily" Value="Tajawal" />
-                <Setter Property="TextColor" Value="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                <Setter Property="TextColor" Value="{DynamicResource TextPrimary}" />
                 <Setter Property="BackgroundColor" Value="Transparent" />
             </Style>
         </ResourceDictionary>
     </ContentView.Resources>
 
-    <Grid RowDefinitions="Auto,*" BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
+    <Grid RowDefinitions="Auto,*" BackgroundColor="{DynamicResource Background}">
         <!-- Top App Bar with back button -->
-        <Grid Grid.Row="0" Padding="16,12" ColumnDefinitions="Auto,*,Auto" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+        <Grid Grid.Row="0" Padding="16,12" ColumnDefinitions="Auto,*,Auto" BackgroundColor="{DynamicResource Surface}">
             <ds:PressableButton Grid.Column="0" Text="← رجوع" AutomationId="Settings_Mobile_BackButton" Clicked="OnBackClicked"
                                 BackgroundColor="Transparent" TextColor="{DynamicResource BrandLink}" Padding="0"
                                 FontFamily="TajawalBold" FontSize="14" />
             <Label Grid.Column="1" Text="الإعدادات" FontSize="18" FontFamily="TajawalBold"
-                   TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" HorizontalOptions="Center" VerticalOptions="Center" />
+                   TextColor="{DynamicResource TextPrimary}" HorizontalOptions="Center" VerticalOptions="Center" />
             <BoxView Grid.Column="2" WidthRequest="40" Color="Transparent" />
         </Grid>
 
         <ScrollView Grid.Row="1" AutomationId="Settings_Mobile_ScrollView">
-            <VerticalStackLayout Spacing="0" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+            <VerticalStackLayout Spacing="0" BackgroundColor="{DynamicResource Surface}">
 
                 <Label Text="{Binding ValidationMessage}"
-                       TextColor="{AppThemeBinding Light=#DC2626, Dark=#F87171}"
+                       TextColor="{DynamicResource Danger}"
                        FontSize="13"
                        IsVisible="{Binding HasValidationError}"
                        FontFamily="Tajawal"

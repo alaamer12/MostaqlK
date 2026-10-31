@@ -5,25 +5,25 @@
 
     <!-- Shared base style for AppToggle (UI/PlatformComponents/AppToggle) — used e.g. by the light/dark theme toggle. -->
     <Style x:Key="AppToggleBase" TargetType="Switch">
-        <Setter Property="OnColor" Value="{AppThemeBinding Light={StaticResource AccentPrimary}, Dark={StaticResource AccentPrimaryDark}}" />
-        <Setter Property="ThumbColor" Value="{StaticResource White}" />
+        <Setter Property="OnColor" Value="{DynamicResource Accent}" />
+        <Setter Property="ThumbColor" Value="{DynamicResource SwitchThumb}" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup x:Name="CommonStates">
                     <VisualState x:Name="Normal" />
                     <VisualState x:Name="Disabled">
                         <VisualState.Setters>
-                            <Setter Property="OnColor" Value="{AppThemeBinding Light={StaticResource ReadBorderLight}, Dark={StaticResource ReadBorderDark}}" />
+                            <Setter Property="OnColor" Value="{DynamicResource BorderMuted}" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState x:Name="On">
                         <VisualState.Setters>
-                            <Setter Property="ThumbColor" Value="{AppThemeBinding Light={StaticResource AccentPrimary}, Dark={StaticResource AccentPrimaryDark}}" />
+                            <Setter Property="ThumbColor" Value="{DynamicResource Accent}" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState x:Name="Off">
                         <VisualState.Setters>
-                            <Setter Property="ThumbColor" Value="{AppThemeBinding Light={StaticResource ReadBorderLight}, Dark={StaticResource ReadBorderDark}}" />
+                            <Setter Property="ThumbColor" Value="{DynamicResource BorderMuted}" />
                         </VisualState.Setters>
                     </VisualState>
                 </VisualStateGroup>

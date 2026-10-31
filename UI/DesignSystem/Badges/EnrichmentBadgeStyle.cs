@@ -14,13 +14,11 @@ public static class EnrichmentBadgeStyle
     public const string PendingText = "قيد الإثراء";
     public const string FailedText = "فشل الإثراء";
 
-    public const string EnrichedBackgroundHex = "#ECFDF5";
-    public const string PendingBackgroundHex = "#FFFBEB";
-    public const string FailedBackgroundHex = "#FEF2F2";
-
-    public const string EnrichedForegroundHex = "#2E9E6B";
-    public const string PendingForegroundHex = "#D97706";
-    public const string FailedForegroundHex = "#DC2626";
+    // Badge colors are theme-invariant; the values live in the token table (single authority).
+    private static string TokenHex(string name) =>
+        Tokens.NeutralTokenSet.Find(name)?.Light
+            ?? Tokens.NeutralTokenSet.Find("FixedBlack")?.Light
+            ?? throw new System.InvalidOperationException($"Unknown badge token '{name}'.");
 
     /// <summary>Returns the localized label for the enrichment status.</summary>
     public static string GetText(EnrichmentStatus status) => status switch
@@ -33,17 +31,17 @@ public static class EnrichmentBadgeStyle
     /// <summary>Returns the background color hex string for the enrichment status badge.</summary>
     public static string GetBackgroundHex(EnrichmentStatus status) => status switch
     {
-        EnrichmentStatus.Enriched => EnrichedBackgroundHex,
-        EnrichmentStatus.Failed => FailedBackgroundHex,
-        _ => PendingBackgroundHex,
+        EnrichmentStatus.Enriched => TokenHex("BadgeEnrichedBackground"),
+        EnrichmentStatus.Failed => TokenHex("BadgeFailedBackground"),
+        _ => TokenHex("BadgePendingBackground"),
     };
 
     /// <summary>Returns the foreground/text color hex string for the enrichment status badge.</summary>
     public static string GetForegroundHex(EnrichmentStatus status) => status switch
     {
-        EnrichmentStatus.Enriched => EnrichedForegroundHex,
-        EnrichmentStatus.Failed => FailedForegroundHex,
-        _ => PendingForegroundHex,
+        EnrichmentStatus.Enriched => TokenHex("BadgeEnrichedForeground"),
+        EnrichmentStatus.Failed => TokenHex("BadgeFailedForeground"),
+        _ => TokenHex("BadgePendingForeground"),
     };
 
     /// <summary>Returns the parsed background <see cref="Color"/> for the enrichment status badge.</summary>

@@ -10,8 +10,8 @@
         Platforms/Windows/Styles/AppButtonStyle.Windows.xaml using Style.BasedOn.
     -->
     <Style x:Key="AppButtonBase" TargetType="Button">
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource AppBackgroundDark}}" />
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource AccentPrimary}, Dark={StaticResource AccentPrimaryDark}}" />
+        <Setter Property="TextColor" Value="{DynamicResource TextOnAccent}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource Accent}" />
         <!-- The mockups' buttons are `font-medium` in Tajawal (design/mvp/*.html). -->
         <Setter Property="FontFamily" Value="TajawalMedium" />
         <Setter Property="FontSize" Value="14" />
@@ -27,8 +27,8 @@
                     <VisualState x:Name="PointerOver" />
                     <VisualState x:Name="Disabled">
                         <VisualState.Setters>
-                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray600}}" />
-                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}" />
+                            <Setter Property="TextColor" Value="{DynamicResource ControlTextDisabled}" />
+                            <Setter Property="BackgroundColor" Value="{DynamicResource ControlFillDisabled}" />
                         </VisualState.Setters>
                     </VisualState>
                 </VisualStateGroup>
@@ -50,8 +50,8 @@
     -->
     <Style x:Key="OutlineChipButtonStyle" TargetType="ds:PressableBorder">
         <Setter Property="StrokeThickness" Value="1" />
-        <Setter Property="Stroke" Value="{AppThemeBinding Light=#DBEAFE, Dark=#1E3A5F}" />
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#EFF6FF, Dark=#132237}" />
+        <Setter Property="Stroke" Value="{DynamicResource AccentSoftStrokeBrush}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource AccentSoft}" />
         <Setter Property="Padding" Value="14,8" />
         <Setter Property="HorizontalOptions" Value="Start" />
         <Setter Property="StrokeShape">
@@ -64,9 +64,9 @@
     <!-- Transparent button with accent text, used for secondary or auxiliary actions. -->
     <Style x:Key="GhostButtonStyle" TargetType="Button" BasedOn="{StaticResource AppButtonBase}">
         <Setter Property="BackgroundColor" Value="Transparent" />
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource AccentPrimary}, Dark={StaticResource AccentPrimaryDark}}" />
+        <Setter Property="TextColor" Value="{DynamicResource Accent}" />
         <Setter Property="BorderWidth" Value="1" />
-        <Setter Property="BorderColor" Value="{AppThemeBinding Light={StaticResource AccentPrimary}, Dark={StaticResource AccentPrimaryDark}}" />
+        <Setter Property="BorderColor" Value="{DynamicResource Accent}" />
     </Style>
 
 </ResourceDictionary>

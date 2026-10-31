@@ -11,8 +11,8 @@
         VisualState or a bound trigger (TODO: wire IsRead once ProjectCard view model exists).
     -->
     <Style x:Key="AppCardBase" TargetType="Border">
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource AppSurfaceLight}, Dark={StaticResource AppSurfaceDark}}" />
-        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource ReadBorderLight}, Dark={StaticResource ReadBorderDark}}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource Surface}" />
+        <Setter Property="Stroke" Value="{DynamicResource BorderMutedBrush}" />
         <Setter Property="StrokeThickness" Value="1" />
         <Setter Property="StrokeShape" Value="RoundRectangle 12" />
         <Setter Property="Padding" Value="16" />
@@ -22,7 +22,7 @@
                     <VisualState x:Name="Read" />
                     <VisualState x:Name="Unread">
                         <VisualState.Setters>
-                            <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource AccentPrimary}, Dark={StaticResource AccentPrimaryDark}}" />
+                            <Setter Property="Stroke" Value="{DynamicResource AccentBrush}" />
                             <Setter Property="StrokeThickness" Value="2" />
                         </VisualState.Setters>
                     </VisualState>

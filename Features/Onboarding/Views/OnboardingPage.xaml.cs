@@ -7,9 +7,6 @@ namespace MostaqlK.Features.Onboarding.Views;
 
 public partial class OnboardingPage : ContentPage
 {
-    private const string InactiveDotColorLight = "#D7E0EE";
-    private const string InactiveDotColorDark = "#4B5A78";
-    private const string ActiveDotColor = "#FFFFFF";
     private const string DotAnimationName = "OnboardingDotTransition";
     private const string SpinnerAnimationName = "OnboardingSpinnerRotate";
 
@@ -271,10 +268,8 @@ public partial class OnboardingPage : ContentPage
     /// snapping the width/color of the step indicator instantly.</summary>
     private void UpdateStepDots(int currentStep, bool animate = true)
     {
-        var inactiveColor = Color.FromArgb(Application.Current?.RequestedTheme == AppTheme.Dark
-            ? InactiveDotColorDark
-            : InactiveDotColorLight);
-        var activeColor = Color.FromArgb(ActiveDotColor);
+        var inactiveColor = MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.Get("OnboardingDotInactive");
+        var activeColor = MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.Get("OnboardingDotActive");
         var dots = new[] { StepDot0, StepDot1, StepDot2, StepDot3, StepDot4, StepDot5 };
 
         for (var i = 0; i < dots.Length; i++)

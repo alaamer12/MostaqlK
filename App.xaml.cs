@@ -123,6 +123,12 @@ public partial class App : Application
         // runs before any window exists, so pages never paint against an empty palette.
         MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.Initialize(this, services);
 
+        // Theme-only neutral tokens: writes the full SemanticToken table (colors + SolidColorBrush
+        // twins) into the root dictionary and rewrites it on every RequestedThemeChanged. Same
+        // startup contract as the brand palette - before any window exists, so no control ever
+        // applies a style against a missing key.
+        MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.Initialize(this);
+
 #if WINDOWS
 		// FIX ("not a single notification, ever since day one"): AUMID + Start Menu shortcut +
 		// AppNotificationManager COM registration used to happen lazily, only the first time a

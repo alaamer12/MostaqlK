@@ -162,6 +162,12 @@ public static class Program
         Run(nameof(TestVersionNumbersAgree), TestVersionNumbersAgree);
         Run(nameof(TestNoSourceIdStringLiteralsInSharedCode), TestNoSourceIdStringLiteralsInSharedCode);
         Run(nameof(TestNoInlineBrandHexesOutsideTheirOwners), TestNoInlineBrandHexesOutsideTheirOwners);
+        Run(nameof(TestNoAppThemeBindingInXaml), TestNoAppThemeBindingInXaml);
+        Run(nameof(TestNoInlineColorLiteralsInXaml), TestNoInlineColorLiteralsInXaml);
+        Run(nameof(TestNoInlineColorLiteralsInSharedCode), TestNoInlineColorLiteralsInSharedCode);
+        Run(nameof(TestRetiredLegacyKeysAreGone), TestRetiredLegacyKeysAreGone);
+        Run(nameof(TestDynamicResourceKeysResolveToTokens), TestDynamicResourceKeysResolveToTokens);
+        Run(nameof(TestTokenTableIsComplete), TestTokenTableIsComplete);
         Run(nameof(TestConfigurationReferenceMatchesCatalog), TestConfigurationReferenceMatchesCatalog);
 
         Console.WriteLine();
@@ -2493,13 +2499,9 @@ public static class Program
             "#2563EB", "#60A5FA", "#2386C8", "#5CA8DE", "#1A6DA6", "#EFF6FB", "#FFA200", "#FFB84D",
         };
 
-        // One documented exception, and it is documented because it is a real deviation, not a
-        // clean-up I skipped: the shapes gallery must paint BOTH identities at once to match the
-        // mockup header, so it reads the mockup's colors rather than the active brand. Mapping it to
-        // descriptor.Brands is not value-identical - nafezly's on-text is the mockup's #3A2A00 in
-        // both themes while NafezlySource.Brands.OnBrandDark is #2A1D00 - so the conversion is a
-        // parity question for the harness owner, not a mechanical substitution.
-        const string HarnessExemption = "Features/Settings/Views/SettingsShapesPage.xaml.cs";
+        // The token table is the designated owner of every brand-family value (it replaced the
+        // static accent literals); the sweep-proof is that no consumer holds one.
+        const string TokenTableExemption = "UI/DesignSystem/Tokens/NeutralTokenSet.cs";
 
         var violations = new List<string>();
         var files = 0;
@@ -2515,7 +2517,7 @@ public static class Program
             {
                 files++;
                 var rel = Path.GetRelativePath(root, file).Replace('\\', '/');
-                if (rel.Equals(HarnessExemption, StringComparison.Ordinal))
+                if (rel.Equals(TokenTableExemption, StringComparison.Ordinal))
                 {
                     continue;
                 }
@@ -2545,6 +2547,367 @@ public static class Program
         // The floor rose with the scan width on purpose: a widened scan that still reports
         // the old minimum would prove nothing about the directories it just added.
         Check("brand hex scan covered UI/, Features/, Infrastructure/ and Core/", files >= 210, $"{files} files scanned");
+    }
+
+    private static readonly string[] ColorAttributeNames =
+    {
+        "TextColor", "BackgroundColor", "Color", "Stroke", "Fill", "BorderColor", "PlaceholderColor",
+        "OnColor", "ThumbColor", "MinimumTrackColor", "MaximumTrackColor", "ProgressColor",
+        "IndicatorColor", "SelectedIndicatorColor", "TitleColor", "CancelButtonColor", "RefreshColor",
+        "BarBackgroundColor", "BarTextColor", "UnselectedColor", "SelectedTabColor", "DisabledColor",
+        "IconColor", "UnselectedTabColor", "Shell.BackgroundColor", "Shell.ForegroundColor",
+        "Shell.TitleColor", "Shell.DisabledColor", "Shell.UnselectedColor",
+        "Shell.TabBarBackgroundColor", "Shell.TabBarForegroundColor", "Shell.TabBarTitleColor",
+        "Shell.TabBarUnselectedColor",
+    };
+
+    /// <summary>
+    /// The single color authority is UI/DesignSystem/Tokens/NeutralTokenSet.cs, written into the
+    /// root dictionary by ThemeTokens. A color AppThemeBinding reintroduces a second source of truth
+    /// (the pre-token drift). Image-source theme swaps remain allowed - tokens are colors only.
+    /// </summary>
+    private static void TestNoAppThemeBindingInXaml()
+    {
+        var root = FindRepoRoot();
+        var colorBinding = new System.Text.RegularExpressions.Regex(
+            "\\b(?:" + string.Join("|", ColorAttributeNames.Select(System.Text.RegularExpressions.Regex.Escape))
+            + ")\\s*=\\s*\"\\{AppThemeBinding");
+        var violations = new List<string>();
+        var files = 0;
+        foreach (var file in EnumerateXamlFiles(root))
+        {
+            files++;
+            var rel = Path.GetRelativePath(root, file).Replace('\\', '/');
+            var inComment = false;
+            var lines = File.ReadAllLines(file);
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var scan = StripXamlComments(lines[i], ref inComment);
+                if (colorBinding.IsMatch(scan))
+                {
+                    violations.Add($"{rel}:{i + 1}");
+                }
+            }
+        }
+
+        Check("no color AppThemeBinding in XAML (tokens are the only theme authority)",
+            violations.Count == 0, string.Join(" | ", violations));
+        Check("color AppThemeBinding scan covered the XAML tree", files >= 30, $"{files} files scanned");
+    }
+
+    /// <summary>
+    /// Every color in markup must be a DynamicResource/StaticResource reference. Hex literals and
+    /// named colors on color-typed attributes are how the 311 duplicated pairs were written.
+    /// </summary>
+    private static void TestNoInlineColorLiteralsInXaml()
+    {
+        var root = FindRepoRoot();
+        var pattern = new System.Text.RegularExpressions.Regex(
+            "\\b(?:" + string.Join("|", ColorAttributeNames.Select(System.Text.RegularExpressions.Regex.Escape))
+            + ")\\s*=\\s*\"([^\"]*)\"");
+        var hex = new System.Text.RegularExpressions.Regex("#[0-9A-Fa-f]{3,8}\\b");
+        var named = new System.Text.RegularExpressions.Regex(
+            "^(White|Black|Gray|Red|Green|Blue|Yellow|Orange|Purple|Magenta|Cyan|Brown|Pink)$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase |
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        var violations = new List<string>();
+        var files = 0;
+        foreach (var file in EnumerateXamlFiles(root))
+        {
+            files++;
+            var rel = Path.GetRelativePath(root, file).Replace('\\', '/');
+            var inComment = false;
+            var lines = File.ReadAllLines(file);
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var scan = StripXamlComments(lines[i], ref inComment);
+                foreach (System.Text.RegularExpressions.Match match in pattern.Matches(scan))
+                {
+                    var value = match.Groups[1].Value.Trim();
+                    if (value.Length == 0
+                        || value.Contains("{DynamicResource", StringComparison.Ordinal)
+                        || value.Contains("{StaticResource", StringComparison.Ordinal)
+                        || value.Contains("{Binding", StringComparison.Ordinal)
+                        || value.Contains("{AppThemeBinding", StringComparison.Ordinal)
+                        || value.Equals("Transparent", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (hex.IsMatch(value) || named.IsMatch(value))
+                    {
+                        violations.Add($"{rel}:{i + 1} {match.Groups[0].Value}");
+                    }
+                }
+            }
+        }
+
+        Check("no inline color literals on XAML color attributes", violations.Count == 0,
+            string.Join(" | ", violations));
+        Check("inline color scan covered the XAML tree", files >= 30, $"{files} files scanned");
+    }
+
+    /// <summary>
+    /// Shared C# may not carry a color literal either. The two documented owners are the token table
+    /// itself and the icon-PNG equality keys (hex strings that select a pre-baked PNG, not a paint).
+    /// </summary>
+    private static void TestNoInlineColorLiteralsInSharedCode()
+    {
+        var root = FindRepoRoot();
+        var allowed = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "UI/DesignSystem/Tokens/NeutralTokenSet.cs",
+            "UI/PlatformComponents/AppIcon/AppIconGlyphExtensions.cs",
+        };
+        var hex = new System.Text.RegularExpressions.Regex("#[0-9A-Fa-f]{3,8}\\b");
+        var violations = new List<string>();
+        var files = 0;
+        foreach (var dir in new[] { "UI", "Features", "Platforms", "Core", "Services", "Infrastructure" })
+        {
+            var path = Path.Combine(root, dir);
+            if (!Directory.Exists(path))
+            {
+                continue;
+            }
+
+            foreach (var file in Directory.EnumerateFiles(path, "*.cs", SearchOption.AllDirectories))
+            {
+                files++;
+                var rel = Path.GetRelativePath(root, file).Replace('\\', '/');
+                if (allowed.Contains(rel))
+                {
+                    continue;
+                }
+
+                var lines = File.ReadAllLines(file);
+                for (var i = 0; i < lines.Length; i++)
+                {
+                    var trimmed = lines[i].TrimStart();
+                    if (trimmed.StartsWith("//", StringComparison.Ordinal)
+                        || trimmed.StartsWith("/*", StringComparison.Ordinal)
+                        || trimmed.StartsWith("*", StringComparison.Ordinal)
+                        || trimmed.Contains("// color-token-exception:", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    var code = lines[i].Split("//", 2)[0];
+                    if (hex.IsMatch(code))
+                    {
+                        violations.Add($"{rel}:{i + 1}");
+                    }
+                }
+            }
+        }
+
+        Check("no inline color literals in shared C#", violations.Count == 0,
+            string.Join(" | ", violations));
+        Check("inline color C# scan covered UI/Features/Platforms/Core/Services/Infrastructure",
+            files >= 280, $"{files} files scanned");
+    }
+
+    /// <summary>
+    /// The MAUI template palette and the old Mostaql colours were retired into tokens; any surviving
+    /// reference would resolve at runtime against a key that no longer exists.
+    /// </summary>
+    private static void TestRetiredLegacyKeysAreGone()
+    {
+        var root = FindRepoRoot();
+        var retired = new[]
+        {
+            "Primary", "PrimaryDark", "PrimaryDarkText", "Secondary", "SecondaryDarkText", "Tertiary",
+            "White", "Black", "Magenta", "MidnightBlue", "OffBlack",
+            "Gray100", "Gray200", "Gray300", "Gray400", "Gray500", "Gray600", "Gray900", "Gray950",
+            "AccentPrimary", "AccentPrimaryDark", "AccentPositive", "AccentPositiveDark",
+            "AppBackgroundLight", "AppBackgroundDark", "AppSurfaceLight", "AppSurfaceDark",
+            "ReadBorderLight", "ReadBorderDark",
+            "PrimaryBrush", "SecondaryBrush", "TertiaryBrush", "WhiteBrush", "BlackBrush",
+            "Gray100Brush", "Gray200Brush", "Gray300Brush", "Gray400Brush", "Gray500Brush",
+            "Gray600Brush", "Gray900Brush", "Gray950Brush", "AccentPrimaryBrush", "AccentPositiveBrush",
+            "AppBackgroundBrush", "AppSurfaceBrush", "ReadBorderBrush",
+        };
+        var retiredSet = new HashSet<string>(retired, StringComparer.Ordinal);
+        var resourceRef = new System.Text.RegularExpressions.Regex(
+            "\\{(?:StaticResource|DynamicResource)\\s+([A-Za-z0-9_.]+)\\}");
+        var violations = new List<string>();
+        var files = 0;
+        foreach (var file in EnumerateXamlFiles(root))
+        {
+            files++;
+            var rel = Path.GetRelativePath(root, file).Replace('\\', '/');
+            var inComment = false;
+            var lines = File.ReadAllLines(file);
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var scan = StripXamlComments(lines[i], ref inComment);
+                foreach (System.Text.RegularExpressions.Match match in resourceRef.Matches(scan))
+                {
+                    if (retiredSet.Contains(match.Groups[1].Value))
+                    {
+                        violations.Add($"{rel}:{i + 1} {match.Groups[1].Value}");
+                    }
+                }
+            }
+        }
+
+        Check("retired palette keys are gone from XAML", violations.Count == 0,
+            string.Join(" | ", violations));
+        Check("retired-key scan covered the XAML tree", files >= 30, $"{files} files scanned");
+    }
+
+    /// <summary>
+    /// Every DynamicResource key used in markup must be a token, a bridge-written brush twin, or one
+    /// of BrandPalette's five keys. A typo otherwise renders as "the default property value", which
+    /// is invisible in a build and only shows up as a wrong pixel.
+    /// </summary>
+    private static void TestDynamicResourceKeysResolveToTokens()
+    {
+        var root = FindRepoRoot();
+        var tokenFile = Path.Combine(root, "UI", "DesignSystem", "Tokens", "NeutralTokenSet.cs");
+        var source = File.ReadAllText(tokenFile);
+        var tokens = new HashSet<string>(
+            System.Text.RegularExpressions.Regex.Matches(source, "new\\(\"([A-Za-z0-9]+)\"")
+                .Cast<System.Text.RegularExpressions.Match>()
+                .Select(match => match.Groups[1].Value),
+            StringComparer.Ordinal);
+        var brushBlock = System.Text.RegularExpressions.Regex.Match(
+            source, "BrushTokens = new HashSet<string>\\(StringComparer\\.Ordinal\\)\\s*\\{(.*?)\\};",
+            System.Text.RegularExpressions.RegexOptions.Singleline).Groups[1].Value;
+        var brushTokens = System.Text.RegularExpressions.Regex.Matches(brushBlock, "\"([A-Za-z0-9]+)\"")
+            .Cast<System.Text.RegularExpressions.Match>()
+            .Select(match => match.Groups[1].Value);
+
+        var valid = new HashSet<string>(tokens, StringComparer.Ordinal)
+        {
+            "Brand", "BrandInk", "BrandSoft", "OnBrand", "BrandLink",
+        };
+        foreach (var brush in brushTokens)
+        {
+            valid.Add(brush + "Brush");
+        }
+
+        var dynamicRef = new System.Text.RegularExpressions.Regex(
+            "\\{DynamicResource\\s+([A-Za-z0-9_.]+)\\}");
+        var violations = new List<string>();
+        var references = 0;
+        foreach (var file in EnumerateXamlFiles(root))
+        {
+            var rel = Path.GetRelativePath(root, file).Replace('\\', '/');
+            var inComment = false;
+            var lines = File.ReadAllLines(file);
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var scan = StripXamlComments(lines[i], ref inComment);
+                foreach (System.Text.RegularExpressions.Match match in dynamicRef.Matches(scan))
+                {
+                    references++;
+                    var key = match.Groups[1].Value;
+                    if (!valid.Contains(key))
+                    {
+                        violations.Add($"{rel}:{i + 1} {key}");
+                    }
+                }
+            }
+        }
+
+        Check("every DynamicResource key resolves to a token, brush twin or brand key",
+            violations.Count == 0, string.Join(" | ", violations));
+        Check("DynamicResource key scan was not vacuous", references >= 60,
+            $"{references} references scanned over {tokens.Count} tokens");
+    }
+
+    /// <summary>
+    /// The token table is the single color authority, so its shape is pinned: unique names, valid
+    /// hex values, and every declared brush twin backed by a real token.
+    /// </summary>
+    private static void TestTokenTableIsComplete()
+    {
+        var root = FindRepoRoot();
+        var source = File.ReadAllText(
+            Path.Combine(root, "UI", "DesignSystem", "Tokens", "NeutralTokenSet.cs"));
+        var entries = System.Text.RegularExpressions.Regex.Matches(
+            source, "new\\(\"([A-Za-z0-9]+)\",\\s*\"(#[0-9A-Fa-f]{6,8})\",\\s*\"(#[0-9A-Fa-f]{6,8})\"\\)");
+        var names = new List<string>();
+        var badValues = new List<string>();
+        foreach (System.Text.RegularExpressions.Match match in entries)
+        {
+            names.Add(match.Groups[1].Value);
+            if (!match.Groups[2].Value.StartsWith('#') || !match.Groups[3].Value.StartsWith('#'))
+            {
+                badValues.Add(match.Groups[1].Value);
+            }
+        }
+
+        var duplicates = names.GroupBy(name => name, StringComparer.Ordinal)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .ToList();
+        var brushBlock = System.Text.RegularExpressions.Regex.Match(
+            source, "BrushTokens = new HashSet<string>\\(StringComparer\\.Ordinal\\)\\s*\\{(.*?)\\};",
+            System.Text.RegularExpressions.RegexOptions.Singleline).Groups[1].Value;
+        var brushTokens = System.Text.RegularExpressions.Regex.Matches(brushBlock, "\"([A-Za-z0-9]+)\"")
+            .Cast<System.Text.RegularExpressions.Match>()
+            .Select(match => match.Groups[1].Value)
+            .ToList();
+        var orphanBrushes = brushTokens.Where(brush => !names.Contains(brush)).ToList();
+
+        Check("token table names are unique", duplicates.Count == 0, string.Join(",", duplicates));
+        Check("token values parse as hex", badValues.Count == 0, string.Join(",", badValues));
+        Check("brush twins reference real tokens", orphanBrushes.Count == 0, string.Join(",", orphanBrushes));
+        Check("token table covers the palette", entries.Count >= 100, $"{entries.Count} tokens");
+    }
+
+    private static IEnumerable<string> EnumerateXamlFiles(string root)
+    {
+        var skipped = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "bin", "obj", ".git", "scratch", "tools", "docs", ".repertoire",
+        };
+        foreach (var file in Directory.EnumerateFiles(root, "*.xaml", SearchOption.AllDirectories))
+        {
+            var rel = Path.GetRelativePath(root, file).Replace('\\', '/');
+            if (rel.Split('/').Any(segment => skipped.Contains(segment)))
+            {
+                continue;
+            }
+
+            yield return file;
+        }
+    }
+
+    private static string StripXamlComments(string line, ref bool inComment)
+    {
+        var builder = new StringBuilder(line.Length);
+        var index = 0;
+        while (index < line.Length)
+        {
+            if (inComment)
+            {
+                var end = line.IndexOf("-->", index, StringComparison.Ordinal);
+                if (end < 0)
+                {
+                    return builder.ToString();
+                }
+
+                inComment = false;
+                index = end + 3;
+                continue;
+            }
+
+            var start = line.IndexOf("<!--", index, StringComparison.Ordinal);
+            if (start < 0)
+            {
+                builder.Append(line, index, line.Length - index);
+                break;
+            }
+
+            builder.Append(line, index, start - index);
+            inComment = true;
+            index = start + 4;
+        }
+
+        return builder.ToString();
     }
 
     /// <summary>

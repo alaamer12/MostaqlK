@@ -15,7 +15,7 @@
         <Style x:Key="DashCardStyle" TargetType="Border">
             <Setter Property="StrokeThickness" Value="0" />
             <Setter Property="Padding" Value="12" />
-            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}" />
+            <Setter Property="BackgroundColor" Value="{DynamicResource SurfaceSunken}" />
             <Setter Property="StrokeShape">
                 <Setter.Value>
                     <RoundRectangle CornerRadius="12" />
@@ -26,7 +26,7 @@
         <Style x:Key="DashSectionLabelStyle" TargetType="Label">
             <Setter Property="FontSize" Value="12" />
             <Setter Property="FontFamily" Value="TajawalMedium" />
-            <Setter Property="TextColor" Value="{AppThemeBinding Light=#475569, Dark=#94A3B8}" />
+            <Setter Property="TextColor" Value="{DynamicResource TextSecondary}" />
         </Style>
 
         <Style x:Key="DashValueLabelStyle" TargetType="Label">
@@ -34,14 +34,14 @@
             <Setter Property="FontFamily" Value="Tajawal" />
             <Setter Property="LineBreakMode" Value="TailTruncation" />
             <Setter Property="MaxLines" Value="1" />
-            <Setter Property="TextColor" Value="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+            <Setter Property="TextColor" Value="{DynamicResource TextMuted}" />
         </Style>
     </ContentView.Resources>
 
     <!-- Expanded body and collapsed rail share one cell: collapsing swaps which one is visible and
          animates the panel width, so no layout is rebuilt and the pipeline stays on screen either
          way (the whole point of moving the dial out of the footer). -->
-    <Grid x:Name="PanelRoot" BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+    <Grid x:Name="PanelRoot" BackgroundColor="{DynamicResource Surface}">
 
         <!-- ============================= expanded ============================= -->
         <Grid x:Name="Body" RowDefinitions="Auto,*">
@@ -52,7 +52,7 @@
                        FontSize="14"
                        FontFamily="TajawalBold"
                        VerticalOptions="Center"
-                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                       TextColor="{DynamicResource TextPrimary}" />
                 <!-- Transparent Button over the glyph: a Border/Label + TapGestureRecognizer never
                      surfaces an AutomationId to the Windows UIA tree (dotnet/maui#4715). -->
                 <Grid Grid.Column="1" WidthRequest="28" HeightRequest="28">
@@ -61,7 +61,7 @@
                            HeightRequest="12" WidthRequest="12"
                            HorizontalOptions="Center"
                            VerticalOptions="Center"
-                           TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                           TextColor="{DynamicResource TextMuted}" />
                     <Button AutomationId="Pipeline_PanelToggle"
                             BackgroundColor="Transparent"
                             BorderWidth="0"
@@ -104,7 +104,7 @@
                                  timestamp - the two used to disagree with each other. -->
                             <lastscan:LastScanStatus x:Name="DiscoveryLastScan"
                                                      FontSize="12"
-                                                     TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                                                     TextColor="{DynamicResource TextMuted}" />
                             <Label x:Name="DiscoveryCountLabel" IsVisible="False" Style="{StaticResource DashValueLabelStyle}" />
                             <Label x:Name="DiscoveryIntervalLabel" IsVisible="False" Style="{StaticResource DashValueLabelStyle}" />
                             <!-- Hidden by design (MVP diagnostic): the v3 mockup shows no "محاولات الفحص" readout. -->
@@ -121,13 +121,13 @@
                                    FontSize="12"
                                    FontFamily="TajawalMedium"
                                    LineBreakMode="WordWrap"
-                                   TextColor="{AppThemeBinding Light=#B91C1C, Dark=#F87171}" />
+                                   TextColor="{DynamicResource DangerStrong}" />
                             <Label x:Name="DiscoveryFixLabel"
                                    IsVisible="False"
                                    FontSize="11"
                                    FontFamily="Tajawal"
                                    LineBreakMode="WordWrap"
-                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                                   TextColor="{DynamicResource TextMuted}" />
                         </VerticalStackLayout>
                     </Border>
 
@@ -146,19 +146,19 @@
                                        LineBreakMode="TailTruncation"
                                        VerticalOptions="Center"
                                        HorizontalOptions="End"
-                                       TextColor="{AppThemeBinding Light=#B45309, Dark=#F59E0B}" />
+                                       TextColor="{DynamicResource DataQueue}" />
                             </Grid>
                             <Label x:Name="QueueValueLabel"
                                    AutomationId="Pipeline_QueueValueLabel"
                                    IsVisible="False"
                                    FontSize="24"
                                    FontFamily="TajawalBold"
-                                   TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                                   TextColor="{DynamicResource TextPrimary}" />
                             <!-- Utilisation bar: the fill width is interpolated alongside the ring
                                  so the number and its visual never disagree. -->
                             <Grid x:Name="QueueBar" HeightRequest="4" SizeChanged="OnQueueBarSizeChanged">
-                                <BoxView CornerRadius="2" Color="{AppThemeBinding Light=#E2E8F0, Dark=#334155}" />
-                                <BoxView x:Name="QueueBarFill" CornerRadius="2" Color="#F59E0B" WidthRequest="0" HorizontalOptions="Start" />
+                                <BoxView CornerRadius="2" Color="{DynamicResource Border}" />
+                                <BoxView x:Name="QueueBarFill" CornerRadius="2" Color="{DynamicResource FixedQueueFill}" WidthRequest="0" HorizontalOptions="Start" />
                             </Grid>
                             <Label x:Name="QueueOldestLabel" IsVisible="False" Style="{StaticResource DashValueLabelStyle}" />
                             <Label x:Name="QueueAvgLabel" IsVisible="False" Style="{StaticResource DashValueLabelStyle}" />
@@ -171,9 +171,9 @@
                     <Border x:Name="Worker0Card" Style="{StaticResource DashCardStyle}">
                         <Grid>
                             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-                                <BoxView x:Name="Worker0Dot" Grid.Column="0" WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#334155" VerticalOptions="Center" />
+                                <BoxView x:Name="Worker0Dot" Grid.Column="0" WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="{DynamicResource FixedDotIdle}" VerticalOptions="Center" />
                                 <VerticalStackLayout Grid.Column="1" Spacing="2">
-                                    <Label x:Name="Worker0TitleLabel" Text="العامل 1" FontSize="12" FontFamily="TajawalMedium" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                                    <Label x:Name="Worker0TitleLabel" Text="العامل 1" FontSize="12" FontFamily="TajawalMedium" TextColor="{DynamicResource TextPrimary}" />
                                     <Label x:Name="Worker0ProjectLabel" Style="{StaticResource DashValueLabelStyle}" />
                                 </VerticalStackLayout>
                                 <Label x:Name="Worker0TimeLabel" Grid.Column="2" Style="{StaticResource DashValueLabelStyle}" VerticalOptions="Center" />
@@ -188,9 +188,9 @@
                     <Border x:Name="Worker1Card" Style="{StaticResource DashCardStyle}">
                         <Grid>
                             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-                                <BoxView x:Name="Worker1Dot" Grid.Column="0" WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#334155" VerticalOptions="Center" />
+                                <BoxView x:Name="Worker1Dot" Grid.Column="0" WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="{DynamicResource FixedDotIdle}" VerticalOptions="Center" />
                                 <VerticalStackLayout Grid.Column="1" Spacing="2">
-                                    <Label x:Name="Worker1TitleLabel" Text="العامل 2" FontSize="12" FontFamily="TajawalMedium" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                                    <Label x:Name="Worker1TitleLabel" Text="العامل 2" FontSize="12" FontFamily="TajawalMedium" TextColor="{DynamicResource TextPrimary}" />
                                     <Label x:Name="Worker1ProjectLabel" Style="{StaticResource DashValueLabelStyle}" />
                                 </VerticalStackLayout>
                                 <Label x:Name="Worker1TimeLabel" Grid.Column="2" Style="{StaticResource DashValueLabelStyle}" VerticalOptions="Center" />
@@ -205,9 +205,9 @@
                     <Border x:Name="Worker2Card" Style="{StaticResource DashCardStyle}">
                         <Grid>
                             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-                                <BoxView x:Name="Worker2Dot" Grid.Column="0" WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#334155" VerticalOptions="Center" />
+                                <BoxView x:Name="Worker2Dot" Grid.Column="0" WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="{DynamicResource FixedDotIdle}" VerticalOptions="Center" />
                                 <VerticalStackLayout Grid.Column="1" Spacing="2">
-                                    <Label x:Name="Worker2TitleLabel" Text="العامل 3" FontSize="12" FontFamily="TajawalMedium" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
+                                    <Label x:Name="Worker2TitleLabel" Text="العامل 3" FontSize="12" FontFamily="TajawalMedium" TextColor="{DynamicResource TextPrimary}" />
                                     <Label x:Name="Worker2ProjectLabel" Style="{StaticResource DashValueLabelStyle}" />
                                 </VerticalStackLayout>
                                 <Label x:Name="Worker2TimeLabel" Grid.Column="2" Style="{StaticResource DashValueLabelStyle}" VerticalOptions="Center" />
@@ -224,7 +224,7 @@
                     <Border x:Name="DrillInCard"
                             Style="{StaticResource DashCardStyle}"
                             IsVisible="False"
-                            BackgroundColor="{AppThemeBinding Light=#EFF6FF, Dark=#1A2A44}">
+                            BackgroundColor="{DynamicResource AccentSoftPanel}">
                         <VerticalStackLayout Spacing="6">
                             <Label x:Name="DetailTitleLabel"
                                    AutomationId="Pipeline_DetailTitleLabel"
@@ -254,7 +254,7 @@
                        HeightRequest="12" WidthRequest="12"
                        HorizontalOptions="Center"
                        VerticalOptions="Center"
-                       TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                       TextColor="{DynamicResource TextMuted}" />
                 <Button AutomationId="Pipeline_RailToggle"
                         BackgroundColor="Transparent"
                         BorderWidth="0"
@@ -267,16 +267,16 @@
                 </Grid.Behaviors>
             </Grid>
 
-            <BoxView x:Name="RailDot0" WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#334155" HorizontalOptions="Center" />
-            <BoxView x:Name="RailDot1" WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#334155" HorizontalOptions="Center" />
-            <BoxView x:Name="RailDot2" WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="#334155" HorizontalOptions="Center" />
+            <BoxView x:Name="RailDot0" WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="{DynamicResource FixedDotIdle}" HorizontalOptions="Center" />
+            <BoxView x:Name="RailDot1" WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="{DynamicResource FixedDotIdle}" HorizontalOptions="Center" />
+            <BoxView x:Name="RailDot2" WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="{DynamicResource FixedDotIdle}" HorizontalOptions="Center" />
 
             <Label x:Name="RailQueueLabel"
                    AutomationId="Pipeline_RailQueueLabel"
                    FontSize="10"
                    FontFamily="TajawalBold"
                    HorizontalOptions="Center"
-                   TextColor="{AppThemeBinding Light=#B45309, Dark=#F59E0B}" />
+                   TextColor="{DynamicResource DataQueue}" />
         </VerticalStackLayout>
 
     </Grid>

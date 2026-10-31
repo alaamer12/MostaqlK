@@ -10,14 +10,14 @@
              x:Class="MostaqlK.Features.Projects.Views.Layouts.MainWindowMobileLayout"
              x:DataType="vm:ProjectFeedViewModel"
              FlowDirection="RightToLeft"
-             BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
+             BackgroundColor="{DynamicResource Background}">
 
     <!-- Mobile Single-Column Feed Container -->
-    <Grid BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
+    <Grid BackgroundColor="{DynamicResource Background}">
 
         <Grid RowDefinitions="Auto,*,Auto"
               Padding="12,12,12,0"
-              BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#020617}">
+              BackgroundColor="{DynamicResource Background}">
 
             <!-- Mobile Header: Search & Quick Controls -->
             <VerticalStackLayout Grid.Row="0" Spacing="8" Padding="0,0,0,8">
@@ -29,8 +29,8 @@
                             StrokeThickness="1"
                             HeightRequest="40"
                             VerticalOptions="Center"
-                            Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
-                            BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#1E293B}">
+                            Stroke="{DynamicResource BorderBrush}"
+                            BackgroundColor="{DynamicResource SurfaceField}">
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="8" />
                         </Border.StrokeShape>
@@ -41,15 +41,15 @@
                             <components:AppIcon Grid.Column="0"
                                                 Icon="Search"
                                                 FontSize="14"
-                                                TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
+                                                TextColor="{DynamicResource TextFaint}"
                                                 VerticalOptions="Center" />
                             <components:SearchInputField Grid.Column="1"
                                                           AutomationId="Projects_Mobile_SearchInput"
                                                           FlowDirection="RightToLeft"
                                                           Text="{Binding SearchQuery}"
                                                           Placeholder="بحث في المشاريع..."
-                                                          PlaceholderColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
-                                                          TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
+                                                          PlaceholderColor="{DynamicResource TextFaint}"
+                                                          TextColor="{DynamicResource TextPrimary}"
                                                           BackgroundColor="Transparent"
                                                           FontSize="13"
                                                           DebounceMilliseconds="300"
@@ -77,7 +77,7 @@
                         </Border.GestureRecognizers>
                         <components:AppIcon Icon="{Binding PollToggleIcon}"
                                             FontSize="14"
-                                            TextColor="White"
+                                            TextColor="{DynamicResource FixedWhite}"
                                             HorizontalOptions="Center"
                                             VerticalOptions="Center" />
                     </Border>
@@ -87,7 +87,7 @@
                             StrokeThickness="0"
                             AutomationId="Projects_Mobile_NotificationsButton"
                             SemanticProperties.Description="التنبيهات"
-                            BackgroundColor="{AppThemeBinding Light=White, Dark=#1E293B}"
+                            BackgroundColor="{DynamicResource SurfaceRaised}"
                             WidthRequest="36"
                             HeightRequest="40"
                             VerticalOptions="Center">
@@ -99,7 +99,7 @@
                         </Border.GestureRecognizers>
                         <components:AppIcon Icon="Bell"
                                             FontSize="14"
-                                            TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
+                                            TextColor="{DynamicResource TextPrimary}"
                                             HorizontalOptions="Center"
                                             VerticalOptions="Center" />
                     </Border>
@@ -108,16 +108,16 @@
                 <!-- Status Strip -->
                 <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
                     <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
-                        <BoxView WidthRequest="6" HeightRequest="6" Color="{AppThemeBinding Light=#2E9E6B, Dark=#4FBF8C}" CornerRadius="3" VerticalOptions="Center" />
+                        <BoxView WidthRequest="6" HeightRequest="6" Color="{DynamicResource Positive}" CornerRadius="3" VerticalOptions="Center" />
                         <Label Text="{Binding LiveStatusText}"
                                FontSize="11"
                                FontFamily="TajawalBold"
-                               TextColor="{AppThemeBinding Light=#2E9E6B, Dark=#4FBF8C}"
+                               TextColor="{DynamicResource Positive}"
                                VerticalOptions="Center" />
-                        <Label Text="•" FontSize="11" TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}" VerticalOptions="Center" />
+                        <Label Text="•" FontSize="11" TextColor="{DynamicResource TextFaint}" VerticalOptions="Center" />
                         <Label Text="{Binding PollIntervalText}"
                                FontSize="11"
-                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                               TextColor="{DynamicResource TextMuted}"
                                VerticalOptions="Center"
                                FontFamily="Tajawal" />
                     </HorizontalStackLayout>
@@ -131,13 +131,13 @@
                                FontSize="11"
                                FontFamily="TajawalBold"
                                HorizontalOptions="End"
-                               TextColor="{AppThemeBinding Light=#B45309, Dark=#FBBF24}" />
+                               TextColor="{DynamicResource Warning}" />
                         <lastscan:LastScanStatus LastScanAt="{Binding GlobalStatus.LastScanCompletedAt}"
                                                  IsChecking="{Binding GlobalStatus.IsScanning}"
                                                  ShowRefresh="True"
                                                  RefreshCommand="{Binding RefreshCommand}"
                                                  FontSize="11"
-                                                 TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                                                 TextColor="{DynamicResource TextMuted}"
                                                  VerticalOptions="Center" />
                     </VerticalStackLayout>
                 </Grid>
@@ -179,10 +179,10 @@
             <Grid Grid.Row="2"
                   ColumnDefinitions="*,Auto"
                   Padding="4,8"
-                  BackgroundColor="{AppThemeBinding Light=White, Dark=#0F172A}">
+                  BackgroundColor="{DynamicResource Surface}">
                 <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
-                    <Label Text="{Binding TrackedCountText}" FontSize="11" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" VerticalOptions="Center" FontFamily="Tajawal" />
-                    <Label Text="•" FontSize="11" TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}" VerticalOptions="Center" />
+                    <Label Text="{Binding TrackedCountText}" FontSize="11" TextColor="{DynamicResource TextMuted}" VerticalOptions="Center" FontFamily="Tajawal" />
+                    <Label Text="•" FontSize="11" TextColor="{DynamicResource TextFaint}" VerticalOptions="Center" />
                     <Label Text="{Binding UnreadCountText}" FontSize="11" FontFamily="TajawalBold" TextColor="{DynamicResource Brand}" VerticalOptions="Center" />
                 </HorizontalStackLayout>
 

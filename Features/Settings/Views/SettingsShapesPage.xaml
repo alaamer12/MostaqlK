@@ -18,7 +18,7 @@
          exactly like the mockup's body vs its `main > div`: when a parity capture isolates one
          section (its `parity-shape` startup argument), the empty area below it must be the app
          background, not white. -->
-    <ScrollView BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#0F172A}">
+    <ScrollView BackgroundColor="{DynamicResource TextInverse}">
         <VerticalStackLayout x:Name="Host" Padding="0" Spacing="0" />
     </ScrollView>
 </ContentPage>

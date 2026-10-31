@@ -5,9 +5,9 @@
 
     <!-- Shared base style for AppEntry (UI/PlatformComponents/AppEntry). -->
     <Style x:Key="AppEntryBase" TargetType="Entry">
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Black}, Dark={StaticResource White}}" />
-        <Setter Property="PlaceholderColor" Value="{AppThemeBinding Light={StaticResource ReadBorderLight}, Dark={StaticResource ReadBorderDark}}" />
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource AppSurfaceLight}, Dark={StaticResource AppSurfaceDark}}" />
+        <Setter Property="TextColor" Value="{DynamicResource ControlText}" />
+        <Setter Property="PlaceholderColor" Value="{DynamicResource BorderMuted}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource Surface}" />
         <!-- Tajawal is the mockups' typeface (font-family: 'Tajawal' in every design/mvp/*.html). -->
         <Setter Property="FontFamily" Value="Tajawal" />
         <Setter Property="FontSize" Value="14" />
@@ -19,7 +19,7 @@
                     <VisualState x:Name="Normal" />
                     <VisualState x:Name="Disabled">
                         <VisualState.Setters>
-                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource ReadBorderLight}, Dark={StaticResource ReadBorderDark}}" />
+                            <Setter Property="TextColor" Value="{DynamicResource BorderMuted}" />
                         </VisualState.Setters>
                     </VisualState>
                 </VisualStateGroup>

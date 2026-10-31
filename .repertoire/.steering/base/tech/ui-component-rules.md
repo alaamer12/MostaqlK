@@ -191,9 +191,7 @@ public partial class ShimmerBox : ContentView
 <!-- MostaqlK/Views/Shared/ShimmerBox.xaml -->
 <ContentView x:Class="MostaqlK.Views.Shared.ShimmerBox">
     <Border
-        BackgroundColor="{AppThemeBinding
-            Light={StaticResource SkeletonBase},
-            Dark={StaticResource SkeletonBaseDark}}"
+        BackgroundColor="{DynamicResource ShimmerBase}"
         StrokeThickness="0">
         <Border.StrokeShape>
             <RoundRectangle x:Name="BackgroundShape" CornerRadius="6" />
@@ -209,10 +207,7 @@ public partial class ShimmerBox : ContentView
                 <BoxView.Background>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
                         <GradientStop Color="Transparent" Offset="0.0" />
-                        <GradientStop Color="{AppThemeBinding
-                            Light={StaticResource SkeletonShimmer},
-                            Dark={StaticResource SkeletonShimmerDark}}"
-                                      Offset="0.5" />
+                        <GradientStop Color="{DynamicResource ShimmerHighlight}" Offset="0.5" />
                         <GradientStop Color="Transparent" Offset="1.0" />
                     </LinearGradientBrush>
                 </BoxView.Background>
@@ -224,19 +219,20 @@ public partial class ShimmerBox : ContentView
 
 ### 2.3 — Skeleton Design Tokens
 
-Add to `Resources/Styles/Colors.xaml`:
-
-```xml
-<!-- Light theme -->
-<Color x:Key="SkeletonBase">#E8ECF0</Color>
-<Color x:Key="SkeletonShimmer">#FFFFFF</Color>
-
-<!-- Dark theme -->
-<Color x:Key="SkeletonBaseDark">#2C3240</Color>
-<Color x:Key="SkeletonShimmerDark">#3C4558</Color>
-```
+Skeleton colors are theme-invariant entries in `UI/DesignSystem/Tokens/NeutralTokenSet.cs`
+(`ShimmerBase`, `ShimmerHighlight`, `ShimmerSoft`) and are consumed as `{DynamicResource …}`.
+`Resources/Styles/Colors.xaml` no longer exists — never add a color to markup.
 
 The shimmer color must always be lighter than the base and blend naturally — never a harsh contrast.
+
+**Color authority (binding):** `NeutralTokenSet` is the only color table; `ThemeTokens` writes it
+into the root resource dictionary at startup and on every theme flip. Markup uses
+`{DynamicResource <Token>}` only — no hex, no named colors, no `AppThemeBinding`. Brush-typed
+properties (`Stroke`, `Fill`, `Shadow.Brush`) use the bridge's `...Brush` twins. Draw-only code,
+imperative painters, and native chrome read `ThemeTokens` getters. `ParserTests` enforces all of
+this (`TestNoAppThemeBindingInXaml`, `TestNoInlineColorLiteralsInXaml`,
+`TestNoInlineColorLiteralsInSharedCode`, `TestRetiredLegacyKeysAreGone`,
+`TestDynamicResourceKeysResolveToTokens`, `TestTokenTableIsComplete`).
 
 ### 2.4 — Animation Specification
 
@@ -488,9 +484,7 @@ case Result<IReadOnlyList<ProjectSummary>>.Err err:
     IsVisible="{Binding HasError}"
     Text="{Binding ErrorMessage}"
     SubText="{Binding FixSuggestion}"
-    SubTextColor="{AppThemeBinding
-        Light={StaticResource WarningText},
-        Dark={StaticResource WarningTextDark}}" />
+    SubTextColor="{DynamicResource Warning}" />
 ```
 
 When `FixSuggestion` is `null` (self-healing errors like rate-limiting), `SubLabel.IsVisible` remains `false` — no XAML `Trigger` or `Converter` required.
@@ -543,10 +537,10 @@ All icons use **Tabler Icons** (outline style). Color is set exclusively through
 
 | Tier | Token | Style key | When |
 |---|---|---|---|
-| **1 — Neutral** | `{StaticResource TextSecondary}` | `IconNeutral` | Inactive nav items, secondary actions, disabled controls |
-| **2 — Brand** | `{StaticResource AccentPrimary}` | `IconBrand` | The one primary action or state per screen |
-| **2 — Positive** | `{StaticResource AccentPositive}` | `IconPositive` | Live / enriched / success state |
-| **3 — Conceptual** | Row hue from `ConceptualColors` | `IconConceptual` | Settings / listing rows — one distinct hue per row concept |
+| **1 — Neutral** | `{DynamicResource TextSecondary}` | `IconNeutral` | Inactive nav items, secondary actions, disabled controls |
+| **2 — Brand** | `{DynamicResource Brand}` | `IconBrand` | The one primary action or state per screen |
+| **2 — Positive** | `{DynamicResource Positive}` | `IconPositive` | Live / enriched / success state |
+| **3 — Conceptual** | Row hue selected by `AppIconGlyphExtensions` (pre-baked PNG variant keys — equality keys, not paint) | `IconConceptual` | Settings / listing rows — one distinct hue per row concept |
 
 ```xml
 <!-- Tier 1: inactive nav item -->
@@ -632,8 +626,8 @@ Each onboarding panel is a full-width illustration on a fixed dark canvas:
 <!-- OnboardingPage.xaml — single panel -->
 <Grid>
 
-    <!-- Fixed dark canvas — no AppThemeBinding -->
-    <BoxView Color="#0F1B2D" />
+    <!-- Fixed dark canvas — the Letterbox token is theme-invariant -->
+    <BoxView Color="{DynamicResource Letterbox}" />
 
     <VerticalStackLayout
         Spacing="16"
@@ -796,7 +790,7 @@ Before merging any new View or ContentView, verify all items:
 - [ ] Disabled icons use `TextSecondary` at 38% regardless of their normal tier
 
 ### Illustrations
-- [ ] Onboarding letterbox panels use `#0F1B2D` fixed canvas — no `AppThemeBinding`
+- [ ] Onboarding letterbox panels use `{DynamicResource Letterbox}` (theme-invariant token), never a hex literal
 - [ ] Sticker assets have light/dark variants loaded via `AppThemeBinding`
 - [ ] Empty states include a sticker illustration, not just text
 

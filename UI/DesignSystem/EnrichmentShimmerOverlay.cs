@@ -83,9 +83,9 @@ public class EnrichmentShimmerOverlay : ContentView
             InputTransparent = true,
             Background = new LinearGradientBrush(
                 [
-                    new GradientStop(Color.FromArgb("#00FFFFFF"), 0f),
-                    new GradientStop(Color.FromArgb("#33FFFFFF"), 0.5f),
-                    new GradientStop(Color.FromArgb("#00FFFFFF"), 1f),
+                    new GradientStop(Tokens.ThemeTokens.Get("ShimmerClear"), 0f),
+                    new GradientStop(Tokens.ThemeTokens.Get("ShimmerSoft"), 0.5f),
+                    new GradientStop(Tokens.ThemeTokens.Get("ShimmerClear"), 1f),
                 ],
                 new Point(0, 0),
                 new Point(1, 0)),

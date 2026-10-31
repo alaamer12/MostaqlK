@@ -65,8 +65,8 @@
                 Opacity="0"
                 Padding="10,8"
                 StrokeThickness="1"
-                Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1E293B}"
-                BackgroundColor="{AppThemeBinding Light=White, Dark=#0B1220}">
+                Stroke="{DynamicResource BorderSubtleBrush}"
+                BackgroundColor="{DynamicResource SurfaceTooltip}">
             <Border.StrokeShape>
                 <RoundRectangle CornerRadius="8" />
             </Border.StrokeShape>
@@ -74,12 +74,12 @@
                 <Label x:Name="TooltipTitle"
                        FontSize="11"
                        FontFamily="TajawalBold"
-                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}" />
-                <Label x:Name="TooltipLine1" FontSize="10" FontFamily="Tajawal" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
-                <Label x:Name="TooltipLine2" FontSize="10" FontFamily="Tajawal" LineBreakMode="TailTruncation" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
-                <Label x:Name="TooltipLine3" FontSize="10" FontFamily="Tajawal" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
-                <Label x:Name="TooltipLine4" FontSize="10" FontFamily="Tajawal" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
-                <Label x:Name="TooltipLine5" FontSize="10" FontFamily="Tajawal" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                       TextColor="{DynamicResource TextPrimary}" />
+                <Label x:Name="TooltipLine1" FontSize="10" FontFamily="Tajawal" TextColor="{DynamicResource TextMuted}" />
+                <Label x:Name="TooltipLine2" FontSize="10" FontFamily="Tajawal" LineBreakMode="TailTruncation" TextColor="{DynamicResource TextMuted}" />
+                <Label x:Name="TooltipLine3" FontSize="10" FontFamily="Tajawal" TextColor="{DynamicResource TextMuted}" />
+                <Label x:Name="TooltipLine4" FontSize="10" FontFamily="Tajawal" TextColor="{DynamicResource TextMuted}" />
+                <Label x:Name="TooltipLine5" FontSize="10" FontFamily="Tajawal" TextColor="{DynamicResource TextMuted}" />
             </VerticalStackLayout>
         </Border>
 

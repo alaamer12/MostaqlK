@@ -60,10 +60,6 @@ public partial class AppSidebar : ContentView
     // link pair the rail historically used), so it re-tints with the active source. The row's wash
     // backgrounds stay inline — legacy Tailwind blues, not members of the locked brand set, kept
     // pixel-identical until the SourceRail (B2/B3) restyles them onto BrandSoft.
-    private const string ActiveBackgroundLight = "#EFF6FF";
-    private const string ActiveBackgroundDark = "#1A2A44";
-    private const string InactiveTextLight = "#475569";
-    private const string InactiveTextDark = "#94A3B8";
 
     private bool _suppressToggleHandler;
 
@@ -141,14 +137,13 @@ public partial class AppSidebar : ContentView
         };
         glyph.SetDynamicResource(Label.TextColorProperty, BrandPalette.BrandLinkKey);
 
-        var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
         var title = new Label
         {
             Text = item.TitleAr,
             FontSize = 14,
             FontFamily = "Tajawal",
             VerticalOptions = LayoutOptions.Center,
-            TextColor = Color.FromArgb(isDark ? InactiveTextDark : InactiveTextLight),
+            TextColor = MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.TextSecondary,
         };
 
         var inner = new Grid { ColumnSpacing = 12 };
@@ -278,29 +273,26 @@ public partial class AppSidebar : ContentView
 
     private void ApplyActiveState()
     {
-        var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
-        SetRowState(ProjectsButton, ProjectsIcon, ProjectsLabel, ActivePage == SidebarPage.Projects, isDark);
-        SetRowState(AdvancedSearchButton, AdvancedSearchIcon, AdvancedSearchLabel, ActivePage == SidebarPage.AdvancedSearch, isDark);
-        SetRowState(SettingsButton, SettingsIcon, SettingsLabel, ActivePage == SidebarPage.Settings, isDark);
-        SetRowState(AboutButton, AboutIcon, AboutLabel, ActivePage == SidebarPage.About, isDark);
+        SetRowState(ProjectsButton, ProjectsIcon, ProjectsLabel, ActivePage == SidebarPage.Projects);
+        SetRowState(AdvancedSearchButton, AdvancedSearchIcon, AdvancedSearchLabel, ActivePage == SidebarPage.AdvancedSearch);
+        SetRowState(SettingsButton, SettingsIcon, SettingsLabel, ActivePage == SidebarPage.Settings);
+        SetRowState(AboutButton, AboutIcon, AboutLabel, ActivePage == SidebarPage.About);
         ProjectsActiveBar.IsVisible = ActivePage == SidebarPage.Projects;
         AdvancedSearchActiveBar.IsVisible = ActivePage == SidebarPage.AdvancedSearch;
         SettingsActiveBar.IsVisible = ActivePage == SidebarPage.Settings;
         AboutActiveBar.IsVisible = ActivePage == SidebarPage.About;
     }
 
-    private static void SetRowState(Border row, AppIcon icon, Label label, bool isActive, bool isDark)
+    private static void SetRowState(Border row, AppIcon icon, Label label, bool isActive)
     {
         row.BackgroundColor = isActive
-            ? Color.FromArgb(isDark ? ActiveBackgroundDark : ActiveBackgroundLight)
+            ? MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.AccentSoftPanel
             : Colors.Transparent;
         // Active ink = the live brand's link pair (the rail's historical highlight blues, now
         // provider-owned); inactive stays the neutral slate — state chrome, never brand-retinted.
         var textColor = isActive
-            ? (isDark
-                ? MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.LinkDark
-                : MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.LinkLight)
-            : Color.FromArgb(isDark ? InactiveTextDark : InactiveTextLight);
+            ? MostaqlK.UI.DesignSystem.BrandTokens.BrandPalette.BrandLink
+            : MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.TextSecondary;
         icon.TextColor = textColor;
         label.TextColor = textColor;
         // The mockups' active nav <a> carries `font-medium`; inactive rows use the regular weight.

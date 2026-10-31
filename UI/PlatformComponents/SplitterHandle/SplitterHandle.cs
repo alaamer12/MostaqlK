@@ -49,9 +49,7 @@ public partial class SplitterHandle : ContentView
         GestureRecognizers.Add(pointer);
     }
 
-    private static Color IdleColor => Application.Current?.RequestedTheme == AppTheme.Dark
-        ? Color.FromArgb("#1E293B")
-        : Color.FromArgb("#E2E8F0");
+    private static Color IdleColor => MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.BorderSubtle;
 
     // Hover/drag active color is the live brand accent (was the inline Mostaql light/dark pair).
     // Read lazily per hover, so a source morph lands on the next interaction without subscribing.

@@ -25,7 +25,7 @@
                            FontSize="16"
                            LineHeight="1.4"
                            FontFamily="TajawalBold"
-                           TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
+                           TextColor="{DynamicResource TextPrimary}"
                            LineBreakMode="WordWrap" />
 
                     <!-- Enrichment badge -->
@@ -55,7 +55,7 @@
                 <Label Text="{Binding Description}"
                        FontSize="13"
                        LineHeight="1.4"
-                       TextColor="{AppThemeBinding Light=#475569, Dark=#94A3B8}"
+                       TextColor="{DynamicResource TextSecondary}"
                        MaxLines="2"
                        LineBreakMode="TailTruncation"
                        Margin="0,0,0,10"
@@ -69,7 +69,7 @@
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="vm:SkillTagItem">
                             <Border StrokeThickness="0"
-                                    BackgroundColor="{AppThemeBinding Light=#EFF6FF, Dark=#132237}"
+                                    BackgroundColor="{DynamicResource AccentSoft}"
                                     Padding="8,3"
                                     Margin="0,0,6,6">
                                 <Border.StrokeShape>
@@ -90,13 +90,13 @@
                            Text="{Binding Budget}"
                            FontSize="12"
                            FontFamily="TajawalBold"
-                           TextColor="{AppThemeBinding Light=#16A34A, Dark=#4ADE80}"
+                           TextColor="{DynamicResource PositiveHover}"
                            VerticalOptions="Center" />
 
                     <Label Grid.Column="1"
                            Text="{Binding PublishTimeText}"
                            FontSize="11"
-                           TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+                           TextColor="{DynamicResource TextMuted}"
                            FontFamily="Tajawal"
                            Margin="12,0,0,0"
                            VerticalOptions="Center" />
