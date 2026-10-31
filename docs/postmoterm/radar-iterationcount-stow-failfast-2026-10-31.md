@@ -41,7 +41,7 @@ Heartbeat of dying instance pid 24792 (verbatim):
 |---|---|
 | First bad commit | `8ba4e1a39341f5382b6fce4cb9668e2106e216a5` — "feat: dev30 — frame-decoupling wave 2 …" (introduced `loop.IterationCount = -1` at 2026-10-22T15:01:58Z; **inference** that this is first-bad: it throws under the *current* projection — whether the projection validated the value back in dev30 is UNKNOWN — see §9) |
 | Last good commit | UNKNOWN — no dev30–dev68 instance was observed dying in this class; the latent defect produced only the "radar parks" symptom (see §8, §17) |
-| Fix commit(s) | this commit (subject `feat: dev70 — …`) — the document ships inside the fix commit, so its own SHA cannot be quoted here; read `git log -1 --format=%H` for the file touched at `UI/PlatformComponents/PipelineRadar/PipelineRadar.Windows.cs` |
+| Fix commit(s) | `63a743f2e3d07053cb787e6c7fa50c096b0178f1` — `fix: dev70 — the radar's rejected -1 was fueling the dispatcher fail-fast` (this document shipped inside that commit; the SHA is recorded here in the follow-up, since a document cannot carry its own containing commit's hash) · no PR — canary branch commit, promotion is an owner action |
 | Versions affected | 1.0.4.dev69 working-tree builds and the shipped dev69 `02e94d65c392c176969ee050dfb3b6b44ea4aef2` (all Windows targets); dev30–dev68 carried the throwing line but were not observed crash-looping |
 | Version fixed | 1.0.4.dev70 (this commit; `MostaqlK.csproj` `ApplicationVersion` 75) |
 | Release channel | canary (`%LOCALAPPDATA%\MostaqlK.Canary`, `-p:Channel=canary` behavior not required — default dev build is canary-flagged via branch) |
@@ -365,6 +365,7 @@ Five rows, ≥1 prevent and ≥1 mitigate-class (A3) and ≥1 prevent (A1/A2) �
 | Version | Date | Change | Author |
 |---|---|---|---|
 | 1.0 | 2026-10-31 | initial, same session as the fix | Qoder agent |
+| 1.1 | 2026-11-01 | §2 fix-commit cell updated with the real SHA and subject (unknowable at authoring time) | Qoder agent |
 
 ## 18. Files and artifacts
 
