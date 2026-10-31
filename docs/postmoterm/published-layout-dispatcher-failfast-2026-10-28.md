@@ -355,6 +355,18 @@ ours runs on this path, which is why there is no `crash.log`, why `Application.U
 not fire, and why the `TickerGuard` work (a genuine fix for the sibling path) recorded zero activity in
 the runs that still died.
 
+> **Addendum 2026-10-31 (dev70→dev73):** a second, independent FUEL SOURCE for this death class was
+> proven: a `catch` that swallows a throw from a composition-animation setter and continues, abandoning
+> the half-built COM object per cycle — the dev30 `IterationCount = -1` line that the WinAppSDK 1.7 INT32
+> projection rejects. The death signature was identical to the one above (`0xC000027B` at
+> `Microsoft.UI.Xaml.dll 3.1.7 +0x39cde5`, stowed `E_FAIL`, finalizePending in the thousands) and was
+> only named because `MOSTAQLK_DIAG_COM=1` showed the swallowed `ArgumentException` as the last managed
+> event before every death. Full document:
+> [`radar-iterationcount-stow-failfast-2026-10-31.md`](radar-iterationcount-stow-failfast-2026-10-31.md);
+> the standing rule it produced is rule 7 of `.repertoire/.steering/v3/animation-safety.md`. When this
+> signature appears again, grep the diag first-chance log for a repeating caught exception BEFORE
+> suspecting the original layout-dispatch path.
+
 ## 11. Unresolved, and the next concrete step
 
 1. **Read the stowed strings.** Mini dumps give the HRESULT; the attached message strings name the API.

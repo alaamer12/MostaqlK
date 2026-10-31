@@ -202,6 +202,180 @@ finally
     try { Directory.Delete(tempRoot, recursive: true); } catch { }
 }
 
+// --- Handled-exception reporting policy (the swallowed-throw funnel) ---------
+
+HandledReportingPolicy.ResetForTests();
+var hEx = new InvalidOperationException("synthetic radar throw");
+var t0 = new DateTime(2026, 11, 1, 12, 0, 0, DateTimeKind.Utc);
+Check("policy: first three per key report",
+    HandledReportingPolicy.Decide("Radar.Start", hEx, t0) == HandledReportDecision.Report &&
+    HandledReportingPolicy.Decide("Radar.Start", hEx, t0.AddSeconds(1)) == HandledReportDecision.Report &&
+    HandledReportingPolicy.Decide("Radar.Start", hEx, t0.AddSeconds(2)) == HandledReportDecision.Report);
+Check("policy: fourth within window suppresses",
+    HandledReportingPolicy.Decide("Radar.Start", hEx, t0.AddSeconds(3)) == HandledReportDecision.Suppress);
+Check("policy: re-report after quiet interval carries suppressed count",
+    HandledReportingPolicy.Decide("Radar.Start", hEx, t0.AddMinutes(11)) == HandledReportDecision.ReportWithSuppressed &&
+    HandledReportingPolicy.TakeSuppressedCount("Radar.Start", hEx) == 1);
+Check("policy: first-chance firehose is exempt",
+    HandledReportingPolicy.Decide("FirstChance", hEx, t0) == HandledReportDecision.Exempt &&
+    HandledReportingPolicy.IsExempt("AppDomain.UnhandledException"));
+Check("policy: same exception object forwards once",
+    HandledReportingPolicy.TryMarkExceptionForwarded(hEx) &&
+    !HandledReportingPolicy.TryMarkExceptionForwarded(hEx));
+Check("policy: distinct equal exceptions both forward",
+    HandledReportingPolicy.TryMarkExceptionForwarded(new InvalidOperationException("synthetic radar throw")) &&
+    HandledReportingPolicy.TryMarkExceptionForwarded(new InvalidOperationException("synthetic radar throw")));
+HandledReportingPolicy.ResetForTests();
+var ceilingKeyOk = true;
+for (var i = 0; i < HandledReportingPolicy.PerProcessReportCeiling; i++)
+{
+    ceilingKeyOk &= HandledReportingPolicy.Decide("Storm" + i, new Exception("x"), t0) == HandledReportDecision.Report;
+}
+Check("policy: per-process ceiling evicts nothing further",
+    ceilingKeyOk && HandledReportingPolicy.Decide("StormAfterCeiling", new Exception("y"), t0) == HandledReportDecision.Suppress);
+HandledReportingPolicy.ResetForTests();
+
+// --- Native crash intake: the REAL Oct-31 crash-loop backlog ------------------
+// 8 witnessed deaths 20:49–21:13Z, uptimes ~48–143 s, codes 0xFFFFFFFF/0x00000001.
+PendingCrashRecord[] Oct31Backlog()
+{
+    var pids = new[] { 26524, 13248, 22820, 5360, 14552, 24792, 15036, 14420 };
+    var codes = new[] { "0xFFFFFFFF", "0xFFFFFFFF", "0x00000001", "0xFFFFFFFF", "0xFFFFFFFF", "0xFFFFFFFF", "0x00000001", "0x00000001" };
+    var uptimes = new double[] { 60, 55, 143, 50, 65, 82, 21, 90 };
+    var list = new List<PendingCrashRecord>();
+    for (var i = 0; i < pids.Length; i++)
+    {
+        list.Add(new PendingCrashRecord
+        {
+            Pid = pids[i],
+            ExitCode = codes[i] == "0xFFFFFFFF" ? -1 : 1,
+            ExitCodeName = codes[i],
+            UptimeSeconds = uptimes[i],
+            DumpPath = $"C:\\dumps\\MostaqlK.exe.{pids[i]}.dmp",
+            DetectedAtUtc = new DateTime(2026, 10, 31, 20, 49, 0, DateTimeKind.Utc).AddMinutes(i * 3 + 1),
+            VersionTag = "1.0.4.dev69+06374f3",
+        });
+    }
+
+    return list.ToArray();
+}
+
+var backlog = Oct31Backlog();
+var launchNow = new DateTime(2026, 10, 31, 21, 18, 0, DateTimeKind.Utc);
+var clusters = NativeCrashIntake.Cluster(backlog, NativeCrashIntake.ClusterWindow, NativeCrashIntake.LoopThreshold);
+Check("intake: 8 deaths in 25 min form ONE cluster", clusters.Count == 1 && clusters[0].Count == 8);
+Check("intake: cluster is a LOOP at threshold 3", clusters[0].IsLoop);
+Check("intake: exit-code histogram counts both codes",
+    clusters[0].ExitCodeHistogram["0xFFFFFFFF"] == 5 && clusters[0].ExitCodeHistogram["0x00000001"] == 3);
+Check("intake: uptime spread 21-143 s", clusters[0].MinUptimeSeconds == 21 && clusters[0].MaxUptimeSeconds == 143);
+var loopMessage = NativeCrashIntake.BuildMessage(clusters[0]);
+Check("intake: loop message is legible alone",
+    loopMessage.Contains("LOOP", StringComparison.Ordinal) &&
+    loopMessage.Contains("8 deaths", StringComparison.Ordinal) &&
+    loopMessage.Contains("0xFFFFFFFF x5", StringComparison.Ordinal));
+Check("intake: loop fingerprint is version-scoped",
+    NativeCrashIntake.BuildFingerprint(clusters[0]) is ["native-fail-fast-loop", "0xFFFFFFFF", "1.0.4.dev69+06374f3"]);
+Check("intake: window split at 30 min makes two clusters",
+    NativeCrashIntake.Cluster(backlog.Append(new PendingCrashRecord
+    {
+        Pid = 1,
+        ExitCodeName = "0x1",
+        DumpPath = "C:\\dumps\\other.dmp",
+        DetectedAtUtc = launchNow.AddHours(-2),
+    }).ToArray(), NativeCrashIntake.ClusterWindow, NativeCrashIntake.LoopThreshold).Count == 2);
+
+var reported = new List<string>();
+// Decide is pure: the CALLER spends the budget (the forwarder's loop shape, pinned here).
+var backlogActions = new List<IntakeAction>();
+var budgetSpent = 0;
+foreach (var r in backlog)
+{
+    var a = NativeCrashIntake.Decide(r, launchNow, reported, budgetSpent);
+    if (a == IntakeAction.Send && r.DumpPath is not null)
+    {
+        budgetSpent++;
+    }
+
+    backlogActions.Add(a);
+}
+Check("intake: first three dump-carrying deaths send", backlogActions.Count(a => a == IntakeAction.Send) == 3);
+Check("intake: the other FIVE defer — NEVER drop (the bug that ate 5 of 8 records)",
+    backlogActions.Count(a => a == IntakeAction.DeferBudget) == 5 &&
+    backlogActions.All(a => a is not IntakeAction.DropDuplicate and not IntakeAction.DropTooOld));
+Check("intake: reported key dedupes to delete-safe DropDuplicate",
+    NativeCrashIntake.Decide(backlog[0], launchNow, new[] { NativeCrashIntake.KeyFor(backlog[0]) }, 0) == IntakeAction.DropDuplicate);
+Check("intake: 8-day-old record ages out (its log attachments are already purged)",
+    NativeCrashIntake.Decide(backlog[0], backlog[0].DetectedAtUtc.AddDays(8), reported, 0) == IntakeAction.DropTooOld);
+Check("intake: dumpless witness record still sends (message-only event survives)",
+    NativeCrashIntake.Decide(new PendingCrashRecord { Pid = 23368, ExitCodeName = "0xFFFFFFFF", DetectedAtUtc = launchNow },
+        launchNow, reported, NativeCrashIntake.MaxDumpsPerLaunch) == IntakeAction.Send);
+Check("intake: dumpless key falls back to pid+time",
+    NativeCrashIntake.KeyFor(new PendingCrashRecord { Pid = 7 }).StartsWith("pid-7-", StringComparison.Ordinal));
+
+// --- Crash cause digest: reading the CAUSE out of the dead build's own log ----
+
+var digestRoot = Path.Combine(Path.GetTempPath(), "mostaqlk-digest-" + Guid.NewGuid().ToString("N"));
+try
+{
+    Directory.CreateDirectory(digestRoot);
+    var sample = new[]
+    {
+        // real line shape (InteractionLogger.Write): local timestamp WITH offset, pid-tagged
+        "2026-10-31T22:55:43.8187640+02:00 | pid=15036 | FAULT | FirstChance | data={\"Type\":\"System.ArgumentException\"} | exception=ArgumentException: The parameter is incorrect.",
+        "2026-10-31T22:55:44.0000001+02:00 | pid=15036 | MARK | EnrichmentWorker.AttemptStart | variant=D",
+        "2026-10-31T22:55:45.0000000+02:00 | pid=99999 | FAULT | Radar.Start | exception=ArgumentException: different pid line",
+        "2026-10-31T20:00:00.0000000+02:00 | pid=15036 | FAULT | Radar.Start | exception=ArgumentException: outside window",
+        "continuation of a multi-line message, must be skipped not guessed",
+        "2026-10-31T22:56:00.0000000+02:00 | pid=15036 | FAULT | FirstChance | data={\"Type\":\"System.ArgumentException\"} | exception=ArgumentException: The parameter is incorrect.",
+    };
+
+    // 22:55:43+02:00 == 20:55:43 UTC; window 20:53–20:57 UTC must include it (kills a naive
+    // parse-As-UTC bug: without ToUniversalTime the +02:00 stamp looks 2 hours out of range).
+    var found = CrashCauseDigest.Extract(
+        sample, 15036,
+        new DateTime(2026, 10, 31, 20, 53, 0, DateTimeKind.Utc),
+        new DateTime(2026, 10, 31, 20, 57, 0, DateTimeKind.Utc));
+    Check("digest: +02:00 stamp inside UTC window is found", found.Count >= 1);
+    Check("digest: counts identical faults",
+        found.Any(f => f.Count == 2 && f.ExceptionType == "ArgumentException"));
+    Check("digest: foreign pid excluded", found.All(f => f.Checkpoint != "Radar.Start" || f.Message != "different pid line"));
+    Check("digest: out-of-window fault excluded", found.All(f => f.Message != "outside window"));
+    Check("digest: unparseable continuation line skipped", found.All(f => f.Message.Length < 300));
+    Check("digest: maxDistinct caps the list",
+        CrashCauseDigest.Extract(sample, 15036,
+            new DateTime(2026, 10, 31, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(2026, 11, 1, 0, 0, 0, DateTimeKind.Utc), 1).Count == 1);
+
+    var big = Path.Combine(digestRoot, "big.log");
+    using (var w = new StreamWriter(big))
+    {
+        var filler = new string('x', 200);
+        for (var i = 0; i < 12_000; i++)
+        {
+            w.WriteLine(filler);
+        }
+    }
+
+    var tail = CrashCauseDigest.ReadBoundedTail(big, CrashCauseDigest.DefaultTailBytes);
+    Check("digest: bounded tail never slurps the whole file", tail.Count > 0 && tail.Count <= CrashCauseDigest.MaxLines);
+    Check("digest: missing file returns empty, never throws", CrashCauseDigest.ReadBoundedTail(Path.Combine(digestRoot, "nope.log"), 1024).Count == 0);
+
+    // ResolveLogPath: version dir wins, sibling fallback, none → null.
+    var chanRoot = Path.Combine(digestRoot, "channel");
+    Directory.CreateDirectory(Path.Combine(chanRoot, "1.0.4.dev70+abc", "log", "2026-10-31"));
+    Directory.CreateDirectory(Path.Combine(chanRoot, "Settings"));
+    Check("digest: version-tag day dir resolves",
+        CrashCauseDigest.ResolveLogPath(chanRoot, "1.0.4.dev70+abc", new DateTime(2026, 10, 31)) is not null);
+    Check("digest: stale version tag falls back to a sibling that has the day",
+        CrashCauseDigest.ResolveLogPath(chanRoot, "1.0.4.dev99+zzz", new DateTime(2026, 10, 31)) is not null);
+    Check("digest: no day anywhere resolves to null (digest skipped, not faked)",
+        CrashCauseDigest.ResolveLogPath(chanRoot, "1.0.4.dev70+abc", new DateTime(2025, 1, 1)) is null);
+}
+finally
+{
+    try { Directory.Delete(digestRoot, recursive: true); } catch { }
+}
+
 Console.WriteLine();
 if (failures == 0)
 {

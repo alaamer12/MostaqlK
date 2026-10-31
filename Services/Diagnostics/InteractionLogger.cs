@@ -63,9 +63,44 @@ public static class InteractionLogger
     public static void Exit(string interactionName, object? result = null)
         => Write("EXIT", interactionName, variant: null, result, exception: null);
 
+    /// <summary>
+    /// THE seam that makes a CAUGHT exception reach telemetry. Set once by
+    /// <c>CrashReporter.RegisterGlobalHandlers()</c>; null in headless harnesses, so this class
+    /// keeps zero Sentry references (it is linked into ParserTests/CrashPathTests).
+    /// The local FAULT line below is written FIRST and unconditionally — the worst outcome of any
+    /// observer failure is "not forwarded yet", never "invisible" (the exact lesson of the
+    /// swallowed IterationCount throw that fed the dev69→dev70 crash loop).
+    /// </summary>
+    public static Action<string, Exception, object?>? FaultObserver { get; set; }
+
+    [ThreadStatic]
+    private static bool _inFaultObserver;
+
     /// <summary>Logs an exception thrown/caught during a traced command/handler invocation.</summary>
     public static void Fault(string interactionName, Exception exception, object? data = null)
-        => Write("FAULT", interactionName, variant: null, data, exception);
+    {
+        Write("FAULT", interactionName, variant: null, data, exception);
+
+        var observer = FaultObserver;
+        if (observer is null || _inFaultObserver)
+        {
+            return;
+        }
+
+        _inFaultObserver = true;
+        try
+        {
+            observer(interactionName, exception, data);
+        }
+        catch
+        {
+            // A reporting observer must never become the crash it is reporting.
+        }
+        finally
+        {
+            _inFaultObserver = false;
+        }
+    }
 
     /// <summary>
     /// Logs a failing <see cref="MostaqlK.Core.Result{T}"/>. This sink did not exist before, which

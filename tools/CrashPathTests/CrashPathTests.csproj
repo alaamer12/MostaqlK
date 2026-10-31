@@ -18,6 +18,10 @@
 		<Compile Include="..\..\Core\Diagnostics\BackgroundCanvasPolicy.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Diagnostics\BundleExtractPolicy.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Diagnostics\WatchdogPolicy.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Diagnostics\HandledReportingPolicy.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Diagnostics\PendingCrashRecord.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Diagnostics\NativeCrashIntake.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Diagnostics\CrashCauseDigest.cs" LinkBase="Core" />
 	</ItemGroup>
 
 </Project>

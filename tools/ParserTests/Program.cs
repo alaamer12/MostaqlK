@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Text;
+using System.Text.RegularExpressions;
 using HtmlAgilityPack;
 using MostaqlK.Core;
 using MostaqlK.Core.Formatting;
@@ -173,6 +174,10 @@ public static class Program
         Run(nameof(TestDynamicResourceKeysResolveToTokens), TestDynamicResourceKeysResolveToTokens);
         Run(nameof(TestTokenTableIsComplete), TestTokenTableIsComplete);
         Run(nameof(TestConfigurationReferenceMatchesCatalog), TestConfigurationReferenceMatchesCatalog);
+        Run(nameof(TestNoNegativeCompositionIterationCount), TestNoNegativeCompositionIterationCount);
+        Run(nameof(TestNativeObjectCatchesAreBoundAndLogged), TestNativeObjectCatchesAreBoundAndLogged);
+        Run(nameof(TestCaughtFaultsReachSentryThroughOneFunnel), TestCaughtFaultsReachSentryThroughOneFunnel);
+        Run(nameof(TestFaultDigestFormatMatchesTheSink), TestFaultDigestFormatMatchesTheSink);
 
         Console.WriteLine();
         Console.WriteLine(new string('=', 60));
@@ -2536,6 +2541,180 @@ public static class Program
         // shipped broken. The app has eight guarded tickers; the scan must see them.
         Check("ticker guard: the scan actually found the guarded tickers",
             guarded >= 8, $"guarded subscriptions = {guarded}");
+    }
+
+    /// <summary>
+    /// Postmortem A1 (radar-iterationcount-stow-failfast-2026-10-31): the WinAppSDK 1.7 C#
+    /// projection types composition animation <c>IterationCount</c> as INT32 and validates it &gt; 0;
+    /// the dev30-era <c>-1</c> wrap idiom THROWS at runtime. A throw inside a composition callback
+    /// is not just an error — the abandoned half-built COM object finalizes off-thread, which is
+    /// the documented fuel of the 0xC000027B dispatcher fail-fast. So the literal is banned
+    /// outright, and the scan proves its own reach by seeing the legal form at least once.
+    /// </summary>
+    private static void TestNoNegativeCompositionIterationCount()
+    {
+        var root = FindRepoRoot();
+        var violations = new List<string>();
+        var seenLegal = 0;
+        foreach (var dir in new[] { "Core", "Features", "Infrastructure", "Services", "Sources", "Platforms", "UI" })
+        {
+            var path = Path.Combine(root, dir);
+            if (!Directory.Exists(path))
+            {
+                continue;
+            }
+
+            foreach (var file in Directory.EnumerateFiles(path, "*.cs", SearchOption.AllDirectories))
+            {
+                var rel = Path.GetRelativePath(root, file);
+                var lines = File.ReadAllLines(file);
+                for (var i = 0; i < lines.Length; i++)
+                {
+                    if (Regex.IsMatch(lines[i], @"\.IterationCount\s*=\s*(-\d|0)\b"))
+                    {
+                        violations.Add($"{rel}:{i + 1}");
+                    }
+                    else if (Regex.IsMatch(lines[i], @"\.IterationCount\s*=\s*int\.MaxValue\b"))
+                    {
+                        seenLegal++;
+                    }
+                }
+            }
+        }
+
+        Check("iteration-count: no negative/zero IterationCount assignment anywhere in app code",
+            violations.Count == 0, string.Join(", ", violations));
+        Check("iteration-count: the scan sees the legal int.MaxValue form (anti-vacuity)",
+            seenLegal >= 1, $"legal assignments seen = {seenLegal}");
+    }
+
+    /// <summary>
+    /// Postmortem A2, scoped to its owner: every catch in PipelineRadar.Windows.cs must BIND the
+    /// exception and hand it to a named fault sink within a few lines — the silent anonymous
+    /// swallow is what kept this crash class invisible for nine days. (The same rule across the
+    /// remaining UI/PlatformComponents *.Windows.cs is still the open November audit: about 20
+    /// pre-existing anonymous catches live there, none of them this incident's owner's file.)
+    /// </summary>
+    private static void TestNativeObjectCatchesAreBoundAndLogged()
+    {
+        var root = FindRepoRoot();
+        var file = Path.Combine(root, "UI", "PlatformComponents", "PipelineRadar", "PipelineRadar.Windows.cs");
+        Check("radar catches: the incident file exists", File.Exists(file));
+        var lines = File.ReadAllLines(file);
+
+        var unbound = new List<string>();
+        var unlogged = new List<string>();
+        var catches = 0;
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var m = Regex.Match(lines[i], @"^\s*catch\s*(?:\(\s*(?!\s*\))([^)]*)\))?\s*{?\s*$");
+            if (!m.Success)
+            {
+                continue;
+            }
+
+            catches++;
+            var header = m.Groups[1].Value.Trim();
+            if (header.Length == 0 || !header.Contains(' '))
+            {
+                unbound.Add($"line {i + 1}: '{lines[i].Trim()}'");
+                continue;
+            }
+
+            var window = string.Join('\n', lines.Skip(i + 1).Take(12));
+            if (!window.Contains("InteractionLogger.Fault", StringComparison.Ordinal)
+                && !window.Contains("CrashReporter.Report", StringComparison.Ordinal))
+            {
+                unlogged.Add($"line {i + 1}: '{lines[i].Trim()}'");
+            }
+        }
+
+        Check("radar catches: every catch binds its exception (no anonymous swallow in the incident unit)",
+            unbound.Count == 0, string.Join(", ", unbound));
+        Check("radar catches: every catch names a fault sink within 12 lines",
+            unlogged.Count == 0, string.Join(", ", unlogged));
+        // Anti-vacuity: the file has exactly the three rotation catches; if the scan sees fewer,
+        // its regex rotted and these checks prove nothing.
+        Check("radar catches: the scan found all three rotation catches",
+            catches >= 3, $"catches seen = {catches}");
+    }
+
+    /// <summary>
+    /// The one-funnel invariant: a CAUGHT exception reaches Sentry through exactly one seam —
+    /// InteractionLogger.Fault's optional observer, wired by CrashReporter.
+    /// InteractionLogger itself must NEVER reference the SDK (it is linked into the
+    /// headless harnesses); CrashReporter must actually wire the observer and send handled events.
+    /// This is the class of bug that hid the IterationCount throw: sinks diverged and no test proved
+    /// the wiring existed.
+    /// </summary>
+    private static void TestCaughtFaultsReachSentryThroughOneFunnel()
+    {
+        var root = FindRepoRoot();
+        var logger = File.ReadAllText(Path.Combine(root, "Services", "Diagnostics", "InteractionLogger.cs"));
+        var reporter = File.ReadAllText(Path.Combine(root, "Services", "Diagnostics", "CrashReporter.cs"));
+
+        Check("funnel: InteractionLogger references no Sentry SDK (harness-linked file)",
+            !logger.Contains("SentrySdk", StringComparison.Ordinal) && !logger.Contains("using Sentry", StringComparison.Ordinal));
+        Check("funnel: Fault writes the local line before invoking the observer",
+            logger.Contains("Write(\"FAULT\", interactionName, variant: null, data, exception);", StringComparison.Ordinal)
+            && logger.IndexOf("Write(\"FAULT\"", StringComparison.Ordinal) < logger.IndexOf("observer(interactionName", StringComparison.Ordinal));
+        Check("funnel: exactly one observer invocation site",
+            Regex.Matches(logger, "observer\\(interactionName").Count == 1);
+        Check("funnel: CrashReporter wires the observer to ReportHandled",
+            reporter.Contains("FaultObserver = ReportHandled", StringComparison.Ordinal));
+        Check("funnel: handled forwards go through the SDK's handled:true path",
+            reporter.Contains("CaptureException(exception, handled: true", StringComparison.Ordinal));
+        Check("funnel: the observer sends off the calling thread (pump, not inline)",
+            reporter.Contains("EnqueueHandledSend", StringComparison.Ordinal) && reporter.Contains("DrainHandledSends", StringComparison.Ordinal));
+        Check("funnel: same-object dedupe guard exists on both Report and the handled path",
+            reporter.Contains("TryMarkExceptionForwarded", StringComparison.Ordinal)
+            && reporter.IndexOf("TryMarkExceptionForwarded", StringComparison.Ordinal) < reporter.LastIndexOf("TryMarkExceptionForwarded", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Cross-file contract: the post-mortem fault digest parses the interaction log by its EXACT
+    /// separators. If <c>Write</c>'s line shape changes and the digest keeps looking for the old
+    /// tokens, every future crash event silently says "&lt;no FAULT lines&gt;" — a lint matching
+    /// nothing passing vacuously, again. So both sides are pinned to agree.
+    /// </summary>
+    private static void TestFaultDigestFormatMatchesTheSink()
+    {
+        var root = FindRepoRoot();
+        var logger = File.ReadAllText(Path.Combine(root, "Services", "Diagnostics", "InteractionLogger.cs"));
+        var digest = File.ReadAllText(Path.Combine(root, "Core", "Diagnostics", "CrashCauseDigest.cs"));
+
+        var tokens = 0;
+        if (logger.Contains(".Append(\" | pid=\")", StringComparison.Ordinal))
+        {
+            tokens++;
+        }
+
+        if (logger.Contains(".Append(\" | \").Append(kind)", StringComparison.Ordinal))
+        {
+            tokens++;
+        }
+
+        if (logger.Contains(".Append(\" | \").Append(checkpoint)", StringComparison.Ordinal))
+        {
+            tokens++;
+        }
+
+        if (digest.Contains("Split(\" | \"", StringComparison.Ordinal))
+        {
+            tokens++;
+        }
+
+        if (digest.Contains("\"pid=\"", StringComparison.Ordinal))
+        {
+            tokens++;
+        }
+
+        // The sink stamps local time with an offset; the digest must convert before comparing to UTC.
+        Check("digest: sink stamps DateTimeOffset.Now and the digest converts with ToUniversalTime",
+            logger.Contains("DateTimeOffset.Now.ToString(\"O\")", StringComparison.Ordinal)
+            && digest.Contains("ToUniversalTime()", StringComparison.Ordinal));
+        Check("digest: the parser knows at least three of the sink's exact separators",
+            tokens >= 3, $"tokens matched = {tokens}");
     }
 
     /// <summary>

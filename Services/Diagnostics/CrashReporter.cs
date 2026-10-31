@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -110,6 +111,13 @@ public static class CrashReporter
             args.SetObserved();
         };
 
+        // THE funnel: every CAUGHT exception that reaches InteractionLogger.Fault now also reaches
+        // telemetry, sampled by HandledReportingPolicy. The observer never sends from the calling
+        // thread (a composition callback must not pay SDK work; animation-safety), only enqueues.
+        InteractionLogger.FaultObserver = ReportHandled;
+        InteractionLogger.Mark("Diagnostics.HandlersRegistered", "A",
+            new { firstChanceDiag = Environment.GetEnvironmentVariable("MOSTAQLK_DIAG_COM") == "1" });
+
         // Opt-in first-chance probe (MOSTAQLK_DIAG_COM=1).
         //
         // It used to filter on InvalidCastException/COMException/EntryPointNotFoundException, and
@@ -145,6 +153,104 @@ public static class CrashReporter
 #if WINDOWS || NET10_0_WINDOWS10_0_19041_0_OR_GREATER || WINDOWS10_0_17763_0_OR_GREATER
         RegisterNativeExceptionFilter();
 #endif
+    }
+
+    private static readonly ConcurrentQueue<Action> HandledSendQueue = new();
+    private static int _handledPumpRunning;
+
+    /// <summary>
+    /// Forwards a CAUGHT exception to Sentry, budgeted per checkpoint+type and always off the
+    /// calling thread. The local <c>FAULT</c> line was already written by <see cref="InteractionLogger"/>
+    /// before this runs — this method only decides whether the network is also told. Never throws.
+    /// </summary>
+    public static void ReportHandled(string source, Exception exception, object? context = null)
+    {
+        try
+        {
+            if (exception is null || HandledReportingPolicy.IsExempt(source))
+            {
+                return;
+            }
+
+            var decision = HandledReportingPolicy.Decide(source, exception, DateTime.UtcNow);
+            if (decision is HandledReportDecision.Exempt or HandledReportDecision.Suppress)
+            {
+                return;
+            }
+
+            // Same exception object reported twice (Report + Fault, or Fault twice) = one event.
+            if (!HandledReportingPolicy.TryMarkExceptionForwarded(exception))
+            {
+                return;
+            }
+
+            var suppressed = decision == HandledReportDecision.ReportWithSuppressed
+                ? HandledReportingPolicy.TakeSuppressedCount(source, exception)
+                : 0;
+
+            EnqueueHandledSend(() =>
+            {
+                try
+                {
+                    Sentry.SentrySdk.CaptureException(exception, handled: true, terminal: false, scope =>
+                    {
+                        scope.SetTag("source", source);
+                        if (suppressed > 0)
+                        {
+                            scope.SetExtra("suppressed_since_last", suppressed);
+                        }
+
+                        if (context is not null)
+                        {
+                            scope.SetExtra("context", SafeSerialize(context));
+                        }
+                    });
+                }
+                catch
+                {
+                    // Fail-safe: a dropped forward never affects the app or the local log.
+                }
+            });
+        }
+        catch
+        {
+            // Fail-safe: the reporting path must never become a crash.
+        }
+    }
+
+    private static void EnqueueHandledSend(Action work)
+    {
+        HandledSendQueue.Enqueue(work);
+        if (Interlocked.CompareExchange(ref _handledPumpRunning, 1, 0) == 0)
+        {
+            _ = Task.Run(DrainHandledSends);
+        }
+    }
+
+    private static void DrainHandledSends()
+    {
+        try
+        {
+            while (HandledSendQueue.TryDequeue(out var work))
+            {
+                try
+                {
+                    work();
+                }
+                catch
+                {
+                    // one poisoned item may not stop the drain
+                }
+            }
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _handledPumpRunning, 0);
+            if (!HandledSendQueue.IsEmpty && Interlocked.CompareExchange(ref _handledPumpRunning, 1, 0) == 0)
+            {
+                _ = Task.Run(DrainHandledSends);
+            }
+        }
     }
 
 #if WINDOWS || NET10_0_WINDOWS10_0_19041_0_OR_GREATER || WINDOWS10_0_17763_0_OR_GREATER
@@ -450,32 +556,38 @@ public static class CrashReporter
             // Also mirror to debug output in development
             Debug.WriteLine($"[CrashReporter] [{severity}] [{source}]: {exception?.Message}");
 
-            // Forward to Sentry SDK
+            // Forward to Sentry SDK — unless the handled-observer already claimed THIS exception
+            // object (sites like TickerGuard call Report and Fault on one throw; two events for
+            // one exception is the spam this guard exists to stop). The crash.log write above is
+            // unconditional either way.
             try
             {
-                if (exception != null)
+                if (exception is null || HandledReportingPolicy.TryMarkExceptionForwarded(exception))
                 {
-                    Sentry.SentrySdk.CaptureException(exception, scope =>
+                    if (exception != null)
                     {
-                        scope.SetTag("source", source);
-                        scope.SetTag("fatal", isFatal ? "true" : "false");
-                        if (context != null)
+                        Sentry.SentrySdk.CaptureException(exception, handled: exception is not null && !isFatal, terminal: isFatal, scope =>
                         {
-                            scope.SetExtra("context", SafeSerialize(context));
-                        }
-                    });
-                }
-                else
-                {
-                    Sentry.SentrySdk.CaptureMessage($"[{severity}] Source: {source}", scope =>
+                            scope.SetTag("source", source);
+                            scope.SetTag("fatal", isFatal ? "true" : "false");
+                            if (context != null)
+                            {
+                                scope.SetExtra("context", SafeSerialize(context));
+                            }
+                        });
+                    }
+                    else
                     {
-                        scope.SetTag("source", source);
-                        scope.SetTag("fatal", isFatal ? "true" : "false");
-                        if (context != null)
+                        Sentry.SentrySdk.CaptureMessage($"[{severity}] Source: {source}", scope =>
                         {
-                            scope.SetExtra("context", SafeSerialize(context));
-                        }
-                    });
+                            scope.SetTag("source", source);
+                            scope.SetTag("fatal", isFatal ? "true" : "false");
+                            if (context != null)
+                            {
+                                scope.SetExtra("context", SafeSerialize(context));
+                            }
+                        });
+                    }
                 }
             }
             catch

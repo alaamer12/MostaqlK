@@ -567,8 +567,10 @@ public partial class PipelineRadar : ContentView
         if (wantScanner && !_scannerRotating)
         {
             _state.ResyncScannerEpoch();
-            StartScannerRotation();
-            _scannerRotating = true;
+            // The flag now reflects what the compositor ACTUALLY got (dev70 radar-A2): a failed
+            // start leaves it false, so the next Wake retries deliberately — bounded inside the
+            // Windows seam by its per-process failure cap — instead of storming silently.
+            _scannerRotating = TryStartScannerRotation();
         }
         else if (!wantScanner && _scannerRotating)
         {
@@ -579,8 +581,7 @@ public partial class PipelineRadar : ContentView
         var wantSweep = canSpin && _state.IsSnapshotActive;
         if (wantSweep && !_sweepRotating)
         {
-            StartSweepRotation();
-            _sweepRotating = true;
+            _sweepRotating = TryStartSweepRotation();
         }
         else if (!wantSweep && _sweepRotating)
         {
@@ -635,14 +636,23 @@ public partial class PipelineRadar : ContentView
 
     // Platform seams: implemented by PipelineRadar.Windows.cs (compositor
     // RotationAngleInDegrees key-frame, infinite iteration while active, StopAnimation + Dispose on
-    // stop — zero per-frame managed objects). Elided to nothing on Android/iOS/MacCatalyst, where
-    // RadarPipelineState.RotationDelegatedToCompositor stays false and the ticker keeps the
-    // legacy in-canvas rotation.
-    partial void StartScannerRotation();
+    // stop — zero per-frame managed objects). The TRY- forms return false when the compositor call
+    // failed (dev70 radar-A2: the old void seam let SyncRotations set its "rotating" flag even when
+    // the start had silently thrown — every Wake retried, abandoning another object each time).
+    // Non-Windows: no compositor seam exists; the methods are unreachable there because
+    // RadarPipelineState.RotationDelegatedToCompositor stays false and the ticker keeps the legacy
+    // in-canvas rotation — the #if below only exists because extended partial methods REQUIRE an
+    // implementation on every TFM that calls them.
+    private partial bool TryStartScannerRotation();
     partial void StopScannerRotation();
-    partial void StartSweepRotation();
+    private partial bool TryStartSweepRotation();
     partial void StopSweepRotation();
     partial void UpdateRotationCenters();
+
+#if !WINDOWS
+    private partial bool TryStartScannerRotation() => false;
+    private partial bool TryStartSweepRotation() => false;
+#endif
 
     // ------------------------------------------------------------------ the single ticker
 

@@ -47,6 +47,19 @@ hidden-to-tray), the out-of-process watchdog, and the heartbeat log.
    with zero transform churn, seconds after launch. `ParserTests`
    `TestTickerCallbacksAreGuarded` is the gate that keeps it from rotting.
 
+7. **A `catch` that abandons a native/composition object is itself a crash class — it must take
+   ownership before the risky call, dispose on failure, reset the caller's state flag, and name
+   the fault through `InteractionLogger.Fault`.** Proven by the dev69→dev70 incident
+   (`docs/postmoterm/radar-iterationcount-stow-failfast-2026-10-31.md`): a swallowed throw from a
+   composition-animation setter looked like a safe guard, but it orphaned a half-built
+   `KeyFrameAnimation` on every retry (off-thread finalization — the documented §10 fuel) and left
+   the caller's "rotating" flag set, so the retry storm ran for nine days with the only visible
+   symptom a motionless radar. Silent guards are not safety; they are fuel with an error budget.
+   `PipelineRadar.Windows.cs`'s `TryStartRotation` is the reference shape (ownership-before-throw,
+   dispose-in-catch, bool to the caller, per-process failure cap), and its catches are gated by
+   `ParserTests.TestNativeObjectCatchesAreBoundAndLogged`; dev73's funnel guarantees any such
+   caught fault reaches Sentry, sampled, off the UI thread.
+
 ## Status @ dev21
 
 The entire v3 surface (palette repaint, morph tiles, FilterModal flyout, details schema

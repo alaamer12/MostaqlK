@@ -1,6 +1,8 @@
 using System.Numerics;
+using System.Threading;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Xaml.Hosting;
+using MostaqlK.Services.Diagnostics;
 
 namespace MostaqlK.UI.PlatformComponents.PipelineRadar;
 
@@ -8,8 +10,8 @@ namespace MostaqlK.UI.PlatformComponents.PipelineRadar;
 /// Windows half of the radar's rotation mechanism (dev30 de-managed ticker, plan step 4): the
 /// scanner head and the snapshot sweep ride one LOOPING compositor
 /// <c>RotationAngleInDegrees</c> scalar key-frame animation each
-/// (<c>IterationCount = uint.MaxValue</c> — infinite, linear, render-thread) on the overlay canvas's
-/// own <c>Visual</c> — the class animation-safety rule 3 approves: the property is a built-in
+/// (<c>IterationCount = int.MaxValue</c> — the WinAppSDK 1.7 projection validates a positive INT32;
+/// infinite, linear, render-thread) on the overlay canvas's own <c>Visual</c> — the class animation-safety rule 3 approves: the property is a built-in
 /// member of an existing composition visual, so a spinning radar allocates ZERO managed objects
 /// per frame, unlike the retired 16ms <c>Animation.Commit</c>→<c>Invalidate</c> loop.
 /// <para>
@@ -32,14 +34,14 @@ public partial class PipelineRadar
     private Microsoft.UI.Composition.Visual? _sweepVisual;
     private CompositionAnimation? _sweepAnimation;
 
-    partial void StartScannerRotation()
-        => StartRotation(ScannerCanvas, ref _scannerVisual, ref _scannerAnimation, RadarPipelineState.ScannerPeriodSeconds);
+    private partial bool TryStartScannerRotation()
+        => TryStartRotation(ScannerCanvas, ref _scannerVisual, ref _scannerAnimation, RadarPipelineState.ScannerPeriodSeconds, "scanner");
 
     partial void StopScannerRotation()
         => StopRotation(ref _scannerVisual, ref _scannerAnimation);
 
-    partial void StartSweepRotation()
-        => StartRotation(SweepCanvas, ref _sweepVisual, ref _sweepAnimation, RadarPipelineState.SweepPeriodSeconds);
+    private partial bool TryStartSweepRotation()
+        => TryStartRotation(SweepCanvas, ref _sweepVisual, ref _sweepAnimation, RadarPipelineState.SweepPeriodSeconds, "sweep");
 
     partial void StopSweepRotation()
         => StopRotation(ref _sweepVisual, ref _sweepAnimation);
@@ -52,29 +54,52 @@ public partial class PipelineRadar
         SetRotationCenter(_sweepVisual);
     }
 
-    private static void StartRotation(
+    // dev70 postmortem (action A2): the old shape threw inside a catch that continued as if nothing
+    // failed — abandoning a half-built composition object each time (the off-thread finalization fuel
+    // of the documented 0xC000027B fail-fast class) and leaving the caller's flag set, so every Wake
+    // retried a deterministic API failure. Contract now: ownership of every native object is taken
+    // BEFORE the next risky call; the catch disposes and NAMES the fault; the result reaches the
+    // caller as a bool; failures are capped process-wide because a contract failure repeats
+    // identically — and the repetition is the fuel.
+    private static int _startFailuresThisProcess;
+    private const int MaxRotationStartFailuresPerProcess = 8;
+
+#if DEBUG
+    private static readonly bool TestRadarFaultEnabled =
+        string.Equals(Environment.GetEnvironmentVariable("MOSTAQLK_TEST_RADAR_FAULT"), "1", StringComparison.Ordinal);
+
+    private static int _testRadarFaultUsed;
+#endif
+
+    private static bool TryStartRotation(
         GraphicsView layer,
         ref Microsoft.UI.Composition.Visual? visual,
         ref CompositionAnimation? animation,
-        double periodSeconds)
+        double periodSeconds,
+        string dial)
     {
         try
         {
             if (animation is not null)
             {
-                return; // already looping — idempotent start
+                return true; // already looping — idempotent start
+            }
+
+            if (_startFailuresThisProcess >= MaxRotationStartFailuresPerProcess)
+            {
+                return false; // this build's rotation call fails deterministically; stop fueling
             }
 
             if (layer.Handler?.PlatformView is not Microsoft.UI.Xaml.UIElement element)
             {
-                return; // not realized; the next event-driven sync retries
+                return false; // not realized; the next event-driven sync retries
             }
 
             var current = ElementCompositionPreview.GetElementVisual(element);
             var compositor = current?.Compositor;
             if (current is null || compositor is null)
             {
-                return;
+                return false;
             }
 
             var loop = compositor.CreateScalarKeyFrameAnimation();
@@ -89,16 +114,31 @@ public partial class PipelineRadar
             loop.InsertKeyFrame(0.0f, 0.0f);
             loop.InsertKeyFrame(1.0f, 360.0f); // linear by default — a radar sweep never eases
 
+#if DEBUG
+            if (TestRadarFaultEnabled && Interlocked.Exchange(ref _testRadarFaultUsed, 1) == 0)
+            {
+                throw new InvalidOperationException("injected radar rotation fault (MOSTAQLK_TEST_RADAR_FAULT=1)");
+            }
+#endif
+
+            // OWNERSHIP BEFORE THE RISKY CALL: from the assignments down, every exception path runs
+            // through the catch, which disposes — no path may leave a composition object orphaned.
             visual = current;
+            animation = loop;
             SetRotationCenter(current);
             current.StartAnimation(RotationPropertyName, loop);
-            animation = loop;
+            return true;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // A rotation that failed to (re)start must not leave half-ownership behind: the next
-            // sync cleanly re-attempts, and the managed-fallback angle stays coherent either way.
+            _startFailuresThisProcess++;
+            // A rotation that failed to (re)start must not leave half-ownership behind: dispose on
+            // the UI thread, clear the caller's refs — and NAME the fault. The silent swallow is
+            // exactly what hid this crash class for nine days.
             StopRotation(ref visual, ref animation);
+            InteractionLogger.Fault("PipelineRadar.Rotation.Start", ex,
+                new { dial, periodSeconds, failures = _startFailuresThisProcess });
+            return false;
         }
     }
 
@@ -113,9 +153,10 @@ public partial class PipelineRadar
                 visual.StopAnimation(RotationPropertyName);
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // visual tree may already be gone; the dispose below is the part that matters
+            InteractionLogger.Fault("PipelineRadar.Rotation.Stop.StopAnimation", ex);
         }
 
         try
@@ -124,8 +165,9 @@ public partial class PipelineRadar
             // finalizer thread with a live composition object (the crash class).
             animation?.Dispose();
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            InteractionLogger.Fault("PipelineRadar.Rotation.Stop.Dispose", ex);
         }
 
         visual = null;

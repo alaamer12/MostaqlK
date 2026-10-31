@@ -172,7 +172,7 @@ tooling (a Workflow run needs the user's explicit opt-in), not a skill.
 | Channel identity | Compiled in via `-p:Channel=canary\|stable`; every persistent OS identity derives from one file | `Core/Platform/ChannelIdentity.cs` — never hand-write a `.Canary` suffix, mutex name, AUMID or CLSID |
 
 - **Never paste, log, or commit a cookie value, a secret, or a user's database row.** Describe the shape of the data if a bug report needs it.
-- **Opt-in diagnostic env vars** (all off in normal launches; mechanism notes in `docs/postmoterm/animation-tick-failfast-2026-10-28.md` §6): `MOSTAQLK_DIAG_COM=1` logs every first-chance exception with its live stack, `MOSTAQLK_DIAG_NET=1` logs every outbound site request (the witness for "a disabled platform makes zero requests"), `MOSTAQLK_NO_WATCHDOG=1` suppresses the watchdog spawn.
+- **Opt-in diagnostic env vars** (all off in normal launches; mechanism notes in `docs/postmoterm/animation-tick-failfast-2026-10-28.md` §6): `MOSTAQLK_DIAG_COM=1` logs every first-chance exception with its live stack, `MOSTAQLK_DIAG_NET=1` logs every outbound site request (the witness for "a disabled platform makes zero requests"), `MOSTAQLK_NO_WATCHDOG=1` suppresses the watchdog spawn, `MOSTAQLK_TEST_RADAR_FAULT=1` (DEBUG builds only) injects one radar-rotation throw to prove the caught-fault→funnel→Sentry chain (`docs/postmoterm/radar-iterationcount-stow-failfast-2026-10-31.md`).
 
 ## Shared primitives — reuse instead of inventing
 
