@@ -322,7 +322,7 @@ Five rows, ≥1 prevent and ≥1 mitigate-class (A3) and ≥1 prevent (A1/A2) �
 | 2026-10-28 (postmortem date) | 0xC000027B dispatcher fail-fast class documented, fuel mechanism described | `docs/postmoterm/published-layout-dispatcher-failfast-2026-10-28.md` |
 | 2026-10-31T16:27:49Z | dump `MostaqlK.exe.22256.dmp` (22.8 MB) — **unattributed**, listed for completeness | CrashDumps directory listing |
 | 2026-10-31T18:14:48Z | dump `22640.dmp` — owner reports crashes "while using it" | CrashDumps + owner chat (chat time ≈) |
-| 2026-10-31T18:18:35Z | clean DB/prefs; repro session; watchdog starts pid 13456→23368 | `watchdog.log` (1.0.4.dev69+a927d46 dir) |
+| 2026-10-31T18:18:35Z | clean DB/prefs; repro session; watchdog starts pid 13456→23368 | `watchdog.log` (1.0.4.dev69+a927d46f9c3d237d2f00328ccfc91ffb35567dbc dir) |
 | 2026-10-31T18:19:21Z | pid 23368 dies, exit `0xFFFFFFFF`, uptime 143 s; watchdog relaunch (restart 1/5) | `watchdog.log` |
 | 2026-10-31T18:21:09Z | pid 15400 dies, exit `0x1`, uptime 48 s | `watchdog.log` |
 | 2026-10-31T18:26:51Z–18:40:19Z | 13 more instance starts by supervisor/watchdog, each `#1 start` then silence | `watchdog.log`, `heartbeat.log` |
