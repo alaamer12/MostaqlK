@@ -98,6 +98,11 @@ public sealed class SourcePipelineOrchestrator
             // activated" requirement.
             pipeline.Poll.SetPaused(!isPollingActive);
 
+            // Seed the per-platform search query the same way the cadence and the switch are seeded:
+            // what onboarding (or Settings) wrote into this platform's container must govern its very
+            // first poll, without anyone opening Settings to push it live.
+            pipeline.Poll.QueryParams = _settings.Get(pipeline.Source, SettingsKeys.QueryParams, string.Empty);
+
             // Seed the platform switch the same way the cadence is seeded: a platform that was off
             // when the app closed must still be off after it reopens, without the settings page ever
             // having to be opened to say so. Logged because "why is this platform quiet?" is otherwise

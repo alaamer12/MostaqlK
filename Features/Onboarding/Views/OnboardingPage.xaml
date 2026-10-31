@@ -4,11 +4,76 @@
              xmlns:ui="clr-namespace:MostaqlK.UI.PlatformComponents"
              xmlns:ds="clr-namespace:MostaqlK.UI.DesignSystem"
              xmlns:conv="clr-namespace:MostaqlK.UI.DesignSystem.Converters"
+             xmlns:vm="clr-namespace:MostaqlK.Features.Onboarding.ViewModels"
              x:Class="MostaqlK.Features.Onboarding.Views.OnboardingPage"
              BackgroundColor="{DynamicResource SurfaceShellAlt}"
              Title="">
     <ContentPage.Resources>
         <conv:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+
+        <!-- One platform card: identity from the descriptor, live switch state from PlatformEnablement.
+             The switch lives in the FOOTER row — on WinUI a Switch reserves ~100px, and in the header
+             it crushed the name column into per-word wraps. Colors bind to view-model Color properties
+             resolved from the token table / the module's own brand set, so no hex and no
+             AppThemeBinding exists here (both are build-gated). -->
+        <DataTemplate x:Key="PlatformCardTemplate">
+            <Border StrokeThickness="1.5" Stroke="{Binding CardStroke}" StrokeShape="RoundRectangle 20"
+                    BackgroundColor="{DynamicResource Surface}" Padding="16,14,16,0"
+                    WidthRequest="340" AutomationId="{Binding CardAutomationId}">
+                <Border.Shadow>
+                    <Shadow Brush="Black" Opacity="0.08" Radius="14" Offset="0,6" />
+                </Border.Shadow>
+                <VerticalStackLayout Spacing="8">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="11">
+                        <Border WidthRequest="42" HeightRequest="42" StrokeThickness="0" BackgroundColor="{Binding GlyphFill}">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="14" />
+                            </Border.StrokeShape>
+                            <Label Text="{Binding Glyph}" FontFamily="TajawalBold" FontSize="18" FontAttributes="Bold"
+                                   TextColor="{Binding GlyphOnText}" HorizontalOptions="Center" VerticalOptions="Center" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                            <Label Text="{Binding NameAr}" FontFamily="TajawalBold" FontSize="16" FontAttributes="Bold"
+                                   TextColor="{DynamicResource TextPrimary}" LineBreakMode="NoWrap" />
+                            <Label Text="{Binding TaglineAr}" IsVisible="{Binding HasTagline}"
+                                   FontFamily="Tajawal" FontSize="12" TextColor="{DynamicResource TextMuted}"
+                                   MaxLines="2" LineBreakMode="TailTruncation" />
+                            <Label Text="{Binding CadenceText}" FontFamily="Tajawal" FontSize="11.5"
+                                   TextColor="{DynamicResource TextMuted}" LineBreakMode="NoWrap" />
+                        </VerticalStackLayout>
+                    </Grid>
+                    <Label Text="{Binding DescriptionAr}" FontFamily="Tajawal" FontSize="13" LineHeight="1.4"
+                           TextColor="{DynamicResource TextDescription}" MaxLines="2" LineBreakMode="TailTruncation" />
+                    <BoxView HeightRequest="1" Color="{DynamicResource BorderSubtle}" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,0,0,12">
+                        <Label Text="{Binding StateText}" FontFamily="TajawalBold" FontSize="12" FontAttributes="Bold"
+                               TextColor="{Binding StateTextColor}" VerticalOptions="Center" LineBreakMode="NoWrap" />
+                        <Switch Grid.Column="2" VerticalOptions="Center" Style="{StaticResource AppToggleBase}"
+                                IsToggled="{Binding IsEnabled, Mode=OneWay}"
+                                IsEnabled="{Binding IsLocked, Converter={StaticResource InvertedBoolConverter}}"
+                                Toggled="OnPlatformToggled"
+                                AutomationId="{Binding SwitchAutomationId}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+        </DataTemplate>
+
+        <!-- One interest chip: a plain Button (invokable, keyboard-reachable, UIA-measurable);
+             selected state carried by the ✓ in its text + token colors, never color alone. -->
+        <DataTemplate x:Key="InterestChipTemplate">
+            <Button Text="{Binding ChipDisplayText}"
+                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:OnboardingViewModel}}, Path=ToggleInterestCommand}"
+                    CommandParameter="{Binding}"
+                    BackgroundColor="{Binding ChipBackground}"
+                    BorderColor="{Binding ChipBorder}"
+                    BorderWidth="1.5"
+                    CornerRadius="999"
+                    Padding="16,9"
+                    FontFamily="TajawalBold"
+                    FontSize="13.5"
+                    TextColor="{Binding ChipTextColor}"
+                    AutomationId="{Binding ChipAutomationId}" />
+        </DataTemplate>
     </ContentPage.Resources>
     <Grid Padding="8">
         <Border x:Name="Root" AutomationId="onboarding-page" Padding="20"
@@ -29,9 +94,9 @@
                         </Button.Behaviors>
                     </Button>
                 </Grid>
-                <Grid Grid.Row="1">
-                    <VerticalStackLayout Spacing="22" HorizontalOptions="Center" VerticalOptions="Center" FlowDirection="RightToLeft">
-                        <Border x:Name="ImageWrapper" Padding="0" StrokeThickness="0" WidthRequest="340" HeightRequest="340"
+                <ScrollView Grid.Row="1">
+                    <VerticalStackLayout Spacing="22" HorizontalOptions="Center" Padding="0,10" FlowDirection="RightToLeft">
+                        <Border x:Name="ImageWrapper" IsVisible="{Binding HasIllustration}" Padding="0" StrokeThickness="0" WidthRequest="340" HeightRequest="340"
                                 BackgroundColor="{DynamicResource SurfaceWarningSoft}">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="24" />
@@ -69,59 +134,45 @@
                             </Label.FormattedText>
                         </Label>
                         <Label x:Name="DescriptionLabel" Text="{Binding CurrentDescription}" FontFamily="Tajawal" FontSize="18" LineHeight="1.45" HorizontalTextAlignment="Center" MaximumWidthRequest="680" TextColor="{DynamicResource TextDescription}" />
-                        <VerticalStackLayout x:Name="QueryPanel" IsVisible="{Binding IsQueryStep}" Spacing="6" Margin="0,0,0,0" MaximumWidthRequest="600">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <Label Text="استعلام المشاريع" FontFamily="TajawalBold" FontAttributes="Bold" FontSize="16" TextColor="{DynamicResource TextDisplay}" />
-                                <Label Grid.Column="1" Text="يمكنك تغييره لاحقًا" FontFamily="Tajawal" FontSize="13" TextColor="{DynamicResource TextDescription}" />
-                            </Grid>
-                            <!--
-                            Mirrors the mockup's `.query-setup` row: the input box (flex-1) and the
-                            "حفظ والبدء" save button sit side-by-side in the SAME row, not the input
-                            alone followed by a separate save row below (as previously implemented).
-                            -->
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                <Border StrokeThickness="1" Stroke="{DynamicResource BorderFieldBrush}" StrokeShape="RoundRectangle 16" Padding="12,0" BackgroundColor="{DynamicResource SurfaceFieldAlt}">
-                                    <Grid ColumnDefinitions="Auto,*" FlowDirection="LeftToRight">
-                                        <Label Text="projects?" FontFamily="Tajawal" VerticalOptions="Center" FontSize="14" TextColor="{DynamicResource TextDescription}" />
-                                        <Entry Grid.Column="1" Text="{Binding QueryParams}" Placeholder="category=development&amp;sort=latest" FontFamily="Tajawal" FontSize="16" FlowDirection="LeftToRight" AutomationId="onboarding-query-input" />
-                                    </Grid>
-                                </Border>
-                                <Grid Grid.Column="1">
-                                    <Button Text="{Binding SaveButtonLabel}" FontFamily="TajawalMedium" Command="{Binding SaveCommand}" IsEnabled="{Binding IsTransitioning, Converter={StaticResource InvertedBoolConverter}}" AutomationId="onboarding-query-save" BackgroundColor="{DynamicResource FixedPositiveAction}" TextColor="{DynamicResource FixedWhite}" WidthRequest="140">
-                                        <Button.Behaviors>
-                                            <ds:PressableEffect ApplyHoverHighlight="False" />
-                                        </Button.Behaviors>
-                                    </Button>
-                                    <ui:AppIcon x:Name="SaveSpinnerIcon" Icon="Refresh" WidthRequest="16" HeightRequest="16" TextColor="{DynamicResource FixedWhite}" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding IsSaving}" InputTransparent="True" />
-                                    <ui:AppIcon x:Name="SaveCheckIcon" Icon="CircleCheck" WidthRequest="18" HeightRequest="18" TextColor="{DynamicResource FixedWhite}" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding IsSaved}" InputTransparent="True" />
+
+                        <!-- Choice step: two named groups, each with its own header rule, mirroring
+                             the approved mockup. No query field, no theme control. -->
+                        <VerticalStackLayout x:Name="ChoicePanel" IsVisible="{Binding IsChoiceStep}" Spacing="20" MaximumWidthRequest="700">
+                            <VerticalStackLayout Spacing="12">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                    <Label Text="المنصات" FontFamily="TajawalBold" FontSize="14" FontAttributes="Bold" TextColor="{DynamicResource TextPrimary}" VerticalOptions="Center" />
+                                    <BoxView Grid.Column="1" HeightRequest="1" Color="{DynamicResource BorderSubtle}" VerticalOptions="Center" />
+                                    <Label Grid.Column="2" Text="{Binding PlatformCountText}" FontFamily="Tajawal" FontSize="12" TextColor="{DynamicResource TextSecondary}" VerticalOptions="Center" />
                                 </Grid>
-                            </Grid>
-                            <Label Text="استخدم الفواصل بين القيم، وسنرتب النتائج حسب اهتماماتك." FontFamily="Tajawal" FontSize="13" TextColor="{DynamicResource TextDescription}" />
-                            <!--
-                            Mirrors the mockup's preset chips exactly: تطوير / الذكاء الاصطناعي / كل
-                            المشاريع (no "الأحدث" preset and no separate skip button in this panel -
-                            neither exists in the mockup's query-setup step).
-                            -->
-                            <HorizontalStackLayout Spacing="8">
-                                <Button Text="تطوير" FontFamily="TajawalMedium" CommandParameter="category=development&amp;sort=latest" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-development">
-                                    <Button.Behaviors>
-                                        <ds:PressableEffect ApplyHoverHighlight="False" />
-                                    </Button.Behaviors>
-                                </Button>
-                                <Button Text="الذكاء الاصطناعي" FontFamily="TajawalMedium" CommandParameter="category=ai-machine-learning&amp;sort=latest" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-ai">
-                                    <Button.Behaviors>
-                                        <ds:PressableEffect ApplyHoverHighlight="False" />
-                                    </Button.Behaviors>
-                                </Button>
-                                <Button Text="كل المشاريع" FontFamily="TajawalMedium" CommandParameter="" Command="{Binding SelectPresetCommand}" AutomationId="onboarding-preset-all">
-                                    <Button.Behaviors>
-                                        <ds:PressableEffect ApplyHoverHighlight="False" />
-                                    </Button.Behaviors>
-                                </Button>
-                            </HorizontalStackLayout>
+                                <FlexLayout BindableLayout.ItemsSource="{Binding Platforms}"
+                                             BindableLayout.ItemTemplate="{StaticResource PlatformCardTemplate}"
+                                             Direction="Row" Wrap="Wrap" JustifyContent="Center">
+                                </FlexLayout>
+                                <Border x:Name="LockNoticeBorder" IsVisible="{Binding LockNoticeVisible}" Padding="13,9" StrokeThickness="1"
+                                        Stroke="{DynamicResource BorderSubtleBrush}" StrokeShape="RoundRectangle 14"
+                                        BackgroundColor="{DynamicResource SurfaceSunken}"
+                                        AutomationId="onboarding-choice-lock-note">
+                                    <Label Text="يجب أن تبقى منصة واحدة على الأقل قيد المراقبة." FontFamily="Tajawal" FontSize="12.5"
+                                           TextColor="{DynamicResource TextPrimary}" HorizontalTextAlignment="Center"
+                                           AutomationId="onboarding-choice-lock-note" />
+                                </Border>
+                            </VerticalStackLayout>
+
+                            <VerticalStackLayout Spacing="12">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                    <Label Text="مجالات اهتمامك" FontFamily="TajawalBold" FontSize="14" FontAttributes="Bold" TextColor="{DynamicResource TextPrimary}" VerticalOptions="Center" />
+                                    <BoxView Grid.Column="1" HeightRequest="1" Color="{DynamicResource BorderSubtle}" VerticalOptions="Center" />
+                                    <Label Grid.Column="2" Text="{Binding InterestCountText}" FontFamily="Tajawal" FontSize="12" TextColor="{DynamicResource TextSecondary}" VerticalOptions="Center" />
+                                </Grid>
+                                <Label Text="{Binding InterestHintText}" FontFamily="Tajawal" FontSize="13" TextColor="{DynamicResource TextSecondary}" HorizontalTextAlignment="Center" />
+                                <FlexLayout BindableLayout.ItemsSource="{Binding Interests}"
+                                             BindableLayout.ItemTemplate="{StaticResource InterestChipTemplate}"
+                                             Direction="Row" Wrap="Wrap" JustifyContent="Center">
+                                </FlexLayout>
+                            </VerticalStackLayout>
                         </VerticalStackLayout>
                     </VerticalStackLayout>
-                </Grid>
+                </ScrollView>
                 <HorizontalStackLayout Grid.Row="2" HorizontalOptions="Center" Spacing="12" Margin="0,16,0,10" FlowDirection="RightToLeft">
                     <Grid>
                         <!--
@@ -140,8 +191,8 @@
                         - it stays invisible on first paint and only appears after some other
                         layout pass is forced (e.g. clicking the button, resizing the window).
                         Instead, each icon is a separate InputTransparent Image overlaid on top of
-                        a plain text-only Button, exactly like the NextSpinnerIcon/SaveSpinnerIcon
-                        overlays below, which have always rendered correctly on first paint.
+                        a plain text-only Button, exactly like the NextSpinnerIcon overlay below,
+                        which has always rendered correctly on first paint.
 
                         Cross-platform note: although this pattern exists to dodge a Windows/WinUI
                         bug, the pattern itself (a plain-text Button + an AppIcon overlaid via
@@ -172,8 +223,8 @@
                         Button.ImageSource had (stays invisible until some other layout pass is
                         forced, e.g. a click). AppIcon sets its Image.Source in code-behind
                         (AppIcon.cs constructor) rather than via XAML markup, which is the same
-                        mechanism NextSpinnerIcon/SaveSpinnerIcon below use and which has always
-                        rendered correctly on first paint.
+                        mechanism NextSpinnerIcon below uses and which has always rendered
+                        correctly on first paint.
                         -->
                         <ui:AppIcon x:Name="NextChevronIcon" ZIndex="1" Icon="ChevronLeft" FontSize="16" TextColor="{DynamicResource FixedWhite}" HorizontalOptions="End" VerticalOptions="Center" Margin="0,0,22,0" InputTransparent="True"
                                     IsVisible="{Binding IsFinalStep, Converter={StaticResource InvertedBoolConverter}}" />

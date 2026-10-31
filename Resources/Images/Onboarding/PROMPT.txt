@@ -1,0 +1,54 @@
+ONBOARDING ARTWORK — MostaqlK dev69 multi-source wizard
+========================================================
+
+Folder:  Resources/Images/Onboarding/   (the csproj glob picks PNGs up automatically —
+         no project-file edit needed; regenerate any image at 1024x1024 PNG and drop it here.)
+
+Current mapping (OnboardingViewModel.CurrentIllustration):
+  step 1 نرصد مشاريع المنصات لحظة نشرها   -> step1.png   (satellite dish)      shipped
+  step 2 تنبيهات فورية عند وصول الجديد     -> step2.png   (bell)                shipped
+  step 3 أرشيفك المحلي يبقى معك            -> step3.png   (locked archive box)  shipped
+  step 4 ابحث بذكاء عن الفرص المناسبة      -> step4.png   (magnifier + TWO unbranded blue/orange cards) — REPLACED dev69, delivered
+  step 5 أي المنصات تراقب؟                 -> NO image (the platform/interest picker is the illustration)
+  step 6 جاهز؟ لنبدأ الرصد                 -> step5.png   (magnifier scene variant) — REPLACED dev69, delivered
+         (the old step5.png was a giant Mostaql "M"; it was regenerated platform-neutral and is
+          reused for the final step, exactly like the previous wizard reused its fifth image)
+
+All six steps are therefore covered by the five shipped PNGs; nothing is pending.
+step1.png / step2.png / step3.png are platform-neutral and stay untouched.
+
+----------------------------------------------------------------
+SHARED STYLE (keep every image inside one series)
+----------------------------------------------------------------
+Flat vector illustration, warm cream background (#FDF6EC). Same character throughout:
+young man, orange hair, dark-green t-shirt (#1B5E47), navy trousers (#1E2A4A), white
+sneakers. Accent palette: mostaql blue (#2386C8) and nafezly orange (#FFA200), teal
+detail (#1B7A5A). Soft elliptical dark ground shadow. Small geometric confetti —
+dots, plus signs, short squiggles. Generous negative space, thick clean shapes,
+minimal shading.
+HARD RULES: no text, no letters, no numbers, no real brand logos or site marks.
+
+----------------------------------------------------------------
+REGENERATION PROMPTS (only if an image must be redone)
+----------------------------------------------------------------
+step4.png — search/filter scene, multi-platform:
+"Flat vector illustration, warm cream background (#FDF6EC). A young man with orange
+hair, dark-green t-shirt (#1B5E47), navy trousers (#1E2A4A) and white sneakers crouches
+holding a large round magnifying glass, inspecting two floating project cards side by
+side: one solid blue (#2386C8), one solid orange (#FFA200). Each card shows only
+abstract rounded text-line bars — no letters, no logos, no icons. The blue card glows
+softly. Small geometric confetti around: dots, plus signs, short squiggles in blue,
+orange and teal (#1B7A5A). Soft elliptical dark shadow under the character. Generous
+negative space, calm palette, modern onboarding illustration style, square 1:1."
+
+step5.png — final-step scene (currently a second magnifier variant; the richer idea
+below is optional if you ever want a dedicated final image):
+"Flat vector illustration, warm cream background (#FDF6EC). A young man with orange
+hair, dark-green t-shirt (#1B5E47), navy trousers (#1E2A4A) and white sneakers stands
+smiling next to a large circular radar screen glowing soft green, one bright project
+marker pulsing at its center. Two thin curved lines — one blue (#2386C8), one orange
+(#FFA200) — sweep in from opposite sides and converge into the radar, like two feeds
+becoming one watchlist. Sparse celebratory geometric confetti (dots, plus signs,
+squiggles). Soft elliptical ground shadow. Calm, modern, square 1:1 onboarding
+illustration."
+----------------------------------------------------------------

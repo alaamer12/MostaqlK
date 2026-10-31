@@ -10,6 +10,10 @@ public partial class OnboardingPage : ContentPage
     private const string DotAnimationName = "OnboardingDotTransition";
     private const string SpinnerAnimationName = "OnboardingSpinnerRotate";
 
+    private bool _syncingPlatformSwitch;
+
+    public OnboardingViewModel ViewModel => (OnboardingViewModel)BindingContext;
+
     public OnboardingPage(OnboardingViewModel viewModel)
     {
         InitializeComponent();
@@ -24,20 +28,23 @@ public partial class OnboardingPage : ContentPage
         viewModel.BeginEnterAnimation = AnimateStepEnter;
 
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        // Card/chip colors resolve from the descriptor brand sets and the token table in code, so a
+        // live theme flip must repaint them too — the same hook the rail tiles listen on.
+        MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.TokensChanged += OnTokensChanged;
         UpdateStepDots(viewModel.CurrentStep, animate: false);
     }
+
+    private void OnTokensChanged() => ViewModel.RefreshPlatformColors();
 
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
+        MostaqlK.UI.DesignSystem.Tokens.ThemeTokens.TokensChanged -= OnTokensChanged;
         foreach (var element in AnimatedStepElements)
         {
             element.AbortAnimation("TranslateToAsync");
             element.AbortAnimation("FadeToAsync");
         }
-        SaveSpinnerIcon.AbortAnimation(SpinnerAnimationName);
-        SaveCheckIcon.AbortAnimation("ScaleToAsync");
-        SaveCheckIcon.AbortAnimation("RotateToAsync");
         NextSpinnerIcon.AbortAnimation(SpinnerAnimationName);
         NextSpinnerIcon.AbortAnimation("ScaleToAsync");
         NextSpinnerIcon.AbortAnimation("FadeToAsync");
@@ -63,21 +70,34 @@ public partial class OnboardingPage : ContentPage
                 UpdateStepDots(viewModel.CurrentStep);
                 AnimateNextActionIcon(viewModel.IsFinalStep);
                 break;
-            case nameof(OnboardingViewModel.IsSaving):
-                UpdateSaveSpinner(viewModel.IsSaving);
-                break;
-            case nameof(OnboardingViewModel.IsSaved):
-                if (viewModel.IsSaved) PlaySaveCheckPop();
-                break;
             case nameof(OnboardingViewModel.IsTransitioning):
                 UpdateNextSpinner(viewModel.IsTransitioning, viewModel.IsFinalStep);
                 break;
         }
     }
 
+    /// <summary>Reports a platform switch to the view-model, then forces the control back in line
+    /// with the real enablement state when the write was refused (last-enabled lock) — a OneWay
+    /// binding cannot re-flip a switch the user just moved.</summary>
+    private void OnPlatformToggled(object? sender, ToggledEventArgs e)
+    {
+        if (_syncingPlatformSwitch || sender is not Switch sw || sw.BindingContext is not PlatformChoiceItem item)
+        {
+            return;
+        }
+
+        ViewModel.SetPlatformEnabled(item, e.Value);
+        if (sw.IsToggled != item.IsEnabled)
+        {
+            _syncingPlatformSwitch = true;
+            sw.IsToggled = item.IsEnabled;
+            _syncingPlatformSwitch = false;
+        }
+    }
+
     /// <summary>The mockup's step-panel children that slide/fade between steps (image, badge,
-    /// heading, description, and the personalization panel when it is visible).</summary>
-    private View[] AnimatedStepElements => new View[] { ImageWrapper, BadgeBorder, HeadingLabel, DescriptionLabel, QueryPanel };
+    /// heading, description, and the choice panel when it is visible).</summary>
+    private View[] AnimatedStepElements => new View[] { ImageWrapper, BadgeBorder, HeadingLabel, DescriptionLabel, ChoicePanel };
 
     private async Task AnimateStepExit(bool forward)
     {
@@ -134,19 +154,6 @@ public partial class OnboardingPage : ContentPage
         await Task.WhenAll(
             element.TranslateToAsync(0, 0, 260, Easing.CubicOut),
             element.FadeToAsync(1, 260, Easing.CubicOut));
-    }
-
-    /// <summary>Mirrors the mockup's `.next-spinner`/`.query-save-icon.fa-spinner` continuous
-    /// rotation while a save/step transition is in flight.</summary>
-    private void UpdateSaveSpinner(bool isSaving)
-    {
-        SaveSpinnerIcon.AbortAnimation(SpinnerAnimationName);
-        SaveSpinnerIcon.Rotation = 0;
-        if (!isSaving || MotionPreferences.IsReducedMotionRequested) return;
-
-        var animation = new Animation(v => SaveSpinnerIcon.Rotation = v, 0, 360);
-        animation.Commit(SaveSpinnerIcon, SpinnerAnimationName, 16, 700, Easing.Linear,
-            repeat: () => SaveSpinnerIcon.IsVisible);
     }
 
     /// <summary>Mirrors the mockup's `.next-spinner` continuous rotation (`animation: next-spin
@@ -241,27 +248,6 @@ public partial class OnboardingPage : ContentPage
                 NextChevronIcon.ScaleToAsync(1.0, 240, Easing.SpringOut),
                 NextChevronIcon.FadeToAsync(1.0, 200, Easing.CubicOut));
         }
-    }
-
-    /// <summary>Mirrors the mockup's `check-pop` keyframe (scale/rotate overshoot) once the save
-    /// completes and the checkmark icon replaces the spinner.</summary>
-    private async void PlaySaveCheckPop()
-    {
-        SaveSpinnerIcon.AbortAnimation(SpinnerAnimationName);
-
-        if (MotionPreferences.IsReducedMotionRequested)
-        {
-            SaveCheckIcon.Scale = 1;
-            SaveCheckIcon.Rotation = 0;
-            return;
-        }
-
-        SaveCheckIcon.Scale = 0.35;
-        SaveCheckIcon.Rotation = -25;
-        await SaveCheckIcon.ScaleToAsync(1.2, 260, Easing.CubicOut);
-        await Task.WhenAll(
-            SaveCheckIcon.ScaleToAsync(1.0, 160, Easing.CubicIn),
-            SaveCheckIcon.RotateToAsync(0, 160, Easing.CubicIn));
     }
 
     /// <summary>Mirrors the mockup's `.dot` transition (`transition: all 0.25s ease`) instead of

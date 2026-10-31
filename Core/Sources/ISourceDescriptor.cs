@@ -16,6 +16,19 @@ public interface ISourceDescriptor
     public string DisplayNameAr { get; }
 
     /// <summary>
+    /// One-line Arabic description of what the site is, for surfaces that introduce a source to a
+    /// first-time user (onboarding platform cards). Module-owned display metadata; null means the
+    /// source ships no tagline and the UI simply omits the line.
+    /// </summary>
+    public string? TaglineAr => null;
+
+    /// <summary>
+    /// One-paragraph Arabic description of what kinds of projects this site carries, for the
+    /// first-run onboarding platform cards. Module-owned display metadata.
+    /// </summary>
+    public string DescriptionAr => string.Empty;
+
+    /// <summary>
     /// Latin-script transliteration of the site's name for bilingual user copy (e.g. a section
     /// header that shows the Arabic name plus "(Xxx Session Cookie)"). UI text composes this
     /// through the descriptor instead of embedding a site name.

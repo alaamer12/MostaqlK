@@ -16,6 +16,8 @@ public sealed class MostaqlSource : ISourceDescriptor
 
     public string DisplayNameAr => "مستقل";
     public string DisplayNameLatin => "Mostaql";
+    public string? TaglineAr => "أكبر سوق للمشروعات العربية";
+    public string DescriptionAr => "مشروعات بالتحرير والمزايدة في التصميم والبرمجة والكتابة.";
 
     // The site's host, stated once for the whole module: every URL this class builds and every
     // parser absolutization goes through these two constants.
@@ -145,23 +147,32 @@ public sealed class MostaqlSource : ISourceDescriptor
         url.Contains(Host, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Mostaql has no typed facet vocabulary: its filtering today is the raw preset/suffix string
-    /// from onboarding/Settings (contract §8), so the shared FilterModal renders nothing for this
-    /// source and the string keeps flowing to <see cref="BuildListingUrl"/> untouched.
+    /// Mostaql's typed category vocabulary (the nine site slugs). The shared FilterModal renders it
+    /// like nafezly's; the byte-identical legacy passthrough below still owns every string that is
+    /// not this module's canonical typed shape (contract §8: mostaql's today-behavior IS the spec).
     /// </summary>
-    public IReadOnlyList<FilterFacetSpec> FilterFacets => [];
+    public IReadOnlyList<FilterFacetSpec> FilterFacets => MostaqlQueryVocabulary.FacetSpecs;
 
     /// <summary>
-    /// Legacy passthrough (today's behavior IS the spec): mostaql's "selection" is its raw query
-    /// string, so <see cref="ParseFacetSelection"/> echoes each '&amp;' segment as an opaque key and
-    /// this re-emits exactly those segments — byte-identical for any stored string, including a
-    /// leading '?' and values the parser never interprets (verified byte-for-byte in ParserTests).
+    /// Canonical typed selections build the module's own grammar (<c>category=a,b&amp;sort=latest</c>);
+    /// anything else — the legacy suffix forms the app actually stores today, unknown slugs,
+    /// duplicates, a leading <c>?</c> — re-emits the echoed segments byte-identically, exactly as
+    /// before (verified in ParserTests).
     /// </summary>
     public string BuildQueryFromFacets(IReadOnlyDictionary<string, IReadOnlyList<string>> selections) =>
-        string.Join("&", selections.SelectMany(kv => kv.Value.Select(_ => kv.Key)));
+        MostaqlQueryVocabulary.TryBuildTyped(selections, out var typed)
+            ? typed
+            : string.Join("&", selections.SelectMany(kv => kv.Value.Select(_ => kv.Key)));
 
-    /// <summary>Opaque echo-parse of the legacy suffix; see <see cref="BuildQueryFromFacets"/>.</summary>
-    public IReadOnlyDictionary<string, IReadOnlyList<string>> ParseFacetSelection(string? queryParams)
+    /// <summary>
+    /// Parses the canonical typed shape into facet keys; every other stored string keeps the legacy
+    /// echo parse — each '&amp;' segment becomes an opaque key — so Parse → Build survives byte-for-byte
+    /// for free-text Settings values and old presets (see <see cref="BuildQueryFromFacets"/>).
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> ParseFacetSelection(string? queryParams) =>
+        MostaqlQueryVocabulary.TryParseTyped(queryParams) ?? EchoParse(queryParams);
+
+    private static IReadOnlyDictionary<string, IReadOnlyList<string>> EchoParse(string? queryParams)
     {
         var segments = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
         var raw = queryParams?.Trim() ?? string.Empty;

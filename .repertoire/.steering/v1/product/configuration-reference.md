@@ -27,6 +27,7 @@ A single optional string, e.g. `category=development&sort=latest`, with or witho
 - **Set** → poll `https://mostaql.com/projects{normalized_params}` instead, from the next poll cycle onward.
 - **Not retroactive.** Changing this value never re-classifies, re-fetches, or removes anything already stored. It only changes what the *next* poll requests. There is exactly one active polling target at any time — this is not a multi-watchlist system.
 - Each row stores which `query_params` value was active when it was discovered (`projects.source_query_params`), purely for reference/filtering later.
+- **Since dev69 the first-run wizard writes this key for EVERY enabled platform** (its interest chips are the slugs all registered sites share; each platform's own module serializes the query), and the platform switches write `settings_disabled_platforms` live through `PlatformEnablement`. Each pipeline seeds its query from its own container when it starts (`Pipeline.PlatformGate` era seeding), so no Settings visit is needed for the choice to take effect.
 
 ## `include_assets`
 

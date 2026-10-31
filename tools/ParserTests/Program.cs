@@ -100,6 +100,10 @@ public static class Program
         Run(nameof(TestB3NafezlyFacetVocabulary), TestB3NafezlyFacetVocabulary);
         Run(nameof(TestB3NafezlyQueryRoundTrip), TestB3NafezlyQueryRoundTrip);
         Run(nameof(TestB3MostaqlLegacyPassthrough), TestB3MostaqlLegacyPassthrough);
+        Run(nameof(TestB3MostaqlTypedCategoryRoundTrip), TestB3MostaqlTypedCategoryRoundTrip);
+        Run(nameof(TestMostaqlCategoryVocabularyMatchesSite), TestMostaqlCategoryVocabularyMatchesSite);
+        Run(nameof(TestSharedCategoryIntersection), TestSharedCategoryIntersection);
+        Run(nameof(TestOnboardingQueryComposition), TestOnboardingQueryComposition);
 
         // v3 Step 1 — SourceFeedStore read model: burst coalescing, generation-checked drop,
         // Provisional→Confirmed/Stale/Broken state machine, warm-peer prefetch supersession,
@@ -1135,9 +1139,13 @@ public static class Program
             facets[2].MinDefault is null && facets[2].MaxDefault is null,
             $"{facets[2].MinDefault},{facets[2].MaxDefault}");
 
-        // Mostaql keeps its preset-suffix flow: an empty vocabulary is the whole contract (§8).
-        Check("mostaql seeds an empty facet list", MostaqlK.Sources.Mostaql.MostaqlSource.Instance.FilterFacets.Count == 0,
-            $"{MostaqlK.Sources.Mostaql.MostaqlSource.Instance.FilterFacets.Count}");
+        // Mostaql now seeds its typed category vocabulary (dev69 onboarding); the legacy preset-suffix
+        // flow survives underneath as the byte-identical echo for anything non-canonical (§8).
+        var mostaqlFacets = MostaqlK.Sources.Mostaql.MostaqlSource.Instance.FilterFacets;
+        Check("mostaql seeds one category facet with the nine site slugs",
+            mostaqlFacets.Count == 1 && mostaqlFacets[0].Kind == FilterFacetKind.MultiChoice
+            && mostaqlFacets[0].Options.Count == 9,
+            $"{mostaqlFacets.Count} facets");
     }
 
     private static void TestB3NafezlyQueryRoundTrip()
@@ -1243,6 +1251,125 @@ public static class Program
         var parsed = mostaql.ParseFacetSelection(null);
         Check("mostaql parse of null is an empty selection that builds empty",
             parsed.Count == 0 && mostaql.BuildQueryFromFacets(parsed) == string.Empty);
+    }
+
+    private static void TestB3MostaqlTypedCategoryRoundTrip()
+    {
+        var mostaql = MostaqlK.Sources.Mostaql.MostaqlSource.Instance;
+
+        // The canonical typed shape parses to facet keys and rebuilds byte-identically.
+        var typed = mostaql.ParseFacetSelection("category=development&sort=latest");
+        Check("typed parse: category/sort become real facet keys",
+            typed.TryGetValue("category", out var cats) && cats.SequenceEqual(["development"])
+            && typed.TryGetValue("sort", out var sort) && sort.SequenceEqual(["latest"]),
+            string.Join(",", typed.Keys));
+        Check("typed build: round-trips byte-identically",
+            mostaql.BuildQueryFromFacets(typed) == "category=development&sort=latest");
+
+        // What onboarding writes: the common six slugs, no sort segment at all.
+        var onboarding = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
+        {
+            ["category"] = ["business", "development", "design", "marketing", "writing-translation", "training"],
+        };
+        var built = mostaql.BuildQueryFromFacets(onboarding);
+        Check("onboarding shape: comma-joined category with no invented sort",
+            built == "category=business,development,design,marketing,writing-translation,training", Preview(built));
+        Check("onboarding shape re-parses to the same selection",
+            mostaql.ParseFacetSelection(built).All(kv => kv.Value.SequenceEqual(onboarding[kv.Key])));
+
+        // Empty category selection = all projects = empty query.
+        Check("empty category selection builds the empty query",
+            mostaql.BuildQueryFromFacets(new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal) { ["category"] = [] }) == string.Empty);
+
+        // Anything that is NOT the canonical shape stays on the legacy echo (byte-identical),
+        // including known slugs in hand-typed dress: a leading '?', duplicates, unknown siblings.
+        foreach (var legacy in new[] { "?category=development&sort=latest", "category=development&category=design", "category=software-dev", "category=design&sub_category=logo&sort=latest" })
+        {
+            Check($"non-canonical stays echo: \"{legacy}\"",
+                mostaql.BuildQueryFromFacets(mostaql.ParseFacetSelection(legacy)) == legacy,
+                Preview(mostaql.BuildQueryFromFacets(mostaql.ParseFacetSelection(legacy))));
+        }
+
+        Check("mostaql now publishes exactly one option-bearing MultiChoice facet",
+            mostaql.FilterFacets.Count == 1
+            && mostaql.FilterFacets[0].Kind == MostaqlK.Core.Sources.FilterFacetKind.MultiChoice
+            && mostaql.FilterFacets[0].Options.Count == 9);
+    }
+
+    private static void TestMostaqlCategoryVocabularyMatchesSite()
+    {
+        // Golden slug lists — the exact values from each site's own category-filter URLs
+        // (mostaql.com/projects?category=... and nafezly.com/projects?specialize=...).
+        var expectedMostaql = new[]
+        {
+            "business", "development", "ai-machine-learning", "engineering-architecture",
+            "design", "marketing", "writing-translation", "support", "training",
+        };
+        var actualMostaql = MostaqlK.Sources.Mostaql.MostaqlQueryVocabulary.CategoryFacets.Select(f => f.Slug).ToArray();
+        Check("mostaql vocabulary: nine site slugs, site order",
+            actualMostaql.SequenceEqual(expectedMostaql), string.Join(",", actualMostaql));
+        Check("mostaql vocabulary: every slug carries a non-empty Arabic label",
+            MostaqlK.Sources.Mostaql.MostaqlQueryVocabulary.CategoryFacets
+                .All(f => f.LabelAr.Any(char.IsLetter) && !f.LabelAr.All(c => c < 128)));
+
+        var expectedNafezly = new[]
+        {
+            "business", "development", "design", "marketing", "writing-translation", "training", "other",
+        };
+        var actualNafezly = MostaqlK.Sources.Nafezly.NafezlyQueryVocabulary.SpecializeFacets.Select(f => f.Slug).ToArray();
+        Check("nafezly vocabulary: seven site slugs, site order",
+            actualNafezly.SequenceEqual(expectedNafezly), string.Join(",", actualNafezly));
+    }
+
+    private static void TestSharedCategoryIntersection()
+    {
+        var both = new MostaqlK.Core.Sources.SourceRegistry(
+        [
+            MostaqlK.Sources.Mostaql.MostaqlSource.Instance,
+            MostaqlK.Sources.Nafezly.NafezlySource.Instance,
+        ]);
+
+        var common = MostaqlK.Core.Sources.SharedFilterVocabulary.CommonCategoryOptions(both);
+        var expected = new[] { "business", "development", "design", "marketing", "writing-translation", "training" };
+        Check("shared vocabulary: the six slugs both sites carry, in first-source order",
+            common.Select(o => o.Value).SequenceEqual(expected), string.Join(",", common.Select(o => o.Value)));
+        Check("shared vocabulary: labels come from the first source",
+            common.All(o => o.LabelAr.Length > 0));
+
+        // One source alone has nothing "common" — the picker stays empty until the app is multi-source.
+        var solo = new MostaqlK.Core.Sources.SourceRegistry([MostaqlK.Sources.Mostaql.MostaqlSource.Instance]);
+        Check("shared vocabulary: a single source yields no common options",
+            MostaqlK.Core.Sources.SharedFilterVocabulary.CommonCategoryOptions(solo).Count == 0);
+    }
+
+    private static void TestOnboardingQueryComposition()
+    {
+        var mostaql = MostaqlK.Sources.Mostaql.MostaqlSource.Instance;
+        var nafezly = MostaqlK.Sources.Nafezly.NafezlySource.Instance;
+
+        // Zero interests (the wizard's "الكل") = the unfiltered default listing for BOTH platforms.
+        Check("composer: empty selection yields empty query for mostaql",
+            MostaqlK.Core.Sources.OnboardingQueryComposer.BuildQueryFor(mostaql, []) == string.Empty);
+        Check("composer: empty selection yields empty query for nafezly",
+            MostaqlK.Core.Sources.OnboardingQueryComposer.BuildQueryFor(nafezly, []) == string.Empty);
+
+        // A real selection serializes through each module's OWN grammar.
+        var picked = new[] { "development", "design" };
+        var mq = MostaqlK.Core.Sources.OnboardingQueryComposer.BuildQueryFor(mostaql, picked);
+        var nf = MostaqlK.Core.Sources.OnboardingQueryComposer.BuildQueryFor(nafezly, picked);
+        Check("composer: mostaql gets its category= shape",
+            mq == "category=development,design", Preview(mq));
+        Check("composer: nafezly gets its ?specialize= shape",
+            nf == "?specialize=development,design", Preview(nf));
+
+        // Values outside a platform's own vocabulary are dropped, never smuggled into its URL.
+        var mixed = new[] { "development", "ai-machine-learning" };
+        var nfMixed = MostaqlK.Core.Sources.OnboardingQueryComposer.BuildQueryFor(nafezly, mixed);
+        Check("composer: a mostaql-only slug never leaks into nafezly's query",
+            nfMixed == "?specialize=development", Preview(nfMixed));
+        var mqMixed = MostaqlK.Core.Sources.OnboardingQueryComposer.BuildQueryFor(mostaql, mixed);
+        Check("composer: mostaql keeps its own extra slug",
+            mqMixed == "category=development,ai-machine-learning", Preview(mqMixed));
     }
 
     // -----------------------------------------------------------------

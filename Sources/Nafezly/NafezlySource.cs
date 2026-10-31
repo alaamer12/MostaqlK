@@ -18,6 +18,8 @@ public sealed class NafezlySource : ISourceDescriptor
 
     public string DisplayNameAr => "نفذلي";
     public string DisplayNameLatin => "Nafezly";
+    public string? TaglineAr => "خدمات مصغّرة جاهزة للتنفيذ";
+    public string DescriptionAr => "خدمات سريعة محددة السعر والنطاق في التصميم والبرمجة.";
 
     // The site's host, stated once for the whole module: every URL this class builds and every
     // parser absolutization goes through these two constants.
