@@ -1,0 +1,25 @@
+{
+  "_comment": "Dynamic/transient regions excluded from the palette regression diff. Each was verified against real pixels before being masked: (1) the project-details 'اكتُشف' line renders the wall-clock time; (2) the desktop shows through the DWM rounded top-right corner; (3) the first focusable control (the active source tile in the rail) carries the system focus visual, whose presence depends on window-activation timing; (4) the ChromeValueLabel today-count sheen is a continuously animated band, so its captured phase is arbitrary. Nothing here is painted by a token.",
+  "global": [[1225, 0, 55, 8]],
+  "states": {
+    "project-details__mostaql__light": [[500, 68, 330, 32]],
+    "project-details__mostaql__dark": [[500, 68, 330, 32]],
+    "project-details__nafezly__light": [[500, 68, 330, 32]],
+    "project-details__nafezly__dark": [[500, 68, 330, 32]],
+
+    "projects__mostaql__light": [[0, 70, 72, 64], [1180, 45, 70, 45]],
+    "projects__mostaql__dark": [[0, 70, 72, 64], [1180, 45, 70, 45]],
+    "projects__nafezly__light": [[0, 70, 72, 64], [1180, 45, 70, 45]],
+    "projects__nafezly__dark": [[0, 70, 72, 64], [1180, 45, 70, 45]],
+    "projects__mostaql__light__panel-collapsed": [[0, 70, 72, 64], [1180, 45, 70, 45]],
+    "projects__mostaql__light__filters-open": [[0, 70, 72, 64], [1180, 45, 70, 45]],
+
+    "settings__mostaql__light": [[0, 70, 72, 64]],
+    "settings__mostaql__dark": [[0, 70, 72, 64]],
+    "settings__nafezly__light": [[0, 70, 72, 64]],
+    "settings__nafezly__dark": [[0, 70, 72, 64]],
+
+    "about__mostaql__light": [[0, 70, 72, 64]],
+    "about__mostaql__dark": [[0, 70, 72, 64]]
+  }
+}
