@@ -2,6 +2,7 @@ using MostaqlK.Core.Navigation;
 using MostaqlK.Core.Sources;
 using MostaqlK.Features.Notifications.ViewModels;
 using MostaqlK.Features.Projects.ViewModels;
+using MostaqlK.Services.Diagnostics;
 using MostaqlK.UI.PlatformComponents.ContentSettle;
 using MostaqlK.UI.PlatformComponents.PipelineDashboard;
 using MostaqlK.UI.PlatformComponents.SourceRail;
@@ -32,6 +33,10 @@ public partial class MainWindowWindowsLayout : ContentView
         // can land the realized cards with the mockup's `card-settle` (also reachable post-reveal via
         // ContentSettle.RunForActiveFeed() without this layout exposing the control).
         ContentSettle.RegisterActiveFeed(ProjectsCollectionView);
+
+
+        // FEED BUG HUNT (dev74): temporary scroll witness (see OnFeedScrolledDiag).
+        ProjectsCollectionView.Scrolled += OnFeedScrolledDiag;
 
         // B3 FilterModal: the unit renders + collects; persistence goes through the feed
         // view-model's single settings-mutation path (mirrors Settings.OnQueryParamsChanged).
@@ -200,16 +205,83 @@ public partial class MainWindowWindowsLayout : ContentView
         if (_settledFeed is not null)
         {
             _settledFeed.BatchApplied -= OnFeedBatchApplied;
+            _settledFeed.StructuralPatchApplied -= OnStructuralPatch;
         }
 
         _settledFeed = feed;
         if (feed is not null)
         {
             feed.BatchApplied += OnFeedBatchApplied;
+            feed.StructuralPatchApplied += OnStructuralPatch;
+
+            // dev80 trace: the bridge between "the view-model changed its list" and "the Windows
+            // items panel did something about it". Every Add/Remove/Move/Reset the panel is fed,
+            // with its index — this is the record that was missing while the owner watched cards
+            // vanish and re-rank under the scroll.
+            feed.Projects.CollectionChanged += OnProjectsCollectionChangedTrace;
         }
+
+        ContentSettle.WatchContainers(ProjectsCollectionView);
+
+        // dev80 trace: the feed's own scroll history (offset + extent), throttled — the viewport
+        // position is the variable the blank-field bug turns on.
+        ProjectsCollectionView.Scrolled += OnFeedScrolledTrace;
+    }
+
+    private void OnFeedScrolledTrace(object? sender, ItemsViewScrolledEventArgs e)
+    {
+        var now = DateTime.UtcNow;
+        if (now - _lastScrollTrace < TimeSpan.FromMilliseconds(400))
+        {
+            return;
+        }
+
+        _lastScrollTrace = now;
+        FeedTrace.Log("Scroll", "move", new
+        {
+            offset = Math.Round(e.VerticalOffset, 1),
+            first = e.FirstVisibleItemIndex,
+            last = e.LastVisibleItemIndex,
+        });
+    }
+
+    private DateTime _lastScrollTrace = DateTime.MinValue;
+    private DateTime _lastCollectionTrace = DateTime.MinValue;
+
+    private void OnProjectsCollectionChangedTrace(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        // A Reset carries no indexes; a burst of Adds (the reset path) is one logical event, so the
+        // trace collapses anything inside 150 ms into a single line to keep the narrative readable.
+        var now = DateTime.UtcNow;
+        if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add && now - _lastCollectionTrace < TimeSpan.FromMilliseconds(150))
+        {
+            return;
+        }
+
+        _lastCollectionTrace = now;
+        FeedTrace.Log("Collection", e.Action.ToString(), new
+        {
+            index = e.NewStartingIndex >= 0 ? e.NewStartingIndex : e.OldStartingIndex,
+            count = e.NewItems?.Count ?? e.OldItems?.Count ?? 0,
+            total = sender is System.Collections.IList list ? list.Count : -1,
+        });
     }
 
     private void OnFeedBatchApplied(object? sender, EventArgs e) => NotifyFeedRepopulated();
+
+    /// <summary>
+    /// dev79: the list was rebuilt (ids or order changed). The Windows items panel keeps the viewport
+    /// offset across that change but stops re-realizing the region it points at, which is the whole
+    /// "cards disappeared, scrolling brings them back" report — so force the re-realization here, at
+    /// the same offset, on the next frame.
+    /// </summary>
+    private void OnStructuralPatch(object? sender, EventArgs e)
+    {
+        if (ProjectsCollectionView is not null)
+        {
+            Dispatcher.Dispatch(() => ContentSettle.Probe(ProjectsCollectionView, "structural"));
+        }
+    }
 
     /// <summary>
     /// Runs the one-shot <see cref="ContentSettle"/> mount pass over the feed's realized cards.
@@ -228,7 +300,58 @@ public partial class MainWindowWindowsLayout : ContentView
             return;
         }
 
-        Dispatcher.Dispatch(() => ContentSettle.RunFor(ProjectsCollectionView));
+        Dispatcher.Dispatch(() =>
+        {
+            // dev78/dev79: re-arrange and re-realize first, then settle. The panel can hand back
+            // containers that are stale relative to the viewport offset (the "cards gone, scroll
+            // brings them back" report), and the settle would otherwise animate cards that are not
+            // where the user is looking.
+            ContentSettle.RunFor(ProjectsCollectionView);
+
+            // FEED BUG HUNT (dev74): a short watch chain instead of a single lucky sample, so a
+            // collapse that lands a second after the batch is still recorded. Each line pairs the
+            // view-model row count (FeedDiag.VmList) with what the native list actually holds and
+            // realized (FeedDiag.NativeList). Temporary; remove with the hunt.
+            foreach (var (tag, delayMs) in new[] { ("t300", 300), ("t1500", 1500), ("t4000", 4000), ("t8000", 8000), ("t12000", 12000) })
+            {
+                Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(delayMs), () =>
+                {
+                    var feed = BindingContext as ProjectFeedViewModel;
+                    MostaqlK.Services.Diagnostics.InteractionLogger.Mark("FeedDiag.VmList", tag, new
+                    {
+                        vm = feed?.DiagVmId ?? -1,
+                        rows = feed?.Projects.Count ?? -1,
+                        tracked = feed?.TrackedCount ?? -1,
+                        showFeed = ProjectsCollectionView.IsVisible,
+                        isLoading = feed?.IsLoading,
+                        isEmpty = feed?.IsEmpty,
+                        hasError = feed?.HasError,
+                    });
+                    ContentSettle.Probe(ProjectsCollectionView, tag);
+                });
+            }
+        });
+    }
+
+    // FEED BUG HUNT (dev74): a throttled witness of the feed's own scroll offset — how far MAUI
+    // believes the list scrolled, against the row count it holds. At most one line per second.
+    private DateTime _lastScrollDiagUtc = DateTime.MinValue;
+
+    private void OnFeedScrolledDiag(object? sender, ItemsViewScrolledEventArgs e)
+    {
+        if (DateTime.UtcNow - _lastScrollDiagUtc < TimeSpan.FromSeconds(1))
+        {
+            return;
+        }
+
+        _lastScrollDiagUtc = DateTime.UtcNow;
+        var feed = BindingContext as ProjectFeedViewModel;
+        MostaqlK.Services.Diagnostics.InteractionLogger.Mark("FeedDiag.Scroll", "A", new
+        {
+            vm = feed?.DiagVmId ?? -1,
+            rows = feed?.Projects.Count ?? -1,
+            offset = Math.Round(e.VerticalOffset, 1),
+        });
     }
 
     private async void OnAdvancedSearchNavClicked(object? sender, EventArgs e)

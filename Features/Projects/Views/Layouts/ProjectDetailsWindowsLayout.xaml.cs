@@ -26,8 +26,14 @@ public partial class ProjectDetailsWindowsLayout : ContentView
     // project actually on screen.
     private ProjectDetailsViewModel? ViewModel => _viewModel ?? BindingContext as ProjectDetailsViewModel;
 
+    // FEED BUG HUNT (dev74): which control actually drove the return to the feed, and with what route
+    // (absolute //MainWindowPage vs a Shell pop). Temporary; remove with the hunt.
+    private static void DiagBack(string via) =>
+        InteractionLogger.Mark("FeedDiag.BackToFeed", via, new { route = AppRoutes.Projects.Path });
+
     private async void OnProjectsNavClicked(object? sender, EventArgs e)
     {
+        DiagBack("backButton");
         await AppRoutes.NavigateAsync(AppRoutes.Projects);
     }
 
@@ -53,6 +59,7 @@ public partial class ProjectDetailsWindowsLayout : ContentView
     /// </summary>
     private async void OnRailNotificationsClicked(object? sender, EventArgs e)
     {
+        DiagBack("railNotifications");
         await AppRoutes.NavigateAsync(AppRoutes.Projects);
     }
 
@@ -86,6 +93,7 @@ public partial class ProjectDetailsWindowsLayout : ContentView
             await vm.MarkAsReadAsync();
         }
 
+        DiagBack("markAsReadAndReturn");
         await AppRoutes.NavigateAsync(AppRoutes.Projects);
     }
 
@@ -99,6 +107,7 @@ public partial class ProjectDetailsWindowsLayout : ContentView
     /// </summary>
     private async void OnRailSourceChanged(object? sender, SourceId source)
     {
+        InteractionLogger.Mark("FeedDiag.BackToFeed", "railSourceSwitch", new { route = AppRoutes.Projects.Path, to = source.Value });
         await Task.Delay(650);
         await AppRoutes.NavigateAsync(AppRoutes.Projects);
     }

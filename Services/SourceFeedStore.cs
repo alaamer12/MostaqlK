@@ -220,6 +220,13 @@ public sealed class SourceFeedStore
     private readonly Func<DateTimeOffset> _clock;
     private readonly TimeSpan _staleAfter;
     private readonly Action<string, Exception?>? _faultSink;
+
+    /// <summary>
+    /// FEED BUG HUNT (2026-11-01, dev74): optional diagnostics sink for the <c>FeedDiag.*</c>
+    /// checkpoints. Null in headless hosts (ParserTests builds this file too and must stay silent);
+    /// the app wires it to <c>InteractionLogger.Mark</c>. Remove with the hunt.
+    /// </summary>
+    private readonly Action<string, string, object?>? _diag;
     private readonly ConcurrentDictionary<SourceId, SourceState> _states = new();
     private readonly object _prefetchGate = new();
     private CancellationTokenSource? _prefetchCts;
@@ -236,7 +243,8 @@ public sealed class SourceFeedStore
         Action<Action>? marshal = null,
         Func<DateTimeOffset>? clock = null,
         TimeSpan? staleAfter = null,
-        Action<string, Exception?>? faultSink = null)
+        Action<string, Exception?>? faultSink = null,
+        Action<string, string, object?>? diag = null)
     {
         _data = data;
         _sources = sources;
@@ -245,6 +253,20 @@ public sealed class SourceFeedStore
         _clock = clock ??= () => DateTimeOffset.UtcNow;
         _staleAfter = staleAfter ?? DefaultStaleAfter;
         _faultSink = faultSink;
+        _diag = diag;
+    }
+
+    /// <summary>FEED BUG HUNT (dev74): one checkpoint line, no-op when the host wired no sink.</summary>
+    private void Diag(string checkpoint, string variant, object? data)
+    {
+        try
+        {
+            _diag?.Invoke(checkpoint, variant, data);
+        }
+        catch
+        {
+            // Diagnostics never take down the read model they are observing.
+        }
     }
 
     /// <summary>The registered source ids (for hosts that must not resolve <c>SourceRegistry</c> themselves).</summary>
@@ -292,6 +314,15 @@ public sealed class SourceFeedStore
     /// <summary>Internal form: <paramref name="background"/> marks warm-peer prefetch (never cancels the interactive chain, never chains another prefetch).</summary>
     private Task RefreshCoreAsync(SourceId source, string? query, CancellationToken cancellationToken, bool background)
     {
+        Diag("FeedDiag.Request", background ? "BG" : "UI", new
+        {
+            source = source.Value,
+            query,
+            gen = CurrentGeneration(source),
+            snapItems = Peek(source)?.Items.Count ?? -1,
+            loopRunning = StateFor(source).BatchLoop is { IsCompleted: false },
+        });
+
         var state = StateFor(source);
         lock (state.Gate)
         {
@@ -365,6 +396,14 @@ public sealed class SourceFeedStore
         var state = StateFor(source);
         lock (state.Gate)
         {
+            // FEED BUG HUNT (dev74): the card-tap overlay — re-publishes under the SAME generation.
+            Diag("FeedDiag.OptimisticRead", "A", new
+            {
+                source = source.Value,
+                projectId,
+                gen = Volatile.Read(ref state.Generation),
+                snapItems = state.Snapshot?.Items.Count ?? -1,
+            });
             state.OptimisticReads.Add(projectId);
             if (state.Snapshot is { } snapshot)
             {
@@ -586,11 +625,31 @@ public sealed class SourceFeedStore
         var today = await todayTask;
         Result<(int Tracked, int Unread)>? tracked = trackedTask is null ? null : await trackedTask;
 
+        // FEED BUG HUNT (dev74): what the DB actually answered, recorded OUTSIDE the gate so the
+        // query truth is visible even when the apply below is dropped as superseded.
+        Diag("FeedDiag.QueryResult", query is null ? "recent" : "search", new
+        {
+            source = source.Value,
+            gen = generation,
+            query,
+            userInitiated,
+            listError = list.IsError ? list.Error.ExternalMessage : null,
+            listCount = list.IsOk ? list.Value.Count : -1,
+            head = list.IsOk ? list.Value.Take(3).Select(static s => s.ProjectId).ToArray() : Array.Empty<long>(),
+        });
+
         // ---- generation-checked apply: a superseded batch is dropped, never painted ----
         lock (state.Gate)
         {
             if (Volatile.Read(ref state.Generation) != generation || token.IsCancellationRequested)
             {
+                Diag("FeedDiag.PassDropped", "A", new
+                {
+                    source = source.Value,
+                    gen = generation,
+                    currentGen = Volatile.Read(ref state.Generation),
+                    cancelled = token.IsCancellationRequested,
+                });
                 return;
             }
 
@@ -749,6 +808,19 @@ public sealed class SourceFeedStore
     private void PublishLocked(SourceState state, FeedSnapshot snapshot)
     {
         state.Snapshot = snapshot; // volatile write — the single pointer swap
+        // FEED BUG HUNT (dev74): every published snapshot recorded — the one choke point every
+        // feed row list passes through, so a collapsed list must appear here or not at all.
+        Diag("FeedDiag.Publish", snapshot.Query is null ? "recent" : "search", new
+        {
+            source = snapshot.Source.Value,
+            gen = snapshot.Generation,
+            query = snapshot.Query,
+            items = snapshot.Items.Count,
+            provisional = snapshot.IsProvisional,
+            freshness = snapshot.Freshness.ToString(),
+            error = snapshot.Error,
+            subs = SnapshotUpdated is null ? 0 : SnapshotUpdated.GetInvocationList().Length,
+        });
         var handler = SnapshotUpdated;
         if (handler is null)
         {

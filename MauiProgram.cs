@@ -179,7 +179,10 @@ public static class MauiProgram
                 {
                     MostaqlK.Services.Diagnostics.InteractionLogger.Fault(label, ex);
                 }
-            }));
+            },
+            // FEED BUG HUNT (dev74): FeedDiag.* checkpoints into the interaction log. Temporary.
+            diag: static (checkpoint, variant, data) =>
+                MostaqlK.Services.Diagnostics.InteractionLogger.Mark(checkpoint, variant, data)));
         // Deferred preference/settings writes (plan Steps 2-3): report background write faults the
         // same way; teardown flush is wired by the app host.
         MostaqlK.Core.Platform.DeferredPreferences.FaultSink = static (label, ex) =>

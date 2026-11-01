@@ -12,6 +12,33 @@ public partial class MainWindowPage : ContentPage
     private readonly Services.AppLifecycleService _appLifecycleService;
     private readonly View? _activeLayout;
 
+    // FEED BUG HUNT (dev74): page identity + lifecycle, so the log answers whether back-navigation
+    // RE-USED this page/VM or built a second one. Temporary; remove with the hunt.
+    private static int _pageSeq;
+    private readonly int _pageId = System.Threading.Interlocked.Increment(ref _pageSeq);
+
+    private void Diag(string checkpoint, string variant)
+    {
+        MostaqlK.Services.Diagnostics.FeedTrace.Log("Page", $"{checkpoint}:{variant}", new
+        {
+            page = _pageId,
+            vm = _viewModel.DiagVmId,
+            rows = _viewModel.Projects.Count,
+            src = _viewModel.CurrentSourceId.Value,
+        });
+        var stack = Shell.Current?.Navigation.NavigationStack;
+        MostaqlK.Services.Diagnostics.InteractionLogger.Mark(checkpoint, variant, new
+        {
+            page = _pageId,
+            vm = _viewModel.DiagVmId,
+            rows = _viewModel.Projects.Count,
+            source = _viewModel.CurrentSourceId.Value,
+            navStack = stack?.Count ?? -1,
+            isTop = stack is not null && stack.Count > 0 && ReferenceEquals(stack[stack.Count - 1], this),
+            modals = Shell.Current?.Navigation.ModalStack.Count ?? -1,
+        });
+    }
+
     public MainWindowPage(
         ProjectFeedViewModel viewModel,
         NotificationCenterViewModel notificationCenterViewModel,
@@ -32,6 +59,7 @@ public partial class MainWindowPage : ContentPage
         );
         _activeLayout = layoutFactory?.Invoke();
         Content = _activeLayout;
+        Diag("FeedDiag.PageCtor", "A");
     }
 
     /// <summary>Shows the recent-notifications flyout overlay, used both by the sidebar entry and the tray icon's "Recent notifications" menu action.</summary>
@@ -50,8 +78,23 @@ public partial class MainWindowPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        Diag("FeedDiag.PageAppearing", "enter");
+
+        // dev85: opening a project leaves the Windows items host with a corrupted index map - every
+        // realized container reports the SAME position, so the feed shows one card over a blank field
+        // while the view-model correctly holds all rows. Re-attaching the items source is what makes
+        // the control rebuild that map. (Pop-vs-absolute navigation was tested and is NOT the
+        // trigger; the map still corrupts after a plain pop.)
+        _viewModel.RebuildItemsContainer();
+
         await _viewModel.LoadAsync();
+        Diag("FeedDiag.PageAppearing", "after-load");
         _appLifecycleService.IsReadyToNotify = true;
+
+        // FEED BUG HUNT (dev74): one re-check after the batch + settle have had time to land, so a
+        // list that collapsed AFTER the data arrived (renderer side) is distinguishable from one
+        // that arrived collapsed (store side). Temporary.
+        Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(900), () => Diag("FeedDiag.PageSettled", "A"));
 
         // v3 mount polish: the design's page-open moment is a `card-settle` — the realized cards land
         // with the transform-only rise instead of painting flat. One-shot and self-cancelling; the
@@ -92,6 +135,7 @@ public partial class MainWindowPage : ContentPage
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
+        Diag("FeedDiag.PageDisappearing", "A");
         if (_activeLayout is not null && FindFilterModal(_activeLayout) is { IsVisible: true } modal)
         {
             modal.IsVisible = false;

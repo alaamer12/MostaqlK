@@ -276,6 +276,356 @@ public static partial class ContentSettle
     }
 
     /// <summary>
+    /// FEED BUG HUNT (dev74): native-side probe. Logs how many items the WinUI items host holds,
+    /// how many containers the virtualizer actually realized, each container's visibility/opacity/
+    /// height, and the scroll extents. Rows present in data but absent here ⇒ renderer collapse;
+    /// one item here ⇒ the collapse arrived from the store. Remove with the hunt.
+    /// </summary>
+    static partial void ProbeFeed(CollectionView feed, string tag)
+    {
+        if (feed.Handler?.PlatformView is not WinUIDependencyObject platformRoot)
+        {
+            MostaqlK.Services.Diagnostics.InteractionLogger.Mark("FeedDiag.NativeList", tag,
+                new { reason = "feed.Handler?.PlatformView is null" });
+            return;
+        }
+
+        if (ResolveItemsHost(platformRoot) is not WinUIListViewBase host)
+        {
+            MostaqlK.Services.Diagnostics.InteractionLogger.Mark("FeedDiag.NativeList", tag,
+                new { reason = "items host not found in visual tree" });
+            return;
+        }
+
+        int items = host is Microsoft.UI.Xaml.Controls.ItemsControl ic ? ic.Items?.Count ?? 0 : -1;
+        int realized = 0;
+        int visible = 0;
+        int inViewport = 0;
+
+        // The scroll extents are what the user actually sees: 40 items with a viewport that cannot
+        // scroll past one card IS the "only one project left" symptom, reported by the list itself.
+        CountHosts(platformRoot);
+
+        var scroll = FindScrollViewer(host);
+        double viewportGuess = scroll?.ViewportHeight is > 0 ? scroll.ViewportHeight : 1;
+        var sample = new List<string>();
+        var ys = new List<double>();
+        var conts = new List<int>();
+        int probe = Math.Min(items, 12);
+        for (int i = 0; i < probe; i++)
+        {
+            if (host.ContainerFromIndex(i) is WinUIElement container)
+            {
+                realized++;
+                bool onScreen = container.Visibility == Microsoft.UI.Xaml.Visibility.Visible;
+                if (onScreen)
+                {
+                    visible++;
+                }
+
+                // FEED BUG HUNT (dev76): the position, not just the existence. A container can be
+                // realized, Visible, 322 px tall and STILL not be where the user is looking - stacked
+                // on top of its neighbour, parked above the viewport, or clipped - which is exactly
+                // "the cards are gone but the list says it has them". TransformToVisual throws when a
+                // container is mid-recycle, so each probe is defensive.
+                double y = double.NaN;
+                double x = double.NaN;
+                try
+                {
+                    if (container is Microsoft.UI.Xaml.FrameworkElement fe &&
+                        fe.TransformToVisual(host) is Microsoft.UI.Xaml.Media.GeneralTransform gt)
+                    {
+                        var point = gt.TransformPoint(new Windows.Foundation.Point(0, 0));
+                        x = Math.Round(point.X, 1);
+                        y = Math.Round(point.Y, 1);
+                    }
+                }
+                catch (Exception)
+                {
+                    // not connected yet - report NaN rather than lose the rest of the sample
+                }
+
+                double height = container is Microsoft.UI.Xaml.FrameworkElement hfe2 ? hfe2.ActualHeight : -1;
+                double width = container is Microsoft.UI.Xaml.FrameworkElement hfe3 ? hfe3.ActualWidth : -1;
+
+                // FEED BUG HUNT (dev77): twelve containers all reporting y=0 is either a genuinely
+                // stacked panel or a set of DETACHED stale references (a disconnected element
+                // transforms as identity). IsLoaded + the parent chain is what separates them, and
+                // the root-relative point says where the user is actually seeing it.
+                bool loaded = false;
+                string parent = "?";
+                double rootY = double.NaN;
+                try
+                {
+                    if (container is Microsoft.UI.Xaml.FrameworkElement feLoaded)
+                    {
+                        loaded = feLoaded.IsLoaded;
+                    }
+
+                    if (WinUIVisualTreeHelper.GetParent(container) is WinUIDependencyObject p)
+                    {
+                        parent = p.GetType().Name;
+                    }
+
+                    if (container is Microsoft.UI.Xaml.FrameworkElement feRoot &&
+                        feRoot.TransformToVisual(null) is Microsoft.UI.Xaml.Media.GeneralTransform gtRoot)
+                    {
+                        rootY = Math.Round(gtRoot.TransformPoint(new Windows.Foundation.Point(0, 0)).Y, 1);
+                    }
+                }
+                catch (Exception)
+                {
+                    // detached mid-read — that itself is the answer
+                }
+
+                bool withinViewport = !double.IsNaN(y) && y > -height && y < viewportGuess;
+                if (withinViewport)
+                {
+                    inViewport++;
+                }
+
+                // The card's own first visual child answers "realized but painted empty".
+                string inner = "?";
+                try
+                {
+                    if (WinUIVisualTreeHelper.GetChildrenCount(container) > 0 &&
+                        WinUIVisualTreeHelper.GetChild(container, 0) is Microsoft.UI.Xaml.FrameworkElement child)
+                    {
+                        inner = $"{Math.Round(child.ActualWidth, 0)}x{Math.Round(child.ActualHeight, 0)}";
+                    }
+                }
+                catch (Exception)
+                {
+                    // recycled mid-read
+                }
+
+                ys.Add(y);
+                // dev86: container IDENTITY. "nine containers all at y=0" and "the same container
+                // handed back nine times" look identical in every field above and are completely
+                // different bugs - one is a placement failure, the other a corrupted index map.
+                conts.Add(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(container));
+                sample.Add($"{i}:y={y},root={rootY},x={x},c#{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(container) % 100000},{container.Visibility},{Math.Round(container.Opacity, 2)},{Math.Round(width, 0)}x{Math.Round(height, 0)},load:{(loaded ? 1 : 0)},par:{parent},in:{inner}");
+            }
+            else
+            {
+                sample.Add($"{i}:NOT-REALIZED");
+            }
+        }
+
+        double viewport = scroll?.ViewportHeight ?? -1;
+        double extent = scroll?.ScrollableHeight ?? -1;
+
+        // FEED BUG HUNT (dev74/dev76/dev77): the verdict line, so the hunt is one grep away. Three
+        // ways to be stuck: the panel realized almost nothing; it realized plenty but at most one
+        // card lands inside the viewport; or — the owner's case — every realized container reports
+        // the SAME y, i.e. the cards are stacked on one another and the feed shows a single project
+        // while the data holds 76.
+        int distinctY = ys.Where(v => !double.IsNaN(v)).Select(v => (int)Math.Round(v / 8)).Distinct().Count();
+        bool stacked = realized >= 3 && distinctY <= 2;
+        bool stuck = items > 3 && (realized <= 1 || inViewport <= 1 || stacked
+            || (viewport > 0 && extent > 0 && extent < viewport * 1.6));
+        if (stuck)
+        {
+            MostaqlK.Services.Diagnostics.InteractionLogger.Mark("FeedDiag.Collapse", tag, new
+            {
+                nativeItems = items,
+                realized,
+                visible,
+                inViewport,
+                stacked,
+                distinctY,
+                distinctContainers = conts.Distinct().Count(),
+                panelChildren = FindItemsPanel(host) is { } pnl ? pnl.Children.Count : -1,
+                viewport = Math.Round(viewport, 1),
+                scrollableExtent = Math.Round(extent, 1),
+                scrollOffset = scroll is null ? -1 : Math.Round(scroll.VerticalOffset, 1),
+                hostVisibility = host.Visibility.ToString(),
+                feedIsVisible = feed.IsVisible,
+                feedOpacity = feed.Opacity,
+                sample,
+            });
+        }
+
+        MostaqlK.Services.Diagnostics.InteractionLogger.Mark("FeedDiag.NativeList", tag, new
+        {
+            nativeItems = items,
+            realized,
+            visible,
+            inViewport,
+            stacked,
+            distinctY,
+            distinctContainers = conts.Distinct().Count(),
+            panelChildren = FindItemsPanel(host) is { } pnl2 ? pnl2.Children.Count : -1,
+            stuck,
+            hostVisibility = host.Visibility.ToString(),
+            hostHeight = Math.Round(host is Microsoft.UI.Xaml.FrameworkElement hfe ? hfe.ActualHeight : -1, 1),
+            feedHeight = Math.Round(feed.Height, 1),
+            scrollableViewport = Math.Round(viewport, 1),
+            scrollableExtent = Math.Round(extent, 1),
+            scrollOffset = scroll is null ? -1 : Math.Round(scroll.VerticalOffset, 1),
+            sample,
+        });
+    }
+
+    /// <summary>FEED BUG FIX (dev81): the panel that owns the container positions.</summary>
+    private static Microsoft.UI.Xaml.Controls.Panel? FindItemsPanel(WinUIDependencyObject root, int depth = 0)
+    {
+        if (depth > 8)
+        {
+            return null;
+        }
+
+        int children = WinUIVisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < children; i++)
+        {
+            if (WinUIVisualTreeHelper.GetChild(root, i) is not WinUIDependencyObject childDo)
+            {
+                continue;
+            }
+
+            if (childDo is Microsoft.UI.Xaml.Controls.Panel panel)
+            {
+                return panel;
+            }
+
+            if (FindItemsPanel(childDo, depth + 1) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+
+    // dev80 trace: the container witness. Bounded (a scroll generates one event per item per pass)
+    // and it references no feature types: the item is reported by runtime type + identity hash, which
+    // the FeedTrace.Patch lines already map to project ids by index.
+    private static WinUIListViewBase? _watchedHost;
+    private static int _containerWatchEvents;
+    private const int ContainerWatchCap = 900;
+
+    static partial void WatchContainersFeed(CollectionView feed)
+    {
+        if (feed.Handler?.PlatformView is not WinUIDependencyObject root
+            || ResolveItemsHost(root) is not WinUIListViewBase host)
+        {
+            return;
+        }
+
+        if (ReferenceEquals(_watchedHost, host))
+        {
+            return; // already watching this host
+        }
+
+        if (_watchedHost is not null)
+        {
+            _watchedHost.ContainerContentChanging -= OnContainerWatch;
+        }
+
+        _watchedHost = host;
+        host.ContainerContentChanging += OnContainerWatch;
+    }
+
+    private static void OnContainerWatch(WinUIListViewBase sender, Microsoft.UI.Xaml.Controls.ContainerContentChangingEventArgs args)
+    {
+        if (_containerWatchEvents >= ContainerWatchCap)
+        {
+            return;
+        }
+
+        _containerWatchEvents++;
+        var item = args.Item;
+        MostaqlK.Services.Diagnostics.FeedTrace.Log("Container", args.InRecycleQueue ? "recycle" : "bind", new
+        {
+            idx = args.ItemIndex,
+            item = item is null ? "null" : item.GetType().Name + "#" + System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(item),
+            phase = args.Phase.ToString(),
+            cont = System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(sender.ContainerFromIndex(args.ItemIndex) ?? sender),
+            ev = _containerWatchEvents,
+        });
+    }
+
+
+    /// <summary>FEED BUG HUNT (dev87): enumerate every items host in the feed's subtree.</summary>
+    private static void CountHosts(WinUIDependencyObject root, int depth = 0)
+    {
+        if (depth > 14)
+        {
+            return;
+        }
+
+        int children = WinUIVisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < children; i++)
+        {
+            if (WinUIVisualTreeHelper.GetChild(root, i) is WinUIDependencyObject childDo)
+            {
+                DescribeHost(childDo, depth);
+                CountHosts(childDo, depth + 1);
+            }
+        }
+    }
+    /// <summary>FEED BUG HUNT (dev87): record one items host found in the tree.</summary>
+    private static void DescribeHost(WinUIDependencyObject childDo, int depth)
+    {
+        if (childDo is WinUIListViewBase)
+        {
+            // dev87: a second items host under the same window is the signature of a duplicated
+            // CollectionView after navigation, which would explain containers that exist, are
+            // loaded, and are still not laid out by the panel the screen is showing.
+            var lb = (Microsoft.UI.Xaml.FrameworkElement)childDo;
+            MostaqlK.Services.Diagnostics.FeedTrace.Log("Hosts", "listviewbase", new
+            {
+                depth,
+                w = Math.Round(lb.ActualWidth, 0),
+                h = Math.Round(lb.ActualHeight, 0),
+                children = WinUIVisualTreeHelper.GetChildrenCount(childDo),
+                items = lb is Microsoft.UI.Xaml.Controls.ItemsControl lic ? lic.Items?.Count ?? -1 : -1,
+                visible = lb.Visibility.ToString(),
+            });
+        }
+
+        if (childDo is Microsoft.UI.Xaml.Controls.ItemsPresenter)
+        {
+            MostaqlK.Services.Diagnostics.FeedTrace.Log("Hosts", "itemsPresenter", new
+            {
+                depth,
+                children = WinUIVisualTreeHelper.GetChildrenCount(childDo),
+            });
+        }
+    }
+
+    /// <summary>FEED BUG HUNT (dev74): one-shot visual-tree search for the list's ScrollViewer.</summary>
+    private static Microsoft.UI.Xaml.Controls.ScrollViewer? FindScrollViewer(WinUIDependencyObject root, int depth = 0)
+    {
+        if (depth > 12)
+        {
+            return null;
+        }
+
+        int children = WinUIVisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < children; i++)
+        {
+            if (WinUIVisualTreeHelper.GetChild(root, i) is not WinUIDependencyObject childDo)
+            {
+                continue;
+            }
+
+            if (childDo is Microsoft.UI.Xaml.Controls.ScrollViewer sv)
+            {
+                return sv;
+            }
+
+            if (FindScrollViewer(childDo, depth + 1) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Resolves the feed's WinUI items host from the <c>CollectionView</c>'s platform view. MAUI's
     /// Windows items controls sit on <see cref="WinUIListViewBase"/>; the handler may expose it
     /// directly or wrap it in a template part, so a one-shot (never per-frame) visual-tree probe is the

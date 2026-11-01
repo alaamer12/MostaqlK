@@ -116,6 +116,16 @@ public static partial class ContentSettle
             return;
         }
 
+        // FEED BUG HUNT (dev77): A/B switch for the stacking investigation. The settle pass is the
+        // only thing that touches every realized container's compositor visual after each batch, and
+        // the owner's log shows 12 containers collapsing to the same y. Setting MOSTAQLK_NO_SETTLE=1
+        // skips the pass entirely (cards land at rest) so the two can be told apart.
+        if (NoSettleRequested)
+        {
+            AbortInFlightCore();
+            return;
+        }
+
         // Reduced motion / ambient-hidden-to-tray, or nothing to animate: land at rest instantly
         // (the mockup's prefers-reduced-motion skips the whole settle). Fast-finish first so an
         // in-flight pass on Windows cannot keep animating past this guardrail check.
@@ -128,6 +138,10 @@ public static partial class ContentSettle
         PerformSettle(feed);
     }
 
+    /// <summary>FEED BUG HUNT (dev77): opt-out of the compositor settle pass for the stacking experiment.</summary>
+    private static bool NoSettleRequested { get; } =
+        Environment.GetEnvironmentVariable("MOSTAQLK_NO_SETTLE") == "1";
+
     /// <summary>
     /// Per-platform settle seam. Default (shared) has no implementation ⇒ elided on every platform
     /// except the one that provides it (Windows), where a compositor pass animates the realized
@@ -135,6 +149,52 @@ public static partial class ContentSettle
     /// instantly.
     /// </summary>
     static partial void PerformSettle(CollectionView feed);
+
+    /// <summary>
+    /// FEED BUG HUNT (dev74): read-only probe of what the native items list actually holds and how
+    /// many containers the virtualizer realized. Answers "did the data collapse, or did rendering
+    /// lose the rows?" — the discriminator between a store/view-model bug and a WinUI realization
+    /// bug. Never throws; no-op where no platform partial provides it. Remove with the hunt.
+    /// </summary>
+    public static void Probe(CollectionView? feed, string tag = "A")
+    {
+        try
+        {
+            if (feed is not null)
+            {
+                ProbeFeed(feed, tag);
+            }
+        }
+        catch
+        {
+            // A diagnostic must never take down the feed it is measuring.
+        }
+    }
+
+    static partial void ProbeFeed(CollectionView feed, string tag);
+    /// <summary>
+    /// dev80 trace: watch the native item containers themselves — which item each container is bound
+    /// to, when it is recycled, whether it is in the viewport. The data path, the patch strategy and
+    /// the container geometry were all instrumented; this bridge was not, and it is the layer where
+    /// "the list has 76 items" and "the screen shows one card" disagree.
+    /// </summary>
+    public static void WatchContainers(CollectionView? feed)
+    {
+        try
+        {
+            if (feed is not null)
+            {
+                WatchContainersFeed(feed);
+            }
+        }
+        catch
+        {
+            // tracing never breaks the feed
+        }
+    }
+
+    static partial void WatchContainersFeed(CollectionView feed);
+
 
     /// <summary>
     /// Per-platform fast-finish seam: stops any still-running compositor pass and lands every card

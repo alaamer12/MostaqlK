@@ -39,6 +39,12 @@ public partial class ProjectDetailsPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        MostaqlK.Services.Diagnostics.FeedTrace.Log("Details", "appear", new
+        {
+            source = SourceIdParam ?? "default",
+            projectId = ProjectId ?? "(none)",
+            navStack = Shell.Current?.Navigation.NavigationStack.Count ?? -1,
+        });
         var source = SourceId.TryFrom(SourceIdParam, out var parsedSource)
             ? parsedSource
             : SourceId.Default;

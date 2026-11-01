@@ -55,7 +55,110 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     // content-bearing batch applied (routine pipeline refine batches never re-trigger it).
     private bool _settleOnNextBatch;
 
-    public ObservableCollection<ProjectCardViewModel> Projects { get; } = [];
+    /// <summary>
+    /// True when the NEXT batch should adopt the store's ranking wholesale (cold open, source morph,
+    /// explicit refresh, search). Background refine batches leave it false and keep the reader's
+    /// order stable — see the ORDER POLICY note in <see cref="ApplySnapshot"/>.
+    /// </summary>
+    private bool _reorderPending = true;
+
+    /// <summary>
+    /// Existing rows keep the order the user is looking at; rows that left the page drop out; rows new
+    /// to the page go on top in the store's own order. No already-listed row ever changes rank.
+    /// </summary>
+    private static List<FeedItem> KeepOrderWithNewOnTop(List<FeedItem> batch, List<long> previousIds)
+    {
+        var byId = new Dictionary<long, FeedItem>();
+        foreach (var item in batch)
+        {
+            byId[item.ProjectId] = item;
+        }
+
+        var kept = new List<FeedItem>(batch.Count);
+        var used = new HashSet<long>();
+        foreach (var id in previousIds)
+        {
+            if (byId.TryGetValue(id, out var item) && used.Add(id))
+            {
+                kept.Add(item);
+            }
+        }
+
+        var arrived = new List<FeedItem>();
+        foreach (var item in batch)
+        {
+            if (!used.Contains(item.ProjectId))
+            {
+                arrived.Add(item);
+                used.Add(item.ProjectId);
+            }
+        }
+
+        arrived.AddRange(kept);
+        return arrived;
+    }
+
+    /// <summary>How many rows changed rank between what was listed and what is about to be listed.</summary>
+    private static int CountMoved(List<long> previousIds, List<FeedItem> next)
+    {
+        var previousIndex = new Dictionary<long, int>(previousIds.Count);
+        for (int i = 0; i < previousIds.Count; i++)
+        {
+            previousIndex[previousIds[i]] = i;
+        }
+
+        int moved = 0;
+        for (int i = 0; i < next.Count; i++)
+        {
+            if (previousIndex.TryGetValue(next[i].ProjectId, out var was) && was != i)
+            {
+                moved++;
+            }
+        }
+
+        return moved;
+    }
+
+    /// <summary>A few "id:was→now" strings — the evidence that used to be missing from the trace.</summary>
+    private static string[] SampleMoves(List<long> previousIds, List<FeedItem> next)
+    {
+        var previousIndex = new Dictionary<long, int>(previousIds.Count);
+        for (int i = 0; i < previousIds.Count; i++)
+        {
+            previousIndex[previousIds[i]] = i;
+        }
+
+        var sample = new List<string>(6);
+        for (int i = 0; i < next.Count && sample.Count < 6; i++)
+        {
+            if (previousIndex.TryGetValue(next[i].ProjectId, out var was) && was != i)
+            {
+                sample.Add($"{next[i].ProjectId}:{was}->{i}");
+            }
+        }
+
+        return [.. sample];
+    }
+
+    /// <summary>
+    /// The feed's rows. Settable (dev87) because the only repair that provably fixes the
+    /// after-navigation blank feed is making the items control rebuild its item containers, and
+    /// nulling the bound property in code loses the XAML binding and eventually the feed itself.
+    /// Swapping in a NEW collection holding the SAME card instances rebuilds the containers cleanly
+    /// and keeps every binding the page owns.
+    /// </summary>
+    [ObservableProperty]
+    public partial ObservableCollection<ProjectCardViewModel> Projects { get; set; } = [];
+
+    // FEED BUG HUNT (dev74): a per-instance id so the log answers "did back-navigation hand me a NEW
+    // view-model, or the same one?" — the discriminator between a leaked-VM repaint and a real
+    // data/render collapse. Temporary; remove with the hunt.
+    private static int _vmSeq;
+    private readonly int _vmId = Interlocked.Increment(ref _vmSeq);
+    public int DiagVmId => _vmId;
+
+    private static void Diag(string checkpoint, string variant, object? data) =>
+        InteractionLogger.Mark(checkpoint, variant, data);
 
     /// <summary>
     /// Raised on the UI thread after a confirmed snapshot batch has been diff-applied to
@@ -64,6 +167,22 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     /// data await (v3 plan Step 4).
     /// </summary>
     public event EventHandler? BatchApplied;
+
+    /// <summary>
+    /// Raised when a batch changed the list STRUCTURALLY (ids added/removed, or the order changed, so
+    /// the patch took the single-reset path).
+    /// <para>
+    /// Why the host needs this: after a structural change the Windows items panel keeps the
+    /// ScrollViewer's old offset but stops re-realizing the region that offset now points at — the
+    /// owner's log read every realized container at <c>y=-1878 … -268</c> (correct pitch, all ABOVE
+    /// the viewport) with <c>inViewport: 0</c>. On screen: one clipped card edge and a blank field,
+    /// and a manual scroll "fixing" it because scrolling is the event that forces re-realization.
+    /// The host answers this event by forcing that re-realization at the SAME offset: enrichment
+    /// re-ranks this list continuously, so a scroll-to-top here would yank the reader away from the
+    /// card they were looking at every few seconds.
+    /// </para>
+    /// </summary>
+    public event EventHandler? StructuralPatchApplied;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsSearchActive))]
@@ -231,6 +350,16 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         // (requirements §4.1: "every page opens in the remembered identity").
         _source = globalStatus.ActiveSource;
 
+        // FEED BUG HUNT (dev74): logged BEFORE the warm paint so the log reads ctor → first apply.
+        Diag("FeedDiag.VM_Ctor", "A", new
+        {
+            vm = _vmId,
+            source = _source.Value,
+            warmItems = _store.Peek(_source)?.Items.Count ?? -1,
+            warmGen = _store.Peek(_source)?.Generation ?? -1,
+            warmQuery = _store.Peek(_source)?.Query,
+        });
+
         RefreshHeaderStatus();
 
         // THE single feed-batch trigger (v3 plan Step 1): the store raises one marshalled event
@@ -277,23 +406,40 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     // Store plumbing
     // -----------------------------------------------------------------
 
+    /// <summary>
+    /// dev87: rebuild the items control's container set by handing it a fresh collection of the same
+    /// cards. Called when the feed page comes back (the repro: open a project, press back, and the
+    /// list shows one card over a blank field while this view-model correctly holds every row).
+    /// Card instances are preserved, so no state is lost and no animation replays.
+    /// </summary>
+    public void RebuildItemsContainer()
+    {
+        var same = new ObservableCollection<ProjectCardViewModel>(Projects);
+        Projects = same;
+        FeedTrace.Log("Mapping", "swap-collection", new { vm = _vmId, rows = same.Count });
+    }
+
     /// <summary>The store-scoped query for the current search state (null = the recent list).</summary>
     private string? EffectiveQuery => string.IsNullOrWhiteSpace(SearchQuery) ? null : SearchQuery.Trim();
 
-    private void OnProjectDiscovered(long projectId, string title) => RequestStoreRefresh();
+    private void OnProjectDiscovered(long projectId, string title) => RequestStoreRefresh("discovered");
 
-    private void OnProjectRemovedFromQueue(long projectId) => RequestStoreRefresh();
+    private void OnProjectRemovedFromQueue(long projectId) => RequestStoreRefresh("removedFromQueue");
 
     private void OnWorkerStateChanged(int workerIndex, WorkerState state)
     {
         if (state is WorkerState.Completed or WorkerState.Error)
         {
-            RequestStoreRefresh();
+            RequestStoreRefresh($"worker:{state}");
         }
     }
 
     /// <summary>Fire-and-forget re-enqueue of the current source's refresh; the store coalesces bursts and runs the queries off the UI path.</summary>
-    private void RequestStoreRefresh() => _ = _store.RefreshAsync(_source, EffectiveQuery);
+    private void RequestStoreRefresh(string reason)
+    {
+        Diag("FeedDiag.ReEnqueue", reason, new { vm = _vmId, source = _source.Value, query = EffectiveQuery });
+        _ = _store.RefreshAsync(_source, EffectiveQuery);
+    }
 
     /// <summary>
     /// Synchronous idempotent re-point kept ONLY as the morph-first safety net for switches that
@@ -308,6 +454,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         var active = _globalStatus.ActiveSource;
         if ((e.PropertyName is null or "" or nameof(GlobalAppStatusService.ActiveSource)) && active != _source)
         {
+            Diag("FeedDiag.Repoint", e.PropertyName ?? "all", new { vm = _vmId, from = _source.Value, to = active.Value });
             SwitchSource(active);
         }
     }
@@ -329,6 +476,15 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
 
         _source = source;
         SearchQuery = string.Empty;
+        _reorderPending = true; // a morph is a fresh page: adopt the new source's ranking
+        Diag("FeedDiag.SwitchSource", "A", new
+        {
+            vm = _vmId,
+            to = source.Value,
+            rowsBefore = Projects.Count,
+            warmItems = _store.Peek(source)?.Items.Count ?? -1,
+            warmGen = _store.Peek(source)?.Generation ?? -1,
+        });
         _lastAppliedSource = source;
         _lastAppliedGeneration = -1;
         _settleOnNextBatch = true;
@@ -368,6 +524,13 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         // Warm-peer prefetch batches for other sources must not paint the active list.
         if (snapshot.Source != _source)
         {
+            Diag("FeedDiag.BatchSkipped", "B", new
+            {
+                vm = _vmId,
+                batchSource = snapshot.Source.Value,
+                mySource = _source.Value,
+                gen = snapshot.Generation,
+            });
             return;
         }
 
@@ -380,6 +543,14 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         // (renderer-side belt for the store's suspenders — the store also refuses to publish one).
         if (snapshot.Source == _lastAppliedSource && snapshot.Generation < _lastAppliedGeneration)
         {
+            Diag("FeedDiag.ApplyDropped", "A", new
+            {
+                vm = _vmId,
+                source = snapshot.Source.Value,
+                gen = snapshot.Generation,
+                lastAppliedGen = _lastAppliedGeneration,
+                items = snapshot.Items.Count,
+            });
             return;
         }
 
@@ -390,6 +561,24 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
             .Where(static item => item.Summary is not null
                 && item.State is FeedRowState.Confirmed or FeedRowState.Stale)
             .ToList();
+
+        // FEED BUG HUNT (dev74): the incoming batch as the renderer sees it. `rowsBefore` is the live
+        // list at this instant, `paintable` is what the diff-apply below will keep — a collapse shows
+        // up here as a small `paintable` against a large `rowsBefore`.
+        Diag("FeedDiag.Apply", snapshot.IsProvisional ? "prov" : (snapshot.Error is null ? "ok" : "err"), new
+        {
+            vm = _vmId,
+            source = snapshot.Source.Value,
+            gen = snapshot.Generation,
+            query = snapshot.Query,
+            search = SearchQuery,
+            items = snapshot.Items.Count,
+            paintable = confirmed.Count,
+            stale = confirmed.Count(static i => i.State == FeedRowState.Stale),
+            skipped = snapshot.Items.Count - confirmed.Count,
+            rowsBefore = Projects.Count,
+            ids = confirmed.Select(static i => i.ProjectId).Take(4).ToArray(),
+        });
 
         if (snapshot.IsProvisional)
         {
@@ -427,48 +616,132 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         HasError = false;
         ErrorMessage = null;
 
-        // Diff-apply (reuse-by-id, then position) — the O(n) patch the feed already trusted, now
-        // driven purely from a memory batch instead of a just-awaited query.
+        // Patch strategy (dev75 — the vanishing-cards / WinUI fail-fast class).
+        //
+        // The old path reconciled every publish with `RemoveAt` + `Insert` + one `Move` PER ROW that
+        // changed rank. That is hostile to the Windows items host: a re-sort of 40 rows emits ~40
+        // reorder notifications inside one synchronous block, and WinUI's virtualizing panel can end up
+        // holding an item map that no longer matches its containers — measured on the owner's machine as
+        // the list's own content extent collapsing (13614 → 10868 → 13506 px in 1.5 s) while the
+        // realized-container count swung 2 ↔ 12, and finally as `E_INVALIDARG` (0x80070057) out of
+        // Microsoft.UI.Xaml.dll escalating to the `0xC000027B` fail-fast in five crash dumps. Cards
+        // vanishing (one left, then none) and the scroll-then-crash were the same fault, two intensities.
+        //
+        // Two rules now, both invisible to the user when nothing changed:
+        //   1. SAME ids in the SAME order → update the cards in place and raise ZERO structural
+        //      notifications. This is what the store's dim (stale-while-revalidate) and card-tap
+        //      overlay publishes actually are: the same generation re-published, content at most
+        //      nudged — the old code still ran a full structural patch for each of them.
+        //   2. Otherwise → ONE `Clear` + in-order `Add`s (a single Reset, which MAUI's items update
+        //      coordinator on Windows coalesces) reusing the existing card instances by id, instead of
+        //      a storm of Moves. Identity survives, so no state is lost and no animation replays.
         var existingById = new Dictionary<long, ProjectCardViewModel>();
+        var prevIds = new List<long>(Projects.Count);
         foreach (var card in Projects)
         {
             existingById.TryAdd(card.Project.ProjectId, card);
+            prevIds.Add(card.Project.ProjectId);
         }
 
-        var newIds = confirmed
-            .Where(static item => item.ProjectId >= 0)
-            .Select(static item => item.ProjectId)
-            .ToHashSet();
+        // ORDER POLICY (dev80 — the defect the owner named): the recent page is sorted by enrichment
+        // completion (`(enriched_at IS NULL), enriched_at DESC, discovered_at DESC` in
+        // ProjectRepository.GetRecentAsync), so EVERY finished worker re-ranks the whole page. A
+        // background batch therefore used to move rows by thousands of pixels underneath a reader who
+        // was scrolled down — which is both of their observations: a viewport full of holes, and the
+        // first card changing identity (Nasser Elsayd → Mohamed Ahmed) with no action of theirs.
+        //
+        // So a background batch no longer re-ranks rows the user can already see: existing rows keep
+        // their relative order, vanished rows drop out, new arrivals land on top (what a "recent"
+        // feed promises). A full re-sort happens only when the user asked for the page — cold open,
+        // source morph, refresh, search.
+        bool reorder = _reorderPending || prevIds.Count == 0;
+        _reorderPending = false;
+        var ordered = reorder ? confirmed : KeepOrderWithNewOnTop(confirmed, prevIds);
 
-        for (int i = Projects.Count - 1; i >= 0; i--)
+        FeedTrace.Log("Patch", "plan", new
         {
-            if (!newIds.Contains(Projects[i].Project.ProjectId))
+            vm = _vmId,
+            gen = snapshot.Generation,
+            src = snapshot.Source.Value,
+            reorder,
+            before = prevIds.Count,
+            after = ordered.Count,
+            topBefore = prevIds.Count > 0 ? prevIds[0] : -1,
+            topAfter = ordered.Count > 0 ? ordered[0].ProjectId : -1,
+            moved = CountMoved(prevIds, ordered),
+            added = ordered.Count(i => !prevIds.Contains(i.ProjectId)),
+            removed = prevIds.Count(id => ordered.All(i => i.ProjectId != id)),
+            moves = SampleMoves(prevIds, ordered),
+        });
+
+        bool sameShape = prevIds.Count == ordered.Count;
+        if (sameShape)
+        {
+            for (int i = 0; i < ordered.Count; i++)
             {
-                Projects.RemoveAt(i);
+                if (prevIds[i] != ordered[i].ProjectId)
+                {
+                    sameShape = false;
+                    break;
+                }
             }
         }
 
-        for (int i = 0; i < confirmed.Count; i++)
+        if (sameShape)
         {
-            var item = confirmed[i];
-            var summary = item.Summary!;
-            if (existingById.TryGetValue(summary.ProjectId, out var existing))
+            for (int i = 0; i < ordered.Count; i++)
             {
-                existing.UpdateFrom(item);
-                var currentIndex = Projects.IndexOf(existing);
-                if (currentIndex != i && currentIndex != -1)
+                Projects[i].UpdateFrom(ordered[i]);
+            }
+
+            Diag("FeedDiag.Patch", "content-only", new { vm = _vmId, gen = snapshot.Generation, rows = Projects.Count });
+        }
+        else
+        {
+            // Structural change: one reset, no Move notifications ever.
+            Projects.Clear();
+            for (int i = 0; i < ordered.Count; i++)
+            {
+                var item = ordered[i];
+                if (existingById.TryGetValue(item.ProjectId, out var reused))
                 {
-                    Projects.Move(currentIndex, i);
+                    reused.UpdateFrom(item);
+                    Projects.Add(reused);
                 }
-                else if (currentIndex == -1)
+                else
                 {
-                    Projects.Insert(i, existing);
+                    Projects.Add(ProjectCardViewModel.ForFeedItem(item, card => _ = SelectProjectAsync(card)));
                 }
             }
-            else
+
+            int reusedCount = 0;
+            foreach (var item in ordered)
             {
-                Projects.Insert(i, ProjectCardViewModel.ForFeedItem(item, card => _ = SelectProjectAsync(card)));
+                if (existingById.ContainsKey(item.ProjectId))
+                {
+                    reusedCount++;
+                }
             }
+
+            Diag("FeedDiag.Patch", "reset", new
+            {
+                vm = _vmId,
+                gen = snapshot.Generation,
+                rows = Projects.Count,
+                reused = reusedCount,
+                fresh = ordered.Count - reusedCount,
+            });
+
+            FeedTrace.Log("Patch", "reset-applied", new
+            {
+                vm = _vmId,
+                gen = snapshot.Generation,
+                rows = Projects.Count,
+                reused = reusedCount,
+                fresh = ordered.Count - reusedCount,
+            });
+
+            StructuralPatchApplied?.Invoke(this, EventArgs.Empty);
         }
 
         if (IsSearchActive)
@@ -493,6 +766,22 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
 
         IsEmpty = Projects.Count == 0;
         OnPropertyChanged(nameof(ShowFeed));
+
+        // FEED BUG HUNT (dev74): the list AS THE DATA SEES IT after the patch. If this reports the
+        // full row count while the screen shows one card, the collapse is below the view-model (the
+        // WinUI list), not in the feed data.
+        Diag("FeedDiag.ApplyEnd", "A", new
+        {
+            vm = _vmId,
+            source = _source.Value,
+            gen = snapshot.Generation,
+            rowsAfter = Projects.Count,
+            tracked = TrackedCount,
+            unread = UnreadCount,
+            isEmpty = IsEmpty,
+            showFeed = ShowFeed,
+            ids = Projects.Take(4).Select(static c => c.Project.ProjectId).ToArray(),
+        });
 
         // Settle hook (v3 plan Step 4): the mount pass re-times off the snapshot-applied
         // paint-complete frame — armed once per source switch only, so routine pipeline refine
@@ -520,6 +809,7 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
             // button causes one rather than pretending), and re-enqueue the store refresh. The
             // repaint arrives via SnapshotUpdated, not by awaiting the DB here.
             _pollService.RequestCheckNow();
+            _reorderPending = true; // the reader asked for the page again: re-rank
             await LoadAsync();
         }
         catch (Exception ex)
@@ -537,6 +827,14 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     [RelayCommand]
     public Task LoadAsync()
     {
+        Diag("FeedDiag.Load", "A", new
+        {
+            vm = _vmId,
+            source = _source.Value,
+            query = EffectiveQuery,
+            rows = Projects.Count,
+            navStack = Shell.Current?.Navigation.NavigationStack.Count ?? -1,
+        });
         RefreshHeaderStatus();
         return _store.RefreshAsync(_source, EffectiveQuery);
     }
@@ -546,6 +844,8 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     public Task SearchAsync(string? query)
     {
         SearchQuery = query ?? string.Empty;
+        _reorderPending = true; // a query result page is ranked by relevance
+        Diag("FeedDiag.Search", "A", new { vm = _vmId, source = _source.Value, query, rows = Projects.Count });
         // The search page is the store's bounded FTS pass (hard LIMIT now — the raw MATCH set was
         // unbounded before this wave). No DB call from the renderer.
         return _store.RefreshAsync(_source, EffectiveQuery);
@@ -555,6 +855,8 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     public Task ClearSearchAsync()
     {
         SearchQuery = string.Empty;
+        _reorderPending = true;
+        Diag("FeedDiag.ClearSearch", "A", new { vm = _vmId, source = _source.Value, rows = Projects.Count });
         return _store.RefreshAsync(_source, null);
     }
 
@@ -701,6 +1003,15 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
             UnreadCount = Projects.Count(static p => p.IsUnread);
 
             var identity = new SourceProjectId(card.Project.Source, card.Project.ProjectId);
+            Diag("FeedDiag.OpenProject", "A", new
+            {
+                vm = _vmId,
+                source = identity.Source.Value,
+                projectId = identity.ProjectId,
+                mySource = _source.Value,
+                rows = Projects.Count,
+                route = AppRoutes.ProjectDetails(identity.Source, identity.ProjectId).Path,
+            });
             DeferredPreferences.Enqueue($"read:{identity.Source.Value}:{identity.ProjectId}", async () =>
             {
                 var result = await _projectRepository.MarkAsReadAsync(identity);
