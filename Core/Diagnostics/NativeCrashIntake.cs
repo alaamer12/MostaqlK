@@ -172,8 +172,8 @@ public static class NativeCrashIntake
 
     /// <summary>
     /// Decides one record's fate on this launch. Order is load-bearing: age-out and duplicate are
-    /// proven facts (delete-safe); budget is uncertainty (keep for later); only <see cref="Send"/>
-    /// followed by a successful forward may delete.
+    /// proven facts (delete-safe); budget is uncertainty (keep for later); only
+    /// <see cref="IntakeAction.Send"/> followed by a successful forward may delete.
     /// </summary>
     public static IntakeAction Decide(
         PendingCrashRecord record,

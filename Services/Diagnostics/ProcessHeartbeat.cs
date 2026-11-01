@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using MostaqlK.Core.Diagnostics;
 using MostaqlK.Core.Platform;
 
 namespace MostaqlK.Services.Diagnostics;
@@ -43,10 +44,8 @@ public static class ProcessHeartbeat
 
     // A3 (radar-iterationcount postmortem): the finalizer flood that FED the dev69 fail-fast was
     // readable in heartbeat.log the whole time (finalizePending 6,138 frozen at death) — nobody
-    // was watching. Edge-triggered warning: a beat at/above FloodThreshold whose NEXT beat has
-    // drained less than half means the backlog is sustaining, not transient GC noise. One event
-    // per episode (reset with hysteresis), never a per-beat storm.
-    private const long FloodThreshold = 4000;
+    // was watching. The arithmetic itself lives in FinalizerFloodPolicy (pure, CrashPathTests
+    // replay the incident's real beat numbers); this is only the latch + the two reporting calls.
     private static long _previousPending = -1;
     private static bool _floodEpisode;
 
@@ -54,18 +53,18 @@ public static class ProcessHeartbeat
     {
         try
         {
-            var sustaining = _previousPending >= FloodThreshold && pending > _previousPending / 2;
+            var sustaining = FinalizerFloodPolicy.IsSustaining(_previousPending, pending);
             if (sustaining && !_floodEpisode)
             {
                 _floodEpisode = true;
                 InteractionLogger.Mark("Heartbeat.FinalizerFlood", "A",
-                    new { pending, previous = _previousPending, threshold = FloodThreshold });
+                    new { pending, previous = _previousPending, threshold = FinalizerFloodPolicy.Threshold });
                 CrashReporter.ReportHandled("ProcessHeartbeat.FinalizerFlood",
                     new ApplicationException(
                         $"Finalizer backlog sustained: {pending} objects pending, previous beat {_previousPending}, drained under 50% in one {Interval} interval"),
                     new { pending, previous = _previousPending });
             }
-            else if (pending < FloodThreshold / 2)
+            else if (FinalizerFloodPolicy.EpisodeOver(pending))
             {
                 _floodEpisode = false;
             }

@@ -376,6 +376,21 @@ finally
     try { Directory.Delete(digestRoot, recursive: true); } catch { }
 }
 
+// --- Finalizer-flood alarm (postmortem A3): replay the incident's REAL beats --
+
+Check("flood: first spike above threshold is not yet an alarm",
+    !FinalizerFloodPolicy.IsSustaining(2277, 6138));
+Check("flood: a frozen 6,138 (the dev69 death pattern) sustains",
+    FinalizerFloodPolicy.IsSustaining(6138, 6138));
+Check("flood: the dev70 soak drain (9,350 -> 214) never alarms",
+    !FinalizerFloodPolicy.IsSustaining(9350, 214));
+Check("flood: boundary — half exactly is drained, just above is not",
+    !FinalizerFloodPolicy.IsSustaining(4000, 2000) && FinalizerFloodPolicy.IsSustaining(4000, 2001));
+Check("flood: below threshold never sustains",
+    !FinalizerFloodPolicy.IsSustaining(3999, 3999));
+Check("flood: episode resets only under half the threshold (hysteresis)",
+    FinalizerFloodPolicy.EpisodeOver(1999) && !FinalizerFloodPolicy.EpisodeOver(3000));
+
 Console.WriteLine();
 if (failures == 0)
 {
