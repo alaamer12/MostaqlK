@@ -1,7 +1,8 @@
 # iwts state — objective: make the MostaqlK desktop feed stop losing its project cards
 
 status: complete (feed bug fixed, verified, committed) — one open item, see "still open"
-commit: d10dfeb `fix: dev80 — the feed stops losing its cards…` on `canary` (not pushed)
+commits on `canary` (not pushed): d10dfeb fix (dev80) · becfbed ledger · 0273982 diagnostics gating (dev81) ·
+ae97d44 postmortem + AGENTS config surface
 owner: asleep at handoff 2026-11-01 ~02:00; woke briefly ~06:25 to confirm the bug was live and to
 point at the re-ranking cause; full autonomy granted ("fix all problems you find").
 
