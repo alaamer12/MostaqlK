@@ -19,15 +19,11 @@ public partial class MainWindowPage : ContentPage
 
     private void Diag(string checkpoint, string variant)
     {
-        MostaqlK.Services.Diagnostics.FeedTrace.Log("Page", $"{checkpoint}:{variant}", new
-        {
-            page = _pageId,
-            vm = _viewModel.DiagVmId,
-            rows = _viewModel.Projects.Count,
-            src = _viewModel.CurrentSourceId.Value,
-        });
         var stack = Shell.Current?.Navigation.NavigationStack;
-        MostaqlK.Services.Diagnostics.InteractionLogger.Mark(checkpoint, variant, new
+        // One gated emitter (FeedTrace.Diag): on by default in Debug, opt-in in Release. It used to
+        // call InteractionLogger.Mark directly as well, which is exactly the ungated path the
+        // ParserTests scan now forbids.
+        MostaqlK.Services.Diagnostics.FeedTrace.Diag(checkpoint, variant, new
         {
             page = _pageId,
             vm = _viewModel.DiagVmId,

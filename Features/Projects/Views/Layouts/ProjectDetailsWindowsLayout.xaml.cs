@@ -29,7 +29,7 @@ public partial class ProjectDetailsWindowsLayout : ContentView
     // FEED BUG HUNT (dev74): which control actually drove the return to the feed, and with what route
     // (absolute //MainWindowPage vs a Shell pop). Temporary; remove with the hunt.
     private static void DiagBack(string via) =>
-        InteractionLogger.Mark("FeedDiag.BackToFeed", via, new { route = AppRoutes.Projects.Path });
+        FeedTrace.Diag("FeedDiag.BackToFeed", via, new { route = AppRoutes.Projects.Path });
 
     private async void OnProjectsNavClicked(object? sender, EventArgs e)
     {
@@ -107,7 +107,7 @@ public partial class ProjectDetailsWindowsLayout : ContentView
     /// </summary>
     private async void OnRailSourceChanged(object? sender, SourceId source)
     {
-        InteractionLogger.Mark("FeedDiag.BackToFeed", "railSourceSwitch", new { route = AppRoutes.Projects.Path, to = source.Value });
+        FeedTrace.Diag("FeedDiag.BackToFeed", "railSourceSwitch", new { route = AppRoutes.Projects.Path, to = source.Value });
         await Task.Delay(650);
         await AppRoutes.NavigateAsync(AppRoutes.Projects);
     }

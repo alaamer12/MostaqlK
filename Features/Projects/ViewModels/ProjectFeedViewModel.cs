@@ -157,8 +157,10 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
     private readonly int _vmId = Interlocked.Increment(ref _vmSeq);
     public int DiagVmId => _vmId;
 
+    // Every feed diagnostic funnels through FeedTrace, which is on by default in Debug and
+    // opt-in in Release - see Services/Diagnostics/FeedTrace.cs.
     private static void Diag(string checkpoint, string variant, object? data) =>
-        InteractionLogger.Mark(checkpoint, variant, data);
+        FeedTrace.Diag(checkpoint, variant, data);
 
     /// <summary>
     /// Raised on the UI thread after a confirmed snapshot batch has been diff-applied to

@@ -1,3 +1,4 @@
+using MostaqlK.Services.Diagnostics;
 namespace MostaqlK.UI.PlatformComponents.ContentSettle;
 
 /// <summary>
@@ -158,6 +159,11 @@ public static partial class ContentSettle
     /// </summary>
     public static void Probe(CollectionView? feed, string tag = "A")
     {
+        if (!FeedTrace.Enabled)
+        {
+            return; // the visual-tree walk is diagnostics-only work; never runs when tracing is off
+        }
+
         try
         {
             if (feed is not null)
@@ -180,6 +186,11 @@ public static partial class ContentSettle
     /// </summary>
     public static void WatchContainers(CollectionView? feed)
     {
+        if (!FeedTrace.Enabled)
+        {
+            return;
+        }
+
         try
         {
             if (feed is not null)

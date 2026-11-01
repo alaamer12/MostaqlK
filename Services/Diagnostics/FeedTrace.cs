@@ -26,8 +26,43 @@ public static class FeedTrace
     /// <summary>Mono counter shared by every trace line in the process, so interleaving is readable.</summary>
     public static int Next => System.Threading.Interlocked.Increment(ref _seq);
 
+    /// <summary>
+    /// The single door for every feed diagnostic in the app.
+    /// <para>
+    /// <b>Development (Debug): on by default</b> — the owner must be able to launch and produce
+    /// evidence with no setup, which is what found this bug; <c>MOSTAQLK_TRACE_FEED=0</c> silences it.
+    /// <b>Release: off by default</b> — these lines carry project ids, navigation history, scroll
+    /// offsets and internal generations into a rolling plaintext file, so a shipped build writes them
+    /// only when someone explicitly sets <c>MOSTAQLK_TRACE_FEED=1</c>. A support build watching one
+    /// user is then a deliberate act, not an accident of whichever branch got published.
+    /// </para>
+    /// <para>
+    /// Every <c>FeedDiag.*</c>/<c>FeedTrace.*</c> emitter routes through here, and
+    /// <c>tools/ParserTests</c> fails the build if a call site writes
+    /// <c>InteractionLogger.Mark("FeedDiag…</c> directly — an ungated emitter is exactly how
+    /// diagnostics leak into production.
+    /// </para>
+    /// </summary>
     public static bool Enabled { get; } =
+#if DEBUG
         Environment.GetEnvironmentVariable("MOSTAQLK_TRACE_FEED") != "0";
+#else
+        string.Equals(Environment.GetEnvironmentVariable("MOSTAQLK_TRACE_FEED"), "1", StringComparison.Ordinal);
+#endif
+
+    /// <summary>
+    /// Gated emitter for the <c>FeedDiag.*</c> checkpoints. Call sites use this instead of
+    /// <see cref="InteractionLogger.Mark"/> so the Debug/Release rule above holds in one place.
+    /// </summary>
+    public static void Diag(string checkpoint, string variant, object? data = null)
+    {
+        if (!Enabled)
+        {
+            return;
+        }
+
+        InteractionLogger.Mark(checkpoint, variant, data);
+    }
 
     /// <summary>
     /// One trace line: <c>FeedTrace.&lt;area&gt;</c> with a variant that names the moment. Keep the

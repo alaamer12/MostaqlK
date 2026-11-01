@@ -317,7 +317,7 @@ public partial class MainWindowWindowsLayout : ContentView
                 Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(delayMs), () =>
                 {
                     var feed = BindingContext as ProjectFeedViewModel;
-                    MostaqlK.Services.Diagnostics.InteractionLogger.Mark("FeedDiag.VmList", tag, new
+                    MostaqlK.Services.Diagnostics.FeedTrace.Diag("FeedDiag.VmList", tag, new
                     {
                         vm = feed?.DiagVmId ?? -1,
                         rows = feed?.Projects.Count ?? -1,
@@ -346,7 +346,7 @@ public partial class MainWindowWindowsLayout : ContentView
 
         _lastScrollDiagUtc = DateTime.UtcNow;
         var feed = BindingContext as ProjectFeedViewModel;
-        MostaqlK.Services.Diagnostics.InteractionLogger.Mark("FeedDiag.Scroll", "A", new
+        MostaqlK.Services.Diagnostics.FeedTrace.Diag("FeedDiag.Scroll", "A", new
         {
             vm = feed?.DiagVmId ?? -1,
             rows = feed?.Projects.Count ?? -1,

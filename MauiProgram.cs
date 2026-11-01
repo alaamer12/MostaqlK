@@ -181,8 +181,10 @@ public static class MauiProgram
                 }
             },
             // FEED BUG HUNT (dev74): FeedDiag.* checkpoints into the interaction log. Temporary.
+            // Feed diagnostics are dev-surface: FeedTrace.Enabled is on by default in Debug and
+            // opt-in in Release, so a published build wires the store sink only when asked.
             diag: static (checkpoint, variant, data) =>
-                MostaqlK.Services.Diagnostics.InteractionLogger.Mark(checkpoint, variant, data)));
+                MostaqlK.Services.Diagnostics.FeedTrace.Diag(checkpoint, variant, data)));
         // Deferred preference/settings writes (plan Steps 2-3): report background write faults the
         // same way; teardown flush is wired by the app host.
         MostaqlK.Core.Platform.DeferredPreferences.FaultSink = static (label, ex) =>

@@ -285,14 +285,14 @@ public static partial class ContentSettle
     {
         if (feed.Handler?.PlatformView is not WinUIDependencyObject platformRoot)
         {
-            MostaqlK.Services.Diagnostics.InteractionLogger.Mark("FeedDiag.NativeList", tag,
+            MostaqlK.Services.Diagnostics.FeedTrace.Diag("FeedDiag.NativeList", tag,
                 new { reason = "feed.Handler?.PlatformView is null" });
             return;
         }
 
         if (ResolveItemsHost(platformRoot) is not WinUIListViewBase host)
         {
-            MostaqlK.Services.Diagnostics.InteractionLogger.Mark("FeedDiag.NativeList", tag,
+            MostaqlK.Services.Diagnostics.FeedTrace.Diag("FeedDiag.NativeList", tag,
                 new { reason = "items host not found in visual tree" });
             return;
         }
@@ -426,7 +426,7 @@ public static partial class ContentSettle
             || (viewport > 0 && extent > 0 && extent < viewport * 1.6));
         if (stuck)
         {
-            MostaqlK.Services.Diagnostics.InteractionLogger.Mark("FeedDiag.Collapse", tag, new
+            MostaqlK.Services.Diagnostics.FeedTrace.Diag("FeedDiag.Collapse", tag, new
             {
                 nativeItems = items,
                 realized,
@@ -446,7 +446,7 @@ public static partial class ContentSettle
             });
         }
 
-        MostaqlK.Services.Diagnostics.InteractionLogger.Mark("FeedDiag.NativeList", tag, new
+        MostaqlK.Services.Diagnostics.FeedTrace.Diag("FeedDiag.NativeList", tag, new
         {
             nativeItems = items,
             realized,

@@ -176,6 +176,7 @@ public static class Program
         Run(nameof(TestConfigurationReferenceMatchesCatalog), TestConfigurationReferenceMatchesCatalog);
         Run(nameof(TestNoNegativeCompositionIterationCount), TestNoNegativeCompositionIterationCount);
         Run(nameof(TestNativeObjectCatchesAreBoundAndLogged), TestNativeObjectCatchesAreBoundAndLogged);
+        Run(nameof(TestFeedDiagnosticsAreGatedOutOfRelease), TestFeedDiagnosticsAreGatedOutOfRelease);
         Run(nameof(TestCaughtFaultsReachSentryThroughOneFunnel), TestCaughtFaultsReachSentryThroughOneFunnel);
         Run(nameof(TestFaultDigestFormatMatchesTheSink), TestFaultDigestFormatMatchesTheSink);
 
@@ -2586,6 +2587,74 @@ public static class Program
             violations.Count == 0, string.Join(", ", violations));
         Check("iteration-count: the scan sees the legal int.MaxValue form (anti-vacuity)",
             seenLegal >= 1, $"legal assignments seen = {seenLegal}");
+    }
+
+    /// <summary>
+    /// The feed-hunt diagnostics (dev74-dev80) write project ids, navigation history, scroll offsets
+    /// and internal generations into a rolling plaintext log. That is fine in development and must not
+    /// ship: every emitter goes through <c>FeedTrace</c>, whose <c>Enabled</c> is on by default under
+    /// DEBUG and strictly opt-in (<c>MOSTAQLK_TRACE_FEED=1</c>) otherwise.
+    /// <para>
+    /// The scan forbids the ungated shortcut - calling <c>InteractionLogger.Mark</c> directly with a
+    /// <c>FeedDiag.*</c>/<c>FeedTrace.*</c> checkpoint - because that is precisely how a diagnostic
+    /// written for one debugging session reaches a published build. It also pins the switch itself:
+    /// the gate must keep its <c>#if DEBUG</c> shape, so flipping the default cannot happen quietly.
+    /// </para>
+    /// </summary>
+    private static void TestFeedDiagnosticsAreGatedOutOfRelease()
+    {
+        var root = FindRepoRoot();
+        var ungated = new List<string>();
+        var gatedCallSites = 0;
+        var scanned = 0;
+
+        foreach (var dir in new[] { "Core", "Features", "Infrastructure", "Services", "Sources", "Platforms", "UI" })
+        {
+            var path = Path.Combine(root, dir);
+            if (!Directory.Exists(path))
+            {
+                continue;
+            }
+
+            foreach (var file in Directory.EnumerateFiles(path, "*.cs", SearchOption.AllDirectories))
+            {
+                var rel = Path.GetRelativePath(root, file);
+                scanned++;
+                var lines = File.ReadAllLines(file);
+                for (var i = 0; i < lines.Length; i++)
+                {
+                    // The gate file documents the forbidden pattern verbatim, and doc comments
+                    // quote it too - neither is an emission.
+                    var trimmed = lines[i].AsSpan().TrimStart();
+                    if (trimmed.StartsWith("//") || rel.EndsWith("FeedTrace.cs", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    if (Regex.IsMatch(lines[i], @"InteractionLogger\s*\.\s*Mark\s*\(\s*""Feed(Diag|Trace)"))
+                    {
+                        ungated.Add($"{rel}:{i + 1}");
+                    }
+                    else if (Regex.IsMatch(lines[i], @"FeedTrace\s*\.\s*(Diag|Log)\s*\("))
+                    {
+                        gatedCallSites++;
+                    }
+                }
+            }
+        }
+
+        Check("feed-diagnostics: no ungated FeedDiag/FeedTrace emission outside FeedTrace",
+            ungated.Count == 0, string.Join(", ", ungated));
+
+        // Anti-vacuity: the scan must actually see the gated emitters it is protecting.
+        Check("feed-diagnostics: the scan sees the gated FeedTrace emitters (anti-vacuity)",
+            gatedCallSites >= 10, $"gated emitter call sites seen = {gatedCallSites}, files scanned = {scanned}");
+
+        var gate = Path.Combine(root, "Services", "Diagnostics", "FeedTrace.cs");
+        var gateText = File.Exists(gate) ? File.ReadAllText(gate) : "";
+        Check("feed-diagnostics: FeedTrace keeps its Debug-on / Release-opt-in gate",
+            gateText.Contains("#if DEBUG") && gateText.Contains("MOSTAQLK_TRACE_FEED"),
+            "the Enabled switch must stay #if DEBUG with a MOSTAQLK_TRACE_FEED opt-in for Release");
     }
 
     /// <summary>
