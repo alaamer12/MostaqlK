@@ -2658,54 +2658,59 @@ public static class Program
     }
 
     /// <summary>
-    /// Postmortem A2, scoped to its owner: every catch in PipelineRadar.Windows.cs must BIND the
-    /// exception and hand it to a named fault sink within a few lines — the silent anonymous
-    /// swallow is what kept this crash class invisible for nine days. (The same rule across the
-    /// remaining UI/PlatformComponents *.Windows.cs is still the open November audit: about 20
-    /// pre-existing anonymous catches live there, none of them this incident's owner's file.)
+    /// Postmortem A2, whole surface (dev84): every catch in <c>UI/PlatformComponents/**\*.Windows.cs</c>
+    /// must BIND the exception and hand it to a named fault sink within a few lines — the silent
+    /// anonymous swallow is what kept the IterationCount crash class invisible for nine days, and
+    /// the audit is worthless if a new anonymous catch can land next week. Anti-vacuity: the scan
+    /// counts what it inspected and refuses if the count drops below the audited surface.
     /// </summary>
     private static void TestNativeObjectCatchesAreBoundAndLogged()
     {
-        var root = FindRepoRoot();
-        var file = Path.Combine(root, "UI", "PlatformComponents", "PipelineRadar", "PipelineRadar.Windows.cs");
-        Check("radar catches: the incident file exists", File.Exists(file));
-        var lines = File.ReadAllLines(file);
-
+        var root = Path.Combine(FindRepoRoot(), "UI", "PlatformComponents");
         var unbound = new List<string>();
         var unlogged = new List<string>();
         var catches = 0;
-        for (var i = 0; i < lines.Length; i++)
+        var files = 0;
+        foreach (var file in Directory.EnumerateFiles(root, "*.Windows.cs", SearchOption.AllDirectories))
         {
-            var m = Regex.Match(lines[i], @"^\s*catch\s*(?:\(\s*(?!\s*\))([^)]*)\))?\s*{?\s*$");
-            if (!m.Success)
+            files++;
+            var rel = Path.GetRelativePath(root, file);
+            var lines = File.ReadAllLines(file);
+            for (var i = 0; i < lines.Length; i++)
             {
-                continue;
-            }
+                var m = Regex.Match(lines[i], @"^\s*catch\s*(?:\(\s*(?!\s*\))([^)]*)\))?\s*{?\s*$");
+                if (!m.Success)
+                {
+                    continue;
+                }
 
-            catches++;
-            var header = m.Groups[1].Value.Trim();
-            if (header.Length == 0 || !header.Contains(' '))
-            {
-                unbound.Add($"line {i + 1}: '{lines[i].Trim()}'");
-                continue;
-            }
+                catches++;
+                var header = m.Groups[1].Value.Trim();
+                if (header.Length == 0 || !header.Contains(' '))
+                {
+                    unbound.Add($"{rel}:{i + 1}");
+                    continue;
+                }
 
-            var window = string.Join('\n', lines.Skip(i + 1).Take(12));
-            if (!window.Contains("InteractionLogger.Fault", StringComparison.Ordinal)
-                && !window.Contains("CrashReporter.Report", StringComparison.Ordinal))
-            {
-                unlogged.Add($"line {i + 1}: '{lines[i].Trim()}'");
+                var window = string.Join('\n', lines.Skip(i + 1).Take(12));
+                var documentedSwallow = window.Contains("swallow-ok:", StringComparison.Ordinal);
+                if (!documentedSwallow
+                    && !window.Contains("InteractionLogger.Fault", StringComparison.Ordinal)
+                    && !window.Contains("CrashReporter.Report", StringComparison.Ordinal))
+                {
+                    unlogged.Add($"{rel}:{i + 1}");
+                }
             }
         }
 
-        Check("radar catches: every catch binds its exception (no anonymous swallow in the incident unit)",
+        Check("native catches: every catch in UI/PlatformComponents binds its exception",
             unbound.Count == 0, string.Join(", ", unbound));
-        Check("radar catches: every catch names a fault sink within 12 lines",
+        Check("native catches: every catch names a fault sink within 12 lines",
             unlogged.Count == 0, string.Join(", ", unlogged));
-        // Anti-vacuity: the file has exactly the three rotation catches; if the scan sees fewer,
-        // its regex rotted and these checks prove nothing.
-        Check("radar catches: the scan found all three rotation catches",
-            catches >= 3, $"catches seen = {catches}");
+        // Anti-vacuity floors: the dev84 audit covers 24 catches across 7 files; a scan that sees
+        // fewer means its regex rotted (or someone deleted the guardrails with the files).
+        Check("native catches: the scan reached the audited surface",
+            catches >= 24 && files >= 7, $"catches = {catches}, files = {files}");
     }
 
     /// <summary>
@@ -2727,10 +2732,17 @@ public static class Program
         Check("funnel: Fault writes the local line before invoking the observer",
             logger.Contains("Write(\"FAULT\", interactionName, variant: null, data, exception);", StringComparison.Ordinal)
             && logger.IndexOf("Write(\"FAULT\"", StringComparison.Ordinal) < logger.IndexOf("observer(interactionName", StringComparison.Ordinal));
-        Check("funnel: exactly one observer invocation site",
-            Regex.Matches(logger, "observer\\(interactionName").Count == 1);
+        Check("funnel: exactly one observer invocation site per sink (fault and failure)",
+            Regex.Matches(logger, "observer\\(interactionName").Count == 1 &&
+            Regex.Matches(logger, "observer\\(checkpoint, error, data\\);").Count == 1);
         Check("funnel: CrashReporter wires the observer to ReportHandled",
             reporter.Contains("FaultObserver = ReportHandled", StringComparison.Ordinal));
+        Check("funnel: CrashReporter wires the failure observer to ReportDomainFailure",
+            reporter.Contains("FailureObserver = ReportDomainFailure", StringComparison.Ordinal));
+        Check("funnel: the always-on first-chance storm probe is registered",
+            reporter.Contains("FirstChanceStormPolicy.NoteThrow", StringComparison.Ordinal));
+        Check("funnel: the handled pump flushes after draining (survives a death seconds later)",
+            reporter.Contains("SentrySdk.Flush(TimeSpan.FromSeconds(5))", StringComparison.Ordinal));
         Check("funnel: handled forwards go through the SDK's handled:true path",
             reporter.Contains("CaptureException(exception, handled: true", StringComparison.Ordinal));
         Check("funnel: the observer sends off the calling thread (pump, not inline)",

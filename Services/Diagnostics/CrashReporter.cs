@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using Microsoft.Win32.SafeHandles;
+using MostaqlK.Core;
 using MostaqlK.Core.Diagnostics;
 using MostaqlK.Core.Platform;
 
@@ -115,6 +116,34 @@ public static class CrashReporter
         // telemetry, sampled by HandledReportingPolicy. The observer never sends from the calling
         // thread (a composition callback must not pay SDK work; animation-safety), only enqueues.
         InteractionLogger.FaultObserver = ReportHandled;
+
+        // The sibling funnel for observed-but-unpropagated Result failures: deduped by error CODE,
+        // so a permanent 403-per-poll is one budgeted signal, not silence (local) and not a storm
+        // (naive forwarding). The dev69 lesson generalized: an error nobody is told about is an
+        // error that will keep happening.
+        InteractionLogger.FailureObserver = ReportDomainFailure;
+
+        // ALWAYS-on, near-free: count repeats of the same (type, message-prefix) throw and promote
+        // a repeat offender through the funnel exactly once per storm. This is the net under the
+        // catch audit — a swallowed throw in a file nobody logged from still becomes visible, which
+        // is precisely the IterationCount pattern that hid for nine days. Full first-chance LOGGING
+        // stays opt-in below; counting is not logging.
+        AppDomain.CurrentDomain.FirstChanceException += (sender, args) =>
+        {
+            try
+            {
+                var key = FirstChanceStormPolicy.KeyFor(args.Exception);
+                if (FirstChanceStormPolicy.NoteThrow(key, DateTime.UtcNow))
+                {
+                    InteractionLogger.Fault("FirstChance.Storm", args.Exception, new { stormKey = key });
+                }
+            }
+            catch
+            {
+                // the probe must never become the incident
+            }
+        };
+
         InteractionLogger.Mark("Diagnostics.HandlersRegistered", "A",
             new { firstChanceDiag = Environment.GetEnvironmentVariable("MOSTAQLK_DIAG_COM") == "1" });
 
@@ -227,6 +256,82 @@ public static class CrashReporter
         }
     }
 
+    /// <summary>
+    /// Forwards an observed-but-unpropagated <see cref="DomainError"/> (the value form of a
+    /// failure — no exception was thrown anywhere). Budgeted by <c>checkpoint|error.Code</c>: a
+    /// permanent failure repeating every poll cycle sends its first three, then a suppressed-count
+    /// summary, then quiet — the local ERROR line remains the complete record either way.
+    /// Never throws.
+    /// </summary>
+    public static void ReportDomainFailure(string checkpoint, DomainError error, object? context = null)
+    {
+        try
+        {
+            if (error is null || HandledReportingPolicy.IsExempt(checkpoint))
+            {
+                return;
+            }
+
+            var decision = HandledReportingPolicy.Decide(checkpoint, error.Code, DateTime.UtcNow);
+            if (decision is HandledReportDecision.Exempt or HandledReportDecision.Suppress)
+            {
+                return;
+            }
+
+            var suppressed = decision == HandledReportDecision.ReportWithSuppressed
+                ? HandledReportingPolicy.TakeSuppressedCount(checkpoint, error.Code)
+                : 0;
+
+            EnqueueHandledSend(() =>
+            {
+                try
+                {
+                    void Decorate(Sentry.Scope scope)
+                    {
+                        scope.Level = Sentry.SentryLevel.Warning;
+                        scope.SetTag("source", checkpoint);
+                        scope.SetTag("domain_code", error.Code);
+                        scope.SetTag("handled", "true");
+                        scope.SetExtra("internal_message", Truncate(error.InternalMessage));
+                        scope.SetExtra("external_message", Truncate(error.ExternalMessage));
+                        scope.SetExtra("fix_message", Truncate(error.FixMessage));
+                        if (suppressed > 0)
+                        {
+                            scope.SetExtra("suppressed_since_last", suppressed);
+                        }
+
+                        if (context is not null)
+                        {
+                            scope.SetExtra("context", SafeSerialize(context));
+                        }
+                    }
+
+                    if (error.Cause is Exception cause)
+                    {
+                        Sentry.SentrySdk.CaptureException(cause, handled: true, terminal: false, Decorate);
+                    }
+                    else
+                    {
+                        Sentry.SentrySdk.CaptureMessage(
+                            $"[{checkpoint}] domain failure {error.Code}: {Truncate(error.InternalMessage)}",
+                            Decorate);
+                    }
+                }
+                catch
+                {
+                    // Fail-safe: a dropped forward never affects the app or the local log.
+                }
+            });
+        }
+        catch
+        {
+            // Fail-safe: the reporting path must never become a crash.
+        }
+    }
+
+    private static string Truncate(string? value) =>
+        string.IsNullOrEmpty(value) ? string.Empty : (value.Length <= 300 ? value : value[..300] + "…");
+
     private static void DrainHandledSends()
     {
         try
@@ -242,6 +347,12 @@ public static class CrashReporter
                     // one poisoned item may not stop the drain
                 }
             }
+
+            // Flush AFTER the drain, on this background thread: the SDK's queue is memory-only, so
+            // without this a process that fail-fasts seconds after a caught fault takes the unsent
+            // envelope with it (CacheDirectoryPath persists transport failures, not un-queued
+            // sends). Bounded by the reporting ceiling, so the flush can never become a stall.
+            try { Sentry.SentrySdk.Flush(TimeSpan.FromSeconds(5)); } catch { }
         }
         finally
         {

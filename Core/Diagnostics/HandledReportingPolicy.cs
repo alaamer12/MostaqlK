@@ -77,15 +77,26 @@ public static class HandledReportingPolicy
     /// <summary>Decides whether this occurrence may be forwarded. Thread-safe; never throws.</summary>
     public static HandledReportDecision Decide(string checkpoint, Exception exception, DateTime utcNow)
     {
-        ArgumentNullException.ThrowIfNull(checkpoint);
         ArgumentNullException.ThrowIfNull(exception);
+        return Decide(checkpoint, exception.GetType().FullName ?? exception.GetType().Name, utcNow);
+    }
+
+    /// <summary>
+    /// Discriminator-keyed form: the same budget for non-exception faults whose natural dedupe key
+    /// is not a type name — a <c>DomainError</c> forwards under its <c>Code</c>, so a permanent 403
+    /// on every poll cycle is ONE budgeted signal, not an event per cycle.
+    /// </summary>
+    public static HandledReportDecision Decide(string checkpoint, string discriminator, DateTime utcNow)
+    {
+        ArgumentNullException.ThrowIfNull(checkpoint);
+        ArgumentNullException.ThrowIfNull(discriminator);
 
         if (IsExempt(checkpoint))
         {
             return HandledReportDecision.Exempt;
         }
 
-        var key = checkpoint + "|" + exception.GetType().FullName;
+        var key = checkpoint + "|" + discriminator;
 
         lock (Gate)
         {
@@ -127,9 +138,13 @@ public static class HandledReportingPolicy
     }
 
     /// <summary>Occurrences suppressed since the last forward for this key; also RESETS the counter (the event carries it).</summary>
-    public static int TakeSuppressedCount(string checkpoint, Exception exception)
+    public static int TakeSuppressedCount(string checkpoint, Exception exception) =>
+        TakeSuppressedCount(checkpoint, exception.GetType().FullName ?? exception.GetType().Name);
+
+    /// <summary>Discriminator form, matching <see cref="Decide(string,string,DateTime)"/>.</summary>
+    public static int TakeSuppressedCount(string checkpoint, string discriminator)
     {
-        var key = checkpoint + "|" + exception.GetType().FullName;
+        var key = checkpoint + "|" + discriminator;
         lock (Gate)
         {
             if (Keys.TryGetValue(key, out var state))

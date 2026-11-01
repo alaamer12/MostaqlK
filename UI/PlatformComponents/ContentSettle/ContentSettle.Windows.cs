@@ -2,6 +2,7 @@ using System.Numerics;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
+using MostaqlK.Services.Diagnostics;
 using WinUIDependencyObject = Microsoft.UI.Xaml.DependencyObject;
 using WinUIElement = Microsoft.UI.Xaml.UIElement;
 using WinUIListViewBase = Microsoft.UI.Xaml.Controls.ListViewBase;
@@ -100,8 +101,9 @@ public static partial class ContentSettle
                         {
                             TryAnimatePending(pass);
                         }
-                        catch (Exception)
+                        catch (Exception ex)
                         {
+                            InteractionLogger.Fault("ContentSettle.Pass.Apply", ex);
                             DetachPass(pass);
                         }
 
@@ -113,9 +115,10 @@ public static partial class ContentSettle
                 });
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // A decorative mount pass must never take the app down; land at rest and move on.
+            InteractionLogger.Fault("ContentSettle.Run", ex);
             AbortInFlightCore();
         }
     }
@@ -143,8 +146,9 @@ public static partial class ContentSettle
                 pass.AnimatedCount++;
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            InteractionLogger.Fault("ContentSettle.ContainerAnimate", ex);
             DetachPass(pass);
             return;
         }
@@ -187,9 +191,10 @@ public static partial class ContentSettle
         {
             pass.Host.ContainerContentChanging -= OnContainerContentChanging;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // best-effort: the host may already be torn down with the page.
+            InteractionLogger.Fault("ContentSettle.Detach.Event", ex);
         }
 
         if (ReferenceEquals(_pendingPass, pass))
@@ -219,9 +224,10 @@ public static partial class ContentSettle
                 // card is ever parked mid-travel after a cancel.
                 visual.StopAnimation(OffsetPropertyName);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 // best-effort release; a visual may already be torn down with its container.
+                InteractionLogger.Fault("ContentSettle.Visual.StopAnimation", ex);
             }
         }
 
@@ -340,9 +346,11 @@ public static partial class ContentSettle
                         y = Math.Round(point.Y, 1);
                     }
                 }
-                catch (Exception)
+                catch (Exception probe)
                 {
-                    // not connected yet - report NaN rather than lose the rest of the sample
+                    _ = probe;
+                    // swallow-ok: diagnostic probe — a container not connected yet answers with NaN
+                    // by design; the read failing IS the sample, not a fault to report.
                 }
 
                 double height = container is Microsoft.UI.Xaml.FrameworkElement hfe2 ? hfe2.ActualHeight : -1;
@@ -373,9 +381,11 @@ public static partial class ContentSettle
                         rootY = Math.Round(gtRoot.TransformPoint(new Windows.Foundation.Point(0, 0)).Y, 1);
                     }
                 }
-                catch (Exception)
+                catch (Exception probe)
                 {
-                    // detached mid-read — that itself is the answer
+                    _ = probe;
+                    // swallow-ok: diagnostic probe — detached mid-read is itself the answer the
+                    // feed-hunt sample is looking for; reporting it would be noise, not evidence.
                 }
 
                 bool withinViewport = !double.IsNaN(y) && y > -height && y < viewportGuess;
@@ -394,9 +404,10 @@ public static partial class ContentSettle
                         inner = $"{Math.Round(child.ActualWidth, 0)}x{Math.Round(child.ActualHeight, 0)}";
                     }
                 }
-                catch (Exception)
+                catch (Exception probe)
                 {
-                    // recycled mid-read
+                    _ = probe;
+                    // swallow-ok: diagnostic probe — recycled mid-read; the emptiness is the data.
                 }
 
                 ys.Add(y);

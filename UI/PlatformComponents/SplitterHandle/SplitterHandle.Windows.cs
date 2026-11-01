@@ -29,9 +29,10 @@ public partial class SplitterHandle
                 Microsoft.UI.Input.InputSystemCursor.Create(
                     Microsoft.UI.Input.InputSystemCursorShape.SizeWestEast));
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // Cursor shape is a nicety: a failed lookup must never break the resize itself.
+            MostaqlK.Services.Diagnostics.InteractionLogger.Fault("SplitterHandle.CursorShape", ex);
         }
     }
 }

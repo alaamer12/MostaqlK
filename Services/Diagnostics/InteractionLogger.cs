@@ -103,6 +103,14 @@ public static class InteractionLogger
     }
 
     /// <summary>
+    /// The sibling of <see cref="FaultObserver"/> for <see cref="Failure"/>: a domain error that is
+    /// observed and not propagated also reaches telemetry, deduped by <c>error.Code</c> — a
+    /// permanent 403 on every poll becomes ONE budgeted signal instead of local-only silence.
+    /// Same rule as the fault funnel: the local ERROR line is written first and unconditionally.
+    /// </summary>
+    public static Action<string, MostaqlK.Core.DomainError, object?>? FailureObserver { get; set; }
+
+    /// <summary>
     /// Logs a failing <see cref="MostaqlK.Core.Result{T}"/>. This sink did not exist before, which
     /// is exactly how a hard, permanent failure (the listing endpoint answering 403 on every single
     /// poll cycle) could stay completely invisible: <see cref="MostaqlK.Core.DomainError"/> values
@@ -111,7 +119,8 @@ public static class InteractionLogger
     /// caller must report it here.
     /// </summary>
     public static void Failure(string checkpoint, MostaqlK.Core.DomainError error, object? data = null)
-        => Write(
+    {
+        Write(
             "ERROR",
             checkpoint,
             variant: error.Code,
@@ -124,6 +133,27 @@ public static class InteractionLogger
                 Detail = data,
             },
             exception: error.Cause);
+
+        var observer = FailureObserver;
+        if (observer is null || _inFaultObserver)
+        {
+            return;
+        }
+
+        _inFaultObserver = true;
+        try
+        {
+            observer(checkpoint, error, data);
+        }
+        catch
+        {
+            // A reporting observer must never become the crash it is reporting.
+        }
+        finally
+        {
+            _inFaultObserver = false;
+        }
+    }
 
     /// <summary>Absolute path of the rolling diagnostics log file, for tests to read/tail.</summary>
     public static string LogFilePath_ForTests => LogFilePath.Value;

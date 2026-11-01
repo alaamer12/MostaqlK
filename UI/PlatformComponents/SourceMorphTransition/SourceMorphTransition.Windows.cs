@@ -309,9 +309,10 @@ public static partial class SourceMorphTransition
 
             SetCache(new CachedFrame(anchor, scale, anchor.ActualWidth, anchor.ActualHeight, snapshot));
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // A failed background refresh must never surface; the ladder just captures at click.
+            MostaqlK.Services.Diagnostics.InteractionLogger.Fault("Morph.CacheRefresh", ex);
             InvalidateCache();
         }
     }
@@ -433,8 +434,9 @@ public static partial class SourceMorphTransition
             anchor = current;
             return scale > 0d && current.ActualWidth > 1d && current.ActualHeight > 1d;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            MostaqlK.Services.Diagnostics.InteractionLogger.Fault("Morph.TryResolveAnchor", ex);
             return false;
         }
     }
@@ -481,9 +483,10 @@ public static partial class SourceMorphTransition
             await rtb.RenderAsync(anchor, (int)pixelSize.Width, (int)pixelSize.Height);
             return rtb.PixelWidth < 2 || rtb.PixelHeight < 2 ? null : rtb;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // MAUI/WinUI capture surprise — degrade to the dissolve instead of failing the morph.
+            MostaqlK.Services.Diagnostics.InteractionLogger.Fault("Morph.Capture", ex);
             return null;
         }
     }
@@ -571,10 +574,11 @@ public static partial class SourceMorphTransition
                 {
                     BuildAndStart(cached, fromCache: true);
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
                     // Same guarantee the capture continuation gives: whatever failed mid-build,
                     // the mutation lands exactly once and the half-built surface is restored.
+                    MostaqlK.Services.Diagnostics.InteractionLogger.Fault("Morph.CachedBuild", ex);
                     ApplyOnce();
                     Finish();
                 }
@@ -634,6 +638,7 @@ public static partial class SourceMorphTransition
             }
             catch (Exception ex)
             {
+                MostaqlK.Services.Diagnostics.InteractionLogger.Fault("Morph.Reveal", ex);
                 var rethrow = ex;
                 try
                 {
@@ -641,16 +646,19 @@ public static partial class SourceMorphTransition
                 }
                 catch (Exception applyEx)
                 {
-                    rethrow = applyEx; // the mutation itself failed — surface that, not the decoration
+                    // the mutation itself failed — surface that, not the decoration
+                    MostaqlK.Services.Diagnostics.InteractionLogger.Fault("Morph.ApplyOnce.Fallback", applyEx);
+                    rethrow = applyEx;
                 }
 
                 try
                 {
                     Finish(); // idempotent; _applied already set ⇒ pure teardown
                 }
-                catch (Exception)
+                catch (Exception finishEx)
                 {
                     // teardown swallows; the rethrow below carries the real failure
+                    MostaqlK.Services.Diagnostics.InteractionLogger.Fault("Morph.Finish.AfterFailure", finishEx);
                 }
 
                 RethrowOnDispatcher(rethrow);
@@ -897,9 +905,10 @@ public static partial class SourceMorphTransition
                 MostaqlK.Services.Diagnostics.InteractionLogger.Mark(
                     "Morph.RevealStarted", "dissolve", new { durationMs = _durationMs });
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 // A decorative dissolve must never take the app down; the mutation already landed.
+                MostaqlK.Services.Diagnostics.InteractionLogger.Fault("Morph.Dissolve", ex);
                 Finish();
             }
         }
@@ -969,9 +978,10 @@ public static partial class SourceMorphTransition
                 {
                     target.StopAnimation(property);
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
                     // best-effort release; object may already be torn down with the visual tree
+                    MostaqlK.Services.Diagnostics.InteractionLogger.Fault("Morph.StopAnimation", ex);
                 }
             }
 
@@ -986,9 +996,10 @@ public static partial class SourceMorphTransition
                     visual.Clip = null;
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 // visual tree already gone — nothing to restore
+                MostaqlK.Services.Diagnostics.InteractionLogger.Fault("Morph.Restore.Clip", ex);
             }
 
             try
@@ -998,9 +1009,10 @@ public static partial class SourceMorphTransition
                     dip.Opacity = 1.0f;
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 // same as above
+                MostaqlK.Services.Diagnostics.InteractionLogger.Fault("Morph.Restore.Opacity", ex);
             }
 
             // Remove the overlay layers (idempotent; a window close mid-morph simply no-ops).
@@ -1021,9 +1033,10 @@ public static partial class SourceMorphTransition
                     ringPanel.Children.Remove(ringLayer);
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 // best-effort layer removal
+                MostaqlK.Services.Diagnostics.InteractionLogger.Fault("Morph.Restore.Layers", ex);
             }
 
             _snapshotLayer = null;
@@ -1041,9 +1054,10 @@ public static partial class SourceMorphTransition
                 {
                     disposable.Dispose();
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
                     // best-effort release; a composition object may already be gone
+                    MostaqlK.Services.Diagnostics.InteractionLogger.Fault("Morph.Dispose", ex);
                 }
             }
 

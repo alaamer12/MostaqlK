@@ -391,6 +391,52 @@ Check("flood: below threshold never sustains",
 Check("flood: episode resets only under half the threshold (hysteresis)",
     FinalizerFloodPolicy.EpisodeOver(1999) && !FinalizerFloodPolicy.EpisodeOver(3000));
 
+// --- First-chance storm detector (the net under the catch audit) --------------
+
+FirstChanceStormPolicy.ResetForTests();
+var stormKey = FirstChanceStormPolicy.KeyFor(new InvalidOperationException("repeated swallowed setter throw"));
+Check("storm: key is type + trimmed message prefix",
+    stormKey.StartsWith("System.InvalidOperationException|", StringComparison.Ordinal));
+var promotions = 0;
+var sNow = new DateTime(2026, 11, 1, 10, 0, 0, DateTimeKind.Utc);
+for (var i = 0; i < 60; i++)
+{
+    if (FirstChanceStormPolicy.NoteThrow(stormKey, sNow.AddSeconds(i)))
+    {
+        promotions++;
+    }
+}
+Check("storm: 60 repeats in one window promote exactly once", promotions == 1);
+// Window expiry resets the episode: one throw past the window is count #1 again, and the
+// threshold-th throw of the NEW window promotes a second time.
+var t = sNow.AddSeconds(300);
+var secondEpisode = false;
+for (var i = 0; i <= FirstChanceStormPolicy.StormCountThreshold; i++)
+{
+    secondEpisode |= FirstChanceStormPolicy.NoteThrow(stormKey, t.AddSeconds(i));
+}
+Check("storm: a fresh window lets the same key storm again", secondEpisode);
+FirstChanceStormPolicy.ResetForTests();
+// Fill the tracker to the cap with near-threshold keys (none promote), then verify an entirely
+// new key is ignored once the cap is reached — the memory bound is the assertion.
+for (var i = 0; i < FirstChanceStormPolicy.MaxTrackedKeys; i++)
+{
+    for (var r = 0; r < FirstChanceStormPolicy.StormCountThreshold - 1; r++)
+    {
+        if (FirstChanceStormPolicy.NoteThrow("Flood" + i, sNow))
+        {
+            Check("storm: filler keys must not promote", false);
+        }
+    }
+}
+var overCapPromoted = false;
+for (var r = 0; r < FirstChanceStormPolicy.StormCountThreshold; r++)
+{
+    overCapPromoted |= FirstChanceStormPolicy.NoteThrow("BeyondCap", sNow);
+}
+Check("storm: keys beyond the tracked cap never promote (bounded memory)", !overCapPromoted);
+FirstChanceStormPolicy.ResetForTests();
+
 Console.WriteLine();
 if (failures == 0)
 {

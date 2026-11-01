@@ -12,9 +12,10 @@ public static partial class MotionPreferences
         {
             isReduced = !new Windows.UI.ViewManagement.UISettings().AnimationsEnabled;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // Some unpackaged/headless Windows contexts fail to construct UISettings.
+            MostaqlK.Services.Diagnostics.InteractionLogger.Fault("MotionPreferences.ResolveReducedMotion", ex);
             isReduced = false;
         }
     }

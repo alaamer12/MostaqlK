@@ -246,9 +246,11 @@ public partial class ChromeValueLabel
 
             ApplyPhase(phase);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // Purely decorative — a stale/disposed handler must never surface as a crash.
+            // Unregister() bounds this to one line per handler lifetime.
+            MostaqlK.Services.Diagnostics.InteractionLogger.Fault("ChromeValueLabel.Tick", ex);
             Unregister();
         }
     }
