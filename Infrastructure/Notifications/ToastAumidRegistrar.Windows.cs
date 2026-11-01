@@ -133,13 +133,25 @@ public static class ToastAumidRegistrar
 
     private static bool ShortcutMatches(string shortcutPath, string expectedExePath)
     {
+        // Ownership before the risky call (animation-safety rule 7): every COM object created here is
+        // released on THIS thread in the finally. Releasing them was previously left to the finalizer,
+        // which hands a shell object back on a thread that never opened it - the documented fuel for the
+        // WinUI dispatcher fail-fast (0xC000027B).
+        object? linkObj = null;
+        object? persistObj = null;
+        IPropertyStore? store = null;
         try
         {
             var link = (IShellLinkW)new CShellLink();
-            ((IPersistFile)link).Load(shortcutPath, 0);
-            var store = (IPropertyStore)link;
+            linkObj = link;
+            var persist = (IPersistFile)link;
+            persistObj = persist;
+            persist.Load(shortcutPath, 0);
+            store = (IPropertyStore)link;
+
             store.GetValue(ref PKEY_AppUserModelID, out var value);
             var existingAumid = value.pwszVal != IntPtr.Zero ? Marshal.PtrToStringUni(value.pwszVal) : null;
+            PropVariantClear(ref value);
             if (!string.Equals(existingAumid, Aumid, StringComparison.Ordinal))
             {
                 return false;
@@ -149,6 +161,7 @@ public static class ToastAumidRegistrar
             var existingClsid = clsidValue.pwszVal != IntPtr.Zero
                 ? Marshal.PtrToStructure<Guid>(clsidValue.pwszVal)
                 : (Guid?)null;
+            PropVariantClear(ref clsidValue);
             if (existingClsid != new Guid(ToastActivator.ClsidString))
             {
                 return false;
@@ -159,36 +172,98 @@ public static class ToastAumidRegistrar
             var existingTarget = targetBuilder.ToString();
             return string.Equals(existingTarget, expectedExePath, StringComparison.OrdinalIgnoreCase);
         }
-        catch
+        catch (Exception ex)
         {
+            // Named, not swallowed: this used to be a bare `catch { return false; }`, so a fault here was
+            // invisible except as a first-chance line, and the shortcut silently never matched - which
+            // rewrote the .lnk on every launch.
+            InteractionLogger.Fault("ToastAumidRegistrar.ShortcutMatches", ex);
             return false;
+        }
+        finally
+        {
+            ReleaseCom(store);
+            ReleaseCom(persistObj);
+            ReleaseCom(linkObj);
         }
     }
 
     private static void CreateShortcutWithAumid(string shortcutPath, string targetExe, string aumid)
     {
-        var link = (IShellLinkW)new CShellLink();
-        link.SetPath(targetExe);
-        link.SetWorkingDirectory(Path.GetDirectoryName(targetExe) ?? string.Empty);
+        object? linkObj = null;
+        object? storeObj = null;
+        object? persistObj = null;
+        var propVariant = default(PropVariant);
+        var clsidVariant = default(PropVariant);
+        try
+        {
+            var link = (IShellLinkW)new CShellLink();
+            linkObj = link;
+            link.SetPath(targetExe);
+            link.SetWorkingDirectory(Path.GetDirectoryName(targetExe) ?? string.Empty);
 
-        var store = (IPropertyStore)link;
-        var propVariant = new PropVariant { vt = VT_LPWSTR, pwszVal = Marshal.StringToCoTaskMemUni(aumid) };
-        store.SetValue(ref PKEY_AppUserModelID, ref propVariant);
+            var store = (IPropertyStore)link;
+            storeObj = store;
+            propVariant = new PropVariant { vt = VT_LPWSTR, pwszVal = Marshal.StringToCoTaskMemUni(aumid) };
+            store.SetValue(ref PKEY_AppUserModelID, ref propVariant);
 
-        var clsidPtr = Marshal.AllocCoTaskMem(16);
-        Marshal.StructureToPtr(new Guid(ToastActivator.ClsidString), clsidPtr, false);
-        var clsidVariant = new PropVariant { vt = VT_CLSID, pwszVal = clsidPtr };
-        store.SetValue(ref PKEY_ToastActivatorCLSID, ref clsidVariant);
+            var clsidPtr = Marshal.AllocCoTaskMem(16);
+            Marshal.StructureToPtr(new Guid(ToastActivator.ClsidString), clsidPtr, false);
+            clsidVariant = new PropVariant { vt = VT_CLSID, pwszVal = clsidPtr };
+            store.SetValue(ref PKEY_ToastActivatorCLSID, ref clsidVariant);
 
-        store.Commit();
-        Marshal.FreeCoTaskMem(propVariant.pwszVal);
-        Marshal.FreeCoTaskMem(clsidPtr);
+            store.Commit();
+            var persist = (IPersistFile)link;
+            persistObj = persist;
+            persist.Save(shortcutPath, true);
+        }
+        finally
+        {
+            // Freed here rather than inline so a throw from SetValue/Commit cannot orphan the allocations.
+            if (propVariant.pwszVal != IntPtr.Zero)
+            {
+                Marshal.FreeCoTaskMem(propVariant.pwszVal);
+            }
 
-        ((IPersistFile)link).Save(shortcutPath, true);
+            if (clsidVariant.pwszVal != IntPtr.Zero)
+            {
+                Marshal.FreeCoTaskMem(clsidVariant.pwszVal);
+            }
+
+            ReleaseCom(persistObj);
+            ReleaseCom(storeObj);
+            ReleaseCom(linkObj);
+        }
+    }
+
+    private static void ReleaseCom(object? com)
+    {
+        if (com is null)
+        {
+            return;
+        }
+
+        try
+        {
+            // One release per RCW: each interface cast above adds exactly one reference.
+            Marshal.ReleaseComObject(com);
+        }
+        catch (ArgumentException)
+        {
+            // Expected when a sibling cast shared this RCW and already dropped its reference; the object
+            // is gone either way, and this path must not raise into App construction.
+        }
+        catch (Exception ex)
+        {
+            InteractionLogger.Fault("ToastAumidRegistrar.ReleaseCom", ex);
+        }
     }
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     private static extern int SetCurrentProcessExplicitAppUserModelID(string appId);
+
+    [DllImport("ole32.dll")]
+    private static extern int PropVariantClear(ref PropVariant pvar);
 
     private const short VT_LPWSTR = 31;
     private const short VT_CLSID = 72;
@@ -212,7 +287,15 @@ public static class ToastAumidRegistrar
         }
     }
 
-    [StructLayout(LayoutKind.Explicit)]
+    /// <summary>
+    /// The native <c>PROPVARIANT</c> is 24 bytes on x64 (<c>vt</c> + four reserved words, the 8-byte union,
+    /// then two reserved ULONGs). Declared as an explicit struct with only the two used fields it measured
+    /// 16, and <c>IPropertyStore::GetValue</c> writes the full 24 through the pointer the marshaller hands
+    /// it - eight bytes past the end of the managed buffer. That is what made <c>ShortcutMatches</c> throw
+    /// a <c>NullReferenceException</c> at the <c>GetValue</c> line on every launch: the callee's write, not
+    /// the code's. <c>Size = 24</c> restores the real layout.
+    /// </summary>
+    [StructLayout(LayoutKind.Explicit, Size = 24)]
     private struct PropVariant
     {
         [FieldOffset(0)] public short vt;

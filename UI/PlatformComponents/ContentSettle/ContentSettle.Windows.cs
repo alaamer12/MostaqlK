@@ -235,38 +235,17 @@ public static partial class ContentSettle
     }
 
     /// <summary>
-    /// Starts the one-shot dip-and-rise on a single realized card container: an 8 px downward offset
-    /// that travels up to rest over <see cref="SettleDurationMs"/> with the mockup's cubic-bezier,
-    /// delayed by <see cref="SettleStaggerMs"/> per index (capped at <see cref="MaxStaggerSlots"/>) via
-    /// a start-hold keyframe so the whole stagger is one finite animation object rather than a
-    /// timer-driven loop.
+    /// Starts the one-shot dip-and-rise on a single realized card container, using the cached
+    /// per-stagger-slot animation (<see cref="EnsureAnimationCache"/>).
     /// </summary>
     private static void AnimateContainer(WinUIElement container, int index)
     {
         WinUIVisual visual = ElementCompositionPreview.GetElementVisual(container);
         Compositor compositor = visual.Compositor;
 
-        int delayMs = Math.Min(index, MaxStaggerSlots) * (int)SettleStaggerMs;
-        uint totalMs = SettleDurationMs + (uint)delayMs;
-
-        var animation = compositor.CreateVector3KeyFrameAnimation();
-        animation.Duration = TimeSpan.FromMilliseconds(totalMs);
-
-        // Compositor Y grows downward, so the start dip (+8) sits below rest and travels UP to zero —
-        // exactly `translateY(8px) -> none` from the mockup keyframe.
-        var dip = new Vector3(0f, (float)SettleOffsetPx, 0f);
-        animation.InsertKeyFrame(0f, dip);
-
-        if (delayMs > 0)
-        {
-            // Hold the card at the dip for its stagger slot, then release it toward rest.
-            animation.InsertKeyFrame((float)delayMs / totalMs, dip);
-        }
-
-        // cubic-bezier(.22,.61,.36,1) applied on the travel segment (from the dip/hold into rest).
-        var ease = compositor.CreateCubicBezierEasingFunction(
-            new Vector2(EasingX1, EasingY1), new Vector2(EasingX2, EasingY2));
-        animation.InsertKeyFrame(1f, Vector3.Zero, ease);
+        int slot = Math.Min(index, MaxStaggerSlots);
+        EnsureAnimationCache(compositor);
+        var animation = _slotAnimations![slot];
 
         visual.StartAnimation(OffsetPropertyName, animation);
         _runningVisuals.Add(visual);
@@ -279,6 +258,90 @@ public static partial class ContentSettle
         // AnimationController.Completed is intentionally avoided: the animation-safety surface forbids
         // any per-frame/callback transform machinery, and the terminal-rest keyframe makes cleanup
         // deterministic enough without it.
+    }
+
+    private static Compositor? _cacheCompositor;
+    private static Vector3KeyFrameAnimation[]? _slotAnimations;
+
+    /// <summary>
+    /// Builds (once per compositor) the <see cref="MaxStaggerSlots"/> + 1 animations the stagger needs
+    /// - one per delay slot - and holds them for reuse.
+    /// <para>
+    /// <b>Why cached:</b> this unit used to create a <c>Vector3KeyFrameAnimation</c> and a
+    /// <c>CubicBezierEasingFunction</c> per card per pass - 32 composition objects per settle, and a
+    /// pass runs on every structural feed patch, so an enrichment burst minted hundreds. Composition
+    /// objects are native peers whose release lands on the finalizer thread when the GC collects them,
+    /// which is the fuel named by <c>docs/postmoterm/published-layout-dispatcher-failfast-2026-10-28.md</c>
+    /// §10/§11 ("reduce the churn, not the handling"; <c>finalizePending</c> in the thousands within
+    /// seconds of launch). A keyframe animation is an immutable template that any number of visuals can
+    /// start from the same compositor, so one object per stagger slot replaces all of it. The easing
+    /// function is folded into the animations and never re-created.
+    /// </para>
+    /// </summary>
+    private static void EnsureAnimationCache(Compositor compositor)
+    {
+        if (_slotAnimations is not null && ReferenceEquals(_cacheCompositor, compositor))
+        {
+            return;
+        }
+
+        // A different compositor means the old objects belong to a dead device (window torn down).
+        // Drop them here, on the UI thread, instead of letting the finalizer do it later.
+        DisposeAnimationCache();
+
+        var ease = compositor.CreateCubicBezierEasingFunction(
+            new Vector2(EasingX1, EasingY1), new Vector2(EasingX2, EasingY2));
+
+        var slots = new Vector3KeyFrameAnimation[MaxStaggerSlots + 1];
+        for (int slot = 0; slot <= MaxStaggerSlots; slot++)
+        {
+            int delayMs = slot * (int)SettleStaggerMs;
+            uint totalMs = SettleDurationMs + (uint)delayMs;
+
+            var animation = compositor.CreateVector3KeyFrameAnimation();
+            animation.Duration = TimeSpan.FromMilliseconds(totalMs);
+
+            // Compositor Y grows downward, so the start dip (+8) sits below rest and travels UP to zero —
+            // exactly `translateY(8px) -> none` from the mockup keyframe.
+            var dip = new Vector3(0f, (float)SettleOffsetPx, 0f);
+            animation.InsertKeyFrame(0f, dip);
+
+            if (delayMs > 0)
+            {
+                // Hold the card at the dip for its stagger slot, then release it toward rest.
+                animation.InsertKeyFrame((float)delayMs / totalMs, dip);
+            }
+
+            // cubic-bezier(.22,.61,.36,1) applied on the travel segment (from the dip/hold into rest).
+            animation.InsertKeyFrame(1f, Vector3.Zero, ease);
+            slots[slot] = animation;
+        }
+
+        _slotAnimations = slots;
+        _cacheCompositor = compositor;
+    }
+
+    private static void DisposeAnimationCache()
+    {
+        if (_slotAnimations is null)
+        {
+            return;
+        }
+
+        foreach (var animation in _slotAnimations)
+        {
+            try
+            {
+                animation?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                InteractionLogger.Fault("ContentSettle.AnimationCache.Dispose", ex);
+            }
+        }
+
+        _slotAnimations = null;
+        _cacheCompositor = null;
     }
 
     /// <summary>
@@ -310,7 +373,6 @@ public static partial class ContentSettle
 
         // The scroll extents are what the user actually sees: 40 items with a viewport that cannot
         // scroll past one card IS the "only one project left" symptom, reported by the list itself.
-        CountHosts(platformRoot);
 
         var scroll = FindScrollViewer(host);
         double viewportGuess = scroll?.ViewportHeight is > 0 ? scroll.ViewportHeight : 1;
@@ -346,9 +408,9 @@ public static partial class ContentSettle
                         y = Math.Round(point.Y, 1);
                     }
                 }
-                catch (Exception probe)
+                catch (Exception probeEx)
                 {
-                    _ = probe;
+                    _ = probeEx;
                     // swallow-ok: diagnostic probe — a container not connected yet answers with NaN
                     // by design; the read failing IS the sample, not a fault to report.
                 }
@@ -381,9 +443,9 @@ public static partial class ContentSettle
                         rootY = Math.Round(gtRoot.TransformPoint(new Windows.Foundation.Point(0, 0)).Y, 1);
                     }
                 }
-                catch (Exception probe)
+                catch (Exception probeEx)
                 {
-                    _ = probe;
+                    _ = probeEx;
                     // swallow-ok: diagnostic probe — detached mid-read is itself the answer the
                     // feed-hunt sample is looking for; reporting it would be noise, not evidence.
                 }
@@ -404,9 +466,9 @@ public static partial class ContentSettle
                         inner = $"{Math.Round(child.ActualWidth, 0)}x{Math.Round(child.ActualHeight, 0)}";
                     }
                 }
-                catch (Exception probe)
+                catch (Exception probeEx)
                 {
-                    _ = probe;
+                    _ = probeEx;
                     // swallow-ok: diagnostic probe — recycled mid-read; the emptiness is the data.
                 }
 

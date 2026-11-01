@@ -700,48 +700,105 @@ public sealed partial class ProjectFeedViewModel : ObservableObject
         }
         else
         {
-            // Structural change: one reset, no Move notifications ever.
-            Projects.Clear();
-            for (int i = 0; i < ordered.Count; i++)
+            // dev84 — the shape differs. Because the order policy above guarantees existing rows keep
+            // their rank, the only differences that can arise are rows that ARRIVED and rows that
+            // LEFT, so patch exactly those. The previous behaviour was a full rebuild (`Clear` plus
+            // one `Add` per row) for any shape change, and on a 100-row page with enrichment
+            // finishing continuously that fired up to nine times a second — measured in the owner's
+            // crash session as 33 rebuilds in ten minutes with bursts of 9/s, each one tearing down
+            // and re-creating every item container, and each crash cluster begins inside one of those
+            // bursts. Rebuilding 100 containers to show one new project is also just wrong.
+            var targetIds = new HashSet<long>(ordered.Select(static item => item.ProjectId));
+            var survivorsBefore = prevIds.Where(targetIds.Contains).ToList();
+            var survivorsAfter = ordered.Select(static item => item.ProjectId).Where(existingById.ContainsKey).ToList();
+            bool minimalPatchPossible = survivorsBefore.SequenceEqual(survivorsAfter);
+
+            if (minimalPatchPossible)
             {
-                var item = ordered[i];
-                if (existingById.TryGetValue(item.ProjectId, out var reused))
+                for (int i = Projects.Count - 1; i >= 0; i--)
                 {
-                    reused.UpdateFrom(item);
-                    Projects.Add(reused);
+                    if (!targetIds.Contains(Projects[i].Project.ProjectId))
+                    {
+                        Projects.RemoveAt(i);
+                    }
                 }
-                else
+
+                int arrived = 0;
+                for (int i = 0; i < ordered.Count; i++)
                 {
-                    Projects.Add(ProjectCardViewModel.ForFeedItem(item, card => _ = SelectProjectAsync(card)));
+                    if (existingById.ContainsKey(ordered[i].ProjectId))
+                    {
+                        continue;
+                    }
+
+                    Projects.Insert(i, ProjectCardViewModel.ForFeedItem(ordered[i], card => _ = SelectProjectAsync(card)));
+                    arrived++;
                 }
+
+                for (int i = 0; i < ordered.Count && i < Projects.Count; i++)
+                {
+                    if (Projects[i].Project.ProjectId == ordered[i].ProjectId)
+                    {
+                        Projects[i].UpdateFrom(ordered[i]);
+                    }
+                }
+
+                Diag("FeedDiag.Patch", "minimal", new
+                {
+                    vm = _vmId,
+                    gen = snapshot.Generation,
+                    rows = Projects.Count,
+                    removed = prevIds.Count - survivorsBefore.Count,
+                    arrived,
+                });
             }
-
-            int reusedCount = 0;
-            foreach (var item in ordered)
+            else
             {
-                if (existingById.ContainsKey(item.ProjectId))
+                // A genuine re-rank (user intent: morph, refresh, search) or a shape the minimal
+                // patch cannot express: one reset, no Move notifications ever. Identity survives, so
+                // no state is lost and no animation replays.
+                Projects.Clear();
+                for (int i = 0; i < ordered.Count; i++)
                 {
-                    reusedCount++;
+                    var item = ordered[i];
+                    if (existingById.TryGetValue(item.ProjectId, out var reused))
+                    {
+                        reused.UpdateFrom(item);
+                        Projects.Add(reused);
+                    }
+                    else
+                    {
+                        Projects.Add(ProjectCardViewModel.ForFeedItem(item, card => _ = SelectProjectAsync(card)));
+                    }
                 }
+
+                int reusedCount = 0;
+                foreach (var item in ordered)
+                {
+                    if (existingById.ContainsKey(item.ProjectId))
+                    {
+                        reusedCount++;
+                    }
+                }
+
+                Diag("FeedDiag.Patch", "reset", new
+                {
+                    vm = _vmId,
+                    gen = snapshot.Generation,
+                    rows = Projects.Count,
+                    reused = reusedCount,
+                    fresh = ordered.Count - reusedCount,
+                });
+
+                FeedTrace.Log("Patch", "reset-applied", new
+                {
+                    vm = _vmId,
+                    gen = snapshot.Generation,
+                    rows = Projects.Count,
+                    reused = reusedCount,
+                    fresh = ordered.Count - reusedCount,
+                });
             }
-
-            Diag("FeedDiag.Patch", "reset", new
-            {
-                vm = _vmId,
-                gen = snapshot.Generation,
-                rows = Projects.Count,
-                reused = reusedCount,
-                fresh = ordered.Count - reusedCount,
-            });
-
-            FeedTrace.Log("Patch", "reset-applied", new
-            {
-                vm = _vmId,
-                gen = snapshot.Generation,
-                rows = Projects.Count,
-                reused = reusedCount,
-                fresh = ordered.Count - reusedCount,
-            });
 
             StructuralPatchApplied?.Invoke(this, EventArgs.Empty);
         }

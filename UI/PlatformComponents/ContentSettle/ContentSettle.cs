@@ -157,12 +157,26 @@ public static partial class ContentSettle
     /// lose the rows?" — the discriminator between a store/view-model bug and a WinUI realization
     /// bug. Never throws; no-op where no platform partial provides it. Remove with the hunt.
     /// </summary>
+    private static DateTime _lastProbeUtc = DateTime.MinValue;
+
     public static void Probe(CollectionView? feed, string tag = "A")
     {
         if (!FeedTrace.Enabled)
         {
             return; // the visual-tree walk is diagnostics-only work; never runs when tracing is off
         }
+
+        // dev84 throttle: the probe walks the native tree and calls ContainerFromIndex, which can
+        // force realization. It used to run on every structural patch - measured at up to nine
+        // times a second during an enrichment burst, i.e. diagnostic work piled onto exactly the
+        // churn it was watching. One sample per 1.5 s is enough to characterise a collapse.
+        var now = DateTime.UtcNow;
+        if (now - _lastProbeUtc < TimeSpan.FromMilliseconds(1500))
+        {
+            return;
+        }
+
+        _lastProbeUtc = now;
 
         try
         {

@@ -392,7 +392,10 @@ internal static class Program
         }
     }
 
-    [StructLayout(LayoutKind.Explicit)]
+    // Native PROPVARIANT is 24 bytes on x64; sizing it at 16 (the two declared fields) lets
+    // IPropertyStore::GetValue write past the managed buffer. Keep in sync with
+    // Infrastructure/Notifications/ToastAumidRegistrar.Windows.cs.
+    [StructLayout(LayoutKind.Explicit, Size = 24)]
     private struct PropVariant
     {
         [FieldOffset(0)] public short vt;
