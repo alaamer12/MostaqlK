@@ -48,10 +48,10 @@
 		<ApplicationId>com.mostaqlk</ApplicationId>
 
 		<!-- Versions -->
-		<ApplicationDisplayVersion>1.0.4.dev89</ApplicationDisplayVersion>
-		<ApplicationVersion>94</ApplicationVersion>
+		<ApplicationDisplayVersion>1.0.4.dev90</ApplicationDisplayVersion>
+		<ApplicationVersion>95</ApplicationVersion>
 		<Version>1.0.4</Version>
-		<InformationalVersion>1.0.4.dev89</InformationalVersion>
+		<InformationalVersion>1.0.4.dev90</InformationalVersion>
 		<FileVersion>1.0.4.43</FileVersion>
 		<AssemblyVersion>1.0.4.43</AssemblyVersion>
 		<Description>MostaqlK Desktop</Description>

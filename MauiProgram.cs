@@ -136,6 +136,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<MostaqlK.UI.DesignSystem.BrandTokens.IBrandTokenProvider, MostaqlK.UI.DesignSystem.BrandTokens.SourceBrandTokenProvider>();
         builder.Services.AddSingleton<IProjectRepository, ProjectRepository>();
         builder.Services.AddSingleton<IOwnerRepository, OwnerRepository>();
+        builder.Services.AddSingleton<IProfileSnapshotRepository, ProfileSnapshotRepository>();
         builder.Services.AddSingleton<IAssetRepository, AssetRepository>();
 #if WINDOWS
 		// Windows-only toast delivery backend. The dispatcher depends on INotificationSender;

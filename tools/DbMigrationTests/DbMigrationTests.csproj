@@ -14,6 +14,9 @@
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
 		<PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
+		<!-- v4: ProfileSnapshotRepository is driven by the real Dapper code here (not a SQL copy),
+		     so the harness needs Dapper just like the app. -->
+		<PackageReference Include="Dapper" Version="2.1.89" />
 	</ItemGroup>
 
 	<!-- Links the real production units under test (same pattern as CrashPathTests).
@@ -48,6 +51,12 @@
 		<Compile Include="..\..\Infrastructure\Database\SqliteConnectionFactory.cs" Link="Infrastructure\SqliteConnectionFactory.cs" />
 		<Compile Include="..\..\Infrastructure\Database\DatabaseErrors.cs" Link="Infrastructure\DatabaseErrors.cs" />
 		<Compile Include="..\..\Infrastructure\Database\DatabaseSchemaException.cs" Link="Infrastructure\DatabaseSchemaException.cs" />
+		<!-- v4 R2.8: the profile-snapshot repository + its model, driven by the harness so the
+		     ok=1-only read path, per-source isolation, and newest-20 retention are proven against
+		     the shipped code, not a re-typed query. -->
+		<Compile Include="..\..\Models\ProfileSnapshot.cs" Link="Models\ProfileSnapshot.cs" />
+		<Compile Include="..\..\Infrastructure\Database\IProfileSnapshotRepository.cs" Link="Infrastructure\IProfileSnapshotRepository.cs" />
+		<Compile Include="..\..\Infrastructure\Database\ProfileSnapshotRepository.cs" Link="Infrastructure\ProfileSnapshotRepository.cs" />
 	</ItemGroup>
 
 </Project>

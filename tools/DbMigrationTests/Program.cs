@@ -1,6 +1,8 @@
 using Microsoft.Data.Sqlite;
+using MostaqlK.Core;
 using MostaqlK.Core.Sources;
 using MostaqlK.Infrastructure.Database;
+using MostaqlK.Models;
 
 namespace DbMigrationTests;
 
@@ -41,6 +43,7 @@ internal static class Program
             TestV3ToV4ExecutorUpgrade(Path.Combine(dir, "v3.db"));
             TestCrossSourceCollision(Path.Combine(dir, "upgrade.db"));
             TestNafezlyBandCoexistence(Path.Combine(dir, "coexist.db"));
+            TestProfileSnapshotIsolation(Path.Combine(dir, "snapshots.db"));
         }
         finally
         {
@@ -779,5 +782,60 @@ internal static class Program
         }
 
         return keyed.OrderBy(k => k.Position).Select(k => k.Name).ToList();
+    }
+
+    // v4 R2.8: drive the REAL ProfileSnapshotRepository against a fresh v6 schema to prove, in code
+    // rather than intent, the three properties behind "a failed crawl can never poison a profile":
+    // the read path returns only ok=1; a failed row stores no fields; retention is per-source.
+    private static void TestProfileSnapshotIsolation(string dbPath)
+    {
+        Console.WriteLine("== v4 profile_snapshots: ok=1-only read, per-source isolation, retention ==");
+        File.Delete(dbPath);
+        var factory = new SqliteConnectionFactory(dbPath);
+        using (factory.CreateConnection()) { } // applies migrations → v6, profile_snapshots exists
+
+        var repo = new ProfileSnapshotRepository(factory);
+        var mq = SourceId.From("mostaql");
+        var nf = SourceId.From("nafezly");
+        var now = DateTimeOffset.UtcNow;
+
+        long goodId = repo.InsertAsync(new ProfileSnapshot(0, mq, true, "{\"hire\":36}", null, 200, 200000, 4, now.AddMinutes(-10))).GetAwaiter().GetResult().Value;
+        long badId = repo.InsertAsync(new ProfileSnapshot(0, mq, false, "MUST-BE-DROPPED", "session_expired", 200, 2219, 0, now)).GetAwaiter().GetResult().Value;
+        repo.InsertAsync(new ProfileSnapshot(0, nf, true, "{\"nf\":1}", null, 200, 150000, 3, now)).GetAwaiter().GetResult();
+
+        var latest = repo.GetLatestOkAsync(mq).GetAwaiter().GetResult().Value;
+        Check(latest is not null && latest.Ok && latest.Id == goodId && latest.FieldsJson == "{\"hire\":36}",
+            "newest ok=1 wins over a later failed attempt (read filters ok=1)");
+        Check(StoredFieldsJson(dbPath, badId) is null,
+            "failed snapshot stored fields_json = NULL though the caller passed a value (insert invariant)");
+        var nfLatest = repo.GetLatestOkAsync(nf).GetAwaiter().GetResult().Value;
+        Check(nfLatest is not null && nfLatest.FieldsJson == "{\"nf\":1}", "nafezly read never returns mostaql data");
+
+        for (int i = 0; i < 23; i++)
+        {
+            repo.InsertAsync(new ProfileSnapshot(0, mq, true, "{\"i\":" + i + "}", null, 200, 1000, 4, now.AddSeconds(i))).GetAwaiter().GetResult();
+        }
+        repo.PruneToNewestAsync(mq, 20).GetAwaiter().GetResult();
+        Check(CountSource(dbPath, "mostaql") == 20, $"mostaql pruned to newest 20 (got {CountSource(dbPath, "mostaql")})");
+        Check(CountSource(dbPath, "nafezly") == 1, "pruning mostaql deleted zero nafezly rows (retention is per-source)");
+    }
+
+    private static long CountSource(string dbPath, string source)
+    {
+        using var c = new SqliteConnectionFactory(dbPath).CreateConnection();
+        using var cmd = c.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM profile_snapshots WHERE source_id = @s;";
+        cmd.Parameters.AddWithValue("@s", source);
+        return (long)cmd.ExecuteScalar()!;
+    }
+
+    private static string? StoredFieldsJson(string dbPath, long id)
+    {
+        using var c = new SqliteConnectionFactory(dbPath).CreateConnection();
+        using var cmd = c.CreateCommand();
+        cmd.CommandText = "SELECT fields_json FROM profile_snapshots WHERE id = @id;";
+        cmd.Parameters.AddWithValue("@id", id);
+        var v = cmd.ExecuteScalar();
+        return v is null or DBNull ? null : (string)v;
     }
 }
