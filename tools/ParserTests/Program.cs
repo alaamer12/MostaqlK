@@ -85,6 +85,7 @@ public static class Program
         Run(nameof(TestV4DescriptorCorrections), TestV4DescriptorCorrections);
         Run(nameof(TestMostaqlRealMarkupOwnerStats), TestMostaqlRealMarkupOwnerStats);
         Run(nameof(TestMostaqlRealFixturesPresent), TestMostaqlRealFixturesPresent);
+        Run(nameof(TestV4SchemaInvariants), TestV4SchemaInvariants);
         Run(nameof(TestNafezlyListingPage1), TestNafezlyListingPage1);
         Run(nameof(TestNafezlyListingFilteredAndPagination), TestNafezlyListingFilteredAndPagination);
         Run(nameof(TestNafezlyDetailOpen56540), TestNafezlyDetailOpen56540);
@@ -679,6 +680,47 @@ public static class Program
         var missingMeta = html.Where(h => !File.Exists(h + ".meta.json")).ToArray();
         Check("every real Mostaql fixture has a .meta.json", missingMeta.Length == 0, string.Join(",", missingMeta));
         Check("scanned at least 1 real fixture file", html.Length >= 1, $"{html.Length}");
+    }
+
+    /// <summary>v4 Phase 3 schema invariants over migration 0006 (source isolation, no secret column,
+    /// no stored score). Each has an anti-vacuity floor so a scan that matches nothing cannot pass.</summary>
+    private static void TestV4SchemaInvariants()
+    {
+        var root = FindRepoRoot();
+        var sql = File.ReadAllText(Path.Combine(root, "Infrastructure", "Database", "Migrations", "0006_add_competitor_analysis.sql"));
+
+        // G-iso: every v4 table declares an explicit source_id (band disjointness is not the only guard, 0003's rule).
+        var tables = System.Text.RegularExpressions.Regex.Matches(
+            sql, @"CREATE TABLE IF NOT EXISTS (\w+) \((.*?)\);",
+            System.Text.RegularExpressions.RegexOptions.Singleline);
+        var withSource = 0;
+        var offenders = new List<string>();
+        foreach (System.Text.RegularExpressions.Match m in tables)
+        {
+            if (m.Groups[2].Value.Contains("source_id", StringComparison.Ordinal))
+            {
+                withSource++;
+            }
+            else
+            {
+                offenders.Add(m.Groups[1].Value);
+            }
+        }
+        Check("schema: at least 5 v4 tables are declared", tables.Count >= 5, $"count={tables.Count}");
+        Check("G-iso: every v4 table carries source_id", offenders.Count == 0, string.Join(",", offenders));
+
+        // G-nosecret: no cookie/token/secret COLUMN (comments mentioning them are fine; a stored value is not).
+        var secretCol = System.Text.RegularExpressions.Regex.Matches(
+            sql, @"^\s*(cookie|token|secret|password)\w*\s+(TEXT|INTEGER|REAL)",
+            System.Text.RegularExpressions.RegexOptions.Multiline | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        Check("G-nosecret: no secret-bearing column in migration 0006", secretCol.Count == 0, $"count={secretCol.Count}");
+
+        // G-nostoredscore: the winnability index is derived at read time (R4.12), never a column anywhere.
+        var bootstrap = File.ReadAllText(Path.Combine(root, "Infrastructure", "Database", "SqliteConnectionFactory.cs"));
+        var scoreCol = System.Text.RegularExpressions.Regex.Matches(
+            sql + "\n" + bootstrap, @"^\s*(score|winnability|win_rate|win_chance|chance)\w*\s+(INTEGER|REAL|TEXT)",
+            System.Text.RegularExpressions.RegexOptions.Multiline | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        Check("G-nostoredscore: no score/winnability column in schema or bootstrap", scoreCol.Count == 0, $"count={scoreCol.Count}");
     }
 
     private static void TestNafezlyListingPage1()

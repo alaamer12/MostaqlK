@@ -72,7 +72,7 @@ internal static class Program
         using (var connection = factory.CreateConnection())
         {
             var version = GetUserVersion(connection);
-            Check(version == 5, $"user_version is 5 after full upgrade chain (got {version})");
+            Check(version  == SqliteConnectionFactory.CurrentSchemaVersion, $"user_version equals the current schema version after full upgrade chain (got {version})");
 
             var columns = ReadColumnNames(connection, "projects");
             Check(columns.Contains("source_id") && columns.Contains("site_project_id"), "projects has source_id + site_project_id");
@@ -115,7 +115,7 @@ internal static class Program
         var factory = new SqliteConnectionFactory(dbPath);
         using (var connection = factory.CreateConnection())
         {
-            Check(GetUserVersion(connection) == 5, "user_version stays 5");
+            Check(GetUserVersion(connection)  == SqliteConnectionFactory.CurrentSchemaVersion, "user_version stays at the current version");
         }
 
         var afterCounts = ReadCounts(dbPath);
@@ -132,7 +132,7 @@ internal static class Program
         var factory = new SqliteConnectionFactory(dbPath);
         using var connection = factory.CreateConnection();
 
-        Check(GetUserVersion(connection) == 5, "fresh db reaches the current user_version without running numbered steps");
+        Check(GetUserVersion(connection)  == SqliteConnectionFactory.CurrentSchemaVersion, "fresh db reaches the current user_version without running numbered steps");
 
         var columns = ReadColumnNames(connection, "projects");
         Check(columns.Contains("source_id") && columns.Contains("site_project_id"), "fresh projects table already carries the v2 columns");
@@ -368,7 +368,7 @@ internal static class Program
         var factory = new SqliteConnectionFactory(dbPath);
         using (var connection = factory.CreateConnection())
         {
-            Check(GetUserVersion(connection) == 5, "user_version advanced 3 -> v4 -> current v5");
+            Check(GetUserVersion(connection)  == SqliteConnectionFactory.CurrentSchemaVersion, "user_version advanced 3 -> 4 -> 5 -> current");
             Check(ReadColumnNames(connection, "projects").Contains("executor_name"), "projects gained executor_name column");
             Check(ReadColumnNames(connection, "projects").Contains("client_meta"), "projects gained client_meta column");
 
@@ -393,7 +393,7 @@ internal static class Program
         var factory2 = new SqliteConnectionFactory(dbPath);
         using (var connection2 = factory2.CreateConnection())
         {
-            Check(GetUserVersion(connection2) == 5, "user_version stays 5 on re-run");
+            Check(GetUserVersion(connection2)  == SqliteConnectionFactory.CurrentSchemaVersion, "user_version stays at the current version on re-run");
         }
 
         var afterCounts2 = ReadCounts(dbPath);
@@ -414,7 +414,7 @@ internal static class Program
         var factory = new SqliteConnectionFactory(dbPath);
         using var connection = factory.CreateConnection();
 
-        Check(GetUserVersion(connection) == 5, "fresh db lands at the current v5 schema");
+        Check(GetUserVersion(connection)  == SqliteConnectionFactory.CurrentSchemaVersion, "fresh db lands at the current schema version");
         Check(ReadColumnNames(connection, "projects").Contains("executor_name"), "fresh projects table already carries executor_name");
         Check(ReadColumnNames(connection, "projects").Contains("client_meta"), "fresh projects table already carries client_meta");
     }

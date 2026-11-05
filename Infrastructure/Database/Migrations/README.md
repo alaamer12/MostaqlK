@@ -14,6 +14,8 @@ throws `DatabaseSchemaException` (no silent best-effort drift).
 | 2 | `0002_add_source_identity.sql` | Source identity: `source_id` + `site_project_id` on `projects`, `source_id` on `owners`/`discovery_backlog`, unique `(source_id, site_project_id)`. Mostaql's internal-id band is 0, so existing rowids (and every child/FTS reference to them) stay valid untouched. |
 | 3 | `0003_add_source_unique_keys.sql` | Enforces composite identity in storage: unique `(source_id, owner_id)` on owners; backlog rebuilt keyed `(source_id, project_id)` — band disjointness alone must not be the only guard against cross-source overwrite. |
 | 4 | `0004_add_executor.sql` | Adds the nafezly-only `executor_name` column on `projects` (منفذ المشروع). Additive nullable `TEXT`; no rebuild/drop, FTS untouched (the UI never searches executors). Existing rows keep NULL; enrichment fills it going forward. |
+| 5 | `0005_add_client_meta.sql` | Adds the listing owner sub-line `client_meta` (nafezly country). Additive nullable `TEXT`; no rebuild. (Row was missing from this table until 0006.) |
+| 6 | `0006_add_competitor_analysis.sql` | v4 competitor analysis: `profile_snapshots` (append-only per crawl, `ok=1` read filter, last-20-per-source), `user_profile` + `user_profile_tags` (structured skills/interests, one row per source), `performers`, `project_bidders`, `user_bids`. Every table carries explicit `source_id` + composite natural key; no score column (R4.12 derives it); `fields_json` is public facts only. Additive only. |
 
 Fresh installs never replay steps: `InitialSchemaSql` (version 0) already lands at the current
 `CurrentSchemaVersion`, and the numbered steps only run for databases that predate it.

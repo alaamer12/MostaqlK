@@ -15,7 +15,7 @@ public sealed class SqliteConnectionFactory
     /// <c>Migrations/NNNN_*.sql</c> reference files; the executable copy of each step is the
     /// matching SQL constant below, applied in order by <see cref="EnsureSchema"/>.
     /// </summary>
-    private const int CurrentSchemaVersion = 5;
+    internal const int CurrentSchemaVersion = 6;
 
     private readonly string _connectionString;
     private readonly object _migrationLock = new();
@@ -146,6 +146,12 @@ public sealed class SqliteConnectionFactory
             {
                 RunStep(connection, Migration0005Sql);
                 currentVersion = 5;
+            }
+
+            if (currentVersion == 5)
+            {
+                RunStep(connection, Migration0006Sql);
+                currentVersion = 6;
             }
 
             SetUserVersion(connection, CurrentSchemaVersion);
@@ -284,6 +290,82 @@ public sealed class SqliteConnectionFactory
         """;
 
     /// <summary>
+    /// v5 -> v6 step (see <c>Migrations/0006_add_competitor_analysis.sql</c>): the v4 competitor-analysis
+    /// tables. Additive only; every table carries an explicit <c>source_id</c> + composite natural key so a
+    /// source’s rows never alias another’s, and no score column exists anywhere (R4.12: derived at read).
+    /// </summary>
+    private const string Migration0006Sql = """
+        CREATE TABLE IF NOT EXISTS profile_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source_id TEXT NOT NULL,
+            crawled_at TEXT NOT NULL DEFAULT (datetime('now')),
+            ok INTEGER NOT NULL,                              -- 1 usable, 0 failed attempt
+            fields_json TEXT,                                 -- NULL when ok = 0
+            error_kind TEXT,                                  -- session_expired | waf_challenge | not_found | network | parse_empty
+            http_status INTEGER,                              -- recorded because it is NOT the success signal (R1.4)
+            body_bytes INTEGER,                               -- the discriminator that works (~2 KB shell vs ~200 KB data)
+            pages_read INTEGER                                -- how many of the read pages completed; honest progress
+        );
+        CREATE INDEX IF NOT EXISTS ix_snapshots_source_ok_time ON profile_snapshots(source_id, ok, crawled_at DESC);
+        CREATE TABLE IF NOT EXISTS user_profile (
+            source_id TEXT NOT NULL,
+            username TEXT,
+            target_band TEXT,
+            availability TEXT,
+            usual_speed_days INTEGER,
+            completeness_missing_json TEXT,                   -- R2.6: maturity = the exact list of missing canon fields
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            PRIMARY KEY (source_id)
+        );
+        CREATE TABLE IF NOT EXISTS user_profile_tags (
+            source_id TEXT NOT NULL,
+            kind TEXT NOT NULL,                               -- 'skill' | 'interest'
+            slug TEXT NOT NULL,
+            name TEXT NOT NULL,
+            PRIMARY KEY (source_id, kind, slug)
+        );
+        CREATE TABLE IF NOT EXISTS performers (
+            source_id TEXT NOT NULL,
+            performer_key TEXT NOT NULL,
+            display_name TEXT,
+            profile_url TEXT,
+            avatar_url TEXT,
+            rating REAL,
+            completed_projects_count INTEGER,
+            completion_rate REAL,
+            live_presence TEXT,
+            last_seen_at TEXT,
+            fields_json TEXT,
+            PRIMARY KEY (source_id, performer_key)
+        );
+        CREATE TABLE IF NOT EXISTS project_bidders (
+            source_id TEXT NOT NULL,
+            site_project_id INTEGER NOT NULL,
+            performer_key TEXT NOT NULL,
+            display_name TEXT,
+            bid_amount REAL,
+            bid_text TEXT,
+            delivered_days INTEGER,
+            state TEXT,
+            seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+            PRIMARY KEY (source_id, site_project_id, performer_key)
+        );
+        CREATE TABLE IF NOT EXISTS user_bids (
+            source_id TEXT NOT NULL,
+            site_project_id INTEGER NOT NULL,
+            my_bid_amount REAL,
+            agreed_deal_price REAL,
+            outcome TEXT,
+            project_title TEXT,
+            category TEXT,
+            delivered_days INTEGER,
+            bid_created_at TEXT,
+            awarded_at TEXT,
+            PRIMARY KEY (source_id, site_project_id)
+        );
+        """;
+
+    /// <summary>
     /// Bootstrap ("version 0") schema - lands directly at the current schema version so new DBs
     /// never run the numbered steps; see <c>Migrations/0001_initial_schema.sql</c> for the
     /// historical v1 statements.
@@ -368,6 +450,75 @@ public sealed class SqliteConnectionFactory
             description,
             skills,
             tokenize = 'unicode61 remove_diacritics 2'
+        );
+
+        CREATE TABLE IF NOT EXISTS profile_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source_id TEXT NOT NULL,
+            crawled_at TEXT NOT NULL DEFAULT (datetime('now')),
+            ok INTEGER NOT NULL,                              -- 1 usable, 0 failed attempt
+            fields_json TEXT,                                 -- NULL when ok = 0
+            error_kind TEXT,                                  -- session_expired | waf_challenge | not_found | network | parse_empty
+            http_status INTEGER,                              -- recorded because it is NOT the success signal (R1.4)
+            body_bytes INTEGER,                               -- the discriminator that works (~2 KB shell vs ~200 KB data)
+            pages_read INTEGER                                -- how many of the read pages completed; honest progress
+        );
+        CREATE INDEX IF NOT EXISTS ix_snapshots_source_ok_time ON profile_snapshots(source_id, ok, crawled_at DESC);
+        CREATE TABLE IF NOT EXISTS user_profile (
+            source_id TEXT NOT NULL,
+            username TEXT,
+            target_band TEXT,
+            availability TEXT,
+            usual_speed_days INTEGER,
+            completeness_missing_json TEXT,                   -- R2.6: maturity = the exact list of missing canon fields
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            PRIMARY KEY (source_id)
+        );
+        CREATE TABLE IF NOT EXISTS user_profile_tags (
+            source_id TEXT NOT NULL,
+            kind TEXT NOT NULL,                               -- 'skill' | 'interest'
+            slug TEXT NOT NULL,
+            name TEXT NOT NULL,
+            PRIMARY KEY (source_id, kind, slug)
+        );
+        CREATE TABLE IF NOT EXISTS performers (
+            source_id TEXT NOT NULL,
+            performer_key TEXT NOT NULL,
+            display_name TEXT,
+            profile_url TEXT,
+            avatar_url TEXT,
+            rating REAL,
+            completed_projects_count INTEGER,
+            completion_rate REAL,
+            live_presence TEXT,
+            last_seen_at TEXT,
+            fields_json TEXT,
+            PRIMARY KEY (source_id, performer_key)
+        );
+        CREATE TABLE IF NOT EXISTS project_bidders (
+            source_id TEXT NOT NULL,
+            site_project_id INTEGER NOT NULL,
+            performer_key TEXT NOT NULL,
+            display_name TEXT,
+            bid_amount REAL,
+            bid_text TEXT,
+            delivered_days INTEGER,
+            state TEXT,
+            seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+            PRIMARY KEY (source_id, site_project_id, performer_key)
+        );
+        CREATE TABLE IF NOT EXISTS user_bids (
+            source_id TEXT NOT NULL,
+            site_project_id INTEGER NOT NULL,
+            my_bid_amount REAL,
+            agreed_deal_price REAL,
+            outcome TEXT,
+            project_title TEXT,
+            category TEXT,
+            delivered_days INTEGER,
+            bid_created_at TEXT,
+            awarded_at TEXT,
+            PRIMARY KEY (source_id, site_project_id)
         );
         """;
 }

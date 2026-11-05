@@ -30,6 +30,11 @@
 		<Compile Include="..\..\Core\Sources\SourceCapabilities.cs" Link="Core\Sources\SourceCapabilities.cs" />
 		<Compile Include="..\..\Core\Sources\BrandTokenSet.cs" Link="Core\Sources\BrandTokenSet.cs" />
 		<Compile Include="..\..\Core\Sources\ISourceDescriptor.cs" Link="Core\Sources\ISourceDescriptor.cs" />
+		<!-- v4: the descriptor now exposes WinnabilityProfileTable, so the pure Analysis records + engine
+		     link here too (same reason ParserTests links them) or this harness will not compile. -->
+		<Compile Include="..\..\Core\Analysis\Winnability\WinnabilityProfile.cs" Link="Core\Analysis\WinnabilityProfile.cs" />
+		<Compile Include="..\..\Core\Analysis\Winnability\WinnabilityModels.cs" Link="Core\Analysis\WinnabilityModels.cs" />
+		<Compile Include="..\..\Core\Analysis\Winnability\WinnabilityEngine.cs" Link="Core\Analysis\WinnabilityEngine.cs" />
 		<!-- ISourceDescriptor now exposes Profile/Selectors/SchemaMap (A1), so the shared data
 		     types it references are linked; the migration tests themselves are unchanged. -->
 		<Compile Include="..\..\Core\Sources\FieldSpec.cs" Link="Core\Sources\FieldSpec.cs" />
