@@ -1,0 +1,19 @@
+{
+  "url": "https://mostaql.com/freelancers",
+  "method": "curl HTTPS GET, browser UA + Accept/Accept-Language, --compressed, forced UTF-8, NO session (anonymous)",
+  "captured_utc": "2026-11-04T17:27:00+00:00",
+  "http_status": 200,
+  "byte_size": 8351,
+  "sha256": "d8826a4b4a138c5034decef1b4d06bbebeafe41b7518f354e51c9e5eac02ac72",
+  "fixture_kind": "structure-only excerpt (2 of 25 real freelancer-row cards)",
+  "provenance": "Sliced from a real anonymous mostaql.com /freelancers capture; card DOM kept verbatim (freelancer-row, avatar /u/ link, usercard__indicator-top live dot, freelancers__item-rating stars, fa-percent metric, freelancer__brief).",
+  "scrubbing": "Real username slugs replaced everywhere (href + any data-*/title) with fixture-user-A/B; avatar CDN URLs with avatars.invalid/<slug>.png; <bdi> display names with [performer-name-A/B]; brief free-text with [bio-redacted]. Star icons, the live-presence indicator, and the percent metric kept — they are the fields the parser proves. Card B's live indicator was removed to exercise the offline branch. Verified programmatically: 0 hsoubcdn URLs, 0 emails, 0 real slugs/names.",
+  "selector_targets": [
+    "tr.freelancer-row",
+    "/u/{slug}",
+    "usercard__indicator-top clr-green",
+    "fa-star rating-star",
+    "fa-percent",
+    "bdi"
+  ]
+}

@@ -85,6 +85,7 @@ public static class Program
         Run(nameof(TestV4DescriptorCorrections), TestV4DescriptorCorrections);
         Run(nameof(TestMostaqlRealMarkupOwnerStats), TestMostaqlRealMarkupOwnerStats);
         Run(nameof(TestMostaqlRealFixturesPresent), TestMostaqlRealFixturesPresent);
+        Run(nameof(TestMostaqlCatalogPerformers), TestMostaqlCatalogPerformers);
         Run(nameof(TestV4SchemaInvariants), TestV4SchemaInvariants);
         Run(nameof(TestNafezlyListingPage1), TestNafezlyListingPage1);
         Run(nameof(TestNafezlyListingFilteredAndPagination), TestNafezlyListingFilteredAndPagination);
@@ -671,6 +672,32 @@ public static class Program
     /// <summary>v4 D48: the gate must prove selectors against REAL captured markup, not only the
     /// hand-authored fixtures authored to match the parser. This asserts the real Mostaql fixture and
     /// its provenance sidecar exist, so silently reverting to synthetic-only proof fails the build.</summary>
+    /// <summary>v4 R1.2/§4.6: the anonymous /freelancers catalog parsed from a REAL masked capture
+    /// (structure-only excerpt, provenance in its .meta.json). Proves the catalog performer fields —
+    /// username identity, star rating, live-presence indicator, completion percent — extract from the
+    /// site's actual markup, with no session and no WAF token.</summary>
+    private static void TestMostaqlCatalogPerformers()
+    {
+        var performers = MostaqlCatalogParser.Parse(LoadMostaqlFixture("catalog_freelancers_excerpt.html"));
+
+        Check("catalog: both real cards parsed", performers.Count == 2, $"{performers.Count}");
+        var a = performers.FirstOrDefault(p => p.PerformerKey == "fixture-user-A");
+        var b = performers.FirstOrDefault(p => p.PerformerKey == "fixture-user-B");
+        Check("catalog: username slug is the identity key", a is not null && b is not null);
+        Check("catalog: source stamped Mostaql", performers.All(p => p.Source == SourceId.From("mostaql")));
+        Check("catalog: star count becomes the rating", a is not null && a.Rating == 5.0, $"{a?.Rating}");
+        Check("catalog: online card carries live presence", a is not null && !string.IsNullOrEmpty(a.LivePresence), a?.LivePresence ?? "null");
+        Check("catalog: offline card carries NO presence", b is not null && b.LivePresence is null, b?.LivePresence ?? "null");
+        Check("catalog: completion percent parsed (66.67 / 92.86)",
+            a is not null && Math.Abs(a.CompletionRate!.Value - 66.67) < 0.01
+            && b is not null && Math.Abs(b.CompletionRate!.Value - 92.86) < 0.01,
+            $"{a?.CompletionRate}/{b?.CompletionRate}");
+        Check("catalog: profile url kept", a is not null && a.ProfileUrl!.Contains("/u/fixture-user-A", StringComparison.Ordinal));
+
+        // Degenerate: empty html throws (honest failure, never an empty-but-success parse).
+        Check("catalog: empty html throws", Throws(() => MostaqlCatalogParser.Parse("   ")));
+    }
+
     private static void TestMostaqlRealFixturesPresent()
     {
         var dir = Path.Combine(AppContext.BaseDirectory, "Fixtures", "mostaql");

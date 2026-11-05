@@ -84,6 +84,9 @@
 		<Compile Include="..\..\Sources\Mostaql\MostaqlSource.cs" LinkBase="Sources" />
 		<Compile Include="..\..\Sources\Mostaql\MostaqlQueryVocabulary.cs" LinkBase="Sources" />
 		<Compile Include="..\..\Sources\Mostaql\Parsing\DetailParser.cs" LinkBase="Parsers" />
+		<!-- v4 R1.2/§4.6: the anonymous /freelancers catalog parser is MAUI-free, so it links and is
+		     verified offline against a real masked capture (catalog_freelancers_excerpt.html). -->
+		<Compile Include="..\..\Sources\Mostaql\Parsing\MostaqlCatalogParser.cs" LinkBase="Parsers" />
 		<Compile Include="..\..\Sources\Mostaql\Parsing\ListingParser.cs" LinkBase="Parsers" />
 		<Compile Include="..\..\Sources\Mostaql\Parsing\StructuralExtractor.cs" LinkBase="Parsers" />
 		<Compile Include="..\..\Sources\Mostaql\Parsing\ParseErrors.cs" LinkBase="Parsers" />
@@ -155,6 +158,7 @@
 		<Compile Include="..\..\Models\ProjectDetails.cs" LinkBase="Models" />
 		<Compile Include="..\..\Models\ProjectSummary.cs" LinkBase="Models" />
 		<Compile Include="..\..\Models\Owner.cs" LinkBase="Models" />
+		<Compile Include="..\..\Models\Performer.cs" LinkBase="Models" />
 		<Compile Include="..\..\Models\ProjectSkill.cs" LinkBase="Models" />
 		<Compile Include="..\..\Models\Asset.cs" LinkBase="Models" />
 		<Compile Include="..\..\Models\EnrichmentStatus.cs" LinkBase="Models" />
