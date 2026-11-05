@@ -99,9 +99,10 @@
     <Grid BackgroundColor="{DynamicResource TextInverse}">
         <!-- Rail track pinned (never Auto): an Auto rail column is resolved after the content star
              and lands outside the window frame (RTL clips at the physical left). -->
+        <!-- v4 D41: rail column 0 = physical right in RTL; content column 1. -->
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
             <ColumnDefinition Width="{x:Static rail:RailWidths.ColumnWidth}" />
+            <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
         <!-- Shared v3 shell rail (contract §3). Same switching/nav semantics as the projects page:
@@ -109,7 +110,7 @@
              the projects feed which owns the notifications flyout, source tiles morph the app via
              the unit's own SourceMorph.ApplyOptimistic path, and the settings surface re-points its
              descriptor-driven rows on SourceChanged. Sidebar_* AutomationIds live inside this rail. -->
-        <rail:SourceRail Grid.Column="1"
+        <rail:SourceRail Grid.Column="0"
                          x:Name="Rail"
                          ActivePage="Settings"
                          UnreadCount="{Binding GlobalStatus.UnreadNotificationCount}"
@@ -120,7 +121,7 @@
                          NotificationsClicked="OnRailNotificationsClicked"
                          SourceChanged="OnRailSourceChanged" />
 
-        <Grid Grid.Column="0" RowDefinitions="Auto,*" BackgroundColor="{DynamicResource TextInverse}">
+        <Grid Grid.Column="1" RowDefinitions="Auto,*" BackgroundColor="{DynamicResource TextInverse}">
 
             <!-- Header band (mockup <header>): centered title + "إعدادات النظام وإعدادات المنصة الحالية: {tile} {name}"
                  (the page carries two bands now, so the caption names both; settings.html follows in step 6) -->

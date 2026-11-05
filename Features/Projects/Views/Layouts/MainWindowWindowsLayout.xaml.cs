@@ -79,8 +79,9 @@ public partial class MainWindowWindowsLayout : ContentView
             : Math.Max(PipelineDashboardPanel.RailWidth, PipelinePanel.ExpandedWidth);
         var splitterWidth = PipelinePanel.IsExpanded ? PanelSplitter.WidthRequest : 0;
 
-        SetColumnWidth(0, panelWidth);
-        SetColumnWidth(1, splitterWidth);
+        // v4 D41: rail is column 0 (physical right), panel column 3 (physical left), splitter column 2.
+        SetColumnWidth(3, panelWidth);
+        SetColumnWidth(2, splitterWidth);
     }
 
     private void SetColumnWidth(int index, double width)

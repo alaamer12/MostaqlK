@@ -14,12 +14,13 @@
     <Grid BackgroundColor="{DynamicResource Background}">
         <!-- Rail track pinned (never Auto): an Auto rail column is resolved after the content star
              and lands outside the window frame (RTL clips at the physical left). -->
+        <!-- v4 D41: rail column 0 = physical right in RTL; content column 1. -->
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
             <ColumnDefinition Width="{x:Static rail:RailWidths.ColumnWidth}" />
+            <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <rail:SourceRail Grid.Column="1"
+        <rail:SourceRail Grid.Column="0"
                          x:Name="Rail"
                          ActivePage="About"
                          UnreadCount="{Binding UnreadNotificationCount}"
@@ -29,7 +30,7 @@
                          AboutClicked="OnAboutNavClicked"
                          NotificationsClicked="OnRailNotificationsClicked" />
 
-        <Grid Grid.Column="0" RowDefinitions="32,Auto,*" Padding="24,20,24,24" RowSpacing="16">
+        <Grid Grid.Column="1" RowDefinitions="32,Auto,*" Padding="24,20,24,24" RowSpacing="16">
             <BoxView Grid.Row="0" BackgroundColor="Transparent" InputTransparent="True" />
 
             <Border Grid.Row="1" StrokeThickness="1" Stroke="{DynamicResource BorderSubtleBrush}" BackgroundColor="{DynamicResource Surface}" Padding="16,12">

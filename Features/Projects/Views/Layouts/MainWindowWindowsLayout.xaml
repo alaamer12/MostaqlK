@@ -39,14 +39,19 @@
              cells live in a star row are measured, so an Auto rail column landed outside the window
              frame (RTL clips it at the physical left) and an Auto panel column was folded into the
              feed's measured width. Code-behind keeps col 0/1 in step with the panel's live width. -->
+        <!-- v4 D41 chrome geometry: the icon rail sits on the reading-start edge (physical RIGHT in
+             RTL = column 0), the pipeline panel on the far physical LEFT (column 3), the feed between,
+             and the splitter rides the panel/feed boundary. This is the reverse of the old shipped
+             order (panel at col0 = physical right); the code-behind keeps cols 3/2 in step with the
+             panel's live width, so the reversal is complete and the splitter still pans correctly. -->
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="252" /> <!-- pipeline panel (44/252/… per expanded state) -->
-            <ColumnDefinition Width="8" />   <!-- splitter (0 when the panel is collapsed) -->
+            <ColumnDefinition Width="{x:Static rail:RailWidths.ColumnWidth}" /> <!-- shell rail (physical right) -->
             <ColumnDefinition Width="*" />   <!-- feed -->
-            <ColumnDefinition Width="{x:Static rail:RailWidths.ColumnWidth}" /> <!-- shell rail -->
+            <ColumnDefinition Width="8" />   <!-- splitter (0 when the panel is collapsed) -->
+            <ColumnDefinition Width="252" /> <!-- pipeline panel (physical left; 44 collapsed) -->
         </Grid.ColumnDefinitions>
 
-        <rail:SourceRail Grid.Column="3"
+        <rail:SourceRail Grid.Column="0"
                          Grid.RowSpan="3"
                          x:Name="Rail"
                          ActivePage="Projects"
@@ -60,7 +65,7 @@
 
         <!-- ============ HEADER (full-width surface band, bottom hairline) ============ -->
         <Grid Grid.Row="0"
-              Grid.Column="0"
+              Grid.Column="1"
               Grid.ColumnSpan="3"
               RowDefinitions="Auto"
               BackgroundColor="{DynamicResource SurfaceRaised}">
@@ -150,7 +155,7 @@
         <!-- ============ PIPELINE PANEL (reused shipped unit, active-source scoped) ============ -->
         <dashboard:PipelineDashboardPanel x:Name="PipelinePanel"
                                           Grid.Row="1"
-                                          Grid.Column="0"
+                                          Grid.Column="3"
                                           AutomationId="Pipeline_DashboardPanel"
                                           VerticalOptions="Fill"
                                           DiscoveryProgress="{Binding GlobalStatus.DiscoveryProgress}"
@@ -162,18 +167,18 @@
 
         <components:SplitterHandle x:Name="PanelSplitter"
                                    Grid.Row="1"
-                                   Grid.Column="1"
+                                   Grid.Column="2"
                                    AutomationId="Pipeline_ResizeHandle"
                                    Minimum="252"
                                    Maximum="560"
-                                   DragSign="1"
+                                   DragSign="-1"
                                    IsVisible="{Binding Source={x:Reference PipelinePanel}, Path=IsExpanded}"
                                    Value="{Binding Source={x:Reference PipelinePanel}, Path=ExpandedWidth, Mode=TwoWay}"
                                    DragCompleted="OnPanelSplitterDragCompleted" />
 
         <!-- ============ FEED COLUMN (search row + continuous rows) ============ -->
         <Grid Grid.Row="1"
-              Grid.Column="2"
+              Grid.Column="1"
               RowDefinitions="Auto,*"
               BackgroundColor="{DynamicResource SurfaceRaised}">
 
@@ -281,7 +286,7 @@
 
         <!-- ============ FOOTER (full-width surface band, top hairline) ============ -->
         <Grid Grid.Row="2"
-              Grid.Column="0"
+              Grid.Column="1"
               Grid.ColumnSpan="3"
               ColumnDefinitions="Auto,*,Auto"
               ColumnSpacing="16"
@@ -441,7 +446,7 @@
         <notifViews:RecentNotificationsFlyout x:Name="NotificationsFlyout"
                                                AutomationId="Notifications_Flyout"
                                                Grid.Row="1"
-                                               Grid.Column="2"
+                                               Grid.Column="1"
                                                IsVisible="False"
                                                HorizontalOptions="End"
                                                VerticalOptions="End"
