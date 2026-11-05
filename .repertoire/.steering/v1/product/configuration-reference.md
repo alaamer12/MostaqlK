@@ -14,7 +14,7 @@
 
 - `poll_interval_seconds` — how often the listing page is re-fetched. Default: 30.
 - `max_requests_per_minute` — shared budget across listing polls + detail/asset fetches. Default: 2/min, user-adjustable. See [architecture-pipeline.md § rate limiting](../../base/product/architecture-pipeline.md#rate-limiting).
-- `max_concurrent_detail_fetches` — worker pool size for Tier 2 enrichment. Default: 2–3.
+- `max_concurrent_detail_fetches` — worker pool size for Tier 2 enrichment. Default: 2 (see the table below; the catalog is the executable authority).
 - `safe_requests` — how strictly `max_requests_per_minute` is enforced. Default: **true**.
   - **On (default):** the shared token bucket follows [worker-pool-and-rate-limiter.md](../tech/worker-pool-and-rate-limiter.md#shared-rate-limiter-token-bucket) exactly — capacity equals `max_requests_per_minute`, tokens refill at `rpm / 60` per second, and consecutive requests are spaced by at least 1s (the "minimum inter-request spacing" from [architecture-pipeline.md § rate limiting](../../base/product/architecture-pipeline.md#rate-limiting)).
   - **Off:** the limiter keeps the same `max_requests_per_minute` burst capacity but refills it 10× faster with no minimum spacing (FIX: this used to be a fixed 10-request/1-per-second floor that ignored a lower configured `max_requests_per_minute`, making the setting look hard-coded/inert whenever it was below 10; it now always scales off whatever budget is configured). A large backlog drains far faster, at a materially higher risk of being blocked by the site. Offered as an explicit, opt-in escape hatch only.
@@ -41,7 +41,7 @@ Boolean. Default: **false**.
 
 Desktop-only. Batches near-simultaneous new-project discoveries into one summary toast ("There are `<N>` new projects, check them here") instead of N separate popups.
 
-- `notification_grouping_enabled` — default: **false**. When off, every new project gets its own detailed toast.
+- `settings_notification_grouping_enabled` — default: **true** (the table below and the catalog agree). When off, every new project gets its own detailed toast.
 - `notification_grouping_mode` — one of:
   - `end_of_minute` — accumulate everything discovered for the remainder of the current clock minute, flush at the minute boundary.
   - `after_minutes` — accumulate for a fixed rolling window of `N` minutes from the *first* discovery in the batch, then flush.
