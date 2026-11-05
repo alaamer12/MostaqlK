@@ -1,3 +1,4 @@
+using MostaqlK.Core.Analysis;
 using MostaqlK.Core.Parsing;
 
 namespace MostaqlK.Core.Sources;
@@ -108,6 +109,14 @@ public interface ISourceDescriptor
     /// the CURRENT order its UI assumes; UI code consumes this instead of a fixed layout.
     /// </summary>
     public IReadOnlyList<FieldSpec> SchemaMap { get; }
+
+    /// <summary>
+    /// The source's own winnability weight table (v4 R4.3 / D17), the analogue of
+    /// <see cref="Profile"/>'s FieldProfiles for the shared score engine. Null means the source
+    /// ships no winnability model and its cards render no pill (R5.3). Two sources can never
+    /// share one table because each returns its own; a new source adds a table, not a branch.
+    /// </summary>
+    public WinnabilityProfileTable? Winnability => null;
 
     /// <summary>Key into <c>app_secrets</c> for this source's session cookie.</summary>
     public string CookieSecretKey { get; }

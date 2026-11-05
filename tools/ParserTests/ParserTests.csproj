@@ -39,6 +39,12 @@
 		<Compile Include="..\..\Core\Sources\BrandTokenSet.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Sources\SourceCapabilities.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Sources\ISourceDescriptor.cs" LinkBase="Core" />
+		<!-- v4 Phase 1: the descriptor now exposes a WinnabilityProfileTable, and the winnability data
+		     records + the source-blind engine are pure/MAUI-free (like Core/Parsing and DetailSchemaRenderer),
+		     so they link here and the decay + renormalise rules are proven offline against the real tables. -->
+		<Compile Include="..\..\Core\Analysis\Winnability\WinnabilityProfile.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Analysis\Winnability\WinnabilityModels.cs" LinkBase="Core" />
+		<Compile Include="..\..\Core\Analysis\Winnability\WinnabilityEngine.cs" LinkBase="Core" />
 		<Compile Include="..\..\Core\Sources\FieldSpec.cs" LinkBase="Core" />
 		<!-- B3: the descriptor now exposes the typed facet vocabulary, so the pure spec record links
 		     alongside it (the nafezly/mostaql facet tests below drive it). -->
