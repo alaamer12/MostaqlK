@@ -44,6 +44,7 @@ internal static class Program
             TestCrossSourceCollision(Path.Combine(dir, "upgrade.db"));
             TestNafezlyBandCoexistence(Path.Combine(dir, "coexist.db"));
             TestProfileSnapshotIsolation(Path.Combine(dir, "snapshots.db"));
+            TestPerformerSourceIsolation(Path.Combine(dir, "performers.db"));
         }
         finally
         {
@@ -818,6 +819,38 @@ internal static class Program
         repo.PruneToNewestAsync(mq, 20).GetAwaiter().GetResult();
         Check(CountSource(dbPath, "mostaql") == 20, $"mostaql pruned to newest 20 (got {CountSource(dbPath, "mostaql")})");
         Check(CountSource(dbPath, "nafezly") == 1, "pruning mostaql deleted zero nafezly rows (retention is per-source)");
+    }
+
+    // v4 R3: drive the REAL PerformerRepository to prove the composite (source_id, performer_key)
+    // keeps a Mostaql username and a Nafezly numeric id that happen to be the same STRING as two
+    // distinct rows (the §1 isolation guarantee for rival files), and an upsert refreshes stats
+    // without duplicating the row.
+    private static void TestPerformerSourceIsolation(string dbPath)
+    {
+        Console.WriteLine("== v4 performers: composite (source, key) isolation + upsert ==");
+        File.Delete(dbPath);
+        var factory = new SqliteConnectionFactory(dbPath);
+        using (factory.CreateConnection()) { } // schema at v6
+        var repo = new PerformerRepository(factory);
+
+        var sameKey = "12345"; // a Mostaql username that equals a Nafezly numeric id as a string
+        repo.UpsertAsync(new Performer { Source = SourceId.From("mostaql"), PerformerKey = sameKey, DisplayName = "Mostaql Joe", Rating = 4.8, CompletionRate = 92.0, LivePresence = "\u0645\u062a\u0635\u0644 \u0627\u0644\u0622\u0646" }).GetAwaiter().GetResult();
+        repo.UpsertAsync(new Performer { Source = SourceId.From("nafezly"), PerformerKey = sameKey, DisplayName = "Nafezly Joe", Rating = 3.1 }).GetAwaiter().GetResult();
+
+        var mq = repo.GetByKeyAsync(SourceId.From("mostaql"), sameKey).GetAwaiter().GetResult().Value;
+        var nf = repo.GetByKeyAsync(SourceId.From("nafezly"), sameKey).GetAwaiter().GetResult().Value;
+        Check(mq is not null && nf is not null && mq.DisplayName == "Mostaql Joe" && nf.DisplayName == "Nafezly Joe",
+            "identical key strings stay two distinct per-source rows (no cross-source overwrite)");
+        Check(mq!.CompletionRate == 92.0 && mq.LivePresence is not null && nf!.CompletionRate is null,
+            "each source keeps its own fields");
+
+        // Upsert same (source,key): stats refresh, identity kept, row count unchanged.
+        repo.UpsertAsync(new Performer { Source = SourceId.From("mostaql"), PerformerKey = sameKey, DisplayName = "IGNORED-IDENTITY", Rating = 5.0 }).GetAwaiter().GetResult();
+        var mq2 = repo.GetByKeyAsync(SourceId.From("mostaql"), sameKey).GetAwaiter().GetResult().Value;
+        Check(mq2 is not null && mq2.Rating == 5.0 && mq2.DisplayName == "Mostaql Joe" && mq2.ProfileUrl == mq.ProfileUrl,
+            "upsert refreshes stats but not identity, and does not duplicate (composite conflict)");
+        Check(repo.ListBySourceAsync(SourceId.From("mostaql")).GetAwaiter().GetResult().Value!.Count == 1,
+            "nafezly row never appears in a mostaql listing (per-source read scoping)");
     }
 
     private static long CountSource(string dbPath, string source)

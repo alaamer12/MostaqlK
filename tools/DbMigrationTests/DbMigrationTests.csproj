@@ -57,6 +57,11 @@
 		<Compile Include="..\..\Models\ProfileSnapshot.cs" Link="Models\ProfileSnapshot.cs" />
 		<Compile Include="..\..\Infrastructure\Database\IProfileSnapshotRepository.cs" Link="Infrastructure\IProfileSnapshotRepository.cs" />
 		<Compile Include="..\..\Infrastructure\Database\ProfileSnapshotRepository.cs" Link="Infrastructure\ProfileSnapshotRepository.cs" />
+		<!-- v4 R3: the PerformerRepository is likewise driven by its real Dapper code to prove the
+		     composite (source_id, performer_key) keeps a Mostaql username and a Nafezly id apart. -->
+		<Compile Include="..\..\Models\Performer.cs" Link="Models\Performer.cs" />
+		<Compile Include="..\..\Infrastructure\Database\IPerformerRepository.cs" Link="Infrastructure\IPerformerRepository.cs" />
+		<Compile Include="..\..\Infrastructure\Database\PerformerRepository.cs" Link="Infrastructure\PerformerRepository.cs" />
 	</ItemGroup>
 
 </Project>

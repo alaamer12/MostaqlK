@@ -137,6 +137,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IProjectRepository, ProjectRepository>();
         builder.Services.AddSingleton<IOwnerRepository, OwnerRepository>();
         builder.Services.AddSingleton<IProfileSnapshotRepository, ProfileSnapshotRepository>();
+        builder.Services.AddSingleton<IPerformerRepository, PerformerRepository>();
         builder.Services.AddSingleton<IAssetRepository, AssetRepository>();
 #if WINDOWS
 		// Windows-only toast delivery backend. The dispatcher depends on INotificationSender;
