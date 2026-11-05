@@ -1,0 +1,22 @@
+{
+  "url": "https://mostaql.com/u/project/1271465",
+  "url_effective": "https://mostaql.com/project/1271465",
+  "method": "curl HTTPS GET, browser UA + Accept/Accept-Language, --compressed, forced UTF-8 decoding, NO session cookie (anonymous)",
+  "captured_utc": "2026-11-04T17:27:00+00:00",
+  "http_status": 200,
+  "byte_size": 11254,
+  "sha256": "e47b44faf163d8baf389d3a5a4af1b2402f9997871a53f35d938766a9d6e27c4",
+  "fixture_kind": "structure-only excerpt",
+  "provenance": "Sliced from a real anonymous mostaql.com project-detail capture (meta panel, skills, employer owner-widget, one bid-item).",
+  "scrubbing": "Every visible free-text run (project title, description, bid previews, client display name, owner bio) is replaced with [text] or a placeholder; only whitelisted Arabic field labels and numeric/percent values are retained. Emails, avatar/CDN URLs, Sentry URLs, freelancer /u/ profile slugs, and any data-user-id are removed or neutralised. Verified programmatically: 0 emails, 0 hsoubcdn avatar URLs, 0 sentry hosts, 0 real /u/ slugs.",
+  "why_excerpt_not_full_page": "The gate must prove the v4 selectors fire against real markup (D48) without committing a third party's personal content. Region slicing + text-only masking keeps the real DOM shape the selectors depend on.",
+  "selector_targets": [
+    "project-meta-panel",
+    "table.table-meta",
+    "dsp--f-space-between",
+    "data-bid-item",
+    "class=\"skills\"",
+    "معدل التوظيف",
+    "تاريخ التسجيل"
+  ]
+}

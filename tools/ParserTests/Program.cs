@@ -83,6 +83,8 @@ public static class Program
         Console.WriteLine("\n--- Nafezly (A3) ---\n");
         Run(nameof(TestNafezlyDescriptorIdentity), TestNafezlyDescriptorIdentity);
         Run(nameof(TestV4DescriptorCorrections), TestV4DescriptorCorrections);
+        Run(nameof(TestMostaqlRealMarkupOwnerStats), TestMostaqlRealMarkupOwnerStats);
+        Run(nameof(TestMostaqlRealFixturesPresent), TestMostaqlRealFixturesPresent);
         Run(nameof(TestNafezlyListingPage1), TestNafezlyListingPage1);
         Run(nameof(TestNafezlyListingFilteredAndPagination), TestNafezlyListingFilteredAndPagination);
         Run(nameof(TestNafezlyDetailOpen56540), TestNafezlyDetailOpen56540);
@@ -550,6 +552,11 @@ public static class Program
     private static string LoadNafezlyFixture(string filename) =>
         File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "nafezly", filename));
 
+    // v4: real captured Mostaql markup lives under Fixtures/mostaql (a structure-only excerpt, see the
+    // .meta.json), loaded exactly like the nafezly fixtures so the gate proves selectors against real DOM.
+    private static string LoadMostaqlFixture(string filename) =>
+        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "mostaql", filename));
+
     private static bool ThrowsNafezly(Action action)
     {
         try
@@ -638,6 +645,40 @@ public static class Program
         // §9.5 / D49: nafezly names its real Laravel session cookie (confirmed present in the cookie jar)
         // instead of null, so Settings auto-wraps a bare paste rather than demanding a full export.
         Check("nafezly session cookie name is nfthly_session", nafezly.SessionCookieName == "nfthly_session", nafezly.SessionCookieName ?? "null");
+    }
+
+    /// <summary>v4 §4.7 / D48: the shipped parser run against REAL captured Mostaql markup (a
+    /// structure-only excerpt, values masked, provenance in the .meta.json). The client on this real
+    /// page genuinely has hire-rate 0.00%, 0 open, 0 in-progress, 2 ongoing — so these are the
+    /// table-shaped rows §4.7 says must resolve. If they come back null, that is the selector defect.</summary>
+    private static void TestMostaqlRealMarkupOwnerStats()
+    {
+        var details = DetailParser.Parse(1271465, LoadMostaqlFixture("detail_anon_1271465.html"));
+
+        Check("real markup parses (owner present)", details.Owner is not null);
+        Check("hire rate resolved from real table row (0.00%)", details.Owner.HiringRatePercent == 0.0,
+              $"{details.Owner.HiringRatePercent}");
+        Check("open projects count resolved (0)", details.Owner.OpenProjectsCount == 0,
+              $"{details.Owner.OpenProjectsCount}");
+        Check("in-progress count resolved (0)", details.Owner.InProgressProjectsCount == 0,
+              $"{details.Owner.InProgressProjectsCount}");
+        Check("ongoing communications resolved (2)", details.Owner.OngoingCommunicationsCount == 2,
+              $"{details.Owner.OngoingCommunicationsCount}");
+        Check("skills parsed from the real skills block", details.Skills.Count >= 1, $"{details.Skills.Count}");
+    }
+
+    /// <summary>v4 D48: the gate must prove selectors against REAL captured markup, not only the
+    /// hand-authored fixtures authored to match the parser. This asserts the real Mostaql fixture and
+    /// its provenance sidecar exist, so silently reverting to synthetic-only proof fails the build.</summary>
+    private static void TestMostaqlRealFixturesPresent()
+    {
+        var dir = Path.Combine(AppContext.BaseDirectory, "Fixtures", "mostaql");
+        var html = Directory.Exists(dir) ? Directory.GetFiles(dir, "*.html") : Array.Empty<string>();
+        Check("at least one real Mostaql fixture exists", html.Length >= 1, $"{html.Length} files");
+        // every real page ships a .meta.json provenance record (anti-vacuity: a scan that finds none must fail)
+        var missingMeta = html.Where(h => !File.Exists(h + ".meta.json")).ToArray();
+        Check("every real Mostaql fixture has a .meta.json", missingMeta.Length == 0, string.Join(",", missingMeta));
+        Check("scanned at least 1 real fixture file", html.Length >= 1, $"{html.Length}");
     }
 
     private static void TestNafezlyListingPage1()
