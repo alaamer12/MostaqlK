@@ -1,0 +1,57 @@
+ANALYSIS-KEY ARTWORK — v4 session metaphor
+===========================================
+
+Folder:   Resources/Images/Analysis/   (the csproj glob at MostaqlK.csproj:94 is `Resources\Images\**\*.png`,
+          so a new subfolder needs no project-file edit; drop a 1024-class square PNG here.)
+
+What the metaphor carries: v4's advanced analysis needs the user's own session cookie, and a cookie is a
+live credential. The two images say, without words, that the user already holds the key, that the archive
+behind the door is theirs and stays intact, and that a key which will not turn is an expired session —
+never an empty profile. This is the same story R2.8/D39 tell in data: a failed crawl never replaces a good one.
+
+Current mapping:
+  analysis_key_offer.png   — the invitation: he holds the card and the key, the gate is shut but glowing.
+      used by: profile.html connect state (`?cookies=false`), beside the paste box.
+      candidate: onboarding wizard step 5 («أي المنصات تراقب؟»), which PROMPT.txt in ../Onboarding/ records
+                 as the one step with no image. NOT wired — that is a visible change to a shipped surface.
+  analysis_key_blocked.png — the dead end: he reaches, the key does not turn, the archive still glows.
+      used by: profile.html read-failure page (`?reread=fail`), replacing the progress ring — a dial is for
+               progress, a scene is for a dead end, and the page must not carry two focal points.
+
+Both are 1254x1254 RGB PNG (~1.2 MB each). The onboarding series ships 0.3–1.3 MB, so they are in range;
+recompress only if bundle size becomes the constraint.
+
+----------------------------------------------------------------
+SHARED STYLE — identical to Resources/Images/Onboarding/PROMPT.txt
+----------------------------------------------------------------
+Flat vector, warm cream background (#FDF6EC). Same character throughout the product's artwork: young man,
+orange hair, dark-green t-shirt (#1B5E47), navy trousers (#1E2A4A), white sneakers. Accents: mostaql blue
+(#2386C8), nafezly orange (#FFA000), teal (#1B7A5A). Soft elliptical dark ground shadow. Sparse geometric
+confetti — dots, plus signs, short squiggles. Generous negative space, thick clean shapes, minimal shading.
+HARD RULES: no text, no letters, no numbers, no real brand logos or site marks.
+Emotional rule for state art: on a recoverable failure show effort meeting an obstacle, never loss. The
+face carries the obstacle; the lit archive behind the door carries the reassurance. Distress would tell the
+user something broke their data, which is the one reading this state exists to prevent.
+
+----------------------------------------------------------------
+PROMPTS AS GENERATED
+----------------------------------------------------------------
+analysis_key_blocked.png:
+"Flat vector illustration, warm cream background (#FDF6EC), square 1:1. A tall rounded gateway frame in
+muted grey-blue stands on the right, its doors shut with one simple padlock in restrained warm red
+(#C4453A). Behind the gate, stacked archive boxes glow softly from within in teal (#1B7A5A) and pale blue —
+clearly intact. A young man with orange hair, dark-green t-shirt (#1B5E47), navy trousers (#1E2A4A) and
+white sneakers leans slightly toward the shut gate, head and eyes turned to the padlock, one brow set,
+mouth neutral — intent and blocked, not distressed. He extends a key toward the lock without touching it. A
+single card with abstract rounded text-line bars rests on a low shelf beside him rather than in his hand.
+Thick clean shapes, minimal shading, generous negative space, large empty cream area above the scene. Soft
+elliptical dark ground shadow. Sparse geometric confetti — dots, plus signs, short squiggles — in muted
+grey and teal. Calm daylight mood, the glow behind the gate the only warm light. No text, no letters, no
+numbers, no brand logos, no exclamation marks, no cracks or broken objects, no slumped posture or crying,
+no red except the padlock. Modern app empty-state illustration style."
+
+analysis_key_offer.png: same scene, posture inverted to "he has both and knows what they are for" —
+"… stands upright and unhurried beside the shut gate, holding up one card with abstract rounded text-line
+bars in one hand and a loose key in the other, looking at the viewer with quiet confidence, smiling
+slightly. The archive behind the glass glows teal (#1B7A5A) and pale blue. …" plus the identical style and
+constraint block above.

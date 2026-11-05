@@ -7,6 +7,8 @@
 *.userosscache
 *.sln.docstates
 cookies.txt
+*_cookies.txt
+*.qoder-session*
 # Build results and output
 [Bb]in/
 [Oo]bj/

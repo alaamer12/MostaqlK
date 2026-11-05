@@ -23,23 +23,35 @@ Preferences for AI agents working in this repository. Follow these on every task
 | [`.repertoire/.steering/base/tech/README.md`](.repertoire/.steering/base/tech/README.md) | Base Tech docs index — unchanging conventions for C#, SQL, errors, and UI components. |
 | [`.repertoire/.steering/v1/product/README.md`](.repertoire/.steering/v1/product/README.md) | V1 Product docs index — current V1 scope, UX, and configuration. |
 | [`.repertoire/.steering/v1/tech/README.md`](.repertoire/.steering/v1/tech/README.md) | V1 Tech docs index — diff-engine, concurrency, workers, and V1-specific tech. |
-| [`.repertoire/.steering/v3/backend-ui-contract.md`](.repertoire/.steering/v3/backend-ui-contract.md) | The active wave's contract: what the backend may hand the UI, the settings bands/`SettingsKeys` authority, `PlatformEnablement`, and the isolability axes. Read for anything touching sources, settings or pipelines. |
+| [`.repertoire/.steering/v4/README.md`](.repertoire/.steering/v4/README.md) | **V4 index — the active wave.** What v4 is, its documents, its four surfaces, what it declares about versions, and the three items still blocking implementation. |
+| [`.repertoire/.steering/v4/competitor-analysis-requirements.md`](.repertoire/.steering/v4/competitor-analysis-requirements.md) | The full v4 record: personalization and competitor analysis, both live investigations with the commands and the evidence grades, the per-source field-availability matrix, requirements R1–R6, factors A–F, decisions **D1–D52** and corrections **C1–C14**. Read it before any v4 code. |
+| [`.repertoire/.steering/v3/backend-ui-contract.md`](.repertoire/.steering/v3/backend-ui-contract.md) | The shipped backend/UI contract: what the backend may hand the UI, the settings bands/`SettingsKeys` authority, `PlatformEnablement`, and the isolability axes. v4 extends it rather than replacing it. Read for anything touching sources, settings or pipelines. |
 | [`.repertoire/.steering/v3/animation-safety.md`](.repertoire/.steering/v3/animation-safety.md) | Binding animation rules 1–6, including why no tick or animation callback may throw into WinUI (`TickerGuard`) — each rule is a crash class with dump evidence behind it. |
 | [`.repertoire/.steering/v1/product/configuration-reference.md`](.repertoire/.steering/v1/product/configuration-reference.md) | The settings table with its **storage** column and the "who owns a setting's scope" rulings — the readable mirror of `SettingsCatalog.Builtin`, checked by `ParserTests`. |
 
-> **VERSION CONTEXT (reconciled with the filesystem, 2026-10-28 — verify before contradicting):**
+> **VERSION CONTEXT (reconciled with the filesystem, 2026-11-05 — verify before contradicting):**
 >
-> * **`base/` + `v1/` are the shipped product.** Read them for any work on the app as it runs today.
-> * **`v3/` is the wave in progress** — multi-source (`v3/product/multi-source-requirements.md`), the
->   backend/UI contract (`v3/backend-ui-contract.md`), and the binding animation rules
->   (`v3/animation-safety.md`). Anything touching sources, settings, pipelines or animation is governed
->   by `v3/`; ignore it and you will re-litigate settled decisions or reintroduce a crash class that is
->   written down there with dump evidence.
+> * **`base/` + `v1/` + `v3/` are the shipped product.** Read them for any work on the app as it runs
+>   today. `v3/` is multi-source: `v3/product/multi-source-requirements.md`, the backend/UI contract
+>   (`v3/backend-ui-contract.md`), and the binding animation rules (`v3/animation-safety.md`). Anything
+>   touching sources, settings, pipelines or animation is governed by those; ignore them and you will
+>   re-litigate settled decisions or reintroduce a crash class that is written down there with dump
+>   evidence.
+> * **`v4/` is the wave in progress** — personalization and competitor analysis
+>   (`.repertoire/.steering/v4/`), with its mockups in `design/postmvp/v4-analysis/`. On 2026-11-05 the v4
+>   work was **moved out of `design/postmvp/v3-multisource/` and `.steering/v3/` and those were restored to
+>   their shipped state**, so a v4 change never edits a v3 file: a page is copied into `v4-analysis/` the
+>   first time v4 edits it, and until then v4 mockups link across to `../v3-multisource/…`. Anything
+>   touching the user's profile, winnability scoring, bidder/performer data, session acquisition or the app
+>   chrome geometry is governed by `v4/`.
 > * **`v2/` is future scope** (personalization engine, search-and-filtering, roadmap-future). Ignore it
->   unless the task explicitly is v2.
+>   unless the task explicitly is v2. Note that v4's personalization overlaps v2's old label — v4 wins.
 >
-> When a `v3` doc and a `v1` doc disagree, `v3` wins for the feature it covers, and the disagreement is
-> worth reporting rather than silently picking one.
+> When docs from different versions disagree, the **higher wave wins for the feature it covers**
+> (`v4` > `v3` > `v1` > `base`), and the disagreement is worth reporting rather than silently picking one.
+> One named exception: `v4` deliberately *claims* something `v3`'s code does not do yet — the chrome
+> reversal (rail physical-right, radar physical-left) is ruled for v4 while
+> `MainWindowWindowsLayout.xaml` still renders the shipped arrangement. That gap is recorded, not hidden.
 
 These are the source of truth for project context. Do not contradict them without verifying the codebase first. Each README is a wiki-style index — follow its links to the specific doc that answers your question rather than assuming the README alone is enough.
 
@@ -251,13 +263,17 @@ When spawning a subagent (`Agent` tool or any delegated work), the **parent (mas
 === MANDATORY AGENT PREFERENCES (read and follow) ===
 
 1. CONTEXT — Read at conversation start and consider for every decision:
-   - `base/` + `v1/` are the SHIPPED product. `v3/` is the wave in progress (multi-source,
-     .repertoire/.steering/v3/backend-ui-contract.md, v3/animation-safety.md) and wins for the feature
-     it covers. `v2/` is future scope — ignore unless the task explicitly is v2.
+   - `base/` + `v1/` + `v3/` are the SHIPPED product (v3 = multi-source:
+     .repertoire/.steering/v3/backend-ui-contract.md, v3/animation-safety.md). `v4/` is the wave in
+     progress — read .repertoire/.steering/v4/README.md and v4/competitor-analysis-requirements.md before
+     any v4 work; v4 wins for the feature it covers (`v4 > v3 > v1 > base`). `v2/` is future scope —
+     ignore unless the task explicitly is v2.
    - .repertoire/.steering/base/product/README.md & .repertoire/.steering/base/tech/README.md
    - .repertoire/.steering/v1/product/README.md & .repertoire/.steering/v1/tech/README.md
-   - Design mockups: .repertoire/design/mvp/ (shipped) and .repertoire/design/postmvp/ — the v3 wave
-     lives in postmvp/v3-multisource/ (watch out: settings.html exists in three places, name the path)
+   - Design mockups: .repertoire/design/mvp/ (shipped), .repertoire/design/postmvp/v3-multisource/
+     (shipped v3 — restored, do not edit for v4 features), .repertoire/design/postmvp/v4-analysis/
+     (the active wave). A v4 page is copied into v4-analysis the first time it changes; until then it
+     links across to ../v3-multisource/. (watch out: settings.html exists in three places, name the path)
    - PLUS any task-specific docs the master agent lists below in "TASK-SPECIFIC DOCS" — read those in full and adhere to them exactly.
 
 2. SKILLS — Use at least ONE skill from ~/.qoder/skills/<name>/SKILL.md (read it in full; the CLI's available-skills list is authoritative). Common here: dtb, document, visual-parity-testing, capture, anti-slop, subagent. Not required for pure questions / read-only work.

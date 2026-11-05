@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar" data-source="nafezly"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Mostaqlk: ملفي (v4 · نفذلي)</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>tailwind.config = { darkMode: 'class', theme: { extend: {} } };</script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<style data-purpose="custom-styles">
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap');
+    body { font-family: 'Tajawal', sans-serif; }
+    :root {
+        --accent-positive: #2E9E6B; --accent-warn: #C77700; --accent-neg: #D14343; --accent-loss: #8B1F1F;
+        --bg-app: #f1f5f9; --surface: #ffffff; --surface-2: #f8fafc;
+        --ink-1: #0f172a; --ink-2: #475569; --ink-3: #64748b; --line: #e2e8f0;
+    }
+    html[data-source="mostaql"] { --brand: #2386C8; --brand-ink: #1A6DA6; --brand-soft: #EFF6FB; --brand-on: #ffffff; }
+    html[data-source="nafezly"] { --brand: #FFA200; --brand-ink: #9A6100; --brand-soft: #FFF4DE; --brand-on: #3a2a00; }
+    html.dark {
+        --accent-positive: #4FBF8C; --accent-warn: #E0A458; --accent-neg: #F07878; --accent-loss: #B04848;
+        --bg-app: #0f172a; --surface: #1e293b; --surface-2: #172032;
+        --ink-1: #f1f5f9; --ink-2: #cbd5e1; --ink-3: #94a3b8; --line: #334155;
+    }
+    html.dark[data-source="mostaql"] { --brand: #5CA8DE; --brand-ink: #5CA8DE; --brand-soft: rgba(92,168,222,.14); --brand-on: #0b1c2a; }
+    html.dark[data-source="nafezly"] { --brand: #FFB84D; --brand-ink: #FFB84D; --brand-soft: rgba(255,184,77,.14); --brand-on: #2a1d00; }
+
+    body { background-color: var(--bg-app); color: var(--ink-2); }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-app); }
+    ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+    ::selection { background: var(--brand); color: var(--brand-on); }
+
+    ::view-transition-group(root) { animation-duration: var(--morph-dur, 400ms); }
+    ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+    ::view-transition-old(root) { z-index: 0; }
+    ::view-transition-new(root) { z-index: 1; clip-path: var(--morph-clip-from, none); }
+    .morph-ring { position: fixed; border-radius: 50%; pointer-events: none; z-index: 9999; border: 3px solid var(--brand);
+        box-shadow: 0 0 22px color-mix(in srgb, var(--brand) 45%, transparent), inset 0 0 22px color-mix(in srgb, var(--brand) 25%, transparent); }
+    ::view-transition-group(ring) { animation: none; z-index: 3; }
+    ::view-transition-old(ring) { display: none; }
+    ::view-transition-new(ring) { animation: ring-grow var(--morph-dur, 400ms) ease-in-out forwards; transform-origin: center; }
+    @keyframes ring-grow { 0% { transform: scale(0.02); opacity: 1; } 75% { opacity: .9; } 100% { transform: scale(1); opacity: 0; } }
+
+    .rail { width: 64px; background: var(--surface); border-inline-end: 1px solid var(--line); }
+    .rail-btn { position: relative; width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--ink-3); transition: background-color .15s ease, color .15s ease; cursor: pointer; border: 0; }
+    .rail-btn:hover { background: var(--surface-2); color: var(--ink-1); }
+    .rail-btn.active { background: var(--brand-soft); color: var(--brand-ink); }
+    .rail-btn.active::before { content: ''; position: absolute; inset-inline-start: -10px; top: 50%; translate: 0 -50%; width: 3px; height: 22px; border-radius: 3px; background: var(--brand); }
+    .rail-btn .tip { position: absolute; inset-inline-start: 56px; white-space: nowrap; background: var(--ink-1); color: var(--bg-app); font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 7px; opacity: 0; pointer-events: none; transition: opacity .12s ease .25s; z-index: 50; }
+    .rail-btn:hover .tip, .rail-btn:focus .tip { opacity: 1; }
+    .src-tile { font-weight: 800; font-size: 17px; }
+    .src-tile[data-src="mostaql"] { background: #2386C8; color: #fff; }
+    .src-tile[data-src="nafezly"] { background: #FFA200; color: #3a2a00; }
+    html.dark .src-tile[data-src="mostaql"] { background: #5CA8DE; color: #0b1c2a; }
+    html.dark .src-tile[data-src="nafezly"] { background: #FFB84D; color: #2a1d00; }
+    .rail .src-tile { opacity: .45; filter: saturate(.4); }
+    .rail .src-tile.active { opacity: 1; filter: none; }
+    .rail-logo { width: 44px; height: 44px; display: block; border-radius: 50%; object-fit: contain; flex-shrink: 0; margin-bottom: 2px; }
+
+    .section-head { position: sticky; top: 0; z-index: 10; background: var(--surface); border-bottom: 1px solid var(--line); padding: .9rem 2rem; display: flex; align-items: center; gap: .6rem; }
+    .section-head h2 { font-size: 17px; font-weight: 800; color: var(--ink-1); }
+    .section-block { padding: 1.35rem 2rem 1.6rem; border-bottom: 1px solid var(--line); }
+    .kicker { font-size: 11px; font-weight: 700; letter-spacing: .3px; color: var(--ink-3); }
+    .pill { font-size: 12px; font-weight: 800; border-radius: 999px; padding: 4px 11px; display: inline-flex; align-items: center; gap: 6px; }
+    .pill-ok { background: rgba(46,158,107,.14); color: #1E7A50; }
+    .pill-warn { background: rgba(199,119,0,.16); color: #8F5600; }
+    .pill-neutral { background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line); }
+    html.dark .pill-ok { color: var(--accent-positive); } html.dark .pill-warn { color: var(--accent-warn); }
+    .btn-ghost { border: 1px solid var(--line); color: var(--ink-2); background: var(--surface); }
+    .btn-ghost:hover { background: var(--surface-2); color: var(--ink-1); }
+    .btn-brand { background: var(--brand); color: var(--brand-on); box-shadow: 0 6px 18px color-mix(in srgb, var(--brand) 30%, transparent); }
+    .btn-brand:hover { filter: brightness(1.06); }
+
+    .info { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; border: 1px solid currentColor; font-size: 9.5px; font-weight: 800; cursor: help; opacity: .75; flex-shrink: 0; }
+    .info .tipbox { position: absolute; bottom: calc(100% + 8px); right: 0; width: 300px; background: var(--ink-1); color: var(--bg-app); font-size: 11.5px; font-weight: 500; line-height: 1.7; padding: 10px 12px; border-radius: 9px; opacity: 0; pointer-events: none; transition: opacity .12s ease .1s; z-index: 80; text-align: right; box-shadow: 0 6px 22px rgba(0,0,0,.25); }
+    .info:hover .tipbox, .info:focus .tipbox { opacity: 1; }
+    .info.below .tipbox { bottom: auto; top: calc(100% + 8px); }
+
+    /* ===== portrait ===== */
+    .me { display: flex; align-items: center; gap: 1.75rem; flex-wrap: wrap; }
+    .stage { position: relative; width: 168px; height: 168px; flex-shrink: 0; }
+    .face { position: absolute; inset: 14px; border-radius: 50%; display: grid; place-items: center; overflow: hidden;
+        background: color-mix(in srgb, var(--brand) 15%, var(--surface)); color: var(--brand-ink); font-size: 38px; font-weight: 900; }
+    .face img { width: 100%; height: 100%; object-fit: cover; }
+    .arc { position: absolute; inset: 0; width: 168px; height: 168px; transform: rotate(-90deg); }
+    .arc circle.bg { fill: none; stroke: var(--line); stroke-width: 7; }
+    .arc circle.val { fill: none; stroke: var(--brand); stroke-width: 7; stroke-linecap: round; transition: stroke-dashoffset .45s ease; }
+    .pct { position: absolute; inset-block-end: -2px; inset-inline-end: -6px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 800; color: var(--ink-1); box-shadow: 0 2px 8px rgba(2,6,23,.08); }
+
+    /* the avatar is editable too — same affordance as the value boxes */
+    .face-btn { position: absolute; inset: 14px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; background: transparent; display: grid; place-items: center; }
+    .face-btn .veil { width: 100%; height: 100%; border-radius: 50%; display: grid; place-items: center; gap: 2px;
+        background: color-mix(in srgb, var(--ink-1) 62%, transparent); color: #fff; opacity: 0; transition: opacity .14s ease; font-size: 10.5px; font-weight: 800; }
+    .face-btn .veil i { font-size: 15px; }
+    .face-btn:hover .veil, .face-btn:focus-visible .veil { opacity: 1; }
+
+    /* manual mode: with no session the photo is yours to supply, so the affordance stops hiding */
+    .stage.manual .face-btn .veil { opacity: 1; background: color-mix(in srgb, var(--ink-1) 58%, transparent); }
+    .stage.manual .face-btn { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--brand); }
+    .stage.manual .face-btn .veil .cap { display: block; font-size: 9px; font-weight: 700; opacity: .8; margin-top: 1px; }
+    .stage.manual .face-btn:hover .veil { background: color-mix(in srgb, var(--ink-1) 68%, transparent); }
+    .face-file { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+    .pop { position: absolute; z-index: 60; top: 50%; inset-inline-start: 178px; translate: 0 -50%; background: var(--surface);
+        border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 30px -10px rgba(2,6,23,.28); padding: .35rem; display: grid; gap: .15rem; min-width: 210px; }
+    .pop[hidden] { display: none; }
+    .pop button { display: flex; align-items: center; gap: .6rem; font-size: 12.5px; font-weight: 700; color: var(--ink-2);
+        background: transparent; border: 0; padding: .55rem .65rem; border-radius: 9px; cursor: pointer; text-align: start; }
+    .pop button:hover { background: var(--surface-2); color: var(--ink-1); }
+    .pop button[aria-current="true"] { background: var(--brand-soft); color: var(--brand-ink); }
+    .pop .ph { font-size: 10px; font-weight: 800; color: var(--ink-3); padding: .45rem .65rem .15rem; letter-spacing: .3px; }
+
+    .me h1 { font-size: 24px; font-weight: 900; color: var(--ink-1); display: flex; align-items: center; gap: 8px; }
+    .me .sub { font-size: 12.5px; color: var(--ink-3); margin-top: 5px; }
+    .me .cmp { font-size: 13px; color: var(--ink-2); margin-top: .9rem; display: flex; align-items: center; gap: 7px; }
+    .me .cmp b { color: var(--ink-1); font-weight: 800; font-size: 14px; }
+
+    /* ===== editable value boxes: hover shows what you can do, click edits in place ===== */
+    .cells { display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); gap: .85rem; margin-top: 1.4rem; }
+    .cells-me { grid-template-columns: repeat(auto-fit, minmax(178px, 1fr)); gap: .7rem; align-self: center; }
+    .cell { position: relative; text-align: center; background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px;
+        padding: .85rem .7rem .8rem; cursor: pointer; transition: border-color .14s ease, box-shadow .14s ease, background-color .14s ease; }
+    .cell .lab { display: block; font-size: 11.5px; color: var(--ink-3); font-weight: 700; margin-bottom: 4px; }
+    .cell .val { display: block; font-size: 23px; font-weight: 900; color: var(--ink-1); line-height: 1.2; letter-spacing: -.3px; }
+    .cell .val.pos { color: var(--accent-positive); }
+    .cell .val.dim { color: var(--ink-3); font-weight: 700; font-size: 15px; }
+    .cell .sub { display: block; font-size: 10.5px; color: var(--ink-3); margin-top: 3px; }
+    .cell .pen { position: absolute; inset-block-start: 7px; inset-inline-end: 8px; font-size: 10px; color: var(--ink-3); opacity: .3; transition: opacity .14s ease; }
+    .cell:hover .pen, .cell:focus-visible .pen { opacity: .95; }
+    .cell:hover { border-color: color-mix(in srgb, var(--brand) 55%, var(--line)); box-shadow: 0 4px 14px -8px rgba(2,6,23,.3); }
+    .cell:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+    .cell[data-kind="site"] { cursor: default; background: var(--surface); }
+    .cell[data-kind="site"]:hover { border-color: var(--line); box-shadow: none; }
+    .cell[data-kind="site"] .pen { display: none; }
+    .cell.empty .val { color: var(--brand-ink); font-size: 15px; font-weight: 800; }
+    .cell .src { position: absolute; inset-block-end: -9px; inset-inline-start: 50%; translate: -50% 0; font-size: 9px; font-weight: 800;
+        padding: 1px 8px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--ink-3); opacity: 0; transition: opacity .14s ease; white-space: nowrap; }
+    .cell:hover .src, .cell:focus-visible .src { opacity: 1; }
+
+    .editor { display: grid; gap: .4rem; justify-items: center; }
+    .editor input, .editor select { font-family: inherit; font-size: 14px; font-weight: 700; text-align: center; color: var(--ink-1);
+        background: var(--surface); border: 1px solid var(--brand); border-radius: 9px; padding: 5px 8px; min-width: 120px; }
+    .editor input:focus, .editor select:focus { outline: 2px solid color-mix(in srgb, var(--brand) 40%, transparent); outline-offset: 1px; }
+    .editor .hint { font-size: 9.5px; color: var(--ink-3); }
+
+    /* skills inline */
+    .skills { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; max-width: 760px; }
+    .skill { font-size: 12.5px; font-weight: 700; padding: 6px 11px; border-radius: 9px; background: var(--brand-soft); color: var(--brand-ink); display: inline-flex; align-items: center; gap: 7px; }
+    .skill i { font-size: 9px; opacity: .55; cursor: pointer; }
+    .skill-add { font-size: 12.5px; font-weight: 700; padding: 6px 11px; border-radius: 9px; border: 1px dashed var(--line); color: var(--ink-3); background: transparent; cursor: pointer; }
+    .skill-add:hover { border-color: var(--brand); color: var(--brand-ink); }
+    .inline-input { font-family: inherit; font-size: 12.5px; font-weight: 700; padding: 6px 11px; border-radius: 9px; border: 1px solid var(--brand); background: var(--surface); color: var(--ink-1); width: 170px; }
+    .field-why { font-size: 11.5px; color: var(--ink-3); margin-top: .75rem; }
+    .field-why b { color: var(--brand-ink); font-weight: 700; }
+
+    /* charts */
+    .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; }
+    @media (max-width: 1000px) { .charts { grid-template-columns: 1fr; } }
+    .chart-h { display: flex; align-items: center; gap: .5rem; margin-bottom: .85rem; }
+    .chart-h h3 { font-size: 14px; font-weight: 800; color: var(--ink-1); display: flex; align-items: center; gap: 7px; }
+    .chart-h .cnt { margin-inline-start: auto; font-size: 11px; font-weight: 700; color: var(--ink-3); }
+    .stack { display: flex; width: 100%; height: 34px; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); }
+    .legend { display: flex; flex-wrap: wrap; gap: 7px 20px; margin-top: .85rem; font-size: 12px; color: var(--ink-2); }
+    .legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-inline-end: 6px; }
+    .legend b { color: var(--ink-1); font-weight: 800; }
+    .chart-note { font-size: 11px; color: var(--ink-3); margin-top: .8rem; line-height: 1.7; }
+    .empty { display: grid; place-items: center; height: 78px; border: 1px dashed var(--line); border-radius: 10px; font-size: 11.5px; color: var(--ink-3); text-align: center; line-height: 1.7; }
+    .pairs { display: grid; gap: .95rem; }
+    .pair { display: grid; grid-template-columns: 78px 1fr 74px; gap: .8rem; align-items: center; font-size: 12px; }
+    .pair .pl { color: var(--ink-2); font-weight: 700; }
+    .pair .bars { display: grid; gap: 4px; }
+    .barline { display: flex; align-items: center; gap: 8px; }
+    .barline .tag { font-size: 10px; font-weight: 700; color: var(--ink-3); width: 58px; flex-shrink: 0; }
+    .barline .rail2 { position: relative; flex: 1; height: 13px; border-radius: 5px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; }
+    .barline .fill2 { position: absolute; inset-block: 0; inset-inline-start: 0; border-radius: 5px; }
+    .barline .amt { font-size: 11px; font-weight: 800; color: var(--ink-1); width: 54px; }
+    .pair .delta { text-align: left; font-size: 12px; font-weight: 800; }
+    .pair .delta.bad { color: var(--accent-neg); } .pair .delta.good { color: var(--accent-positive); }
+    .btrack { position: relative; height: 18px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; }
+
+    .switches { display: flex; flex-wrap: wrap; gap: .7rem; align-items: center; }
+    .sw-chip { font-size: 12px; font-weight: 800; padding: 6px 13px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink-3); cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+    .sw-chip[aria-pressed="true"] { background: var(--brand); color: var(--brand-on); border-color: var(--brand); }
+    .sw-chip:disabled { opacity: .5; cursor: not-allowed; }
+
+    .gaps { display: grid; grid-template-columns: 1fr 1fr; gap: 1.15rem 2rem; }
+    @media (max-width: 900px) { .gaps { grid-template-columns: 1fr; } }
+    .gap { display: flex; gap: .65rem; font-size: 12.5px; color: var(--ink-2); align-items: flex-start; }
+    .gap i.ico { width: 26px; height: 26px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-3); display: grid; place-items: center; font-size: 10.5px; flex-shrink: 0; }
+    .gap.read i.ico { color: var(--accent-positive); border-color: color-mix(in srgb, var(--accent-positive) 40%, var(--line)); }
+    .gap span b { color: var(--ink-1); font-weight: 800; }
+    .gap span em { display: block; font-style: normal; font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+
+    .readbar { position: sticky; top: 0; z-index: 11; display: flex; align-items: center; gap: .75rem;
+        padding: .7rem 2rem; font-size: 12.5px; font-weight: 700; border-bottom: 1px solid var(--line); background: var(--surface-2); color: var(--ink-2); }
+    .readbar[hidden] { display: none; }
+    .readbar.ok { background: color-mix(in srgb, var(--accent-positive) 12%, var(--surface)); color: #1E7A50; }
+    .readbar.fail { background: color-mix(in srgb, var(--accent-neg) 12%, var(--surface)); color: #B03030; }
+    html.dark .readbar.ok { color: var(--accent-positive); } html.dark .readbar.fail { color: var(--accent-neg); }
+    .readbar .spin { animation: spin 900ms linear infinite; }
+    @keyframes spin { to { rotate: 360deg; } }
+    .readbar .prog { flex: 1; max-width: 220px; height: 5px; border-radius: 999px; background: var(--line); overflow: hidden; }
+    .readbar .prog i { display: block; height: 100%; background: var(--brand); border-radius: 999px; }
+    .readbar .acts { margin-inline-start: auto; display: flex; gap: .5rem; }
+    .readbar .acts a, .readbar .acts button { font-size: 11.5px; font-weight: 800; padding: 4px 11px; border-radius: 8px; border: 1px solid currentColor; background: transparent; color: inherit; cursor: pointer; text-decoration: none; }
+
+    /* ===== the read is a page of its own, not a strip on top of your file ===== */
+    /* ===== the read, in the page register: full-bleed bands, hairlines, no card ===== */
+    .readpage { background: var(--surface); }
+    .readpage[hidden] { display: none; }
+    .rp-band { position: relative; display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 2.75rem; align-items: center; }
+    .rp-halo { position: absolute; inset: -14% -18% auto; height: 132%; border-radius: 50%; filter: blur(48px); opacity: .5; pointer-events: none;
+        background: radial-gradient(circle at 50% 46%, color-mix(in srgb, var(--brand) 36%, transparent), transparent 70%); }
+    .rp-frame { position: relative; border-radius: 26px; padding: 10px; border: 1px solid var(--line);
+        background: linear-gradient(160deg, color-mix(in srgb, var(--brand) 20%, var(--surface)), var(--surface) 46%, var(--surface-2));
+        box-shadow: 0 34px 60px -32px color-mix(in srgb, var(--brand) 46%, transparent), 0 2px 10px rgba(2,6,23,.06); }
+    .rp-art { width: 100%; height: auto; display: block; border-radius: 18px; background: #FDF6EC; }
+    .rp-art[hidden], .rp-mark[hidden], .rp-frame[hidden], .rp-chip[hidden], .rp-snapshot[hidden] { display: none; }
+    .rp-chip { position: absolute; inset-block-end: 24px; inset-inline-start: 34px; display: inline-flex; align-items: center; gap: .45rem;
+        font-size: 11px; font-weight: 900; padding: 6px 12px; border-radius: 999px; background: var(--surface);
+        border: 1px solid var(--line); color: var(--ink-2); box-shadow: 0 10px 20px -12px rgba(2,6,23,.45); }
+    .rp-chip i { color: var(--brand); }
+    .rp-chip.bad { color: var(--accent-neg); border-color: color-mix(in srgb, var(--accent-neg) 34%, var(--line)); }
+    .rp-chip.bad i { color: var(--accent-neg); }
+
+    .rp-mark { position: relative; width: 220px; height: 220px; margin: 0 auto; }
+    .rp-mark svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+    .rp-mark circle { fill: none; stroke-width: 9; }
+    .rp-mark .rp-bg { stroke: var(--line); }
+    .rp-mark .rp-fg { stroke: var(--brand); stroke-linecap: round; transition: stroke-dashoffset .35s ease; }
+    .rp-pct { position: absolute; inset: 0; display: grid; place-items: center; font-size: 44px; font-weight: 900;
+        letter-spacing: -1.6px; color: var(--ink-1); font-variant-numeric: tabular-nums; }
+    .rp-live { position: absolute; inset-inline: 0; bottom: 40px; text-align: center; font-size: 10.5px; font-weight: 800;
+        color: var(--ink-3); font-variant-numeric: tabular-nums; }
+    .readpage.spin .rp-mark svg { animation: spin 1.9s linear infinite; }
+
+    .rp-eyebrow { display: flex; align-items: center; gap: .5rem; font-size: 10.5px; font-weight: 900; letter-spacing: .5px; color: var(--brand-ink); }
+    .rp-title { font-size: 31px; font-weight: 900; letter-spacing: -.7px; line-height: 1.28; color: var(--ink-1); margin-top: .6rem; }
+    .rp-kick { font-size: 13.5px; color: var(--ink-2); line-height: 1.85; margin-top: .7rem; max-width: 64ch; }
+    .rp-note { font-size: 12px; color: var(--ink-3); line-height: 1.8; margin-top: 1.15rem; }
+    .rp-snapshot { margin-top: 1.25rem; display: flex; gap: .6rem; align-items: center; font-size: 11.5px; font-weight: 800;
+        color: var(--ink-2); padding: .65rem .9rem; border-radius: 12px; border: 1px dashed var(--line); background: var(--surface-2); }
+    .rp-snapshot i { color: var(--brand); }
+    .rp-snapshot b { color: var(--ink-1); font-variant-numeric: tabular-nums; }
+
+    .rp-steps { display: grid; list-style: none; margin: 0; padding: 0; }
+    .rp-steps li { position: relative; display: grid; grid-template-columns: 34px 1fr auto auto; gap: 1rem; align-items: center;
+        padding: .72rem 0; font-size: 13px; font-weight: 700; color: var(--ink-2); }
+    .rp-steps li + li::before { content: ""; position: absolute; inset-inline: 0; top: 0; height: 1px; background: var(--line); }
+    .rp-steps li .med { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;
+        background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-3); font-size: 12.5px; }
+    .rp-steps li .t { display: flex; flex-direction: column; gap: 3px; }
+    .rp-steps li .t b { color: var(--ink-1); font-weight: 800; font-size: 13px; }
+    .rp-steps li .u { font-size: 11px; color: var(--ink-3); font-weight: 700; direction: ltr; unicode-bidi: isolate;
+        font-family: ui-monospace, 'Cascadia Code', Consolas, monospace; }
+    .rp-steps li .tm { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums;
+        font-family: ui-monospace, 'Cascadia Code', Consolas, monospace; }
+    .rp-steps li .s { font-size: 10.5px; font-weight: 900; letter-spacing: .3px; padding: 4px 10px; border-radius: 8px; white-space: nowrap;
+        background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-3); }
+    .rp-steps li.done .med { color: var(--accent-positive); background: color-mix(in srgb, var(--accent-positive) 13%, var(--surface));
+        border-color: color-mix(in srgb, var(--accent-positive) 34%, var(--line)); }
+    .rp-steps li.done .s { color: var(--accent-positive); background: color-mix(in srgb, var(--accent-positive) 9%, var(--surface));
+        border-color: color-mix(in srgb, var(--accent-positive) 30%, var(--line)); }
+    .rp-steps li.doing .med { color: var(--brand); background: var(--brand-soft); border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); }
+    .rp-steps li.doing .s { color: var(--brand-ink); background: var(--brand-soft); border-color: color-mix(in srgb, var(--brand) 36%, var(--line)); }
+    .rp-steps li.dead { background: color-mix(in srgb, var(--accent-neg) 7%, var(--surface));
+        box-shadow: inset 3px 0 0 var(--accent-neg); margin-inline: -2rem; padding-inline: 2rem; }
+    .rp-steps li.dead .med { color: var(--accent-neg); background: color-mix(in srgb, var(--accent-neg) 13%, var(--surface));
+        border-color: color-mix(in srgb, var(--accent-neg) 38%, var(--line)); }
+    .rp-steps li.dead .s { color: var(--brand-on); background: var(--accent-neg); border-color: var(--accent-neg); }
+
+    .rp-badge { margin-inline-start: auto; font-size: 10.5px; font-weight: 900; letter-spacing: .3px; padding: 4px 11px;
+        border-radius: 999px; white-space: nowrap; background: var(--brand-soft); color: var(--brand-ink); }
+    .rp-badge.bad { background: color-mix(in srgb, var(--accent-neg) 13%, transparent); color: var(--accent-neg); }
+
+    @media (max-width: 940px) { .rp-band { grid-template-columns: 1fr; gap: 1.75rem; } .rp-frame { max-width: 300px; } .rp-title { font-size: 26px; } }
+    @media (prefers-reduced-motion: reduce) { .readpage.spin .rp-mark svg { animation: none; } }
+
+    /* ===== the key offer: shown while nothing has ever been read ===== */
+    .keyoffer { margin-top: 1.4rem; display: grid; grid-template-columns: 208px 1fr; gap: 1.5rem;
+        align-items: center; border: 1px solid var(--line); border-radius: 16px; padding: 1.15rem 1.25rem; background: var(--surface-2); }
+    .keyoffer[hidden] { display: none; }
+    .keyoffer img { width: 100%; max-width: 208px; display: block; border-radius: 16px; background: #FDF6EC; }
+    .keyoffer h3 { font-size: 16px; font-weight: 900; color: var(--ink-1); }
+    .keyoffer p { font-size: 12.5px; color: var(--ink-2); line-height: 1.75; margin-top: .35rem; }
+    .keyoffer .unlocks { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .75rem; }
+    .keyoffer .unlocks span { font-size: 11px; font-weight: 800; padding: 4px 9px; border-radius: 8px;
+        background: var(--surface); border: 1px solid var(--line); color: var(--ink-2); }
+    .paste { margin-top: .9rem; display: grid; gap: .5rem; }
+    .paste textarea { font-family: ui-monospace, monospace; font-size: 11.5px; direction: ltr; width: 100%; min-height: 60px;
+        resize: vertical; padding: .6rem .7rem; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink-2); }
+    .paste textarea:focus { outline: 2px solid color-mix(in srgb, var(--brand) 40%, transparent); border-color: var(--brand); }
+    .paste .row { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; }
+    .paste .hint { font-size: 11px; color: var(--ink-3); }
+    .paste .hint code { font-family: ui-monospace, monospace; unicode-bidi: isolate; color: var(--brand-ink); }
+    .paste .warn { font-size: 11px; font-weight: 800; color: var(--accent-neg); }
+    .keyoffer .safe { margin-top: .75rem; display: flex; gap: .5rem; align-items: flex-start; font-size: 11px;
+        line-height: 1.65; color: var(--ink-3); }
+    .keyoffer .safe i { color: var(--accent-positive); margin-top: 3px; }
+    @media (max-width: 880px) { .keyoffer { grid-template-columns: 1fr; } .keyoffer img { max-width: 168px; } }
+</style>
+<script data-purpose="theme-init">
+    (function () {
+        var q = ''; try { q = new URLSearchParams(location.search).get('theme') || ''; } catch (e) {}
+        var stored = null; try { stored = localStorage.getItem('mostaqlk-theme'); } catch (e) {}
+        var dark = q ? (q === 'dark') : (stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) document.documentElement.classList.add('dark');
+    })();
+</script>
+</head>
+<body class="min-h-screen flex">
+
+<!-- BEGIN: Icon rail -->
+<aside class="rail flex flex-col items-center py-4 gap-2 shrink-0" data-purpose="icon-rail">
+    <img class="rail-logo" src="../../../../Resources/Images/logo.png" alt="MostaqlK — ملفك" width="44" height="44"/>
+    <div class="w-8 h-px rounded-full my-1" style="background: var(--line);"></div>
+    <button class="rail-btn src-tile" data-src="mostaql" aria-label="مستقل" onclick="go('mostaql')">م<span class="tip">مستقل — mostaql.com</span></button>
+    <button class="rail-btn src-tile active" data-src="nafezly" aria-label="نفذلي" onclick="go('nafezly')">ن<span class="tip">نفذلي — nafezly.com</span></button>
+    <div class="w-8 h-px rounded-full my-1" style="background: var(--line);"></div>
+    <button class="rail-btn" aria-label="المشاريع" onclick="location.href='projects.html'"><i class="fa-solid fa-list-check"></i><span class="tip">المشاريع</span></button>
+    <button class="rail-btn"><i class="fa-solid fa-magnifying-glass"></i><span class="tip">البحث المتقدم</span></button>
+    <button class="rail-btn" onclick="location.href='settings.html'" aria-label="الإعدادات"><i class="fa-solid fa-gear"></i><span class="tip">الإعدادات — جلسة المنصة</span></button>
+    <button class="rail-btn"><i class="fa-solid fa-circle-info"></i><span class="tip">حول التطبيق</span></button>
+    <div class="mt-auto flex flex-col items-center gap-2">
+        <button class="rail-btn"><i class="fa-regular fa-bell"></i><span class="tip">الإشعارات</span></button>
+        <button class="rail-btn" id="theme-toggle" aria-label="تبديل الوضع الداكن" onclick="toggleTheme(this)"><i id="theme-icon" class="fa-regular fa-moon"></i><span class="tip">الوضع الداكن</span></button>
+    </div>
+</aside>
+<!-- END: rail -->
+
+<!-- BEGIN: Main -->
+<main class="flex-1 min-w-0 flex flex-col overflow-hidden" style="direction: rtl;" data-purpose="main-content">
+    <header class="px-6 pt-4 pb-3 shrink-0" style="background: var(--surface); border-bottom: 1px solid var(--line);">
+        <div class="grid grid-cols-3 items-center gap-4">
+            <div class="justify-self-start flex items-center gap-2">
+                <a href="projects.html" class="w-9 h-9 flex items-center justify-center rounded-lg" style="color: var(--ink-3);" aria-label="رجوع"><i class="fa-solid fa-arrow-right-long"></i></a>
+                <span class="pill" id="state-pill">—</span>
+                <a class="text-[12px] font-bold hover:underline" style="color: var(--brand-ink);" href="../v3-multisource/settings.html">جلسة المنصة</a>
+            </div>
+            <div class="justify-self-center text-center">
+                <h1 class="text-lg font-extrabold" style="color: var(--ink-1);">ملفي</h1>
+                <p class="text-xs" style="color: var(--ink-3);" id="hdr-hint">اضغط أي قيمة لتعديلها في مكانها</p>
+            </div>
+            <div class="justify-self-end"><span class="pill pill-neutral" id="hdr-src">نفذلي</span></div>
+        </div>
+    </header>
+
+    <div class="flex-1 overflow-y-auto" style="background: var(--bg-app);">
+
+        <!-- ============ the read: a page of its own, in the app's own section grammar ============ -->
+        <div class="readpage" id="readpage" hidden role="status" aria-live="polite">
+
+            <section class="section-block" style="border-top: 0;" data-purpose="read-stage">
+                <div class="rp-band">
+                    <div class="rp-halo" aria-hidden="true"></div>
+                    <div class="rp-side">
+                        <div class="rp-frame" id="rp-frame">
+                            <img class="rp-art" id="rp-art" alt="مفتاحٌ لا يدور في قفل الخزانة المضيئة"
+                                 src="../../../../Resources/Images/Analysis/analysis_key_blocked.png"/>
+                            <span class="rp-chip" id="rp-chip" hidden><i class="fa-solid fa-circle-xmark"></i><span id="rp-chip-text"></span></span>
+                        </div>
+                        <div class="rp-mark" id="rp-mark" hidden>
+                            <svg viewBox="0 0 132 132" aria-hidden="true">
+                                <circle class="rp-bg" cx="66" cy="66" r="58"/>
+                                <circle class="rp-fg" id="rp-fg" cx="66" cy="66" r="58" stroke-dasharray="364" stroke-dashoffset="364"/>
+                            </svg>
+                            <span class="rp-pct" id="rp-pct">0%</span>
+                            <span class="rp-live" id="rp-live"></span>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="rp-eyebrow"><i class="fa-solid fa-file-arrow-down"></i><span id="rp-eyebrow">نتيجة القراءة</span></div>
+                        <h2 class="rp-title" id="rp-title"></h2>
+                        <p class="rp-kick" id="rp-kick"></p>
+                        <div class="rp-snapshot" id="rp-snapshot" hidden></div>
+                        <p class="rp-note" id="rp-note"></p>
+                    </div>
+                </div>
+            </section>
+
+            <section data-purpose="read-log">
+                <div class="section-head"><h2>سجلّ القراءة</h2><span class="rp-badge" id="rp-badge"></span></div>
+                <div class="section-block" style="padding-top: .3rem;"><ol class="rp-steps" id="rp-steps"></ol></div>
+            </section>
+
+            <div class="px-8 py-5 flex items-center justify-end gap-3" id="rp-acts"></div>
+        </div>
+
+        <div class="min-h-full" id="content" style="background: var(--surface);">
+
+            <div class="readbar" id="readbar" hidden role="status" aria-live="polite"></div>
+
+            <!-- ============ portrait: every box is an affordance ============ -->
+            <section class="section-block" style="border-top: 0;" data-purpose="portrait">
+                <div class="me">
+                    <div class="stage" id="stage">
+                        <div class="face" id="face"><span id="face-text">أنت</span></div>
+                        <svg class="arc" viewBox="0 0 168 168" role="img" aria-label="اكتمال الملف مقابل المرجع">
+                            <circle class="bg" cx="84" cy="84" r="78"/>
+                            <circle class="val" id="arc-val" cx="84" cy="84" r="78" stroke-dasharray="490" stroke-dashoffset="123"/>
+                        </svg>
+                        <button class="face-btn" id="face-btn" aria-haspopup="true" aria-expanded="false" aria-label="تغيير الصورة">
+                            <span class="veil" id="face-veil"><i class="fa-solid fa-camera"></i> تغيير الصورة</span>
+                        </button>
+                        <!-- the real picker: clicking the avatar in manual mode opens the OS file explorer -->
+                        <input class="face-file" type="file" id="face-file" accept="image/*" tabindex="-1" aria-hidden="true"/>
+                        <div class="pct" id="pct">7.5/10</div>
+                        <div class="pop" id="face-pop" hidden role="menu">
+                            <span class="ph">مصدر الصورة</span>
+                            <button role="menuitem" data-face="site" aria-current="true"><i class="fa-solid fa-globe text-[10px]"></i> من ملفي العام</button>
+                            <button role="menuitem" data-face="initials"><i class="fa-solid fa-signature text-[10px]"></i> أحرف أولى</button>
+                            <button role="menuitem" data-face="upload"><i class="fa-regular fa-image text-[10px]"></i> رفع صورة</button>
+                            <button role="menuitem" data-face="none"><i class="fa-solid fa-circle-minus text-[10px]"></i> بلا صورة</button>
+                        </div>
+                    </div>
+                    <div style="flex: 1; min-width: 250px;">
+                        <h1><span>أنت</span> <i class="fa-solid fa-circle-check" style="color: var(--brand); font-size: 15px;" id="verified"></i></h1>
+                        <p class="sub" id="psub">مهندس برمجيات · مصر · عضو منذ سنة · آخر تواجد منذ دقيقة</p>
+                        <p class="cmp"><b id="cmp-strong">اكتمال 7.5/10</b> مقابل الملف المرجعي
+                            <span class="info below" tabindex="0">i<span class="tipbox" id="cmp-tip"></span></span>
+                        </p>
+                        <p class="kicker" id="cmp-legend">كل ما هنا يُقرأ من ملفك العام · والأسعار تحتاج جلسة ولها قسمها الخاص</p>
+                    </div>
+                    <div class="cells cells-me" id="cells" style="flex: 2 1 460px; margin-top: 0;"></div>
+                </div>
+
+                <!-- the offer: shown while no session has ever been read -->
+                <div class="keyoffer" id="keyoffer" hidden>
+                    <img alt="الشاب يرفع بطاقته ومفتاحه أمام الخزانة المضيئة"
+                         src="../../../../Resources/Images/Analysis/analysis_key_offer.png"/>
+                    <div>
+                        <h3>المفتاح عندك بالفعل</h3>
+                        <p>ملفك العام يُقرأ بلا شيء من عندك. أما ما يحتاج جلستك — أسعارُك التي عرضتها، ونتائجُ عروضك، ومعدلاتُ توظيف مَن تقدّمت عليهم — فلا يُقرأ إلا بالمفتاح، وهو ملف تعريف الارتباط الخاص بك على الموقع.</p>
+                        <div class="unlocks">
+                            <span>قيمة كل عرض قدّمته</span><span>فارق السعر عند الخسارة</span>
+                            <span>معدل توظيف صاحب المشروع</span><span>نتائج عروضك واحدةً واحدة</span>
+                        </div>
+                        <div class="paste">
+                            <textarea id="paste-box" spellcheck="false" aria-label="ملف تعريف الارتباط"></textarea>
+                            <div class="row">
+                                <button class="btn-brand flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold" id="paste-go"><i class="fa-solid fa-key"></i> ربط المفتاح</button>
+                                <a href="../v3-multisource/settings.html" style="font-size:12px;font-weight:800;color:var(--brand-ink)">أو من الإعدادات</a>
+                                <span class="hint" id="paste-hint"></span>
+                            </div>
+                            <span class="warn" id="paste-warn" hidden>لم يصل من هذا شيء يشبه مفتاحًا — الصق القيمة كاملة كما نسختها من المتصفح.</span>
+                        </div>
+                        <p class="safe"><i class="fa-solid fa-shield-halved"></i><span id="safe-line"></span></p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ============ the fields the site never tells us ============ -->
+            <section data-purpose="manual">
+                <div class="section-head">
+                    <h2>ما لا تعرفه المنصة عنك</h2>
+                    <span class="kicker">أربعة حقول · لا تُقرأ من الموقع · اضغط أي واحد لتعديله في مكانه</span>
+                </div>
+                <div class="section-block">
+                    <div class="skills" id="skills"></div>
+                    <p class="field-why">أثقل عامل في الدرجة: <b>تقاطع المهارات</b> مع متطلبات كل مشروع. وسوم المنصة المعلنة لا تعرف ما تنفّذه فعلًا — أضف مهارة واحدة = عامل جديد يعمل في كل بطاقة مشروع.</p>
+                    <div class="cells" id="cells-mine"></div>
+                    <p class="field-why">تستهلكها عوامل <b>الميزانية مقابل نطاقك</b> و<b>السرعة مقابل موعد المشروع</b> و<b>التفرّغ</b>. ما عداها في الصفحة أعلاه يقرؤه التطبيق من ملفك ولا يُدخل يدويًا.</p>
+                </div>
+            </section>
+
+            <!-- ============ history ============ -->
+            <section data-purpose="history">
+                <div class="section-head">
+                    <h2>سجلّك كما قرأناه</h2>
+                    <span class="kicker" id="hist-kicker">من صفحة عروضك العامة — لا يحتاج جلسة</span>
+                </div>
+                <div class="section-block"><div class="charts" id="charts"></div></div>
+            </section>
+
+            <!-- ============ session-gated ============ -->
+            <section data-purpose="session">
+                <div class="section-head">
+                    <h2>ما تفتحه الجلسة</h2>
+                    <span class="kicker">يُقرأ فقط حين تُقبل الجلسة — وإلا يبقى مقفلًا لا مخمَّنًا</span>
+                </div>
+                <div class="section-block">
+                    <div class="switches" id="switches" style="margin-bottom: 1.25rem;"></div>
+                    <div class="charts" id="sess-charts"></div>
+                </div>
+            </section>
+
+            <!-- ============ gaps ============ -->
+            <section data-purpose="gaps">
+                <div class="section-head">
+                    <h2>الناقص والمقفل</h2>
+                    <span class="kicker">ما يرفع الاكتمال، وما لن يُقرأ بلا جلسة</span>
+                </div>
+                <div class="section-block"><div class="gaps" id="gaps"></div></div>
+            </section>
+
+            <div class="px-8 py-5 flex items-center justify-end gap-3">
+                <button class="btn-ghost flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold" id="btn-recheck"><i class="fa-solid fa-rotate"></i> إعادة قراءة ملفي</button>
+                <button class="btn-brand flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold"><i class="fa-regular fa-floppy-disk"></i> حفظ</button>
+            </div>
+            <div class="h-6"></div>
+        </div>
+    </div>
+</main>
+<!-- END: Main -->
+
+<script data-purpose="fields">
+/* kind: edit = you own the value · site = only the site knows it (session-only numbers live in their own section, never as a card) */
+var FIELDS = [
+  { key: 'rating',    group: 'facts', kind: 'site',    val: '4.8',  lab: 'التقييم',      sub: 'من ٥',             axis: 'ملف' },
+  { key: 'completed', group: 'facts', kind: 'site',    val: '12',   lab: 'عدد الإنجاز',  sub: 'كمنفّذ',           axis: 'مشاريع' },
+  { key: 'deal',      group: 'facts', kind: 'site',    val: '89%',  lab: 'إتمام الصفقات', sub: 'بلا ملغيات كثيرة', axis: 'ملف', pos: true },
+  { key: 'bandWins',  group: 'facts', kind: 'site',    val: '2/6',  lab: 'فوزك في نطاقك', sub: '10–25 $',         axis: 'مشاريع' },
+  { key: 'portfolio', group: 'facts', kind: 'site',    val: '3',    lab: 'معرض الأعمال', sub: 'أعمال منشورة',     axis: 'أعمال' },
+  { key: 'offers',    group: 'facts', kind: 'site',    val: '26',   lab: 'سجل العروض',   sub: 'عبر كل النطاقات',  axis: 'مشاريع' }
+];
+var EDITABLE = [
+  { key: 'targetBand', group: 'mine', kind: 'edit', val: '25–50', lab: 'نطاقك السعري',   sub: '$', sub2: 'لا يُقرأ من الموقع', axis: '—', ltr: true,
+    editor: { type: 'select', options: ['10–25', '25–50', '50–100', '100–250', '+250'] } },
+  { key: 'delivery',   group: 'mine', kind: 'edit', val: '≤ 5',   lab: 'تسليمك المعتاد', sub: 'أيام', sub2: 'يقارن بموعد المشروع', axis: '—', ltr: true,
+    editor: { type: 'select', options: ['≤ 3', '≤ 5', '≤ 7', '≤ 14', 'أبطأ'] } },
+  { key: 'available',  group: 'mine', kind: 'edit', val: 'نعم',   lab: 'متاح الآن',      sub: 'لمشروع جديد', sub2: 'بلاه أنت خارج المنافسة', axis: '—',
+    editor: { type: 'select', options: ['نعم', 'لا', 'بعد أسبوع'] } }
+];
+function lookup(k) { return FIELDS.concat(EDITABLE).filter(function (f) { return f.key === k; })[0]; }
+
+var SKILLS = ['Python', 'Excel', 'أتمتة', 'تقارير', 'تنظيف بيانات', 'Pandas'];
+var FACE = 'site';
+var CIRC = 490;
+
+/* Axes are DERIVED from the field values — editing a box moves the ring. */
+function axes(cookies) {
+  var by = {}; FIELDS.forEach(function (f) { by[f.key] = f; });
+  var portfolio = parseInt(by.portfolio.val, 10);
+  if (!cookies) {
+    return { ملف: 6, أعمال: 0, توثيق: 0, مشاريع: 0, 'حساب متميز': 0 };
+  }
+  return {
+    'ملف': 10,
+    'أعمال': portfolio >= 4 ? 10 : portfolio >= 2 ? 4 : 0,
+    'توثيق': 10,
+    'مشاريع': 7.5,
+    'حساب متميز': 6
+  };
+}
+function scoreOf(cookies) {
+  var a = axes(cookies), s = 0, n = 0;
+  for (var k in a) { s += a[k]; n++; }
+  return { axes: a, score: s / n };
+}
+
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+function fmt(n) { return (Math.round(n * 10) / 10).toString().replace(/\.0$/, ''); }
+
+function cellHTML(f, cookies) {
+  var editable = f.kind === 'edit';
+  var dim = !editable && !cookies;
+  var val = f.val;
+  if (f.kind === 'site' && !cookies) val = '—';
+  return '<div class="cell' + (dim ? ' empty' : '') + '" data-key="' + f.key + '" data-kind="' + f.kind + '" tabindex="0" role="' + (editable ? 'button' : 'group') + '"'
+    + (editable ? ' aria-label="تعديل ' + esc(f.lab) + '"' : '') + '>'
+    + '<span class="lab">' + esc(f.lab) + '</span>'
+    + '<span class="val' + (f.pos ? ' pos' : '') + (dim ? ' dim' : '') + '"' + (f.ltr ? ' dir="ltr"' : '') + '>' + esc(val) + '</span>'
+    + '<span class="sub">' + esc(f.sub) + '</span>'
+    + (editable ? '<i class="fa-regular fa-pen-to-square pen"></i>' : '')
+    + '<span class="src">' + (f.sub2 ? esc(f.sub2) : (editable ? 'تُعدَّل هنا' : 'من الموقع')) + '</span>'
+    + '</div>';
+}
+
+function renderCells(cookies) {
+  document.getElementById('cells').innerHTML = FIELDS.map(function (f) { return cellHTML(f, cookies); }).join('');
+  document.getElementById('cells-mine').innerHTML = EDITABLE.map(function (f) { return cellHTML(f, cookies); }).join('');
+}
+
+function openEditor(cellEl) {
+  var f = lookup(cellEl.getAttribute('data-key'));
+  if (!f || f.kind !== 'edit' || cellEl.querySelector('.editor')) return;
+  var e = f.editor || { type: 'text' };
+  var field;
+  var dirAttr = f.ltr ? ' dir="ltr"' : '';
+  if (e.type === 'select') {
+    field = '<select size="1"' + dirAttr + '>' + e.options.map(function (o) {
+      return '<option' + (o === f.val ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select>';
+  } else if (e.type === 'number') {
+    field = '<input type="number" min="' + e.min + '" max="' + e.max + '" value="' + esc(f.val) + '"/>';
+  } else {
+    field = '<input type="text"' + dirAttr + ' value="' + esc(f.val) + '"/>';
+  }
+  cellEl.innerHTML = '<span class="lab">' + esc(f.lab) + '</span>'
+    + '<span class="editor">' + field + '<span class="hint">Enter يحفظ · Esc يرجع</span></span>';
+  var closed = false;
+  var input = cellEl.querySelector('input, select');
+  input.focus(); if (input.select) input.select();
+  var done = function (commit) {
+    if (closed) return; closed = true;
+    if (commit) { var v = input.value.trim(); if (v) f.val = v; }
+    renderCells(COOKIES); renderAll();
+  };
+  input.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter') done(true);
+    else if (ev.key === 'Escape') done(false);
+  });
+  input.addEventListener('change', function () { done(true); });
+  input.addEventListener('blur', function () { setTimeout(function () { if (document.body.contains(cellEl) && cellEl.querySelector('input,select')) done(true); }, 80); });
+}
+
+function renderSkills() {
+  var host = document.getElementById('skills');
+  host.innerHTML = SKILLS.map(function (s, i) {
+    return '<span class="skill">' + esc(s) + ' <i class="fa-solid fa-xmark" data-i="' + i + '" aria-label="إزالة"></i></span>';
+  }).join('') + '<button class="skill-add" id="skill-add"><i class="fa-solid fa-plus text-[9px]"></i> مهارة</button>';
+}
+
+document.addEventListener('click', function (e) {
+  var cell = e.target.closest('.cell');
+  if (cell && cell.getAttribute('data-kind') === 'edit') { openEditor(cell); return; }
+  var rm = e.target.closest('.skill i');
+  if (rm) { SKILLS.splice(parseInt(rm.getAttribute('data-i'), 10), 1); renderSkills(); return; }
+  if (e.target.closest('#skill-add')) {
+    var host = document.getElementById('skills');
+    var box = document.createElement('span');
+    box.innerHTML = '<input class="inline-input" placeholder="اسم المهارة" aria-label="مهارة جديدة"/>';
+    host.insertBefore(box, document.getElementById('skill-add'));
+    var inp = box.querySelector('input'); inp.focus();
+    var end = function (keep) {
+      if (end.done) return; end.done = true;
+      if (keep && inp.value.trim()) SKILLS.push(inp.value.trim());
+      box.remove(); renderSkills();
+    };
+    inp.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') end(true); else if (ev.key === 'Escape') end(false); });
+    inp.addEventListener('blur', function () { end(true); });
+  }
+});
+document.addEventListener('keydown', function (e) {
+  var cell = e.target.closest && e.target.closest('.cell');
+  if (cell && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openEditor(cell); }
+});
+
+/* avatar. With a session the photo is read from the site and the menu names the sources;
+   without one the only source is you, so the click goes straight to the file explorer. */
+var FACE_URL = null;
+function faceHTML(kind) {
+  if (kind === 'site')
+    return '<img alt="" src="data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 44 44\'><rect width=\'44\' height=\'44\' fill=\'%23FFE3B3\'/><circle cx=\'22\' cy=\'16.5\' r=\'7\' fill=\'%239A6100\'/><path d=\'M5.5 44c0-9.4 7.4-14.5 16.5-14.5S38.5 34.6 38.5 44z\' fill=\'%239A6100\'/></svg>"/>';
+  if (kind === 'initials') return '<span id="face-text">أ م</span>';
+  if (kind === 'none') return '<i class="fa-regular fa-user" style="font-size:44px;opacity:.5"></i>';
+  if (kind === 'upload') return FACE_URL ? '<img alt="صورتك المرفوعة" src="' + FACE_URL + '"/>' : '<span id="face-text">…</span>';
+  return '<span id="face-text">أنت</span>';
+}
+function paintFace() { document.getElementById('face').innerHTML = faceHTML(FACE); }
+
+function setFaceMode() {
+  var stage = document.getElementById('stage'), veil = document.getElementById('face-veil');
+  var btn = document.getElementById('face-btn');
+  stage.classList.toggle('manual', !COOKIES);
+  var verb = (FACE === 'upload' && FACE_URL) ? 'استبدال الصورة' : 'اختر صورتك';
+  if (COOKIES) {
+    veil.innerHTML = '<i class="fa-solid fa-camera"></i> تغيير الصورة';
+    btn.setAttribute('aria-haspopup', 'true');
+    btn.setAttribute('aria-label', 'تغيير الصورة');
+  } else {
+    veil.innerHTML = '<i class="fa-solid fa-camera"></i> ' + verb + '<span class="cap">لا جلسة — المصدر أنت</span>';
+    btn.setAttribute('aria-haspopup', 'false');
+    btn.setAttribute('aria-label', 'اختر صورة من جهازك');
+  }
+}
+
+document.getElementById('face-btn').addEventListener('click', function (e) {
+  e.stopPropagation();
+  if (!COOKIES) { document.getElementById('face-file').click(); return; }
+  var pop = document.getElementById('face-pop');
+  pop.hidden = !pop.hidden;
+  this.setAttribute('aria-expanded', String(!pop.hidden));
+});
+document.getElementById('face-pop').addEventListener('click', function (e) {
+  var b = e.target.closest('button[data-face]'); if (!b) return;
+  if (b.getAttribute('data-face') === 'upload') {
+    this.hidden = true; document.getElementById('face-file').click(); return;
+  }
+  FACE = b.getAttribute('data-face');
+  this.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-current', x === b ? 'true' : 'false'); });
+  paintFace(); setFaceMode();
+  this.hidden = true;
+  document.getElementById('face-btn').setAttribute('aria-expanded', 'false');
+});
+document.getElementById('face-file').addEventListener('change', function () {
+  var f = this.files && this.files[0]; if (!f) return;
+  if (FACE_URL) URL.revokeObjectURL(FACE_URL);
+  FACE_URL = URL.createObjectURL(f);
+  FACE = 'upload';
+  document.querySelectorAll('#face-pop button').forEach(function (x) {
+    x.setAttribute('aria-current', String(x.getAttribute('data-face') === 'upload')); });
+  paintFace(); setFaceMode();
+  this.value = '';
+});
+document.addEventListener('click', function (e) {
+  if (!e.target.closest('.stage')) {
+    document.getElementById('face-pop').hidden = true;
+    document.getElementById('face-btn').setAttribute('aria-expanded', 'false');
+  }
+});
+</script>
+<script data-purpose="profile-states">
+var COOKIES = true, BIDS = true, CLIENTS = true, READ = 'idle', FAILNEXT = false;
+
+var OUTCOMES = [['مكتمل', 12, 46, 'var(--accent-positive)'], ['مستبعد', 7, 27, 'var(--accent-neg)'],
+                ['مغلق', 4, 15, 'var(--ink-3)'], ['بانتظار موافقة', 2, 8, 'var(--accent-warn)'], ['ملغي', 1, 4, 'var(--accent-loss)']];
+var BANDS = [['10–25 $', 6, 2], ['25–50 $', 11, 8], ['50–100 $', 5, 1], ['100–250 $', 3, 1], ['+250 $', 1, 0]];
+var PRICES = [['10–25 $', 18, 12], ['25–50 $', 34, 29], ['50–100 $', 72, 64], ['100–250 $', 140, 120]];
+var OWNERS = [['يُرسّي دائمًا (≥50٪)', 11, 8, 'var(--accent-positive)'],
+              ['يُرسّي أحيانًا (20–49٪)', 9, 4, 'var(--accent-warn)'],
+              ['لا يُرسّي غالبًا (<20٪)', 6, 0, 'var(--accent-neg)']];
+
+function stackHTML(rows, total, label) {
+  var seg = rows.map(function (o) { return '<div style="width:' + Math.round(o[1] / total * 100) + '%;background:' + o[3] + '"></div>'; }).join('');
+  var leg = rows.map(function (o) { return '<span><i class="sw" style="background:' + o[3] + '"></i><b>' + o[0] + '</b> ' + Math.round(o[1] / total * 100) + '% · ' + o[1] + '</span>'; }).join('');
+  return '<div class="stack" role="img" aria-label="' + label + '">' + seg + '</div><div class="legend">' + leg + '</div>';
+}
+
+function renderAll() {
+  var cookies = COOKIES && READ !== 'fail';
+  var live = cookies;
+  var s = scoreOf(COOKIES);
+
+  document.getElementById('arc-val').setAttribute('stroke-dashoffset', String(Math.round(CIRC * (1 - s.score / 10))));
+  document.getElementById('pct').textContent = fmt(s.score) + '/10';
+  document.getElementById('cmp-strong').textContent = 'اكتمال ' + fmt(s.score) + '/10';
+  var parts = []; for (var k in s.axes) parts.push(s.axes[k]);
+  document.getElementById('cmp-tip').textContent = 'متوسط خمسة محاور، كل منها من ١٠: '
+    + Object.keys(s.axes).map(function (k) { return k + ' ' + fmt(s.axes[k]); }).join(' · ')
+    + ' = ' + fmt(s.score * 5) + ' على خمسة = ' + fmt(s.score) + '. '
+    + 'محور «خدمات» مستثنى لأنه فارغ عند كل ملف حُلّل، فوجوده يخصم من الجميع بلا أن يقيس شيئًا. '
+    + 'هذا مقياس نضج الملف، لا حكم على جودته — وكل قيمة تُعدَّل هنا تُعيد حسابه فورًا.';
+
+  renderCells(COOKIES);
+
+  var bands = BANDS.map(function (bn) {
+    var rate = bn[2] ? Math.round(bn[2] / bn[1] * 100) : 0;
+    return '<div class="pair" style="grid-template-columns:78px 1fr 96px"><span class="pl" dir="ltr">' + bn[0] + '</span>'
+      + '<div class="btrack"><div style="position:absolute;inset-block:0;inset-inline-start:0;width:' + Math.round(bn[1] / 26 * 100) + '%;background:color-mix(in srgb, var(--brand) 24%, transparent)"></div>'
+      + '<div style="position:absolute;inset-block:0;inset-inline-start:0;width:' + Math.round(bn[2] / 26 * 100) + '%;background:var(--brand)"></div></div>'
+      + '<span class="delta" style="text-align:left;font-weight:800">' + bn[2] + '/' + bn[1] + ' <small style="color:var(--ink-3);font-weight:700">' + rate + '%</small></span></div>';
+  }).join('');
+
+  var charts = document.getElementById('charts');
+  charts.innerHTML = COOKIES
+    ? '<div><div class="chart-h"><h3>نتائج عروضك<span class="info below" tabindex="0">i<span class="tipbox">كل عرض قدّمته كمنفّذ وحالته النهائية. «مكتمل» = فزت وأُنجز؛ «مستبعد» = عرض لم يُقبل؛ «مغلق» = مشروع أُغلق غالبًا بلا ترسية.</span></span></h3><span class="cnt">26 عرضًا</span></div>'
+      + stackHTML(OUTCOMES, 26, 'توزيع حالات العروض')
+      + '<p class="chart-note">الإجمالي 26 عرضًا · منها 12 مكتمل — وهو نفس «عدد الإنجاز» أعلى الصفحة، لا رقمًا ثانيًا.</p></div>'
+      + '<div><div class="chart-h"><h3>فوزك بكل نطاق سعري<span class="info below" tabindex="0">i<span class="tipbox">الفاتح = عدد عروضك في النطاق، والمصمت = ما اكتمل منها.</span></span></h3><span class="cnt">12 فوزًا من 26</span></div>'
+      + '<div class="pairs">' + bands + '</div>'
+      + '<p class="chart-note">أقوى معدلاتك في 25–50 $ (73٪). في 10–25 $ فوزك 2 من 6 — وهو النطاق الذي يزدحم بالأشدّ.</p></div>'
+    : '<div><div class="chart-h"><h3>نتائج عروضك</h3></div><div class="empty">لم تُقرأ صفحة عروضك — أضف الجلسة أو اضغط «إعادة قراءة ملفي».</div></div>'
+      + '<div><div class="chart-h"><h3>فوزك بكل نطاق سعري</h3></div><div class="empty">بانتظار قراءة الملف.</div></div>';
+
+  var opts = [['bids', 'قيمة العروض', BIDS, live], ['clients', 'جودة أصحاب المشروع', CLIENTS, live]];
+  document.getElementById('switches').innerHTML = opts.map(function (o) {
+    return '<button class="sw-chip" data-flag="' + o[0] + '" aria-pressed="' + (o[2] && o[3]) + '" ' + (o[3] ? '' : 'disabled') + '>'
+      + '<i class="fa-solid ' + (o[2] && o[3] ? 'fa-toggle-on' : 'fa-toggle-off') + '"></i> ' + o[1] + '</button>';
+  }).join('') + '<span class="kicker">الحالات في الرابط: <span dir="ltr">?bids= · ?clients=</span></span>';
+
+  var maxP = 140;
+  var priceHTML = !(live && BIDS)
+    ? '<div><div class="chart-h"><h3>فارق السعر عند الخسارة</h3></div><div class="empty">لا تظهر قيمة أي عرض في صفحة عامة — تحتاج جلسة.</div></div>'
+    : '<div><div class="chart-h"><h3>فارق السعر عند الخسارة<span class="info below" tabindex="0">i<span class="tipbox">متوسط ما عرضته في النطاق مقابل متوسط السعر الذي أخذ المشروع.</span></span></h3><span class="cnt">من 14 عرضًا خسرتها</span></div>'
+      + '<div class="pairs">' + PRICES.map(function (pr) {
+          var d = pr[1] - pr[2];
+          return '<div class="pair"><span class="pl" dir="ltr">' + pr[0] + '</span><div class="bars">'
+            + '<div class="barline"><span class="tag">عرضك</span><div class="rail2"><div class="fill2" style="width:' + Math.round(pr[1] / maxP * 100) + '%;background:var(--brand)"></div></div><span class="amt" dir="ltr">' + pr[1] + '$</span></div>'
+            + '<div class="barline"><span class="tag">الفائز</span><div class="rail2"><div class="fill2" style="width:' + Math.round(pr[2] / maxP * 100) + '%;background:var(--ink-3)"></div></div><span class="amt" dir="ltr">' + pr[2] + '$</span></div>'
+            + '</div><span class="delta ' + (d > 0 ? 'bad' : 'good') + '" dir="ltr">+' + d + '$</span></div>';
+        }).join('') + '</div>'
+      + '<p class="chart-note">في كل نطاق كنت أعلى من السوق — وهذا يحوّل «الميزانية مقابل نطاقك» من تخمين إلى قياس.</p></div>';
+
+  var ownerHTML = !(live && CLIENTS)
+    ? '<div><div class="chart-h"><h3>جودة أصحاب المشاريع</h3></div><div class="empty">تقييم المالك ومعدل ترسيته لا يُرسلان للزائر المجهول.</div></div>'
+    : '<div><div class="chart-h"><h3>جودة أصحاب المشاريع<span class="info below" tabindex="0">i<span class="tipbox">كل مشروع تقدّمت عليه مصنفًا بمعدل ترسية صاحبه.</span></span></h3><span class="cnt">26 مشروعًا</span></div>'
+      + stackHTML(OWNERS, 26, 'توزيع الملاك بمعدل الترسية')
+      + '<p class="chart-note">ستة من عروضك الـ26 كانت على ملاك لا يُرسّون تقريبًا — منها صفر فوز.</p></div>';
+  document.getElementById('sess-charts').innerHTML = priceHTML + ownerHTML;
+
+  var items = [];
+  var portfolio = parseInt(FIELDS.filter(function (f) { return f.key === 'portfolio'; })[0].val, 10);
+  if (portfolio < 4) items.push(['fa-image', 'معرض أعمال محدود', 'المرجع يحمل ٤ أعمال · عندك ' + portfolio + ' — يُقرأ من صفحتك، لا يُدخل هنا', false]);
+  else items.push(['fa-image', 'معرض الأعمال مكتمل', '٤ أعمال فأكثر — رفع محور أعمال إلى ١٠', true]);
+  if (!(live && CLIENTS)) items.push(['fa-user-shield', 'تقييم صاحب المشروع', 'عمود لا يُرسل للزائر المجهول — يظهر في قسم الجلسة', false]);
+  else items.push(['fa-user-shield', 'جودة الملاك: مقروءة', 'عامل يستبعد المشاريع التي لا تُفوز', true]);
+  if (!COOKIES) items.push(['fa-keyboard', 'لم يُقرأ شيء من ملفك العام', 'الصناديق ذات القلم فقط قابلة للإدخال الآن', false]);
+  else if (READ === 'fail') items.push(['fa-plug-circle-xmark', 'الجلسة لم تُقبل عند القراءة', 'الأرقام المعروضة من آخر قراءة ناجحة — لا من الآن', false]);
+  items.push(['fa-briefcase', 'لا خدمات منشورة', 'فارغة عند كل من حُلّل — لذلك استُثنيت من الاكتمال', false]);
+
+  document.getElementById('gaps').innerHTML = items.map(function (g) {
+    return '<div class="gap' + (g[3] ? ' read' : '') + '"><i class="ico fa-solid ' + (g[3] ? 'fa-circle-check' : g[0]) + '"></i><span><b>' + g[1] + '</b><em>' + g[2] + '</em></span></div>';
+  }).join('');
+
+  var pill = document.getElementById('state-pill');
+  if (!COOKIES) { pill.className = 'pill pill-warn'; pill.innerHTML = '<i class="fa-solid fa-plug-circle-xmark"></i> لا جلسة — إدخال يدوي'; }
+  else if (READ === 'fail') { pill.className = 'pill pill-warn'; pill.innerHTML = '<i class="fa-solid fa-plug-circle-exclamation"></i> انتهت الجلسة'; }
+  else { pill.className = 'pill pill-ok'; pill.innerHTML = '<i class="fa-solid fa-plug-circle-check"></i> الجلسة مقبولة'; }
+  document.getElementById('verified').style.display = COOKIES ? '' : 'none';
+  document.getElementById('hist-kicker').textContent = COOKIES ? 'من صفحة عروضك العامة — لا يحتاج جلسة' : 'متوقف — لم تُقرأ صفحة عروضك';
+  document.getElementById('cmp-legend').textContent = COOKIES
+    ? 'كل ما هنا يُقرأ من ملفك العام · والأسعار تحتاج جلسة ولها قسمها الخاص'
+    : 'بلا جلسة: ما تملكه أنت فقط قابل للإدخال — والباقي يبقى فارغًا لا مخمَّنًا';
+  document.getElementById('keyoffer').hidden = COOKIES;
+  setFaceMode();
+}
+
+/* The read is a page. What it reads differs by source, because the two sites are not equally reachable:
+   Mostaql's /u/ answers an AWS WAF JavaScript challenge to a plain client, session or not, so its own
+   profile data comes from the freelancers directory and the session dashboard instead. */
+var READ_STEPS = {
+  nafezly: [
+    ['ملفك العام', 'nafezly.com/u/…', '11:04:02'],
+    ['سجل عروضك', 'nafezly.com/u/…/offers', '11:04:05'],
+    ['معرض أعمالك', 'nafezly.com/portfolio', '11:04:08'],
+    ['فحص الجلسة', 'nafezly.com/offers', '11:04:11']
+  ],
+  mostaql: [
+    ['بطاقتك في دليل المستقلين', 'mostaql.com/freelancers', '11:04:02'],
+    ['عروضك بأسعارها', 'mostaql.com/dashboard/bids', '11:04:05'],
+    ['أعمالك المنشورة', 'mostaql.com/u/…/portfolio', '11:04:08'],
+    ['فحص الجلسة', 'mostaql.com/dashboard/bids', '11:04:11']
+  ]
+};
+var SRC = 'nafezly', RP = 0, DISMISSED = false, OKFADE = null;
+var SNAP = { n: 14, ago: 'قبل ٣ ساعات', fields: 12, bids: 26 };
+var RCIRC = 364;
+
+function host() { return SRC === 'mostaql' ? 'mostaql.com' : 'nafezly.com'; }
+function probePath() { return SRC === 'mostaql' ? '/dashboard/bids' : '/offers'; }
+function ar(n) { return String(n).replace(/[0-9]/g, function (d) { return '٠١٢٣٤٥٦٧٨٩'[+d]; }); }
+
+function stepsHTML(done, deadAt) {
+  return (READ_STEPS[SRC] || READ_STEPS.nafezly).map(function (s, i) {
+    var st = i < done ? 'done' : (i === done ? (deadAt === i ? 'dead' : 'doing') : '');
+    var ico = st === 'done' ? 'fa-circle-check' : st === 'dead' ? 'fa-circle-xmark'
+      : st === 'doing' ? 'fa-circle-notch fa-spin' : 'fa-hourglass-half';
+    var lab = st === 'done' ? 'مقروء' : st === 'dead' ? 'مرفوض' : st === 'doing' ? 'جارٍ' : 'في الانتظار';
+    return '<li class="' + st + '"><span class="med"><i class="fa-solid ' + ico + '"></i></span>'
+      + '<span class="t"><b>' + s[0] + '</b><span class="u">' + s[1] + '</span></span>'
+      + '<span class="tm">' + ((st === 'done' || st === 'dead') ? s[2] : '—') + '</span>'
+      + '<span class="s">' + lab + '</span>'
+      + '</li>';
+  }).join('');
+}
+
+function setRing(p) {
+  document.getElementById('rp-fg').setAttribute('stroke-dashoffset', String(Math.round(RCIRC * (1 - p))));
+}
+
+function setBadge(txt, bad) {
+  var g = document.getElementById('rp-badge');
+  g.textContent = txt;
+  g.classList.toggle('bad', !!bad);
+}
+
+function setEyebrow(t) { document.getElementById('rp-eyebrow').textContent = t; }
+function setChip(t, bad) {
+  var c = document.getElementById('rp-chip');
+  c.hidden = !t; c.classList.toggle('bad', !!bad);
+  document.getElementById('rp-chip-text').textContent = t || '';
+}
+var B_GHOST = 'btn-ghost flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold';
+var B_BRAND = 'btn-brand flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold';
+
+function paintReadbar() {
+  var page = document.getElementById('readpage'), content = document.getElementById('content');
+  var b = document.getElementById('readbar'), btn = document.getElementById('btn-recheck');
+  var mark = document.getElementById('rp-mark'), frame = document.getElementById('rp-frame');
+  var sn = document.getElementById('rp-snapshot'), note = document.getElementById('rp-note');
+  var live = document.getElementById('rp-live');
+  sn.hidden = true; note.textContent = ''; live.textContent = '';
+  frame.hidden = true; mark.hidden = true;
+  page.classList.remove('spin');
+  b.hidden = true; b.className = 'readbar'; b.innerHTML = '';
+
+  if (READ === 'idle') { page.hidden = true; content.hidden = false; setChip('', false); }
+
+  else if (READ === 'busy') {
+    content.hidden = true; page.hidden = false; page.classList.add('spin');
+    mark.hidden = false;
+    setRing(RP / 4);
+    document.getElementById('rp-pct').textContent = Math.round(RP / 4 * 100) + '%';
+    live.textContent = '١٫٨ KB/s · بمهل ٢٫٥ ث';
+    setEyebrow('قراءة جارية');
+    document.getElementById('rp-title').textContent = 'يقرأ ملفك الآن';
+    setBadge(ar(RP) + ' من ٤', false);
+    document.getElementById('rp-kick').innerHTML = 'أربع صفحات من <b dir="ltr">' + host()
+      + '</b> — الجدار الناري للموقع يردّ على الاندفاع، فلا تسريع على حسابك، ولا استبدال بنصف قراءة.';
+    document.getElementById('rp-steps').innerHTML = stepsHTML(RP, -1);
+    setChip('', false);
+    note.textContent = 'كل صفحة تُغلق حين تصل. اللقطة السابقة تبقى سارية حتى تنجح هذه.';
+    document.getElementById('rp-acts').innerHTML =
+      '<button class="' + B_GHOST + '" data-act="cancel"><i class="fa-solid fa-xmark"></i> إلغاء القراءة</button>';
+  }
+
+  else if (READ === 'ok') {
+    page.hidden = true; content.hidden = false; setChip('', false);
+    b.hidden = false; b.className = 'readbar ok';
+    b.innerHTML = '<i class="fa-solid fa-circle-check"></i> تمت القراءة — ١٢ حقلًا · ٢٦ عرضًا · لقطة #' + (SNAP.n + 1)
+      + '<span class="kicker">آخر قراءة: الآن</span>';
+  }
+
+  else { /* fail — the whole page explains it, because a banner under a header is too small for this */
+    setChip('فشل عند فحص الجلسة', true);
+    note.textContent = 'الخزانة خلف الباب ممتلئة — الفشل في الباب، لا فيها.';
+    if (DISMISSED) {
+      page.hidden = true; content.hidden = false;
+      b.hidden = false; b.className = 'readbar fail';
+      b.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> الجلسة منتهية — ما تراه هو آخر لقطة ناجحة، لا قراءة الآن'
+        + '<div class="acts"><a href="../v3-multisource/settings.html">إعادة ربط الجلسة</a>'
+        + '<button data-act="again">أعد المحاولة</button></div>';
+    } else {
+      content.hidden = true; page.hidden = false;
+      frame.hidden = false;
+      setEyebrow('نتيجة القراءة');
+      document.getElementById('rp-title').textContent = 'انتهت الجلسة — ملفك لم يُقرأ، لا أنه فارغ';
+      setBadge('٣ نجحت · ١ رفضت', true);
+      document.getElementById('rp-kick').innerHTML = 'رابطُك الخاص ردّ بصفحة دخول بدل بياناتك. الفرق جوهري:'
+        + ' لو كانت الصفحة فارغة لكان ملفك فارغًا؛ وهو ليس كذلك.';
+      document.getElementById('rp-steps').innerHTML = stepsHTML(3, 3);
+      sn.hidden = false;
+      sn.innerHTML = '<i class="fa-solid fa-database"></i><span>المعروض الآن: <b>لقطة #' + SNAP.n + '</b> · ' + SNAP.ago
+        + ' · ' + SNAP.fields + ' حقلًا · ' + SNAP.bids + ' عرضًا</span>';
+      document.getElementById('rp-acts').innerHTML =
+        '<a class="' + B_BRAND + '" href="../v3-multisource/settings.html"><i class="fa-solid fa-plug-circle-check"></i> إعادة ربط الجلسة</a>'
+        + '<button class="' + B_GHOST + '" data-act="dismiss"><i class="fa-regular fa-images"></i> رؤية آخر لقطة</button>'
+        + '<button class="' + B_GHOST + '" data-act="again"><i class="fa-solid fa-rotate"></i> أعد المحاولة الآن</button>';
+    }
+  }
+  if (btn) {
+    btn.disabled = (READ === 'busy');
+    btn.innerHTML = READ === 'busy' ? '<i class="fa-solid fa-circle-notch spin"></i> يقرأ…' : '<i class="fa-solid fa-rotate"></i> إعادة قراءة ملفي';
+  }
+}
+
+function go(src) { location.href = 'profile.html?source=' + src + '&cookies=' + COOKIES + '&bids=' + BIDS + '&clients=' + CLIENTS + '&reread=' + READ; }
+
+(function () {
+  var q = new URLSearchParams(location.search);
+  COOKIES = q.get('cookies') !== 'false';
+  BIDS = COOKIES && q.get('bids') !== 'false';
+  CLIENTS = COOKIES && q.get('clients') !== 'false';
+  var rr = q.get('reread') || 'idle';
+  READ = (rr === 'busy' || rr === 'ok' || rr === 'fail') ? rr : 'idle';
+  FAILNEXT = (rr === 'fail');
+  var src = q.get('source') === 'mostaql' ? 'mostaql' : 'nafezly';
+  SRC = src;
+  document.documentElement.setAttribute('data-source', src);
+  document.querySelectorAll('.rail .src-tile').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-src') === src); });
+  if (src === 'mostaql') document.getElementById('psub').textContent = 'مهندس برمجيات · السعودية · عضو منذ سنتين · آخر تواجد منذ ٣ دقائق';
+  document.getElementById('hdr-src').textContent = src === 'mostaql' ? 'مستقل' : 'نفذلي';
+
+  renderSkills(); renderAll(); paintReadbar();
+
+  document.getElementById('switches').addEventListener('click', function (e) {
+    var c = e.target.closest('.sw-chip'); if (!c || c.disabled) return;
+    if (c.getAttribute('data-flag') === 'bids') BIDS = !BIDS; else CLIENTS = !CLIENTS;
+    renderAll();
+  });
+  function stepRead() {
+    RP++;
+    if (RP >= 4) {
+      READ = FAILNEXT ? 'fail' : 'ok'; DISMISSED = false;
+      paintReadbar(); renderAll();
+      if (READ === 'ok') { clearTimeout(OKFADE); OKFADE = setTimeout(function () {
+        var bb = document.getElementById('readbar'); if (bb) bb.hidden = true;
+      }, 4000); }
+      return;
+    }
+    paintReadbar();
+    setTimeout(stepRead, 430);
+  }
+  function runRead() {
+    if (READ === 'busy') return;
+    READ = 'busy'; RP = 0; DISMISSED = false; paintReadbar();
+    setTimeout(stepRead, 430);
+  }
+  document.getElementById('btn-recheck').addEventListener('click', runRead);
+  document.getElementById('readpage').addEventListener('click', function (e) {
+    var a = e.target.closest('[data-act]'); if (!a) return;
+    var act = a.getAttribute('data-act');
+    if (act === 'cancel') { READ = 'idle'; RP = 0; paintReadbar(); renderAll(); }
+    else if (act === 'dismiss') { DISMISSED = true; paintReadbar(); }
+    else if (act === 'again') { runRead(); }
+  });
+  document.getElementById('readbar').addEventListener('click', function (e) {
+    var a = e.target.closest('[data-act]');
+    if (a && a.getAttribute('data-act') === 'again') runRead();
+  });
+  /* the offer box speaks the truth of the source it belongs to: Mostaql names one session cookie,
+     Nafezly does not, so there the export is pasted whole rather than one guessed name. */
+  (function paintPasteBox() {
+    var host = SRC === 'mostaql' ? 'mostaql.com' : 'nafezly.com';
+    var box = document.getElementById('paste-box'), hint = document.getElementById('paste-hint');
+    if (SRC === 'mostaql') {
+      box.placeholder = 'mostaqlweb=…; XSRF-TOKEN=…';
+      hint.innerHTML = 'قيمة <code dir="ltr">mostaqlweb</code> وحدها تكفي، أو التصدير كاملًا من <span dir="ltr">' + host + '</span>';
+    } else {
+      box.placeholder = 'name=value; name2=value2; …';
+      hint.innerHTML = 'نفذلي لا يعلن اسم جلسة واحدة — الصق التصدير كاملًا من <span dir="ltr">' + host + '</span>';
+    }
+    document.getElementById('safe-line').textContent =
+      'لا يخرج من جهازك شيء إلى غير ' + host + '، ويُحفظ المفتاح مشفَّرًا في مخزن أسرار التطبيق وحده،'
+      + ' ولا يُكتب في سجل ولا في ملف تشخيص.';
+  })();
+  document.getElementById('paste-go').addEventListener('click', function () {
+    var box = document.getElementById('paste-box'), warn = document.getElementById('paste-warn');
+    var v = box.value.trim();
+    if (!v || v.indexOf('=') === -1) { warn.hidden = false; box.focus(); return; }
+    warn.hidden = true;
+    COOKIES = true; BIDS = true; CLIENTS = true; FAILNEXT = false;
+    renderAll(); runRead();
+  });
+  /* ?reread=busy means "show me the read in progress" — start mid-flight and still settle, or the button stays dead forever */
+  if (READ === 'busy') { RP = 2; setTimeout(stepRead, 430); }
+})();
+</script>
+<script data-purpose="theme-toggle">
+    function geometryFrom(originEl){var vw=innerWidth,vh=innerHeight,cx,cy;if(originEl){var r=originEl.getBoundingClientRect();cx=r.left+r.width/2;cy=r.top+r.height/2;}else{cx=vw/2;cy=vh/2;}return{cx:cx,cy:cy,maxRadius:Math.hypot(Math.max(cx,vw-cx),Math.max(cy,vh-cy)),vw:vw,vh:vh};}
+    function clipFrom(g){var px=g.cx/g.vw*100+'%',py=g.cy/g.vh*100+'%';var rad=g.maxRadius/(Math.hypot(g.vw,g.vh)/Math.SQRT2)*100;return['circle(0% at '+px+' '+py+')','circle('+rad+'% at '+px+' '+py+')'];}
+    function spawnRing(g){var d=document.createElement('div');d.className='morph-ring';d.style.left=(g.cx-g.maxRadius)+'px';d.style.top=(g.cy-g.maxRadius)+'px';d.style.width=d.style.height=(g.maxRadius*2)+'px';d.style.viewTransitionName='ring';document.body.appendChild(d);return d;}
+    var reduceMotion=matchMedia('(prefers-reduced-motion: reduce)').matches,transitioning=false;
+    function toggleTheme(originEl){var g=geometryFrom(originEl);function apply(){var dark=document.documentElement.classList.toggle('dark');var i=document.getElementById('theme-icon');if(i)i.className=dark?'fa-solid fa-sun':'fa-regular fa-moon';try{localStorage.setItem('mostaqlk-theme',dark?'dark':'light');}catch(e){}}
+        if(!document.startViewTransition||reduceMotion){apply();return;} if(transitioning)return; transitioning=true;
+        var clip=clipFrom(g),ring=null,root=document.documentElement;root.style.setProperty('--morph-dur','400ms');root.style.setProperty('--morph-clip-from',clip[0]);
+        var t=document.startViewTransition(function(){apply();ring=spawnRing(g);});
+        if(t&&t.finished&&t.finished.finally)t.finished.finally(function(){transitioning=false;if(ring)ring.remove();root.style.removeProperty('--morph-dur');root.style.removeProperty('--morph-clip-from');});
+        if(t&&t.ready)t.ready.then(function(){root.animate({clipPath:clip},{duration:400,easing:'ease-in-out',fill:'forwards',pseudoElement:'::view-transition-new(root)'});}).catch(function(){});}
+    (function(){if(document.documentElement.classList.contains('dark')){var i=document.getElementById('theme-icon');if(i)i.className='fa-solid fa-sun';}})();
+</script>
+</body></html>

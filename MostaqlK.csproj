@@ -91,7 +91,11 @@
 		<!-- Toast banners are excluded from the resizetizer alongside logo.png: they are authored at
 		     the hero box's exact aspect ratio (364x180 at 100%), and per-DPI re-encoding would resample
 		     artwork that is already correct. They are copied verbatim and read straight from disk. -->
-		<MauiImage Include="Resources\Images\**\*.png;Resources\Images\**\*.jpg;Resources\Images\**\*.jpeg;Resources\Images\**\*.svg" Exclude="Resources\Images\logo.png;Resources\Images\banner_*.png" />
+		<!-- v4 analysis artwork is excluded for the same reason as the banners, and for a second: the two
+		     key-offer/key-blocked scenes are 1.2 MB 1254x1254 design references committed as the record of a
+		     mockup, not app assets. Resizetizer would re-encode both into every build for a screen that does
+		     not exist yet. Drop this exclusion when the profile page ships, with the artwork sized for it. -->
+		<MauiImage Include="Resources\Images\**\*.png;Resources\Images\**\*.jpg;Resources\Images\**\*.jpeg;Resources\Images\**\*.svg" Exclude="Resources\Images\logo.png;Resources\Images\banner_*.png;Resources\Images\Analysis\*.png" />
 		<None Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'" Include="Resources\Images\logo.png">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
