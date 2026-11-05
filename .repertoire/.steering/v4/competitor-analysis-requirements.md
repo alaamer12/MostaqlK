@@ -560,12 +560,19 @@ engine — see D53.
     - the token is a cookie, therefore **secret material**: never logged, never in a diagnostic file, never
       written into a snapshot row (§9.1 applies unchanged).
 
-    **Prerequisite spike, not yet run** — the only thing between this and implementation: does an engine
-    that still advertises `navigator.webdriver` pass the challenge at all? The reference hides it two ways
-    (`waf.py:149-161`), and WebView2's fingerprint is not headless Chromium's. Spike: fetch one `/u/` page
-    headless **without** the stealth patches, then the same through WebView2; record status, bytes, and
-    whether `aws-waf-token` appeared. Two to four requests. If WebView2 fails where headless Chromium
-    succeeds, R1.10 is blocked and the catalog stays the performer source.
+    **Prerequisite spike — RUN 2026-11-05 (headless half), decisive.** Fetched one `/u/` page
+    (`/u/Abanoub046`) anonymously with Playwright headless Chromium, twice: **naive** (webdriver exposed)
+    vs **stealth** (`--disable-blink-features=AutomationControlled` + `navigator.webdriver` hidden).
+    Result: naive → status stuck at **202**, token minted (358 chars) but **0 body bytes** (challenge
+    NOT passed); stealth → **202 then 200** on the follow-up request, token minted (338 chars) and
+    **94,906 bytes of real `/u/` content** returned. Two conclusions, both load-bearing: (1) the AWS WAF
+    challenge on `/u/` **is** passable by a JS-capable engine, so `/u/` profile data is reachable — D33's
+    "unreachable" is confirmed wrong and the reversal in C12/D53 stands; (2) hiding `navigator.webdriver`
+    is **required, not optional** — the naive path never leaves the shell, exactly as `waf.py:149-161`
+    implied by hiding it two ways. Token VALUES were never captured (only lengths), per §9.1. **Still open:**
+    whether the app's **WebView2** (a different fingerprint than headless Chromium) also passes with the
+    same stealth — that sub-check needs the shipped app running and is the last gate before R1.10 ships;
+    if WebView2 fails where Chromium succeeded, the fallback stays the catalog. See §11.1.
 
     **Scope note:** the token buys passage, **not quota** — the reference log shows `http_429=20` against
     `html_ok=162`. `TokenBucketRateLimiter` and `DefaultRequestsPerMinute` still govern (§3, D29).
@@ -1040,11 +1047,15 @@ is defined, no weight in §6 is measured, only argued.
 
 The design is settled except for this list, ordered by what blocks what.
 
-1. **The WebView2 / `navigator.webdriver` spike** (R1.10). Unblocks Mostaql profile fields, and with them
+1. **The WebView2 / `navigator.webdriver` spike** (R1.10). **Headless half RUN 2026-11-05** (see R1.10):
+   confirmed the `/u/` challenge is passable and that hiding `navigator.webdriver` is REQUIRED (naive stays
+   at 202 / 0 bytes; stealth reaches 200 / 94 KB of real page). **Still open:** whether the app's WebView2
+   fingerprint also passes — needs the shipped app run. Unblocks Mostaql profile fields, and with them
    the richest honest version of the competition factor on that source. Nothing else waits on it — the
    catalog path is already specified and works anonymously.
 2. **The four descriptor defects** (D49, §9.5, C9/C10/C14): `mostaqlweb`, `nfthly_session`,
-   `CurrencySuffix` → USD, and deleting `OwnerFallbackMeta`'s invented country/year. Prerequisites in the
+   `CurrencySuffix` → USD, and deleting `OwnerFallbackMeta`'s invented country/year. **DONE dev87** —
+   all four corrected in code and pinned by `TestV4DescriptorCorrections`. Prerequisites in the
    literal sense — no session-gated feature can be built on a cookie stored under a name the site ignores.
 3. **The selector defects** (§4.7, D38): `justify-between`, `data-user-id`, skill hrefs on detail pages,
    attachment attributes. Until they are fixed, a Mostaql "success" legitimately carries NULLs that the
