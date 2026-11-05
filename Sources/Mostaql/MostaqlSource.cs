@@ -37,9 +37,9 @@ public sealed class MostaqlSource : ISourceDescriptor
 
     public int DefaultRequestsPerMinute => 2;
 
-    public string CurrencySuffix => "ر.س";
+    public string CurrencySuffix => "$";
 
-    public string? OwnerFallbackMeta => "السعودية  •  عضو منذ 2021";
+    public string? OwnerFallbackMeta => null;
 
     public SourceCapabilities Capabilities { get; } = new(
         HasExecutorInfo: false,
@@ -81,7 +81,7 @@ public sealed class MostaqlSource : ISourceDescriptor
 
     // Name of the site's own session cookie (Laravel default wiring); lets Settings wrap a bare
     // pasted value into a valid header. Source fact, so it lives here, not in shared UI.
-    public string? SessionCookieName => "mostaql_session";
+    public string? SessionCookieName => "mostaqlweb";
 
     // Pre-namespacing secret key (see ISourceDescriptor.LegacyCookieSecretKey): the row an older
     // build wrote. CookieStore rewrites it under CookieSecretKey on first load, then stops using it.

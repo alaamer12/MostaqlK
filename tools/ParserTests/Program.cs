@@ -82,6 +82,7 @@ public static class Program
         // plus the descriptor/contribution seam checks. None touch the 135 Mostaql checks above.
         Console.WriteLine("\n--- Nafezly (A3) ---\n");
         Run(nameof(TestNafezlyDescriptorIdentity), TestNafezlyDescriptorIdentity);
+        Run(nameof(TestV4DescriptorCorrections), TestV4DescriptorCorrections);
         Run(nameof(TestNafezlyListingPage1), TestNafezlyListingPage1);
         Run(nameof(TestNafezlyListingFilteredAndPagination), TestNafezlyListingFilteredAndPagination);
         Run(nameof(TestNafezlyDetailOpen56540), TestNafezlyDetailOpen56540);
@@ -614,6 +615,31 @@ public static class Program
               string.Join(",", NafezlyStates.All));
     }
 
+    /// <summary>v4 (competitor analysis) §9.5 / D49 / C9 / C10: the descriptor corrections are pinned
+    /// here so a later edit cannot silently reintroduce a fabricated currency, invented owner meta,
+    /// or a session cookie named something the site ignores.</summary>
+    private static void TestV4DescriptorCorrections()
+    {
+        var mostaql = MostaqlSource.Instance;
+        var nafezly = NafezlySource.Instance;
+
+        // C9: Mostaql budgets are USD, not the fabricated riyal — card + details render a "$" suffix,
+        // and DetailSchemaRenderer.MoneyNeedsLtr("$") is true, so money is LTR-isolated like nafezly.
+        Check("mostaql currency is USD, not the fabricated riyal", mostaql.CurrencySuffix == "$", mostaql.CurrencySuffix);
+
+        // C10: no invented country/join-year. Null makes ProjectCardViewModel.ClientMeta fall back to the
+        // neutral placeholder instead of presenting a fabricated fact as scraped truth.
+        Check("mostaql owner fallback meta is null (no invented country/year)", mostaql.OwnerFallbackMeta is null, mostaql.OwnerFallbackMeta ?? "null");
+
+        // R1.3 / §9.5: the site issues mostaqlweb, not mostaql_session; a bare paste must be wrapped
+        // under the name the site actually honors, or a live session is stored under an ignored name.
+        Check("mostaql session cookie name is mostaqlweb", mostaql.SessionCookieName == "mostaqlweb", mostaql.SessionCookieName ?? "null");
+
+        // §9.5 / D49: nafezly names its real Laravel session cookie (confirmed present in the cookie jar)
+        // instead of null, so Settings auto-wraps a bare paste rather than demanding a full export.
+        Check("nafezly session cookie name is nfthly_session", nafezly.SessionCookieName == "nfthly_session", nafezly.SessionCookieName ?? "null");
+    }
+
     private static void TestNafezlyListingPage1()
     {
         var summaries = NafezlyListingParser.Parse(LoadNafezlyFixture("listing-page1.html"));
@@ -801,7 +827,7 @@ public static class Program
     /// <summary>
     /// B4 schema-driven details composition: rows come from <c>descriptor.SchemaMap</c> in Section/Order,
     /// absent/null fields are omitted (never an empty label), the executor row is capability+data gated,
-    /// and Latin-currency money is flagged for LTR isolation (§7) while the Arabic suffix is not.
+    /// and Latin-currency money is flagged for LTR isolation (§7) — which now covers both sources, since Mostaql’s budgets are USD (C9), not the fabricated riyal.
     /// </summary>
     private static void TestB4DetailSchemaRenderer()
     {
@@ -810,7 +836,7 @@ public static class Program
 
         // Money direction is a pure function of the descriptor's currency suffix.
         Check("nafezly '$' money needs LTR isolation", DetailSchemaRenderer.MoneyNeedsLtr(nafezly.CurrencySuffix));
-        Check("mostaql 'ر.س' money stays RTL (no isolation)", !DetailSchemaRenderer.MoneyNeedsLtr(mostaql.CurrencySuffix));
+        Check("mostaql '$' money needs LTR isolation (budgets are USD, C9)", DetailSchemaRenderer.MoneyNeedsLtr(mostaql.CurrencySuffix));
         Check("empty suffix needs no isolation", !DetailSchemaRenderer.MoneyNeedsLtr(string.Empty));
 
         // nafezly awarded page → executor present → executor section row rendered, budget flagged money.
@@ -842,11 +868,12 @@ public static class Program
 
         // mostaql: no executor in schema AND no capability — a fabricated executor value still yields no row.
         bare.ExecutorName = "should-not-appear";
+        bare.Budget = "$100.00 - $250.00";  // USD, per C9; makes the money check non-vacuous
         var rowsM = DetailSchemaRenderer.Render(mostaql, bare);
         Check("mostaql never renders an executor row (no capability, not even present in schema)",
             rowsM.All(r => r.Key != "executor_name"), string.Join(",", rowsM.Select(r => r.Key)));
         var budgetRowM = rowsM.FirstOrDefault(r => r.Key == "budget");
-        Check("mostaql budget (if present) is not money-isolated", budgetRowM is null || !budgetRowM.IsMoney, budgetRowM?.Value);
+        Check("mostaql budget row is money (LTR) — budgets are USD ($), corrected by C9", budgetRowM is not null && budgetRowM.IsMoney, budgetRowM?.Value);
     }
 
 

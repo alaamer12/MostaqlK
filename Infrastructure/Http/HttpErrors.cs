@@ -44,4 +44,14 @@ public static class HttpErrors
         InternalMessage: $"Failed to parse response from '{url}': {cause.Message}",
         ExternalMessage: $"تعذر تحليل بيانات موقع {siteName}.",
         Cause: cause);
+
+    // v4 R1.10: an AWS WAF JavaScript challenge answers HTTP 202 (a 2xx, so it is NOT caught by
+    // EnsureSuccessStatusCode) with a ~2 KB interstitial that is not the page. Returning it as a
+    // successful body is what makes a blocked request look like an empty scrape. This is a distinct
+    // error so the caller records it honestly (snapshot error_kind = waf_challenge) and, once the
+    // token provider lands, can force-refresh and retry once on exactly this signal.
+    public static DomainError WafChallenge(string url, int statusCode, string siteName) => new(
+        Code: "HTTP-007",
+        InternalMessage: $"Request to '{url}' returned WAF challenge (status {statusCode}); no page content.",
+        ExternalMessage: $"انتظر الموقع للتحقق من أنك لست روبوتًا قبل إظهار محتوى {siteName}.");
 }

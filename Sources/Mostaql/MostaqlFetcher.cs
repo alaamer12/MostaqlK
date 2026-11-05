@@ -27,7 +27,7 @@ public sealed class MostaqlFetcher
         _cookieJar = cookieJarProvider.For(MostaqlSource.Instance.Id);
     }
 
-    [ErrorOutcome(ErrorOutcome.Handled, Label = "Non-success/timeout/exception responses returned as Result<string>.Err")]
+    [ErrorOutcome(ErrorOutcome.Handled, Label = "Non-success/timeout/exception, and a 202/gokuProps WAF challenge, returned as Result<string>.Err")]
     [ErrorOutcome(ErrorOutcome.Rethrown, Label = "Caller-initiated cancellation rethrown, not swallowed")]
     public async Task<Result<string>> GetStringAsync(string url, CancellationToken cancellationToken)
     {
@@ -45,8 +45,26 @@ public sealed class MostaqlFetcher
 
             InteractionLogger.Request(MostaqlSource.Instance.Id.Value, "GET", url);
             using var response = await _httpClient.SendAsync(request, timeoutCts.Token);
+
+            // An AWS WAF JavaScript challenge answers HTTP 202 — a 2xx, so EnsureSuccessStatusCode
+            // would wave it through as success and the ~2 KB interstitial would reach the parser as
+            // if it were the page (R1.10: "202 is a signal, not a failure"). Catch it before the
+            // success check so a blocked fetch becomes a typed error, never a silent empty scrape.
+            int status = (int)response.StatusCode;
+            if (status == 202)
+            {
+                return Result<string>.Err(HttpErrors.WafChallenge(url, status, MostaqlSource.Instance.DisplayNameAr));
+            }
+
             response.EnsureSuccessStatusCode();
             var html = await response.Content.ReadAsStringAsync(timeoutCts.Token);
+
+            // Some challenges arrive as 200 carrying the gokuProps interstitial instead of 202.
+            if (html.Contains("gokuProps", StringComparison.Ordinal))
+            {
+                return Result<string>.Err(HttpErrors.WafChallenge(url, status, MostaqlSource.Instance.DisplayNameAr));
+            }
+
             return Result<string>.Ok(html);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)

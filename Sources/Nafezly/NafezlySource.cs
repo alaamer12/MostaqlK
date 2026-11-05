@@ -90,9 +90,9 @@ public sealed class NafezlySource : ISourceDescriptor
 
     public string CookieSecretKey => "cookie_nafezly";
 
-    // Nafezly's session cookie name is not confirmed from the anonymous capture; null means the
-    // Settings flow requires a full "Cookie:"-style paste rather than auto-wrapping a bare value.
-    public string? SessionCookieName => null;
+    // Nafezly issues a Laravel session cookie named nfthly_session (confirmed present in the real
+    // cookie jar), so Settings auto-wraps a bare pasted value under that name.
+    public string? SessionCookieName => "nfthly_session";
 
     // No pre-namespacing secret key existed (nafezly is a brand-new source, never shipped under a
     // flat key). CookieStore only consults this as a migration input, so an empty value = nothing

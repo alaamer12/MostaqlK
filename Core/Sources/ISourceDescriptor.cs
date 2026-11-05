@@ -86,8 +86,8 @@ public interface ISourceDescriptor
 
     /// <summary>
     /// Owner meta shown when a source's listing has no scraped owner location/join-year.
-    /// Today this is the fabricated Mostaql card string — kept as data so the UI stays
-    /// source-blind until real per-source owner fields arrive.
+    /// A source with no genuine fallback returns null (never an invented country/join-year), so the
+    /// card falls back to a neutral placeholder. Real per-source owner fields arrive in v4.
     /// </summary>
     public string? OwnerFallbackMeta { get; }
 
